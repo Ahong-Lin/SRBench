@@ -67,10 +67,12 @@ Problem description: {problem_description}
 [VARIABLES & PARAMETERS]:
 - Target variable: {target_line}
 - Input features: {input_lines}
+- Dynamic states: {state_lines}
 - Parameters: {param_lines}
 
 [CANDIDATE EQUATION]:
 {candidate_equation}
+{ode_system_block}
 (Note: this equation comes from an equation-evolution pipeline; assume it is
 mathematically solvable and numerically stable.)
 
@@ -144,11 +146,11 @@ def _normalize_answer(ans: str) -> str:
 
 
 def _describe_variables(eq: dict):
-    """Split an equation record into (target, [inputs], [parameters]) using roles."""
+    """Split an equation record into target, sampled inputs, states, and parameters."""
     syms = eq.get("symbols", [])
     descs = eq.get("symbol_descriptions", [])
     props = eq.get("symbol_properties", [])
-    target, inputs, params = None, [], []
+    target, inputs, states, params = None, [], [], []
     for i, sym in enumerate(syms):
         role = props[i] if i < len(props) else "?"
         desc = descs[i] if i < len(descs) else ""
@@ -157,9 +159,11 @@ def _describe_variables(eq: dict):
             target = entry
         elif role == "V":
             inputs.append(entry)
+        elif role == "S":
+            states.append(entry)
         elif role == "P":
             params.append(entry)
-    return target, inputs, params
+    return target, inputs, states, params
 
 
 def _fmt_pairs(pairs: list[tuple[str, str]]) -> str:
@@ -191,13 +195,22 @@ def _classical_note(base: dict | None) -> str:
     )
 
 
+def _ode_system_block(eq: dict) -> str:
+    """Expose all coupled RHS expressions to novelty evaluation for ODE records."""
+    if eq.get("model_family") != "ode" or not eq.get("ode_system"):
+        return ""
+    return "\n[CLOSED ODE SYSTEM]:\n" + json.dumps(
+        eq["ode_system"], ensure_ascii=False, indent=2
+    )
+
+
 def build_user_prompt(
     candidate: dict,
     discipline: str,
     scenario_text: str,
     base: dict | None = None,
 ) -> str:
-    target, inputs, params = _describe_variables(candidate)
+    target, inputs, states, params = _describe_variables(candidate)
     target_sym = candidate.get("target_symbol", target[0] if target else "y")
     target_line = (
         f"{target[0]} ({target[1]})" if target and target[1]
@@ -210,8 +223,10 @@ def build_user_prompt(
         problem_description=scenario_text or "(no scenario description)",
         target_line=target_line,
         input_lines=_fmt_pairs(inputs),
+        state_lines=_fmt_pairs(states),
         param_lines=_fmt_pairs(params),
         candidate_equation=candidate_equation,
+        ode_system_block=_ode_system_block(candidate),
         classical_note=_classical_note(base),
     )
 

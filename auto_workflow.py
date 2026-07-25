@@ -45,10 +45,11 @@ import json
 import math
 import os
 import random
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Optional
 
 import anthropic
 import httpx
@@ -63,6 +64,11 @@ except ImportError:  # xlsx export is optional
 TaxonomyContext = Literal["name", "name_description", "name_description_examples"]
 Provider = Literal["anthropic", "openrouter"]
 SubfieldSource = Literal["fixed", "generate", "extend"]
+ModelFamily = Literal["static", "ode"]
+EquationType = Literal["static_explicit", "static_implicit", "ode_system"]
+
+MAX_STATIC_INPUTS = 4
+MAX_ODE_STATES = 4
 
 
 # ============================================================
@@ -89,10 +95,24 @@ class InputSymbol(BaseModel):
     range: list[float] = Field(min_length=2, max_length=2)
 
 
+class DynamicStateCandidate(BaseModel):
+    """A state that must be evolved, rather than independently sampled."""
+
+    symbol: str
+    description: str
+    initial_range: list[float] = Field(min_length=2, max_length=2)
+
+
 class Spec(BaseModel):
+    # Defaults to static only so pre-model-family checkpoint scenarios remain usable.
+    model_family: ModelFamily = "static"
     target_symbol: str
     target_description: str
-    input_symbols: list[InputSymbol]
+    input_symbols: list[InputSymbol] = Field(default_factory=list)
+    time_symbol: Optional[str] = None
+    time_range: Optional[list[float]] = None
+    target_state: Optional[str] = None
+    dynamic_state_candidates: list[DynamicStateCandidate] = Field(default_factory=list)
     expected_behaviors: list[str]
     forbidden_behaviors: list[str]
 
@@ -108,13 +128,28 @@ class ScenarioBatch(BaseModel):
     scenarios: list[Scenario]
 
 
+class ODEStateEquation(BaseModel):
+    symbol: str
+    rhs: str
+    initial_condition: float
+    description: str
+
+
+class ODESystem(BaseModel):
+    time_symbol: str
+    target_state: str
+    states: list[ODEStateEquation] = Field(min_length=1, max_length=MAX_ODE_STATES)
+
+
 class EquationOutput(BaseModel):
+    equation_type: EquationType
     target_symbol: str
     expression: str
     symbols: list[str]
     symbol_descriptions: list[str]
     symbol_properties: list[str]
     derivation_notes: str
+    ode_system: Optional[ODESystem] = None
 
 
 # ============================================================
@@ -197,6 +232,15 @@ HARD CONSTRAINTS:
 - Try to cover different functional families when possible.
 - Do not write equations.
 - Do not name specific textbook formulas or canonical law names.
+- Choose model_family from the SCIENTIFIC QUESTION, not to add difficulty:
+  * "static": independently sampled experimental conditions determine an
+    instantaneous response, equilibrium quantity, material property, rate, or
+    other algebraic output. No initial condition or time integration is needed.
+  * "ode": the phenomenon concerns how internal quantities evolve over time,
+    such as accumulation, transport, inertia, feedback, conversion, depletion,
+    or relaxation. The states must be jointly evolved from initial conditions.
+- For "ode", do not list dynamic states as input_symbols. They are dependent
+  quantities on one time trajectory, not independently sampled coordinates.
 
 For each scenario output:
 - scenario_text: 3-5 sentences of natural language.
@@ -206,7 +250,16 @@ For each scenario output:
    "logistic", "polynomial", "piecewise", "mixed"].
 - spec.target_symbol
 - spec.target_description
-- spec.input_symbols: list of {{"symbol", "description", "range": [low, high]}}
+- spec.model_family: "static" or "ode".
+- For static only: spec.input_symbols, a list of 1-{max_static_inputs}
+  independently sampled {{"symbol", "description", "range": [low, high]}}.
+  Set time_symbol, time_range, target_state, and dynamic_state_candidates to null
+  or empty lists.
+- For ode only: spec.time_symbol (normally "t"), spec.time_range [start, end],
+  spec.target_state, and spec.dynamic_state_candidates, a list of 1-{max_ode_states}
+  {{"symbol", "description", "initial_range": [low, high]}} entries. Set
+  input_symbols to an empty list. target_symbol should name the target state's
+  derivative, such as "dN_dt" or "dv_dt".
 - spec.expected_behaviors
 - spec.forbidden_behaviors
 
@@ -214,10 +267,12 @@ OUTPUT FORMAT:
 Return a SINGLE JSON object of the exact form:
   {{"scenarios": [<scenario_1>, <scenario_2>, ...]}}
 Do not add prose or markdown fences.
-"""
+""".replace("{max_static_inputs}", str(MAX_STATIC_INPUTS)).replace(
+    "{max_ode_states}", str(MAX_ODE_STATES),
+)
 
 
-MODELING_PROMPT = """\
+STATIC_MODELING_PROMPT = """\
 You are an expert in {discipline} performing mathematical modeling.
 {subfield_line}
 Given the following scenario description, derive the governing equation.
@@ -229,27 +284,24 @@ TARGET VARIABLE: {target_symbol} — {target_description}
 INPUT VARIABLES: {input_descriptions}
 
 YOUR TASK:
-Write down the explicit mathematical equation that governs {target_symbol}
-as a function of the input variables. This should be a concrete symbolic
-expression — not a description, not a qualitative statement, but an actual
-formula.
+Write one static relation that governs {target_symbol} as a function of the
+independently sampled input variables. This must be a concrete symbolic
+expression, not a qualitative statement.
 
 REQUIREMENTS:
 1. The equation must be written in Python/sympy syntax.
    - Use ** for power, sqrt() for square root, sin(), cos(), exp(), log(),
      Abs(), tanh(), etc.
-   - For functions of time like x(t), write them as x(t) using sympy Function notation.
    - Use descriptive parameter names (omega0, gamma, alpha, F0, etc.)
      for any physical constants/parameters that appear.
 
 2. The equation should be derived from first principles or well-known
    governing laws within {discipline}.
-   - For ODEs: write the equation as target = f(inputs, parameters)
-     where target is the highest derivative described.
-   - For algebraic relations: write target = f(inputs, parameters).
-   - For implicit/transcendental: write the FULL implicit expression in
+   - For an explicit relation: write target = f(inputs, parameters).
+   - For an implicit/transcendental relation: write the FULL implicit expression in
      "expression" field as f(target, inputs, parameters) such that
      f(...) = 0. Do NOT put just "0" — put the entire f(...) expression.
+   - Do NOT introduce time derivatives, dynamic states, or initial conditions.
 
 3. Include ALL relevant effects mentioned in the scenario.
    Do NOT simplify away nonlinear terms, coupling terms, or damping
@@ -259,15 +311,80 @@ REQUIREMENTS:
 
 OUTPUT FORMAT — return a SINGLE JSON object:
 {{
+  "equation_type": "static_explicit" or "static_implicit",
   "target_symbol": "{target_symbol}",
   "expression": "<sympy expression string for the RHS>",
   "symbols": ["<target>", "<input1>", "<input2>", ...],
   "symbol_descriptions": ["<desc of target>", "<desc of input1>", ...],
   "symbol_properties": ["O", "V", "V", ...],
-  "derivation_notes": "<1-2 sentences explaining which physical law/model this comes from>"
+  "derivation_notes": "<1-2 sentences explaining which physical law/model this comes from>",
+  "ode_system": null
 }}
 
 symbol_properties: "O" for the output/target, "V" for input variables, "P" for parameters.
+
+IMPORTANT:
+- The first character of your response must be `{{` and the last must be `}}`.
+- Do NOT wrap in markdown fences. Do NOT add prose before or after the JSON.
+"""
+
+
+ODE_MODELING_PROMPT = """\
+You are an expert in {discipline} performing dynamical-systems modeling.
+{subfield_line}
+Given the following scenario description, derive a CLOSED first-order ODE system.
+
+SCENARIO:
+{scenario_text}
+
+TIME AXIS: {time_symbol} over {time_range}
+TARGET DERIVATIVE: {target_symbol} — {target_description}
+TARGET STATE: {target_state}
+DYNAMIC STATE CANDIDATES: {state_descriptions}
+
+YOUR TASK:
+Write a concrete first-order ODE system for the internal states. The system must
+be closed: every dynamic state has one RHS and an initial condition. The stated
+target derivative must be the RHS for target_state. This is a dynamics task, not
+a static regression relation.
+
+REQUIREMENTS:
+1. Use Python/sympy syntax with bare state symbols inside RHS expressions, e.g.
+   "v" and "x", not x(t). Use **, sqrt(), sin(), cos(), exp(), log(), Abs(),
+   tanh(), etc. Use descriptive parameter names; do not use floating-point
+   literals for physical constants.
+2. Use every state only as an internal state, never as an independently sampled
+   input. Include 1-{max_ode_states} states total. Use only the supplied state
+   candidates; do not invent an additional dynamic state.
+3. Each RHS may reference only {time_symbol}, declared states, fixed parameters,
+   and standard math functions. Do not leave derivatives, ungoverned functions,
+   PDE terms, or delayed/history terms in an RHS.
+4. Give every state a finite numeric initial_condition within its suggested
+   initial range. Include all relevant mechanisms without adding arbitrary terms.
+
+OUTPUT FORMAT — return a SINGLE JSON object:
+{{
+  "equation_type": "ode_system",
+  "target_symbol": "{target_symbol}",
+  "expression": "<RHS for d({target_state})/d{time_symbol}>",
+  "symbols": ["{target_symbol}", "{time_symbol}", "<state1>", "<parameter1>", ...],
+  "symbol_descriptions": ["<desc of target derivative>", "time", "<state desc>", "<parameter desc>", ...],
+  "symbol_properties": ["O", "V", "S", "P", ...],
+  "derivation_notes": "<1-2 sentences explaining the governing mechanism>",
+  "ode_system": {{
+    "time_symbol": "{time_symbol}",
+    "target_state": "{target_state}",
+    "states": [
+      {{"symbol": "<state1>", "rhs": "<d(state1)/d{time_symbol}>",
+       "initial_condition": <finite number>, "description": "<state description>"}}
+    ]
+  }}
+}}
+
+symbol_properties: "O" is the target derivative; "V" is the one independently
+sampled time axis; "S" is an internal state that must be jointly integrated;
+and "P" is a fixed parameter. States are mathematical variables, but they are
+not independently sampled inputs.
 
 IMPORTANT:
 - The first character of your response must be `{{` and the last must be `}}`.
@@ -398,6 +515,200 @@ def _flatten_input_descriptions(input_symbols: list[dict]) -> str:
         else:
             parts.append(f"{sym}: {desc}")
     return "; ".join(parts)
+
+
+def _flatten_state_descriptions(states: list[dict]) -> str:
+    parts = []
+    for state in states:
+        symbol = state.get("symbol", "?")
+        description = state.get("description", "")
+        initial_range = state.get("initial_range")
+        if isinstance(initial_range, (list, tuple)) and len(initial_range) == 2:
+            parts.append(
+                f"{symbol}: {description} (initial range {initial_range[0]} to "
+                f"{initial_range[1]})"
+            )
+        else:
+            parts.append(f"{symbol}: {description}")
+    return "; ".join(parts)
+
+
+_IDENTIFIER_RE = re.compile(r"\b[A-Za-z_]\w*\b")
+_CALLED_NAME_RE = re.compile(r"\b([A-Za-z_]\w*)\s*\(")
+_MATH_CALLS = {
+    "Abs", "Max", "Min", "Piecewise", "Heaviside",
+    "sin", "cos", "tan", "asin", "acos", "atan",
+    "sinh", "cosh", "tanh", "exp", "log", "sqrt",
+    "sign", "floor", "ceiling",
+}
+_MATH_NAMES = _MATH_CALLS | {"pi", "E", "I", "oo", "nan", "True", "False"}
+
+
+def _expression_names(expression: str, declared: set[str]) -> tuple[set[str], set[str]]:
+    """Return symbols and non-math function calls referenced by an expression."""
+    names = set(_IDENTIFIER_RE.findall(expression))
+    called = set(_CALLED_NAME_RE.findall(expression))
+    custom_calls = {name for name in called if name not in _MATH_CALLS}
+    return ({name for name in names if name not in _MATH_NAMES} | (names & declared),
+            custom_calls)
+
+
+def _validate_scenario_spec(spec: Spec) -> None:
+    """Reject model-family metadata that would make Stage 3 ambiguous."""
+    if spec.model_family == "static":
+        if not 1 <= len(spec.input_symbols) <= MAX_STATIC_INPUTS:
+            raise ValueError(
+                f"static scenarios need 1-{MAX_STATIC_INPUTS} input_symbols"
+            )
+        if (spec.time_symbol is not None or spec.time_range is not None
+                or spec.target_state is not None or spec.dynamic_state_candidates):
+            raise ValueError("static scenarios cannot declare ODE time/state metadata")
+        return
+
+    if spec.input_symbols:
+        raise ValueError("ODE scenarios must keep input_symbols empty; states are not inputs")
+    if not spec.time_symbol or not spec.target_state:
+        raise ValueError("ODE scenarios need time_symbol and target_state")
+    if not isinstance(spec.time_range, list) or len(spec.time_range) != 2:
+        raise ValueError("ODE scenarios need a two-value time_range")
+    if not 1 <= len(spec.dynamic_state_candidates) <= MAX_ODE_STATES:
+        raise ValueError(
+            f"ODE scenarios need 1-{MAX_ODE_STATES} dynamic_state_candidates"
+        )
+    state_names = [state.symbol for state in spec.dynamic_state_candidates]
+    if len(state_names) != len(set(state_names)):
+        raise ValueError("ODE dynamic_state_candidates must have distinct symbols")
+    if spec.target_state not in state_names:
+        raise ValueError("ODE target_state must be one dynamic_state_candidate")
+
+
+def _validate_equation_output(output: EquationOutput, spec: Spec) -> None:
+    """Verify the model family and ODE closure before saving a generated equation."""
+    if output.target_symbol != spec.target_symbol:
+        raise ValueError(
+            f"equation target_symbol '{output.target_symbol}' does not match scenario "
+            f"target '{spec.target_symbol}'"
+        )
+    if len(output.symbols) != len(output.symbol_descriptions) or (
+            len(output.symbols) != len(output.symbol_properties)):
+        raise ValueError("symbols, descriptions, and properties must have equal lengths")
+    if len(output.symbols) != len(set(output.symbols)):
+        raise ValueError("equation symbols must be unique")
+    if [symbol for symbol, role in zip(output.symbols, output.symbol_properties)
+            if role == "O"] != [output.target_symbol]:
+        raise ValueError("exactly one O role is required and it must be target_symbol")
+
+    declared = set(output.symbols)
+    expression_names, _ = _expression_names(output.expression, declared)
+    unknown = sorted(expression_names - declared)
+    if unknown:
+        raise ValueError("expression uses undeclared symbols: " + ", ".join(unknown))
+
+    if spec.model_family == "static":
+        if output.equation_type not in {"static_explicit", "static_implicit"}:
+            raise ValueError("static scenarios must return a static equation_type")
+        if output.ode_system is not None:
+            raise ValueError("static equations cannot include ode_system")
+        invalid_roles = sorted(set(output.symbol_properties) - {"O", "V", "P"})
+        if invalid_roles:
+            raise ValueError(
+                "static equations may use only O, V, and P roles; got "
+                + ", ".join(invalid_roles)
+            )
+        expected_inputs = {item.symbol for item in spec.input_symbols}
+        observed_inputs = {symbol for symbol, role in zip(
+            output.symbols, output.symbol_properties
+        ) if role == "V"}
+        if observed_inputs != expected_inputs:
+            raise ValueError(
+                "static V symbols must exactly match scenario input_symbols; got "
+                f"{sorted(observed_inputs)}, expected {sorted(expected_inputs)}"
+            )
+        return
+
+    if output.equation_type != "ode_system" or output.ode_system is None:
+        raise ValueError("ODE scenarios must return equation_type='ode_system' with ode_system")
+    ode = output.ode_system
+    if ode.time_symbol != spec.time_symbol or ode.target_state != spec.target_state:
+        raise ValueError("ode_system time_symbol/target_state must match the scenario")
+    if not 1 <= len(ode.states) <= MAX_ODE_STATES:
+        raise ValueError(f"ode_system must contain 1-{MAX_ODE_STATES} states")
+
+    state_names = [state.symbol for state in ode.states]
+    if len(state_names) != len(set(state_names)):
+        raise ValueError("ode_system states must have distinct symbols")
+    if ode.target_state not in state_names:
+        raise ValueError("ode_system target_state must be listed in states")
+    invalid_roles = sorted(set(output.symbol_properties) - {"O", "V", "S", "P"})
+    if invalid_roles:
+        raise ValueError(
+            "ODE equations may use only O, V, S, and P roles; got "
+            + ", ".join(invalid_roles)
+        )
+    candidate_names = {state.symbol for state in spec.dynamic_state_candidates}
+    if not set(state_names).issubset(candidate_names):
+        raise ValueError("ode_system introduced a state not declared by the scenario")
+    candidate_ranges = {
+        state.symbol: state.initial_range for state in spec.dynamic_state_candidates
+    }
+
+    allowed = set(state_names) | {ode.time_symbol}
+    parameters = {
+        symbol for symbol, role in zip(output.symbols, output.symbol_properties)
+        if role == "P"
+    }
+    if output.target_symbol not in declared or ode.time_symbol not in declared:
+        raise ValueError("ODE symbols must declare target_symbol and time_symbol")
+    if output.symbol_properties[output.symbols.index(ode.time_symbol)] != "V":
+        raise ValueError("ODE time_symbol must have V role")
+    if any(symbol not in declared for symbol in state_names):
+        raise ValueError("ODE states must be declared in symbols")
+    non_state_roles = [
+        symbol for symbol in state_names
+        if output.symbol_properties[output.symbols.index(symbol)] != "S"
+    ]
+    if non_state_roles:
+        raise ValueError(
+            "ODE states must have S role: " + ", ".join(sorted(non_state_roles))
+        )
+    ode_v_symbols = {
+        symbol for symbol, role in zip(output.symbols, output.symbol_properties)
+        if role == "V"
+    }
+    if ode_v_symbols != {ode.time_symbol}:
+        raise ValueError(
+            "ODE V symbols must contain only the time axis; got "
+            f"{sorted(ode_v_symbols)}"
+        )
+
+    target_rhs = None
+    for state in ode.states:
+        if not math.isfinite(state.initial_condition):
+            raise ValueError(f"state '{state.symbol}' needs a finite initial_condition")
+        lo, hi = candidate_ranges[state.symbol]
+        if not min(lo, hi) <= state.initial_condition <= max(lo, hi):
+            raise ValueError(
+                f"state '{state.symbol}' initial_condition is outside its scenario range"
+            )
+        names, calls = _expression_names(state.rhs, declared)
+        unknown = sorted(names - allowed - parameters)
+        if unknown:
+            raise ValueError(
+                f"state '{state.symbol}' RHS uses undeclared/non-state symbols: "
+                + ", ".join(unknown)
+            )
+        if calls:
+            raise ValueError(
+                f"state '{state.symbol}' RHS contains ungoverned function calls: "
+                + ", ".join(sorted(calls))
+            )
+        if "Derivative" in state.rhs or "Integral" in state.rhs:
+            raise ValueError(f"state '{state.symbol}' RHS must be first-order and local")
+        if state.symbol == ode.target_state:
+            target_rhs = state.rhs
+
+    if target_rhs != output.expression:
+        raise ValueError("expression must exactly equal the target state's RHS")
 
 
 def _allocate_counts(total: int, n_parts: int) -> list[int]:
@@ -783,6 +1094,8 @@ def generate_m2_for_subfield(
             scenarios = [s.model_dump() for s in validated.scenarios]
             if len(scenarios) != count:
                 raise ValueError(f"expected {count} scenarios, got {len(scenarios)}")
+            for scenario in validated.scenarios:
+                _validate_scenario_spec(scenario.spec)
             for i, scenario in enumerate(scenarios):
                 scenario["id"] = f"m2_{subfield['name']}_{seed}_{start_idx + i:03d}"
                 scenario["discipline"] = discipline
@@ -806,23 +1119,41 @@ def generate_m2_for_subfield(
 def derive_equation(
     caller: ModelCaller,
     scenario_text: str,
-    target_symbol: str,
-    target_description: str,
-    input_descriptions: str,
+    spec: dict,
     discipline: str,
     subfield: str,
     model: str,
     max_retries: int = 3,
 ) -> dict:
+    validated_spec = Spec.model_validate(spec)
+    _validate_scenario_spec(validated_spec)
     subfield_line = f"Subfield: {subfield}\n" if subfield else "\n"
-    prompt = MODELING_PROMPT.format(
-        scenario_text=scenario_text,
-        target_symbol=target_symbol,
-        target_description=target_description,
-        input_descriptions=input_descriptions,
-        discipline=discipline,
-        subfield_line=subfield_line,
-    )
+    if validated_spec.model_family == "ode":
+        prompt = ODE_MODELING_PROMPT.format(
+            scenario_text=scenario_text,
+            target_symbol=validated_spec.target_symbol,
+            target_description=validated_spec.target_description,
+            time_symbol=validated_spec.time_symbol,
+            time_range=validated_spec.time_range,
+            target_state=validated_spec.target_state,
+            state_descriptions=_flatten_state_descriptions(
+                [state.model_dump() for state in validated_spec.dynamic_state_candidates]
+            ),
+            discipline=discipline,
+            subfield_line=subfield_line,
+            max_ode_states=MAX_ODE_STATES,
+        )
+    else:
+        prompt = STATIC_MODELING_PROMPT.format(
+            scenario_text=scenario_text,
+            target_symbol=validated_spec.target_symbol,
+            target_description=validated_spec.target_description,
+            input_descriptions=_flatten_input_descriptions(
+                [item.model_dump() for item in validated_spec.input_symbols]
+            ),
+            discipline=discipline,
+            subfield_line=subfield_line,
+        )
 
     last_err: Exception | None = None
     for attempt in range(max_retries + 1):
@@ -832,6 +1163,7 @@ def derive_equation(
                 raise ValueError("empty response")
             parsed = json.loads(_strip_code_fence(raw))
             validated = EquationOutput.model_validate(parsed)
+            _validate_equation_output(validated, validated_spec)
             return validated.model_dump()
         except _retryable_errors() as e:
             last_err = e
@@ -867,16 +1199,25 @@ def _build_combined_xlsx(
             "subfield": sc.get("subfield", ""),
             "mechanism_tag": sc.get("mechanism_tag", ""),
             "functional_family": sc.get("functional_family", ""),
+            "model_family": spec.get("model_family", "static"),
             "scenario_text": sc.get("scenario_text", ""),
             "target_symbol": spec.get("target_symbol", ""),
             "target_description": spec.get("target_description", ""),
             "input_descriptions": _flatten_input_descriptions(spec.get("input_symbols", [])),
+            "time_symbol": spec.get("time_symbol", ""),
+            "time_range": json.dumps(spec.get("time_range"), ensure_ascii=False),
+            "target_state": spec.get("target_state", ""),
+            "dynamic_state_candidates": json.dumps(
+                spec.get("dynamic_state_candidates", []), ensure_ascii=False
+            ),
             "expected_behaviors": "; ".join(spec.get("expected_behaviors", [])),
             "forbidden_behaviors": "; ".join(spec.get("forbidden_behaviors", [])),
+            "equation_type": eq.get("equation_type", ""),
             "expression": eq.get("expression", ""),
             "symbols": ", ".join(eq.get("symbols", [])),
             "symbol_descriptions": " | ".join(eq.get("symbol_descriptions", [])),
             "symbol_properties": ", ".join(eq.get("symbol_properties", [])),
+            "ode_system": json.dumps(eq.get("ode_system"), ensure_ascii=False),
             "derivation_notes": eq.get("derivation_notes", ""),
             "equation_error": eq.get("error", ""),
         })
@@ -1335,11 +1676,7 @@ def main() -> None:
                 eq = derive_equation(
                     caller=caller,
                     scenario_text=sc.get("scenario_text", ""),
-                    target_symbol=spec.get("target_symbol", ""),
-                    target_description=spec.get("target_description", ""),
-                    input_descriptions=_flatten_input_descriptions(
-                        spec.get("input_symbols", [])
-                    ),
+                    spec=spec,
                     discipline=sc.get("discipline", args.subject),
                     subfield=sc.get("subfield", ""),
                     model=equation_model,
@@ -1348,6 +1685,7 @@ def main() -> None:
                 eq["scenario_text"] = sc.get("scenario_text", "")
                 eq["discipline"] = sc.get("discipline", args.subject)
                 eq["subfield"] = sc.get("subfield", "")
+                eq["model_family"] = spec.get("model_family", "static")
             except Exception as e:
                 print(f"      FAILED: {type(e).__name__}: {e}",
                       file=sys.stderr, flush=True)
