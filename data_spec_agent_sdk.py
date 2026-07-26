@@ -46,6 +46,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import math
 import os
 import sys
 from pathlib import Path
@@ -92,7 +93,7 @@ class FixedParam(BaseModel):
 
 
 class DataGenSpec(BaseModel):
-    # ---- classification (re-derived from the expression, NOT trusted from evolve) ----
+    # ---- classification (re-derived for static records; inherited for typed ODEs) ----
     equation_type: str = Field(
         ...,
         description="explicit | implicit | ode1 | ode_higher | ode_system | "
@@ -158,13 +159,115 @@ class DataGenSpec(BaseModel):
     # ---- traceability: how this plan differs from what evolve claimed ----
     role_corrections: list[str] = Field(
         default_factory=list,
-        description="Each correction vs the evolve record's O/V/P tags, e.g. "
+        description="Each correction vs the evolve record's O/V/S/P tags, e.g. "
                     "'b: P->P (ok)', 'tau: was P, is actually integration var'.",
     )
     rationale: str = ""
 
 
-def _validate_emitted_spec(spec: DataGenSpec) -> None:
+def _ode_contract(record: dict) -> dict[str, Any] | None:
+    """Extract the already-validated ODE structure from a typed pipeline record."""
+    if record.get("model_family") != "ode":
+        return None
+    ode = record.get("ode_system")
+    if not isinstance(ode, dict):
+        raise SpecAgentError("typed ODE record is missing ode_system", trace=[])
+    time_symbol = ode.get("time_symbol")
+    target_state = ode.get("target_state")
+    states = ode.get("states")
+    if not isinstance(time_symbol, str) or not isinstance(target_state, str):
+        raise SpecAgentError("ode_system needs time_symbol and target_state", trace=[])
+    if not isinstance(states, list) or not states:
+        raise SpecAgentError("ode_system needs a non-empty states list", trace=[])
+
+    state_variables: list[str] = []
+    state_rhs: list[str] = []
+    initial_conditions: dict[str, float] = {}
+    for state in states:
+        if not isinstance(state, dict):
+            raise SpecAgentError("ode_system.states must contain objects", trace=[])
+        symbol = state.get("symbol")
+        rhs = state.get("rhs")
+        initial = state.get("initial_condition")
+        if not isinstance(symbol, str) or not isinstance(rhs, str):
+            raise SpecAgentError("each ODE state needs symbol and rhs", trace=[])
+        if not isinstance(initial, (int, float)) or not math.isfinite(initial):
+            raise SpecAgentError("each ODE state needs a finite initial_condition", trace=[])
+        state_variables.append(symbol)
+        state_rhs.append(rhs)
+        initial_conditions[symbol] = float(initial)
+    if len(set(state_variables)) != len(state_variables):
+        raise SpecAgentError("ode_system state symbols must be distinct", trace=[])
+    if target_state not in initial_conditions:
+        raise SpecAgentError("ode_system target_state is not in states", trace=[])
+    symbols = record.get("symbols", []) or []
+    properties = record.get("symbol_properties", []) or []
+    if len(symbols) != len(properties):
+        raise SpecAgentError("ODE record symbols and roles have different lengths", trace=[])
+    parameter_symbols = [
+        symbol for symbol, role in zip(symbols, properties) if role == "P"
+    ]
+    return {
+        "time_symbol": time_symbol,
+        "target_state": target_state,
+        "state_variables": state_variables,
+        "state_rhs": state_rhs,
+        "initial_conditions": initial_conditions,
+        "parameter_symbols": parameter_symbols,
+    }
+
+
+def _validate_inherited_ode_spec(spec: DataGenSpec, contract: dict[str, Any]) -> None:
+    """Ensure Stage 6 preserves the ODE system verified by Stage 3/evolution."""
+    expected_states = contract["state_variables"]
+    expected_rhs = contract["state_rhs"]
+    expected_initial = contract["initial_conditions"]
+    expected_time = contract["time_symbol"]
+    expected_target = contract["target_state"]
+    expected_parameters = contract["parameter_symbols"]
+
+    if spec.equation_type != "ode_system" or spec.integrator != "integrate_system":
+        raise ValueError(
+            "inherited ODE records must use equation_type='ode_system' and "
+            "integrator='integrate_system'"
+        )
+    if spec.dependent_variable != expected_target:
+        raise ValueError(
+            "ODE dependent_variable must be inherited target_state "
+            f"'{expected_target}', got '{spec.dependent_variable}'"
+        )
+    if spec.state_variables != expected_states:
+        raise ValueError(
+            "ODE state_variables must preserve the inherited order: "
+            f"expected {expected_states}, got {spec.state_variables}"
+        )
+    if spec.state_rhs != expected_rhs:
+        raise ValueError("ODE state_rhs must exactly preserve the inherited ode_system")
+    if spec.initial_conditions != expected_initial:
+        raise ValueError(
+            "ODE initial_conditions must exactly preserve the inherited ode_system"
+        )
+    parameter_symbols = [item.symbol for item in spec.parameters]
+    if parameter_symbols != expected_parameters:
+        raise ValueError(
+            "ODE parameters must assign every inherited P symbol in order: "
+            f"expected {expected_parameters}, got {parameter_symbols}"
+        )
+    time_axes = [item.symbol for item in spec.independent_variables]
+    if time_axes != [expected_time]:
+        raise ValueError(
+            "ODE independent_variables must contain only inherited time axis "
+            f"'{expected_time}', got {time_axes}"
+        )
+    target_index = expected_states.index(expected_target)
+    if spec.rhs_for_integrator != expected_rhs[target_index]:
+        raise ValueError("ODE rhs_for_integrator must equal the inherited target-state RHS")
+
+
+def _validate_emitted_spec(
+    spec: DataGenSpec,
+    ode_contract: dict[str, Any] | None = None,
+) -> None:
     """Reject malformed or incompatible plans before the data stage sees them."""
     try:
         expression = _sympify(spec.rhs_for_integrator)
@@ -193,6 +296,9 @@ def _validate_emitted_spec(spec: DataGenSpec) -> None:
             raise ValueError(
                 f"integrate_dde requires state calls such as {target}(t - tau)"
             )
+
+    if ode_contract is not None:
+        _validate_inherited_ode_spec(spec, ode_contract)
 
 
 # ============================================================
@@ -431,8 +537,122 @@ def _check_substitution(expression: str, assignments: dict, target_symbol: str) 
 # from the data. We compute this FORWARD (no re-fitting): substitute the chosen
 # parameter values, evaluate on the chosen grid, and measure each term's effect
 # against the noise floor sigma. For ODEs the effect is measured on the SOLUTION
-# trajectory (solve E vs solve parent), because a term's size in the RHS is not the
-# same as its effect on the data.
+# trajectory (solve child system vs parent system), because a term's size in an RHS
+# is not the same as its effect on the observed data.
+
+_MAX_STATIC_EXCITATION_SAMPLES = 4096
+
+
+def _representative_static_samples(indep: list[dict]) -> tuple[list[str], dict[str, object]]:
+    """Return a bounded, deterministic design instead of a Cartesian grid."""
+    import numpy as np
+
+    axis_names = [str(iv["symbol"]) for iv in indep]
+    requested = max(int(iv.get("n_points", 200)) for iv in indep)
+    n_samples = min(_MAX_STATIC_EXCITATION_SAMPLES, max(512, requested))
+    dimension = len(axis_names)
+
+    try:
+        from scipy.stats import qmc
+
+        # Sobol requires a power of two for balance; truncate to the requested cap.
+        power = math.ceil(math.log2(n_samples))
+        unit = qmc.Sobol(d=dimension, scramble=True, seed=0).random_base2(power)
+        unit = unit[:n_samples]
+        method = "sobol"
+    except Exception:
+        # Keep the check available in minimal SciPy installations as well.
+        unit = np.random.default_rng(0).random((n_samples, dimension))
+        method = "uniform_fallback"
+
+    samples: dict[str, object] = {}
+    for column, iv in enumerate(indep):
+        lo, hi = (float(iv["range"][0]), float(iv["range"][1]))
+        values = unit[:, column]
+        if iv.get("scale") == "log":
+            if lo <= 0 or hi <= 0:
+                raise ValueError(f"log-scale excitation range must be positive for '{iv['symbol']}'")
+            samples[axis_names[column]] = 10 ** (
+                math.log10(lo) + values * (math.log10(hi) - math.log10(lo))
+            )
+        else:
+            samples[axis_names[column]] = lo + values * (hi - lo)
+    return axis_names, {
+        "samples": samples,
+        "method": method,
+        "n_samples": n_samples,
+    }
+
+
+def _integrate_ode_contract(
+    contract: dict[str, Any],
+    assignments: dict,
+    tgrid,
+):
+    """Integrate one closed ODE contract on a prescribed common time grid."""
+    import numpy as np
+    import sympy
+    from scipy.integrate import solve_ivp
+
+    states = list(contract["state_variables"])
+    rhs_list = list(contract["state_rhs"])
+    time_symbol = str(contract["time_symbol"])
+    parameter_symbols = list(contract["parameter_symbols"])
+    initial_conditions = dict(contract["initial_conditions"])
+    if not states or len(states) != len(rhs_list):
+        raise ValueError("ODE contract needs aligned non-empty states and RHS expressions")
+
+    try:
+        parameter_values = [float(assignments[name]) for name in parameter_symbols]
+    except KeyError as exc:
+        raise ValueError(f"missing numeric assignment for ODE parameter '{exc.args[0]}'") from exc
+    except (TypeError, ValueError) as exc:
+        raise ValueError("ODE parameter assignments must be numeric") from exc
+    if not all(math.isfinite(value) for value in parameter_values):
+        raise ValueError("ODE parameter assignments must be finite")
+
+    param_subs = {
+        sympy.Symbol(name): value
+        for name, value in zip(parameter_symbols, parameter_values)
+    }
+    allowed = set(states) | {time_symbol} | set(parameter_symbols)
+    arguments = [sympy.Symbol(time_symbol)] + [sympy.Symbol(name) for name in states]
+    compiled = []
+    for state, rhs in zip(states, rhs_list):
+        parsed = _sympify(rhs)
+        unknown = sorted(str(symbol) for symbol in parsed.free_symbols if str(symbol) not in allowed)
+        if unknown:
+            raise ValueError(
+                f"ODE RHS for '{state}' uses undeclared symbols: {', '.join(unknown)}"
+            )
+        compiled.append(sympy.lambdify(arguments, parsed.subs(param_subs), modules="numpy"))
+
+    try:
+        y0 = [float(initial_conditions[state]) for state in states]
+    except KeyError as exc:
+        raise ValueError(f"ODE contract lacks an initial condition for '{exc.args[0]}'") from exc
+    if not all(math.isfinite(value) for value in y0):
+        raise ValueError("ODE initial conditions must be finite")
+
+    def system(time, values):
+        return [float(func(time, *values)) for func in compiled]
+
+    solution = solve_ivp(
+        system,
+        (float(tgrid[0]), float(tgrid[-1])),
+        y0,
+        t_eval=tgrid,
+        method="RK45",
+        rtol=1e-7,
+        atol=1e-9,
+    )
+    if not solution.success:
+        raise ValueError(f"integration failed: {solution.message}")
+    if solution.t.shape != tgrid.shape or solution.y.shape != (len(states), len(tgrid)):
+        raise ValueError("integration did not return the complete requested time grid")
+    if not np.isfinite(solution.y).all():
+        raise ValueError("integration produced non-finite state values")
+    return solution
 
 def _excitation_check(
     expression: str,
@@ -443,6 +663,8 @@ def _excitation_check(
     sigma: float,
     is_ode: bool,
     k: float = 5.0,
+    ode_contract: dict[str, Any] | None = None,
+    parent_ode_contract: dict[str, Any] | None = None,
 ) -> dict:
     """Forward-evaluate term balance and new-term excitation against k*sigma.
 
@@ -466,16 +688,7 @@ def _excitation_check(
     except Exception as e:
         return {"ok": False, "error": f"sympify(E) failed: {type(e).__name__}: {e}"}
 
-    # Build the sampling grid (Cartesian product, capped to keep it cheap).
-    axes = []
-    axis_names = []
-    for iv in indep:
-        lo, hi = iv["range"]
-        n = min(int(iv.get("n_points", 200)), 400)
-        axis_names.append(iv["symbol"])
-        axes.append(np.linspace(lo, hi, n))
-    mesh = np.meshgrid(*axes, indexing="ij")
-    grid = {name: m.ravel() for name, m in zip(axis_names, mesh)}
+    axis_names = [str(iv["symbol"]) for iv in indep]
 
     param_subs = {}
     for nm, val in (assignments or {}).items():
@@ -492,7 +705,7 @@ def _excitation_check(
         syms = [sympy.Symbol(a) for a in axis_names]
         return sympy.lambdify(syms, e.subs(param_subs), modules="numpy")
 
-    # ---- ODE path: compare integrated trajectories E vs parent ----
+    # ---- ODE path: compare integrated child and parent trajectories ----
     if is_ode:
         if not parent_expression:
             return {"ok": True, "mode": "ode", "note": "no parent given; cannot isolate "
@@ -500,9 +713,65 @@ def _excitation_check(
                     "new_term_sigma_multiple": None, "passes": None}
         if len(axis_names) != 1:
             return {"ok": False, "error": "ODE excitation needs exactly one indep (time)"}
-        from scipy.integrate import solve_ivp
         tname = axis_names[0]
-        tgrid = axes[0]
+        lo, hi = (float(indep[0]["range"][0]), float(indep[0]["range"][1]))
+        n_time = min(max(int(indep[0].get("n_points", 200)), 64), 4000)
+        tgrid = np.linspace(lo, hi, n_time)
+
+        # Typed ODE records carry every state RHS and initial condition. Compare
+        # whole systems so a mechanism added to a non-target state is still visible
+        # through its downstream effect on the observed target state.
+        if ode_contract is not None or parent_ode_contract is not None:
+            if ode_contract is None or parent_ode_contract is None:
+                return {
+                    "ok": False,
+                    "error": "typed ODE excitation needs both child and parent ode_system contracts",
+                }
+            try:
+                target_state = str(ode_contract["target_state"])
+                parent_target = str(parent_ode_contract["target_state"])
+                if target_state != parent_target:
+                    raise ValueError(
+                        f"child target_state '{target_state}' differs from parent '{parent_target}'"
+                    )
+                child_solution = _integrate_ode_contract(ode_contract, assignments, tgrid)
+                parent_solution = _integrate_ode_contract(parent_ode_contract, assignments, tgrid)
+                child_index = list(ode_contract["state_variables"]).index(target_state)
+                parent_index = list(parent_ode_contract["state_variables"]).index(target_state)
+                diff = np.abs(child_solution.y[child_index] - parent_solution.y[parent_index])
+                max_diff = float(np.max(diff))
+                at = float(tgrid[int(np.argmax(diff))])
+                mult = max_diff / sigma
+                return {
+                    "ok": True,
+                    "mode": "ode_system",
+                    "comparison": "full_child_parent_systems",
+                    "target_state": target_state,
+                    "child_state_count": len(ode_contract["state_variables"]),
+                    "parent_state_count": len(parent_ode_contract["state_variables"]),
+                    "n_time_points": n_time,
+                    "new_term_max_effect": max_diff,
+                    "new_term_sigma_multiple": mult,
+                    "strongest_at": {tname: at},
+                    "k": k,
+                    "passes": bool(mult >= k),
+                    "advice": (
+                        "new mechanism is visible on the target trajectory"
+                        if mult >= k else
+                        f"new mechanism peaks at only {mult:.2f}*sigma (need {k}); extend "
+                        f"the {tname} range or adjust physically valid coefficients"
+                    ),
+                }
+            except Exception as exc:
+                return {
+                    "ok": False,
+                    "error": f"ODE-system excitation failed: {type(exc).__name__}: {exc}",
+                }
+
+        # Legacy scalar ODE records have no closed-system metadata. Retain the
+        # former comparison so old files are still usable, but typed records take
+        # the full-system path above.
+        from scipy.integrate import solve_ivp
         tsym, ysym = sympy.Symbol(tname), sympy.Symbol(target_symbol)
 
         def _rhs_fn(e):
@@ -536,8 +805,10 @@ def _excitation_check(
         except Exception as e:
             return {"ok": False, "error": f"ode excitation failed: {type(e).__name__}: {e}"}
 
-    # ---- explicit/implicit path: additive term balance + new-term effect ----
+    # ---- static path: additive term balance + new-term effect ----
     try:
+        axis_names, design = _representative_static_samples(indep)
+        grid = design["samples"]
         terms = expr.as_ordered_terms() if expr.is_Add else [expr]
         term_report = []
         total_rms = 0.0
@@ -584,6 +855,11 @@ def _excitation_check(
         return {
             "ok": True, "mode": "explicit",
             "k": k, "sigma": sigma,
+            "sampling": {
+                "method": design["method"],
+                "n_samples": design["n_samples"],
+                "n_dimensions": len(axis_names),
+            },
             "terms": term_report,
             "weak_terms": weak,
             "new_term": new_term,
@@ -607,6 +883,8 @@ def _auto_balance(
     k: float = 5.0,
     bound: float = 1e6,
     max_iter: int = 8,
+    ode_contract: dict[str, Any] | None = None,
+    parent_ode_contract: dict[str, Any] | None = None,
 ) -> dict:
     """Numerically solve coefficients so every additive term — and the NEW term —
     reaches at least k*sigma, instead of leaving the agent to hand-tune them.
@@ -652,7 +930,9 @@ def _auto_balance(
 
     def _run():
         return _excitation_check(expression, parent_expression, target_symbol,
-                                 cur, indep, sigma, is_ode, k)
+                                 cur, indep, sigma, is_ode, k,
+                                 ode_contract=ode_contract,
+                                 parent_ode_contract=parent_ode_contract)
 
     rep = _run()
     if not rep.get("ok"):
@@ -815,6 +1095,8 @@ PHENOMENON CONTEXT:
 EQUATION (target = expression):
   {target_symbol} = {expression}
 
+{ode_contract_block}
+
 PARENT EQUATION (the previous generation — what this step evolved FROM; the NEW
 term is the difference E - parent, and excitation_check measures its effect):
   {parent_block}
@@ -826,9 +1108,11 @@ only where the math disagrees):
 SUGGESTED RANGES / MAGNITUDES FROM THE EVOLUTION STEP (prefer these when sensible):
 {range_hints}
 
-Confirm-or-correct the roles and the equation type, then use excitation_check to
-ensure every term (especially the new one) is visible above the noise, and emit
-the data-generation spec.
+For static records, confirm-or-correct roles and equation type. For a typed ODE
+contract, do NOT re-derive, omit, reorder, or rewrite the state system: choose
+only its time sampling range, fixed parameter values, noise, and expectations.
+Then use excitation_check to ensure every term (especially the new one) is
+visible above the noise, and emit the data-generation spec.
 """
 
 
@@ -837,7 +1121,12 @@ def _labels_block(record: dict) -> str:
     descs = record.get("symbol_descriptions", [])
     props = record.get("symbol_properties", [])
     rows = []
-    role_name = {"O": "claimed-output", "V": "claimed-variable", "P": "claimed-parameter"}
+    role_name = {
+        "O": "claimed-output/target derivative",
+        "V": "claimed-input/time axis",
+        "S": "claimed-dynamic state",
+        "P": "claimed-parameter",
+    }
     for i, s in enumerate(syms):
         role = props[i] if i < len(props) else "?"
         desc = descs[i] if i < len(descs) else ""
@@ -850,6 +1139,24 @@ def _range_hints(record: dict) -> str:
     if not rng:
         return "  (none)"
     return "\n".join(f"  {k}: {v}" for k, v in rng.items())
+
+
+def _ode_contract_block(contract: dict[str, Any] | None) -> str:
+    """Explain the ODE inheritance boundary to both supported agent providers."""
+    if contract is None:
+        return "ODE SYSTEM CONTRACT: none; infer the structure from the static expression."
+    return (
+        "ODE SYSTEM CONTRACT (already structurally validated upstream):\n"
+        + json.dumps(contract, ensure_ascii=False, indent=2)
+        + "\nREQUIRED DATA SPEC MAPPING:\n"
+        + "- equation_type = 'ode_system'; integrator = 'integrate_system';\n"
+        + "- dependent_variable = target_state;\n"
+        + "- independent_variables = the one time_symbol only;\n"
+        + "- state_variables, state_rhs, initial_conditions, and rhs_for_integrator "
+          "must exactly inherit this contract.\n"
+        + "- parameters must assign every listed parameter_symbols exactly once; values "
+          "remain your data-design choice.\n"
+    )
 
 
 # ============================================================
@@ -894,7 +1201,9 @@ async def plan_data_generation_async(
     expression = record.get("expression", "")
     if not expression:
         raise SpecAgentError("record has no 'expression'", trace=[])
+    ode_contract = _ode_contract(record)
     parent_expression = (parent or {}).get("expression")
+    parent_ode_contract = _ode_contract(parent) if parent is not None else None
 
     # Per-run state captured by the in-process tools (closures).
     trace: list[dict] = []
@@ -949,8 +1258,9 @@ async def plan_data_generation_async(
         "variable by at least k*sigma somewhere in your chosen sampling region. "
         "Pass the parameter values you intend to FIX (assignments), the independent-"
         "variable ranges (indep), and the noise sigma you will inject. For ODEs set "
-        "is_ode=true (the effect is measured on the integrated solution, E vs parent, "
-        "not on the raw RHS). Use this to rebalance coefficients and pick the region "
+        "is_ode=true (typed ODE records compare complete child and parent systems "
+        "on the target trajectory, not only the raw target RHS). Use this to rebalance "
+        "coefficients and pick the region "
         "where weak terms become visible, BEFORE emitting the spec.",
         {"assignments": dict, "indep": list, "sigma": float, "is_ode": bool},
     )
@@ -964,12 +1274,14 @@ async def plan_data_generation_async(
             sigma=args.get("sigma", 0.0),
             is_ode=bool(args.get("is_ode", False)),
             k=k_sigma,
+            ode_contract=ode_contract,
+            parent_ode_contract=parent_ode_contract,
         )
         trace.append({"tool": "excitation_check", "input": args, "result": result})
         if result.get("ok"):
             captured["excitation_ran"] = True
         if verbose:
-            if result.get("mode") == "ode":
+            if result.get("mode") in {"ode", "ode_system"}:
                 tag = f"new_term x{result.get('new_term_sigma_multiple')}"
             else:
                 nt = (result.get("new_term") or {}).get("sigma_multiple")
@@ -1005,6 +1317,8 @@ async def plan_data_generation_async(
             sigma=args.get("sigma", 0.0),
             is_ode=bool(args.get("is_ode", False)),
             k=k_sigma,
+            ode_contract=ode_contract,
+            parent_ode_contract=parent_ode_contract,
         )
         trace.append({"tool": "auto_balance", "input": args,
                       "result": {kk: vv for kk, vv in result.items()
@@ -1032,7 +1346,7 @@ async def plan_data_generation_async(
     async def emit_data_gen_spec(args):
         try:
             spec = DataGenSpec.model_validate(args)
-            _validate_emitted_spec(spec)
+            _validate_emitted_spec(spec, ode_contract=ode_contract)
         except Exception as e:
             trace.append({"tool": "emit_data_gen_spec", "validation_error": str(e)})
             return {"content": [{"type": "text",
@@ -1082,6 +1396,7 @@ async def plan_data_generation_async(
         parent_block=parent_block,
         labels_block=_labels_block(record),
         range_hints=_range_hints(record),
+        ode_contract_block=_ode_contract_block(ode_contract),
     )
 
     cli_path = cli_path or os.path.expanduser("~/.npm-global/bin/claude")
@@ -1276,7 +1591,9 @@ def plan_data_generation_openrouter(
     expression = record.get("expression", "")
     if not expression:
         raise SpecAgentError("record has no 'expression'", trace=[])
+    ode_contract = _ode_contract(record)
     parent_expression = (parent or {}).get("expression")
+    parent_ode_contract = _ode_contract(parent) if parent is not None else None
     trace: list[dict] = []
     captured: dict[str, Any] = {
         "spec": None, "excitation_ran": False, "emit_rejected": False,
@@ -1294,6 +1611,7 @@ def plan_data_generation_openrouter(
         parent_block=parent_block,
         labels_block=_labels_block(record),
         range_hints=_range_hints(record),
+        ode_contract_block=_ode_contract_block(ode_contract),
     )
 
     def execute_tool(name: str, args: dict[str, Any]) -> str:
@@ -1331,6 +1649,8 @@ def plan_data_generation_openrouter(
                     sigma=args.get("sigma", 0.0),
                     is_ode=bool(args.get("is_ode", False)),
                     k=k_sigma,
+                    ode_contract=ode_contract,
+                    parent_ode_contract=parent_ode_contract,
                 )
                 trace.append({"tool": name, "input": args,
                               "result": {k: v for k, v in result.items() if k != "report"}})
@@ -1351,6 +1671,8 @@ def plan_data_generation_openrouter(
                     sigma=args.get("sigma", 0.0),
                     is_ode=bool(args.get("is_ode", False)),
                     k=k_sigma,
+                    ode_contract=ode_contract,
+                    parent_ode_contract=parent_ode_contract,
                 )
                 trace.append({"tool": name, "input": args, "result": result})
                 if result.get("ok"):
@@ -1364,7 +1686,7 @@ def plan_data_generation_openrouter(
             if name == "emit_data_gen_spec":
                 try:
                     spec = DataGenSpec.model_validate(args)
-                    _validate_emitted_spec(spec)
+                    _validate_emitted_spec(spec, ode_contract=ode_contract)
                 except Exception as exc:
                     msg = f"SPEC VALIDATION FAILED: {type(exc).__name__}: {exc}"
                     trace.append({"tool": name, "validation_error": str(exc)})

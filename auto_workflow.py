@@ -53,7 +53,7 @@ from typing import Literal, Optional
 
 import anthropic
 import httpx
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 
 try:
     import pandas as pd
@@ -95,8 +95,8 @@ class InputSymbol(BaseModel):
     range: list[float] = Field(min_length=2, max_length=2)
 
 
-class DynamicStateCandidate(BaseModel):
-    """A state that must be evolved, rather than independently sampled."""
+class RequiredDynamicState(BaseModel):
+    """A core ODE state required in the baseline dynamical system."""
 
     symbol: str
     description: str
@@ -112,7 +112,15 @@ class Spec(BaseModel):
     time_symbol: Optional[str] = None
     time_range: Optional[list[float]] = None
     target_state: Optional[str] = None
-    dynamic_state_candidates: list[DynamicStateCandidate] = Field(default_factory=list)
+    # Accept the former field name when resuming older checkpoints, but always
+    # write the stricter required_dynamic_states name in new records.
+    required_dynamic_states: list[RequiredDynamicState] = Field(
+        default_factory=list,
+        validation_alias=AliasChoices(
+            "required_dynamic_states", "dynamic_state_candidates"
+        ),
+        serialization_alias="required_dynamic_states",
+    )
     expected_behaviors: list[str]
     forbidden_behaviors: list[str]
 
@@ -253,13 +261,15 @@ For each scenario output:
 - spec.model_family: "static" or "ode".
 - For static only: spec.input_symbols, a list of 1-{max_static_inputs}
   independently sampled {{"symbol", "description", "range": [low, high]}}.
-  Set time_symbol, time_range, target_state, and dynamic_state_candidates to null
+  Set time_symbol, time_range, target_state, and required_dynamic_states to null
   or empty lists.
 - For ode only: spec.time_symbol (normally "t"), spec.time_range [start, end],
-  spec.target_state, and spec.dynamic_state_candidates, a list of 1-{max_ode_states}
+  spec.target_state, and spec.required_dynamic_states, a list of 1-{max_ode_states}
   {{"symbol", "description", "initial_range": [low, high]}} entries. Set
-  input_symbols to an empty list. target_symbol should name the target state's
-  derivative, such as "dN_dt" or "dv_dt".
+  input_symbols to an empty list. These are the core states that the baseline
+  ODE system MUST include exactly once; they are not optional candidates.
+  target_symbol should name the target state's derivative, such as "dN_dt" or
+  "dv_dt".
 - spec.expected_behaviors
 - spec.forbidden_behaviors
 
@@ -340,7 +350,7 @@ SCENARIO:
 TIME AXIS: {time_symbol} over {time_range}
 TARGET DERIVATIVE: {target_symbol} — {target_description}
 TARGET STATE: {target_state}
-DYNAMIC STATE CANDIDATES: {state_descriptions}
+REQUIRED DYNAMIC STATES: {state_descriptions}
 
 YOUR TASK:
 Write a concrete first-order ODE system for the internal states. The system must
@@ -353,9 +363,9 @@ REQUIREMENTS:
    "v" and "x", not x(t). Use **, sqrt(), sin(), cos(), exp(), log(), Abs(),
    tanh(), etc. Use descriptive parameter names; do not use floating-point
    literals for physical constants.
-2. Use every state only as an internal state, never as an independently sampled
-   input. Include 1-{max_ode_states} states total. Use only the supplied state
-   candidates; do not invent an additional dynamic state.
+2. Use every required state exactly once as an internal state, never as an
+   independently sampled input. The state set must exactly match the supplied
+   required states: do not omit one and do not invent an additional dynamic state.
 3. Each RHS may reference only {time_symbol}, declared states, fixed parameters,
    and standard math functions. Do not leave derivatives, ungoverned functions,
    PDE terms, or delayed/history terms in an RHS.
@@ -561,7 +571,7 @@ def _validate_scenario_spec(spec: Spec) -> None:
                 f"static scenarios need 1-{MAX_STATIC_INPUTS} input_symbols"
             )
         if (spec.time_symbol is not None or spec.time_range is not None
-                or spec.target_state is not None or spec.dynamic_state_candidates):
+                or spec.target_state is not None or spec.required_dynamic_states):
             raise ValueError("static scenarios cannot declare ODE time/state metadata")
         return
 
@@ -571,15 +581,15 @@ def _validate_scenario_spec(spec: Spec) -> None:
         raise ValueError("ODE scenarios need time_symbol and target_state")
     if not isinstance(spec.time_range, list) or len(spec.time_range) != 2:
         raise ValueError("ODE scenarios need a two-value time_range")
-    if not 1 <= len(spec.dynamic_state_candidates) <= MAX_ODE_STATES:
+    if not 1 <= len(spec.required_dynamic_states) <= MAX_ODE_STATES:
         raise ValueError(
-            f"ODE scenarios need 1-{MAX_ODE_STATES} dynamic_state_candidates"
+            f"ODE scenarios need 1-{MAX_ODE_STATES} required_dynamic_states"
         )
-    state_names = [state.symbol for state in spec.dynamic_state_candidates]
+    state_names = [state.symbol for state in spec.required_dynamic_states]
     if len(state_names) != len(set(state_names)):
-        raise ValueError("ODE dynamic_state_candidates must have distinct symbols")
+        raise ValueError("ODE required_dynamic_states must have distinct symbols")
     if spec.target_state not in state_names:
-        raise ValueError("ODE target_state must be one dynamic_state_candidate")
+        raise ValueError("ODE target_state must be one required_dynamic_state")
 
 
 def _validate_equation_output(output: EquationOutput, spec: Spec) -> None:
@@ -645,11 +655,14 @@ def _validate_equation_output(output: EquationOutput, spec: Spec) -> None:
             "ODE equations may use only O, V, S, and P roles; got "
             + ", ".join(invalid_roles)
         )
-    candidate_names = {state.symbol for state in spec.dynamic_state_candidates}
-    if not set(state_names).issubset(candidate_names):
-        raise ValueError("ode_system introduced a state not declared by the scenario")
+    required_names = {state.symbol for state in spec.required_dynamic_states}
+    if set(state_names) != required_names:
+        raise ValueError(
+            "ode_system states must exactly match scenario required_dynamic_states; got "
+            f"{sorted(state_names)}, expected {sorted(required_names)}"
+        )
     candidate_ranges = {
-        state.symbol: state.initial_range for state in spec.dynamic_state_candidates
+        state.symbol: state.initial_range for state in spec.required_dynamic_states
     }
 
     allowed = set(state_names) | {ode.time_symbol}
@@ -1091,7 +1104,7 @@ def generate_m2_for_subfield(
                 raise ValueError("empty response")
             payload = _json_from_response(raw)
             validated = ScenarioBatch.model_validate(payload)
-            scenarios = [s.model_dump() for s in validated.scenarios]
+            scenarios = [s.model_dump(by_alias=True) for s in validated.scenarios]
             if len(scenarios) != count:
                 raise ValueError(f"expected {count} scenarios, got {len(scenarios)}")
             for scenario in validated.scenarios:
@@ -1137,7 +1150,7 @@ def derive_equation(
             time_range=validated_spec.time_range,
             target_state=validated_spec.target_state,
             state_descriptions=_flatten_state_descriptions(
-                [state.model_dump() for state in validated_spec.dynamic_state_candidates]
+                [state.model_dump() for state in validated_spec.required_dynamic_states]
             ),
             discipline=discipline,
             subfield_line=subfield_line,
@@ -1207,8 +1220,12 @@ def _build_combined_xlsx(
             "time_symbol": spec.get("time_symbol", ""),
             "time_range": json.dumps(spec.get("time_range"), ensure_ascii=False),
             "target_state": spec.get("target_state", ""),
-            "dynamic_state_candidates": json.dumps(
-                spec.get("dynamic_state_candidates", []), ensure_ascii=False
+            "required_dynamic_states": json.dumps(
+                spec.get(
+                    "required_dynamic_states",
+                    spec.get("dynamic_state_candidates", []),
+                ),
+                ensure_ascii=False,
             ),
             "expected_behaviors": "; ".join(spec.get("expected_behaviors", [])),
             "forbidden_behaviors": "; ".join(spec.get("forbidden_behaviors", [])),
