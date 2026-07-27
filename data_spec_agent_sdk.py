@@ -110,6 +110,22 @@ class DataGenSpec(BaseModel):
     independent_variables: list[IndepVar]
     parameters: list[FixedParam]
 
+    # For a coupled ODE, `dependent_variable` remains the integrated state while
+    # `benchmark_output` is the derivative label that symbolic regression learns.
+    benchmark_output: str | None = Field(
+        default=None,
+        description="For typed ODEs, the upstream O target symbol such as dv_dt. "
+                    "This is the symbolic-regression label, not an integrated state.",
+    )
+    benchmark_target_state: str | None = Field(
+        default=None,
+        description="The state whose RHS defines benchmark_output, such as v for dv_dt.",
+    )
+    observed_variables: list[str] = Field(
+        default_factory=list,
+        description="Columns exposed to symbolic regression, including time and observed states.",
+    )
+
     # ---- what 6b needs to actually run ----
     rhs_for_integrator: str = Field(
         ...,
@@ -132,7 +148,8 @@ class DataGenSpec(BaseModel):
     # ---- data realism ----
     noise: float = Field(
         0.0,
-        description="Absolute Gaussian noise std on the dependent variable. This is "
+        description="Absolute Gaussian noise std on the benchmark output for typed ODEs, "
+                    "or on the dependent variable otherwise. This is "
                     "the 'visibility yardstick': every term must move the data by "
                     ">= k*noise somewhere in the sampled region (see excitation_report).",
     )
@@ -262,6 +279,26 @@ def _validate_inherited_ode_spec(spec: DataGenSpec, contract: dict[str, Any]) ->
     target_index = expected_states.index(expected_target)
     if spec.rhs_for_integrator != expected_rhs[target_index]:
         raise ValueError("ODE rhs_for_integrator must equal the inherited target-state RHS")
+
+
+def _attach_ode_benchmark_metadata(spec: dict, record: dict) -> dict:
+    """Expose the upstream derivative target without changing integration semantics."""
+    contract = _ode_contract(record)
+    if contract is None:
+        return spec
+    target_symbol = record.get("target_symbol")
+    if not isinstance(target_symbol, str) or not target_symbol:
+        raise SpecAgentError("ODE record is missing target_symbol", trace=[])
+    spec["benchmark_output"] = target_symbol
+    spec["benchmark_target_state"] = contract["target_state"]
+    # All integrated states are emitted as measured covariates for the RHS.
+    spec["observed_variables"] = [contract["time_symbol"], *contract["state_variables"]]
+    return spec
+
+
+def attach_ode_benchmark_metadata(spec: dict, record: dict) -> dict:
+    """Public migration hook for existing Specs and their source ODE records."""
+    return _attach_ode_benchmark_metadata(spec, record)
 
 
 def _validate_emitted_spec(
@@ -1848,6 +1885,25 @@ def _match_id(r: dict, want: str) -> bool:
     return want in (r.get("scenario_id"), r.get("id"), r.get("base_id"))
 
 
+def _upgrade_ode_specs(spec_path: Path, evolved_path: Path, output_path: Path) -> int:
+    """Add derivative-label metadata to old Specs without calling an LLM."""
+    evolved = _load_records(evolved_path)
+    if not evolved:
+        raise SystemExit("Evolved-equation file is empty.")
+    by_generation = {record.get("generation"): record for record in evolved}
+    upgraded = []
+    for spec in _load_records(spec_path):
+        if "error" not in spec and spec.get("equation_type") == "ode_system":
+            record = by_generation.get(spec.get("generation"), evolved[-1])
+            spec = _attach_ode_benchmark_metadata(spec, record)
+        upgraded.append(spec)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("w", encoding="utf-8") as f:
+        for spec in upgraded:
+            f.write(json.dumps(spec, ensure_ascii=False) + "\n")
+    return len(upgraded)
+
+
 def main() -> None:
     p = argparse.ArgumentParser(
         description="Stage 6a: plan data generation with Claude CLI or OpenRouter tools.",
@@ -1881,9 +1937,22 @@ def main() -> None:
     p.add_argument("--output", default=None,
                    help="write specs to this .jsonl (default: "
                         "outputs/Specs/<input-stem>_spec.jsonl)")
+    p.add_argument("--upgrade-spec", default=None,
+                   help="existing Spec JSONL to upgrade with ODE derivative-label metadata; no API call")
+    p.add_argument("--evolved", default=None,
+                   help="matching Evolved_Equations JSONL; required with --upgrade-spec")
     p.add_argument("--demo", action="store_true",
                    help="run the built-in mislabeled demo equation")
     args = p.parse_args()
+
+    if args.upgrade_spec:
+        if not args.evolved or not args.output:
+            raise SystemExit("--upgrade-spec requires --evolved and --output.")
+        count = _upgrade_ode_specs(
+            Path(args.upgrade_spec), Path(args.evolved), Path(args.output),
+        )
+        print(f"Wrote {count} upgraded Spec record(s) to {args.output}", file=sys.stderr)
+        return
 
     if not args.demo and not args.input:
         raise SystemExit("Provide --input <file> or --demo.")
@@ -1946,6 +2015,7 @@ def main() -> None:
                 k_sigma=args.k_sigma,
                 max_turns=args.max_turns,
             )
+            spec = _attach_ode_benchmark_metadata(spec, r)
         except SpecAgentError as e:
             print(f"    FAILED: {e}", file=sys.stderr)
             spec = {"error": str(e), "_trace": e.trace}
