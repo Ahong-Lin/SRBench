@@ -455,8 +455,8 @@ def gen_integrate_dde(spec: dict, seed: int) -> tuple[list[str], np.ndarray]:
 def gen_integrate_system(spec: dict, seed: int) -> tuple[list[str], np.ndarray]:
     """First-order system from state_variables / state_rhs, via solve_ivp.
 
-    Output columns: time, then every state variable (the dependent variable is one
-    of the states). Noise is applied to the dependent variable column only.
+    Output columns: time, then every state variable. For typed pipeline ODEs,
+    append the benchmark derivative target and its noisy observation.
     """
     from scipy.integrate import solve_ivp
 
@@ -490,6 +490,23 @@ def gen_integrate_system(spec: dict, seed: int) -> tuple[list[str], np.ndarray]:
 
     cols = [tname] + states
     data = [sol.t] + [sol.y[i] for i in range(len(states))]
+    benchmark_output = spec.get("benchmark_output")
+    benchmark_state = spec.get("benchmark_target_state")
+    if benchmark_output and benchmark_state in states:
+        target_idx = states.index(benchmark_state)
+        derivative = np.asarray([
+            compiled[target_idx](time, *sol.y[:, col], *pv)
+            for col, time in enumerate(sol.t)
+        ], dtype=float)
+        data.append(derivative)
+        cols.append(benchmark_output)
+        noise = float(spec.get("noise", 0.0) or 0.0)
+        if noise > 0:
+            data.append(_add_noise(derivative, noise, seed))
+            cols.append(f"{benchmark_output}_noisy")
+        return cols, np.column_stack(data)
+
+    # Legacy Specs have no explicit derivative benchmark metadata.
     noise = float(spec.get("noise", 0.0) or 0.0)
     if noise > 0 and dep in states:
         idx = states.index(dep)
@@ -780,7 +797,7 @@ def generate(spec: dict, output_dir: Path, seed: int = 0,
     if integrator == "unsupported":
         raise SystemExit("spec is marked unsupported and cannot generate data")
 
-    dep = spec.get("dependent_variable", "y")
+    dep = spec.get("benchmark_output") or spec.get("dependent_variable", "y")
     cols, arr = gen(spec, seed)
 
     output_dir.mkdir(parents=True, exist_ok=True)
