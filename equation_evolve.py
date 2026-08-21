@@ -843,6 +843,7 @@ def evolve_once(
     max_static_inputs: int,
     max_ode_states: int,
     max_retries: int = 3,
+    difficulty_feedback: str | None = None,
 ) -> dict:
     current = _normalize_base_equation(current)
     task_prompt = (
@@ -879,6 +880,14 @@ def evolve_once(
             )
             if operation == "change_assumption":
                 prompt += "\nASSUMPTION MODE: " + assumption_mode_note + "\n"
+            if difficulty_feedback:
+                prompt += (
+                    "\nNUMERICAL DIFFICULTY FEEDBACK FROM A REJECTED PRIOR CHILD:\n"
+                    + difficulty_feedback.strip()
+                    + "\nDo not merely add a small coefficient correction that a refitted "
+                    "parent can absorb. Change the governing mechanism so the parent "
+                    "cannot reproduce the child over the existing experimental domain.\n"
+                )
             if last_err is not None:
                 prompt += (
                     "\nPREVIOUS ATTEMPT FAILED VALIDATION:\n"

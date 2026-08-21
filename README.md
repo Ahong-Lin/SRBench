@@ -14,6 +14,7 @@ SRBench 是一套用大语言模型（LLM）自动构建 **符号回归（Symbol
 - [环境与依赖](#环境与依赖)
 - [Provider 与模型配置](#provider-与模型配置)
 - [快速开始（完整流水线）](#快速开始完整流水线)
+- [门控演化：防止 parent 可替代 child](#门控演化防止-parent-可替代-child)
 - [各阶段独立用法](#各阶段独立用法)
 - [输出产物](#输出产物)
 - [关键设计特性](#关键设计特性)
@@ -23,7 +24,11 @@ SRBench 是一套用大语言模型（LLM）自动构建 **符号回归（Symbol
 
 ## 整体流程
 
-流水线由 **一串相互独立的命令行脚本** 组成，**没有单一的总控入口**：上游脚本把结果写入文件，下游脚本用 `--input` / `--spec` 指向该文件继续处理。唯一的进程内耦合是 `auto_workflow.py` 内部的三个阶段，以及 `equation_evolve.py` 对 `novelty_check.py` 的调用。
+基础流水线由一串可独立运行的命令行脚本组成，上游脚本把结果写入文件，
+下游脚本用 `--input` / `--spec` 指向该文件继续处理。对于需要避免
+“parent 重新拟合后仍可替代 child”的实验，推荐使用 `evolution_pipeline.py`
+作为 Stage 4–6a 的门控总控入口。进程内耦合还包括 `auto_workflow.py` 的前三
+阶段，以及 `equation_evolve.py` 对 `novelty_check.py` 的调用。
 
 ```
  学科 subject
@@ -62,6 +67,34 @@ SRBench 是一套用大语言模型（LLM）自动构建 **符号回归（Symbol
 ```
 
 阶段 5（新颖性判定）有两种用法：作为独立 CLI 批量标注，或作为阶段 4 的**停止条件**内嵌运行。
+
+### 门控演化：防止 parent 可替代 child
+
+`evolution_pipeline.py` 是推荐的新 Stage 4–6a 总控入口。每一个候选 child
+先按原来的 DataGenSpec Agent 流程规划参数、初值、噪声与采样范围；只有当
+初始区域内 parent 仍可替代 child 时，才允许一次受约束的采样区间重规划：
+
+```text
+accepted parent
+  → LLM 提出 child
+  → Spec Agent 生成 child DataGenSpec（现有 excitation_check 仍须通过）
+  → 在 child 的既有范围内，用 child 数据重新拟合 parent 参数
+  → 独立 holdout 评估 parent → child
+       R² > 0.90：同一 child 进行一次“仅改 range”的采样重规划
+                    → 再跑 excitation_check 与 parent-refit Gate A
+                    → 仍然 R² > 0.90 才拒绝并反馈给下一次 child 提议
+       R² ≤ 0.90：接受，child 成为下一代 parent
+```
+
+重规划锁定方程、变量集合、参数、噪声、初值、ODE 状态结构、采样密度与 scale；
+只能修改既有独立变量的数值范围。这样可给“结构真实不同、但初始实验窗口没
+采到”的 child 一次机会，同时不会用改参数或改方程人为通过 gate。
+
+静态显式方程在 child 的原采样盒内取独立的 fit/test 点；ODE 则在 child
+积分轨迹的交错时间点上，比较 parent 的目标状态 RHS 与 child 的导数标签。
+报告会明确标为 `ode_rhs_on_child_trajectory`，因此不会把它误读成完整 ODE
+轨迹的可替代性。每次拒绝均写入 `rejected_candidates.jsonl`，已接受的谱系和
+对应 spec 分别写入 `accepted_lineage.jsonl`、`accepted_specs.jsonl`。
 
 ---
 
@@ -228,6 +261,57 @@ source env.sh && source use_openrouter.sh
 python auto_workflow.py --subject biology --scenarios 10 --subfield-source fixed \
     --provider openrouter --model anthropic/claude-opus-4.8 --run-name bio_or
 ```
+
+## 门控演化：防止 parent 可替代 child
+
+下面是从已有 Stage-3 `equations.jsonl` 开始的完整推荐流程。默认门槛为：
+若重新拟合参数后的 parent 在 child 的初始独立 test 点仍达到 `R² > 0.90`，
+则先让同一 child 进行**一次仅改采样 range 的重规划**并重新做 excitation
+check；重规划后的 test R² 仍高于阈值才拒绝。重规划不允许更改方程、参数、
+初值、噪声或状态结构。
+
+```bash
+# 使用项目的完整依赖环境；不要使用缺 scipy/sympy 的系统 python。
+PYTHON=/Users/hubertlinhong/miniconda3/envs/srbench-agent/bin/python
+
+# Anthropic 示例：先按你的环境设置密钥/代理。
+export ANTHROPIC_API_KEY="..."
+export ANTHROPIC_BASE_URL="https://code.ppchat.vip/"
+
+# 五个“已接受”的世代；每一代最多尝试四个 child。
+$PYTHON evolution_pipeline.py \
+  --input outputs/Equations/bio_seed0/equations.jsonl \
+  --id m2_population_ecology_0_000 \
+  --discipline biology \
+  --steps 5 \
+  --max-attempts-per-generation 4 \
+  --reject-r2 0.90 \
+  --fit-points 1024 --test-points 1024 \
+  --seed 42
+```
+
+命令结束时会打印运行目录，例如
+`outputs/Gated_Evolution/gated_m2_population_ecology_0_000_<timestamp>/`。只对
+最后一个 accepted spec 生成 5,000 点：
+
+```bash
+$PYTHON data_generator/generate_from_spec.py \
+  --spec outputs/Gated_Evolution/gated_m2_population_ecology_0_000_<timestamp>/accepted_specs.jsonl \
+  --index 5 --n-total 5000
+```
+
+OpenRouter 只需把上面 Stage 4–6a 命令的认证和模型替换为：
+
+```bash
+source env.sh && source use_openrouter.sh
+$PYTHON evolution_pipeline.py ... \
+  --provider openrouter --model anthropic/claude-opus-4.8
+```
+
+`--index` 等于 `--steps`，因为 `accepted_specs.jsonl` 的 index 0 是 gen0
+parent，之后每一个 index 都是一个通过 gate 的 child。若某代连续达到
+`--max-attempts-per-generation` 次仍不能通过，流程会安全停止；已接受谱系、
+spec 和拒绝审计都保留，可从输出中查看该调低分门槛还是需要更换机制。
 
 ---
 

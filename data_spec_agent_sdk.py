@@ -1145,6 +1145,8 @@ only where the math disagrees):
 SUGGESTED RANGES / MAGNITUDES FROM THE EVOLUTION STEP (prefer these when sensible):
 {range_hints}
 
+{sampling_replan_block}
+
 For static records, confirm-or-correct roles and equation type. For a typed ODE
 contract, do NOT re-derive, omit, reorder, or rewrite the state system: choose
 only its time sampling range, fixed parameter values, noise, and expectations.
@@ -1176,6 +1178,71 @@ def _range_hints(record: dict) -> str:
     if not rng:
         return "  (none)"
     return "\n".join(f"  {k}: {v}" for k, v in rng.items())
+
+
+def _sampling_replan_block(sampling_replan: dict | None) -> str:
+    """Make a second Spec-Agent pass a strictly range-only experimental redesign."""
+    if not sampling_replan:
+        return "SAMPLING REPLAN: none; create the initial complete DataGenSpec."
+    baseline = sampling_replan.get("baseline_spec", {})
+    report = sampling_replan.get("parent_refit_report", {})
+    axes = [
+        {key: item.get(key) for key in ("symbol", "range", "n_points", "scale")}
+        for item in baseline.get("independent_variables", []) or []
+    ]
+    locked = {
+        key: baseline.get(key)
+        for key in ("equation_type", "integrator", "dependent_variable", "parameters",
+                    "rhs_for_integrator", "state_variables", "state_rhs",
+                    "initial_conditions", "noise")
+    }
+    return (
+        "SAMPLING REPLAN — THIS IS THE ONE ALLOWED REDESIGN PASS:\n"
+        "The equation and its initial spec were valid, but a refitted parent still "
+        f"achieved test R²={report.get('parent_to_child_r2')} (threshold "
+        f"{report.get('threshold_r2')}). The goal is to make an existing structural "
+        "difference observable in a physically plausible experiment.\n"
+        f"DIAGNOSTIC FROM THE INITIAL GATE (where refitted-parent residual was largest):\n"
+        f"{json.dumps(report.get('residual_hotspots', {}), ensure_ascii=False)}\n"
+        "You MUST keep every locked field below exactly unchanged. You may change ONLY "
+        "the numeric `range` of each existing independent variable. Do not add/remove "
+        "variables; do not alter n_points, scale, parameters, noise, initial conditions, "
+        "RHS, target, equation type, or ODE system. Select a physically reasonable, "
+        "numerically stable range where the child-parent difference is observable. Call "
+        "excitation_check again using the NEW range before emitting.\n"
+        f"CURRENT AXES (only their range may change):\n{json.dumps(axes, ensure_ascii=False)}\n"
+        f"LOCKED FIELDS:\n{json.dumps(locked, ensure_ascii=False)}\n"
+    )
+
+
+def validate_sampling_replan(baseline_spec: dict, replanned_spec: dict) -> None:
+    """Enforce that the optional second Spec-Agent pass changed ranges only."""
+    locked_fields = (
+        "equation_type", "integrator", "dependent_variable", "parameters",
+        "rhs_for_integrator", "state_variables", "state_rhs", "initial_conditions", "noise",
+    )
+    changed = [name for name in locked_fields if baseline_spec.get(name) != replanned_spec.get(name)]
+    if changed:
+        raise ValueError("sampling replan changed locked field(s): " + ", ".join(changed))
+    before = baseline_spec.get("independent_variables", []) or []
+    after = replanned_spec.get("independent_variables", []) or []
+    if len(before) != len(after):
+        raise ValueError("sampling replan changed the number of independent variables")
+    any_range_changed = False
+    for old, new in zip(before, after):
+        if old.get("symbol") != new.get("symbol"):
+            raise ValueError("sampling replan changed an independent-variable symbol")
+        if old.get("n_points", 200) != new.get("n_points", 200):
+            raise ValueError("sampling replan changed n_points")
+        if old.get("scale", "linear") != new.get("scale", "linear"):
+            raise ValueError("sampling replan changed sampling scale")
+        new_range = new.get("range", [])
+        if len(new_range) != 2 or not all(isinstance(v, (int, float)) and math.isfinite(v)
+                                          for v in new_range) or new_range[0] >= new_range[1]:
+            raise ValueError(f"sampling replan supplied an invalid range for {new.get('symbol')}")
+        any_range_changed |= list(old.get("range", [])) != list(new_range)
+    if not any_range_changed:
+        raise ValueError("sampling replan did not change any independent-variable range")
 
 
 def _ode_contract_block(contract: dict[str, Any] | None) -> str:
@@ -1215,6 +1282,7 @@ async def plan_data_generation_async(
     cli_path: str | None = None,
     verbose: bool = True,
     parent: dict | None = None,
+    sampling_replan: dict | None = None,
     k_sigma: float = 5.0,
     max_budget_usd: float | None = 2.5,
 ) -> dict:
@@ -1241,6 +1309,10 @@ async def plan_data_generation_async(
     ode_contract = _ode_contract(record)
     parent_expression = (parent or {}).get("expression")
     parent_ode_contract = _ode_contract(parent) if parent is not None else None
+    if sampling_replan:
+        baseline = sampling_replan.get("baseline_spec") or {}
+        if not baseline:
+            raise SpecAgentError("sampling_replan requires baseline_spec", trace=[])
 
     # Per-run state captured by the in-process tools (closures).
     trace: list[dict] = []
@@ -1434,6 +1506,7 @@ async def plan_data_generation_async(
         labels_block=_labels_block(record),
         range_hints=_range_hints(record),
         ode_contract_block=_ode_contract_block(ode_contract),
+        sampling_replan_block=_sampling_replan_block(sampling_replan),
     )
 
     cli_path = cli_path or os.path.expanduser("~/.npm-global/bin/claude")
@@ -1613,6 +1686,7 @@ def plan_data_generation_openrouter(
     *,
     model: str,
     parent: dict | None = None,
+    sampling_replan: dict | None = None,
     k_sigma: float = 5.0,
     max_turns: int = 18,
     base_url: str | None = None,
@@ -1631,6 +1705,8 @@ def plan_data_generation_openrouter(
     ode_contract = _ode_contract(record)
     parent_expression = (parent or {}).get("expression")
     parent_ode_contract = _ode_contract(parent) if parent is not None else None
+    if sampling_replan and not sampling_replan.get("baseline_spec"):
+        raise SpecAgentError("sampling_replan requires baseline_spec", trace=[])
     trace: list[dict] = []
     captured: dict[str, Any] = {
         "spec": None, "excitation_ran": False, "emit_rejected": False,
@@ -1649,6 +1725,7 @@ def plan_data_generation_openrouter(
         labels_block=_labels_block(record),
         range_hints=_range_hints(record),
         ode_contract_block=_ode_contract_block(ode_contract),
+        sampling_replan_block=_sampling_replan_block(sampling_replan),
     )
 
     def execute_tool(name: str, args: dict[str, Any]) -> str:
