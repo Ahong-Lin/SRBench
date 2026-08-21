@@ -16,6 +16,7 @@ SRBench 是一套用大语言模型（LLM）自动构建 **符号回归（Symbol
 - [快速开始（完整流水线）](#快速开始完整流水线)
 - [门控演化：防止 parent 可替代 child](#门控演化防止-parent-可替代-child)
 - [最终定型：冗余项审计](#最终定型冗余项审计)
+- [AI Scaling Laws 固定种子](#ai-scaling-laws-固定种子)
 - [各阶段独立用法](#各阶段独立用法)
 - [输出产物](#输出产物)
 - [关键设计特性](#关键设计特性)
@@ -106,6 +107,37 @@ accepted parent
 对于“高阶但很小”的项，默认**不自动删**：高阶不是冗余，且在当前区域小并不
 代表机制无效。此类项只会记录为 `microscopic_*_review`，供人工决定是否应回到
 采样/进化阶段。该策略避免为了让公式短而错误删除真实机制。
+
+### AI Scaling Laws 固定种子
+
+`seeds/ai_scaling_laws_equations.jsonl` 提供七条无需 LLM 生成的、文献锚定的
+AI / `scaling_laws` gen0 记录。它们不是对 SLDBench 多-group 设定的复现：每条
+都是一个固定、单输出的具体训练实验背景，可直接进入本项目的单方程演化流程。
+
+```text
+parallel          L(N, P)       Chen et al. (2025)
+vocabulary        L(N, V, D)    Tao et al. (2024)
+sft               L(D)          Lin et al. (2024)
+moe               L(N, E)       Krajewski et al. (2024)
+data_constrained  L(N, D, U)    Muennighoff et al. (2023)
+lr_bsz            L(lr, bsz,D,N)  Step-Law-derived SLDBench baseline
+u_shape           Brier(log C)  Wu and Lo (2024)
+```
+
+`domain_mix` 暂未放入这份单方程种子：其输入是满足非负且和为 1 的数据混合
+比例向量（simplex），需要专门的采样器。七条 seed 的具体背景、变量含义、文献
+来源和允许的机制方向均写在各自 `scenario_text` 中；调用只从 evolve 阶段开始：
+
+```bash
+PYTHON=/Users/hubertlinhong/miniconda3/envs/srbench-agent/bin/python
+
+$PYTHON evolution_pipeline.py \
+  --input seeds/ai_scaling_laws_equations.jsonl \
+  --id ai_scaling_vocabulary_000 \
+  --discipline AI \
+  --steps 5 --max-attempts-per-generation 4 \
+  --reject-r2 0.90 --seed 42
+```
 
 ---
 
