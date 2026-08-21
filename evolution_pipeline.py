@@ -23,6 +23,7 @@ from data_spec_agent_sdk import (
 )
 from model_provider import build_model_caller
 from parent_refit_gate import evaluate_parent_refit
+from dead_term_audit import audit_spec, prune_exact_zero_terms
 
 
 def _write_jsonl(path: Path, record: dict, mode: str = "a") -> None:
@@ -125,6 +126,8 @@ def main() -> None:
     parser.add_argument("--spec-model", default=None, help="defaults to --model")
     parser.add_argument("--cli-path", default=None, help="Claude CLI path; ignored by OpenRouter Spec Agent")
     parser.add_argument("--spec-max-turns", type=int, default=18)
+    parser.add_argument("--final-audit-samples", type=int, default=4096,
+                        help="final fixed-domain samples for the dead-term report")
     parser.add_argument("--output-dir", default=None)
     args = parser.parse_args()
 
@@ -276,11 +279,31 @@ def main() -> None:
                 f"Audit: {rejected_path}"
             )
 
+    # Finalization is intentionally after evolution: it cannot influence which
+    # mechanism wins a generation.  Exact-zero tails are removed from the final
+    # DataGenSpec only; merely microscopic terms remain visible as review notes.
+    final_audit = audit_spec(current_spec, n_samples=args.final_audit_samples, seed=args.seed)
+    final_spec, prune = prune_exact_zero_terms(current_spec, final_audit)
+    final_spec["finalization"] = {
+        "dead_term_audit": final_audit,
+        "exact_zero_prune": prune,
+    }
+    final_spec_path = out_dir / "final_spec.json"
+    final_audit_path = out_dir / "finalization_dead_term_audit.json"
+    final_spec_path.write_text(json.dumps(final_spec, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    final_audit_path.write_text(json.dumps(final_audit, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     evolve._build_lineage_xlsx(out_dir / "accepted_lineage.xlsx", lineage)
-    print("\nDone. Only accepted children are in accepted_lineage.jsonl / accepted_specs.jsonl.", file=sys.stderr)
+    print("\nDone. Accepted evolution remains in accepted_lineage.jsonl / accepted_specs.jsonl.", file=sys.stderr)
+    print(f"Finalization audit: {final_audit_path}", file=sys.stderr)
+    if prune["changed"]:
+        print(f"Finalization: removed {len(prune['removed_terms'])} exact-zero top-level term(s).",
+              file=sys.stderr)
+    else:
+        print("Finalization: no exact-zero top-level term to remove; microscopic terms remain review-only.",
+              file=sys.stderr)
     print(f"Output directory: {out_dir}", file=sys.stderr)
     print("Generate the final accepted benchmark with:", file=sys.stderr)
-    print(f"  python data_generator/generate_from_spec.py --spec {specs_path} --index {args.steps} --n-total 5000", file=sys.stderr)
+    print(f"  python data_generator/generate_from_spec.py --spec {final_spec_path} --n-total 5000", file=sys.stderr)
 
 
 if __name__ == "__main__":

@@ -15,6 +15,7 @@ SRBench 是一套用大语言模型（LLM）自动构建 **符号回归（Symbol
 - [Provider 与模型配置](#provider-与模型配置)
 - [快速开始（完整流水线）](#快速开始完整流水线)
 - [门控演化：防止 parent 可替代 child](#门控演化防止-parent-可替代-child)
+- [最终定型：冗余项审计](#最终定型冗余项审计)
 - [各阶段独立用法](#各阶段独立用法)
 - [输出产物](#输出产物)
 - [关键设计特性](#关键设计特性)
@@ -95,6 +96,16 @@ accepted parent
 报告会明确标为 `ode_rhs_on_child_trajectory`，因此不会把它误读成完整 ODE
 轨迹的可替代性。每次拒绝均写入 `rejected_candidates.jsonl`，已接受的谱系和
 对应 spec 分别写入 `accepted_lineage.jsonl`、`accepted_specs.jsonl`。
+
+### 最终定型：冗余项审计
+
+最后一个 accepted child 不会马上出数据，而是先运行 `dead_term_audit.py` 的
+固定域审计。它只会自动删除一类完全安全的项：顶层加项在最终固定参数代入后
+**严格等于零**。例如 (c x^4) 且最终 (c=0)，会从最终 `DataGenSpec` 移除。
+
+对于“高阶但很小”的项，默认**不自动删**：高阶不是冗余，且在当前区域小并不
+代表机制无效。此类项只会记录为 `microscopic_*_review`，供人工决定是否应回到
+采样/进化阶段。该策略避免为了让公式短而错误删除真实机制。
 
 ---
 
@@ -292,12 +303,12 @@ $PYTHON evolution_pipeline.py \
 
 命令结束时会打印运行目录，例如
 `outputs/Gated_Evolution/gated_m2_population_ecology_0_000_<timestamp>/`。只对
-最后一个 accepted spec 生成 5,000 点：
+最终定型后的 `final_spec.json` 生成 5,000 点：
 
 ```bash
 $PYTHON data_generator/generate_from_spec.py \
-  --spec outputs/Gated_Evolution/gated_m2_population_ecology_0_000_<timestamp>/accepted_specs.jsonl \
-  --index 5 --n-total 5000
+  --spec outputs/Gated_Evolution/gated_m2_population_ecology_0_000_<timestamp>/final_spec.json \
+  --n-total 5000
 ```
 
 OpenRouter 只需把上面 Stage 4–6a 命令的认证和模型替换为：
