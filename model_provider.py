@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import json
 import os
+import random
+import time
 from typing import Any, Literal
 
 import anthropic
@@ -143,20 +145,31 @@ class ModelCaller:
             payload["tool_choice"] = "auto"
 
         endpoint = self.openrouter_base_url.rstrip("/") + "/chat/completions"
-        try:
-            response = httpx.post(
-                endpoint,
-                headers={
-                    "Authorization": f"Bearer {self.openrouter_api_key}",
-                    "Content-Type": "application/json",
-                    "HTTP-Referer": "https://github.com/llm-srbench",
-                    "X-Title": "LLM-SRBench v5",
-                },
-                json=payload,
-                timeout=120.0,
-            )
-        except httpx.HTTPError as exc:
-            raise ModelRequestError(f"OpenRouter connection failed: {exc}") from exc
+        max_retries = int(os.environ.get("SRBENCH_OPENROUTER_MAX_RETRIES", "6"))
+        response: httpx.Response | None = None
+        for attempt in range(max_retries + 1):
+            try:
+                response = httpx.post(
+                    endpoint,
+                    headers={
+                        "Authorization": f"Bearer {self.openrouter_api_key}",
+                        "Content-Type": "application/json",
+                        "HTTP-Referer": "https://github.com/llm-srbench",
+                        "X-Title": "LLM-SRBench v5",
+                    },
+                    json=payload,
+                    timeout=120.0,
+                )
+            except httpx.HTTPError as exc:
+                if attempt >= max_retries:
+                    raise ModelRequestError(f"OpenRouter connection failed: {exc}") from exc
+                time.sleep(min(30.0, 2 ** attempt) * random.random())
+                continue
+            if response.status_code not in {429, 500, 502, 503, 504} or attempt >= max_retries:
+                break
+            time.sleep(min(30.0, 2 ** attempt) * random.random())
+        if response is None:  # pragma: no cover - defensive setup guard
+            raise ModelRequestError("OpenRouter request produced no response.")
         if response.is_error:
             try:
                 detail = response.json().get("error", response.text)

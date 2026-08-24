@@ -15,8 +15,6 @@ SRBench 是一套用大语言模型（LLM）自动构建 **符号回归（Symbol
 - [Provider 与模型配置](#provider-与模型配置)
 - [快速开始（完整流水线）](#快速开始完整流水线)
 - [门控演化：防止 parent 可替代 child](#门控演化防止-parent-可替代-child)
-- [最终定型：冗余项审计](#最终定型冗余项审计)
-- [AI Scaling Laws 固定种子](#ai-scaling-laws-固定种子)
 - [各阶段独立用法](#各阶段独立用法)
 - [输出产物](#输出产物)
 - [关键设计特性](#关键设计特性)
@@ -27,10 +25,10 @@ SRBench 是一套用大语言模型（LLM）自动构建 **符号回归（Symbol
 ## 整体流程
 
 基础流水线由一串可独立运行的命令行脚本组成，上游脚本把结果写入文件，
-下游脚本用 `--input` / `--spec` 指向该文件继续处理。对于需要避免
-“parent 重新拟合后仍可替代 child”的实验，推荐使用 `evolution_pipeline.py`
-作为 Stage 4–6a 的门控总控入口。进程内耦合还包括 `auto_workflow.py` 的前三
-阶段，以及 `equation_evolve.py` 对 `novelty_check.py` 的调用。
+下游脚本用 `--input` / `--spec` 指向该文件继续处理。对于最终以模型实际解题
+难度筛题的实验，使用 `evolution_pipeline.py` 作为 Stage 4–7 的总控入口：先完整
+生成 `gen0 → gen5`，再以外部符号回归模型的 test R² 筛选。进程内耦合还包括
+`auto_workflow.py` 的前三阶段，以及 `equation_evolve.py` 对 `novelty_check.py` 的调用。
 
 ```
  学科 subject
@@ -70,74 +68,29 @@ SRBench 是一套用大语言模型（LLM）自动构建 **符号回归（Symbol
 
 阶段 5（新颖性判定）有两种用法：作为独立 CLI 批量标注，或作为阶段 4 的**停止条件**内嵌运行。
 
-### 门控演化：防止 parent 可替代 child
+### 最终难度门控：防止模型过于容易解题
 
-`evolution_pipeline.py` 是推荐的新 Stage 4–6a 总控入口。每一个候选 child
-先按原来的 DataGenSpec Agent 流程规划参数、初值、噪声与采样范围；只有当
-初始区域内 parent 仍可替代 child 时，才允许一次受约束的采样区间重规划：
+`evolution_pipeline.py` 的选择单位是一整条谱系，而非每一代 child。它先从同一
+`gen0` 连续演化到 `gen5`，再做 novelty check、生成数据并让指定的 Opus / GPT
+符号回归评测器实际解题。只有该评测器的正式 `clipped test R²` 超过阈值时，才
+允许一次受约束的采样区间重规划：
 
 ```text
-accepted parent
-  → LLM 提出 child
-  → Spec Agent 生成 child DataGenSpec（现有 excitation_check 仍须通过）
-  → 在 child 的既有范围内，用 child 数据重新拟合 parent 参数
-  → 独立 holdout 评估 parent → child
-       R² > 0.90：同一 child 进行一次“仅改 range”的采样重规划
-                    → 再跑 excitation_check 与 parent-refit Gate A
-                    → 仍然 R² > 0.90 才拒绝并反馈给下一次 child 提议
-       R² ≤ 0.90：接受，child 成为下一代 parent
+gen0 → gen1 → gen2 → gen3 → gen4 → gen5
+  → novelty_check（必须 Yes）
+  → Spec Agent 生成 gen5 DataGenSpec（excitation_check 仍须通过）
+  → 生成 5,000 点总数据：4,500 点训练数据 + 500 点独立 hidden test 数据
+  → 外部 SR solver 计算 raw test R² → clip 到 [-1, 1]
+       clipped test R² > 0.90：同一 gen5 一次“仅改 range”的采样重规划
+                    → 重新生成数据并让同一 solver 重做
+                    → 仍然 > 0.90：丢弃整条谱系，回到 gen0 重做 5 次演化
+       clipped test R² ≤ 0.90：接受 gen5 为最终题
 ```
 
 重规划锁定方程、变量集合、参数、噪声、初值、ODE 状态结构、采样密度与 scale；
-只能修改既有独立变量的数值范围。这样可给“结构真实不同、但初始实验窗口没
-采到”的 child 一次机会，同时不会用改参数或改方程人为通过 gate。
-
-静态显式方程在 child 的原采样盒内取独立的 fit/test 点；ODE 则在 child
-积分轨迹的交错时间点上，比较 parent 的目标状态 RHS 与 child 的导数标签。
-报告会明确标为 `ode_rhs_on_child_trajectory`，因此不会把它误读成完整 ODE
-轨迹的可替代性。每次拒绝均写入 `rejected_candidates.jsonl`，已接受的谱系和
-对应 spec 分别写入 `accepted_lineage.jsonl`、`accepted_specs.jsonl`。
-
-### 最终定型：冗余项审计
-
-最后一个 accepted child 不会马上出数据，而是先运行 `dead_term_audit.py` 的
-固定域审计。它只会自动删除一类完全安全的项：顶层加项在最终固定参数代入后
-**严格等于零**。例如 (c x^4) 且最终 (c=0)，会从最终 `DataGenSpec` 移除。
-
-对于“高阶但很小”的项，默认**不自动删**：高阶不是冗余，且在当前区域小并不
-代表机制无效。此类项只会记录为 `microscopic_*_review`，供人工决定是否应回到
-采样/进化阶段。该策略避免为了让公式短而错误删除真实机制。
-
-### AI Scaling Laws 固定种子
-
-`seeds/ai_scaling_laws_equations.jsonl` 提供七条无需 LLM 生成的、文献锚定的
-AI / `scaling_laws` gen0 记录。它们不是对 SLDBench 多-group 设定的复现：每条
-都是一个固定、单输出的具体训练实验背景，可直接进入本项目的单方程演化流程。
-
-```text
-parallel          L(N, P)       Chen et al. (2025)
-vocabulary        L(N, V, D)    Tao et al. (2024)
-sft               L(D)          Lin et al. (2024)
-moe               L(N, E)       Krajewski et al. (2024)
-data_constrained  L(N, D, U)    Muennighoff et al. (2023)
-lr_bsz            L(lr, bsz,D,N)  Step-Law-derived SLDBench baseline
-u_shape           Brier(log C)  Wu and Lo (2024)
-```
-
-`domain_mix` 暂未放入这份单方程种子：其输入是满足非负且和为 1 的数据混合
-比例向量（simplex），需要专门的采样器。七条 seed 的具体背景、变量含义、文献
-来源和允许的机制方向均写在各自 `scenario_text` 中；调用只从 evolve 阶段开始：
-
-```bash
-PYTHON=/Users/hubertlinhong/miniconda3/envs/srbench-agent/bin/python
-
-$PYTHON evolution_pipeline.py \
-  --input seeds/ai_scaling_laws_equations.jsonl \
-  --id ai_scaling_vocabulary_000 \
-  --discipline AI \
-  --steps 5 --max-attempts-per-generation 4 \
-  --reject-r2 0.90 --seed 42
-```
+只能修改既有独立变量的数值范围。重做谱系时会把“模型过易解题”的反馈传给
+evolver，要求每个 parent→child 是实质性的机制差异，而非只调系数。每次谱系
+尝试、novelty 判定、采样重规划和 solver 分数都会写入输出目录供审计。
 
 ---
 
@@ -147,12 +100,13 @@ $PYTHON evolution_pipeline.py \
 SRBench/
 ├── auto_workflow.py              # 阶段 1–3：学科→子领域→场景→方程（自带 LLM 调用）
 ├── equation_evolve.py            # 阶段 4：把一个方程演化成更复杂的方程谱系
+├── merge_equations.py            # 合并多个学科的 Stage-3 方程 JSONL
 ├── novelty_check.py              # 阶段 5：判断方程是否"新颖"（可背诵 vs 需从数据发现）
 ├── data_spec_agent_sdk.py        # 阶段 6a：Agent 生成 DataGenSpec（数据生成规格，不算数据）
 ├── model_provider.py             # 共享的 LLM 传输层（anthropic / openrouter 适配）
 ├── use_openrouter.sh             # 配置 OpenRouter 环境变量的辅助脚本
 ├── taxonomy/
-│   └── subfield_taxonomy_v1.json # 冻结的学科-子领域分类表（5 学科 × 14 子领域）
+│   └── subfield_taxonomy_v1.json # 冻结的学科-子领域分类表（含 physics / biology / AI 等）
 └── data_generator/
     ├── generate_from_spec.py     # 阶段 6b：按 spec 确定性地求解并输出 CSV
     ├── integrate_ode.py          # 参考实现：单个一阶 ODE 积分器（CLI）
@@ -178,6 +132,14 @@ outputs/                          # 所有产物（已 .gitignore，可由流水
   - `extend`：让模型提出 N 个**不重叠的新候选**子领域，仅写出供人工审核，**不生成场景/方程**。
 - **阶段 2｜subfield → scenarios**（"M2"风格）：为每个子领域生成若干自然语言场景，含 `spec`（目标变量、输入变量及范围、期望/禁止行为、机制标签、函数族）。场景 ID 形如 `m2_{subfield}_{seed}_{idx:03d}`。
 - **阶段 3｜scenario → equation**：为每个场景推导一个 **sympy 语法** 的控制方程；输出 `expression`、`symbols` 及每个符号的角色标注 `symbol_properties`（`O`=输出/目标、`V`=输入变量、`P`=参数）。
+
+AI 的 `scaling_laws` 是 taxonomy 中的固定子领域，但采用固定 gen0 方程源：
+`taxonomy/subfield_taxonomy_v1.json` 的 `fixed_equation_source` 指向
+`seeds/ai_scaling_laws_equations.jsonl`。运行 `auto_workflow.py --subject AI
+--subfield-source fixed` 时不会重复调用 Stage 2/3 LLM，而是将这 7 条经过审核的
+Scaling Laws 直接写成同样的 `Scenarios/` 与 `Equations/` checkpoint，随后可以用
+`evolution_pipeline.py` 与物理、生物完全相同地逐条进化。这样 AI 不是一套旁路格式，
+最后可用 `merge_equations.py` 合并为一个统一的 equation index。
 
 ### `equation_evolve.py` — 阶段 4（方程演化）
 取一个基准方程，逐步让它变复杂。每一步按加权硬币二选一：
@@ -216,7 +178,11 @@ outputs/                          # 所有产物（已 .gitignore，可由流水
 > 注意：`auto_workflow.py` **没有** import 本模块，而是内置了一份等价的 `ModelCaller`。
 
 ### `taxonomy/subfield_taxonomy_v1.json` — 冻结分类表
-5 个学科：`biology`、`chemistry`、`physics`、`economy`、`materials`；每个学科列出 14 个子领域，`default_n=7`（即固定实验默认取前 7 个）。每个子领域仅含 `name` 与 `description`。文件被视为**只读冻结**：扩展只能追加到末尾、不得改名/重排，`fixed` 模式下会记录其 SHA-256 以保证可复现。
+taxonomy 包含 `biology`、`chemistry`、`physics`、`economy`、`materials` 和 `AI`。
+前五个学科各列出 14 个子领域，`default_n=7`；`AI` 目前固定为一个
+`scaling_laws` 子领域和 7 条文献锚定的 gen0 方程。普通学科的 `fixed` 模式从分类表
+取子领域后调用 Stage 2/3；AI 的固定方程模式直接导入种子记录。文件被视为**只读冻结**：
+扩展只能追加到末尾、不得改名/重排，`fixed` 模式下会记录其 SHA-256 以保证可复现。
 
 ---
 
@@ -280,6 +246,18 @@ python auto_workflow.py --subject biology --scenarios 10 \
     --subfield-source fixed --run-name bio_seed0
 # 产出：outputs/Equations/bio_seed0/equations.jsonl
 
+# AI：从 taxonomy 指定的固定 seed 导入 7 条 Scaling Laws gen0（不调用 Stage 2/3 LLM）
+python auto_workflow.py --subject AI --subfield-source fixed \
+    --run-name ai_scaling_fixed
+# 产出：outputs/Equations/ai_scaling_fixed/equations.jsonl
+
+# 将不同学科的 Stage-3 方程合并成统一入口
+python merge_equations.py \
+    --input outputs/Equations/physics_7x10/equations.jsonl \
+           outputs/Equations/biology_7x10/equations.jsonl \
+           outputs/Equations/ai_scaling_fixed/equations.jsonl \
+    --output outputs/Equations/combined_physics_biology_ai.jsonl
+
 # 阶段 4（+ 内嵌阶段 5 新颖性门控）：演化其中一个方程
 python equation_evolve.py \
     --input outputs/Equations/bio_seed0/equations.jsonl \
@@ -305,56 +283,61 @@ python auto_workflow.py --subject biology --scenarios 10 --subfield-source fixed
     --provider openrouter --model anthropic/claude-opus-4.8 --run-name bio_or
 ```
 
-## 门控演化：防止 parent 可替代 child
+## 最终难度门控与 Harbor 出题
 
-下面是从已有 Stage-3 `equations.jsonl` 开始的完整推荐流程。默认门槛为：
-若重新拟合参数后的 parent 在 child 的初始独立 test 点仍达到 `R² > 0.90`，
-则先让同一 child 进行**一次仅改采样 range 的重规划**并重新做 excitation
-check；重规划后的 test R² 仍高于阈值才拒绝。重规划不允许更改方程、参数、
-初值、噪声或状态结构。
+`evolution_pipeline.py` 的一个候选是完整谱系：先从 `gen0` 至少演化到 `gen5`，
+从第 5 代起每代运行 `novelty_check`；若为 No 则继续演化，直到 Yes 或
+`--max-steps`。通过后生成 5,000 点总数据（4,500 点
+训练数据 + 500 点独立 hidden test 数据），并让调用方指定的模型在 Harbor 中解题。
+正式筛选分数为
+`clip(raw test R², -1, 1)`：若 `> 0.90`，同一公式只允许一次**仅改输入 range**
+的重采样；仍然 `> 0.90` 时丢弃整个谱系、回到同一个 gen0 重新演化。打回反馈
+要求每个 parent→child 有实质机制差异。
+
+先指定一个已经在 Harbor 中跑通的 task 目录作为模板；模板是本地运行依赖，不必
+上传 GitHub。其 Docker、task.toml 和 verifier 框架会保留，pipeline 自动替换
+训练/隐藏测试 CSV、变量名和说明。对 ODE，自动排除 `<target>_noisy`，避免标签泄露。
+Harbor 模型名不写死，完全由 `--solver-command` 中的 adapter 参数决定。
 
 ```bash
 # 使用项目的完整依赖环境；不要使用缺 scipy/sympy 的系统 python。
-PYTHON=/Users/hubertlinhong/miniconda3/envs/srbench-agent/bin/python
+PYTHON=python
 
 # Anthropic 示例：先按你的环境设置密钥/代理。
 export ANTHROPIC_API_KEY="..."
 export ANTHROPIC_BASE_URL="https://code.ppchat.vip/"
 
-# 五个“已接受”的世代；每一代最多尝试四个 child。
+# Harbor CLI 的绝对路径（按本机环境调整）。
+HARBOR=harbor
+TEMPLATE=Harbor_example
+
+# 每次尝试都完整演化 5 代；最多重做 4 条完整谱系。
+# {task} 是 pipeline 自动导出的 Harbor 题目目录。Harbor verifier 的 reward.txt
+# 会被 adapter 转为 raw_test_r2，供 pipeline 决定接受、重采样或重做谱系。
 $PYTHON evolution_pipeline.py \
-  --input outputs/Equations/bio_seed0/equations.jsonl \
+  --input outputs/Equations/biology_first7_k70_openrouter_seed0/equations.jsonl \
   --id m2_population_ecology_0_000 \
   --discipline biology \
   --steps 5 \
-  --max-attempts-per-generation 4 \
-  --reject-r2 0.90 \
-  --fit-points 1024 --test-points 1024 \
+  --max-lineage-attempts 4 \
+  --easy-r2 0.90 \
+  --n-total 5000 --test-points 500 \
+  --harbor-template "$TEMPLATE" \
+  --solver-command "$PYTHON harbor_solver_adapter.py --task {task} --harbor-bin $HARBOR --agent claude-code --model claude-opus-4-8 --env daytona --job-name srbench_gate" \
   --seed 42
 ```
 
-命令结束时会打印运行目录，例如
-`outputs/Gated_Evolution/gated_m2_population_ecology_0_000_<timestamp>/`。只对
-最终定型后的 `final_spec.json` 生成 5,000 点：
+接受后输出目录含 `final_spec.json`、最终 Harbor task、4,500 点训练 CSV、500 点
+hidden test CSV、每次尝试的 novelty 记录、采样重规划和 Harbor raw/clipped test R²。
+Harbor agent 只能读取训练 CSV；500 点 hidden test 只由 verifier 读取。
 
-```bash
-$PYTHON data_generator/generate_from_spec.py \
-  --spec outputs/Gated_Evolution/gated_m2_population_ecology_0_000_<timestamp>/final_spec.json \
-  --n-total 5000
-```
-
-OpenRouter 只需把上面 Stage 4–6a 命令的认证和模型替换为：
+若用 GPT-5.6 Sol，只需把 `--model claude-opus-4-8` 替换为实际 Harbor 可用的
+GPT-5.6 Sol 模型名。OpenRouter 只需把上面 evolution/spec 阶段认证替换为：
 
 ```bash
 source env.sh && source use_openrouter.sh
-$PYTHON evolution_pipeline.py ... \
-  --provider openrouter --model anthropic/claude-opus-4.8
+$PYTHON evolution_pipeline.py ... --provider openrouter --model anthropic/claude-opus-4.8
 ```
-
-`--index` 等于 `--steps`，因为 `accepted_specs.jsonl` 的 index 0 是 gen0
-parent，之后每一个 index 都是一个通过 gate 的 child。若某代连续达到
-`--max-attempts-per-generation` 次仍不能通过，流程会安全停止；已接受谱系、
-spec 和拒绝审计都保留，可从输出中查看该调低分门槛还是需要更换机制。
 
 ---
 

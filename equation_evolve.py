@@ -471,6 +471,12 @@ def _validate_ode_structure(
         raise EvolvedEquationValidationError(
             "expression must exactly equal the target state's RHS"
         )
+    # A state is defined by the left-hand side of its own ODE, even when it is a
+    # pure accumulator and therefore never appears on a RHS.  Classical SIR's
+    # recovered compartment is the canonical example: dR/dt = gamma*I.  Count
+    # declared state symbols as used, while retaining the check for genuinely
+    # unused parameters or other symbols.
+    used_anywhere |= state_set
     unused = sorted(
         symbol for symbol in symbols
         if symbol not in {target_symbol, time_symbol} and symbol not in used_anywhere
@@ -882,11 +888,11 @@ def evolve_once(
                 prompt += "\nASSUMPTION MODE: " + assumption_mode_note + "\n"
             if difficulty_feedback:
                 prompt += (
-                    "\nNUMERICAL DIFFICULTY FEEDBACK FROM A REJECTED PRIOR CHILD:\n"
+                    "\nFINAL-BENCHMARK DIFFICULTY FEEDBACK FROM A REJECTED PRIOR LINEAGE:\n"
                     + difficulty_feedback.strip()
-                    + "\nDo not merely add a small coefficient correction that a refitted "
-                    "parent can absorb. Change the governing mechanism so the parent "
-                    "cannot reproduce the child over the existing experimental domain.\n"
+                    + "\nDo not merely add a small coefficient correction that a parent "
+                    "can absorb. Make every immediate child structurally distinguishable "
+                    "from its parent over a plausible experimental domain.\n"
                 )
             if last_err is not None:
                 prompt += (

@@ -502,6 +502,118 @@ def _sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _fixed_equation_scenario(equation: dict, discipline: str) -> dict:
+    """Adapt a reviewed Stage-3 seed into the common scenario checkpoint shape."""
+    symbols = equation.get("symbols", [])
+    descriptions = equation.get("symbol_descriptions", [])
+    properties = equation.get("symbol_properties", [])
+    inputs = []
+    for symbol, description, role in zip(symbols, descriptions, properties):
+        if role == "V":
+            inputs.append({"symbol": symbol, "description": description})
+    scenario_id = equation.get("scenario_id") or equation.get("id")
+    if not isinstance(scenario_id, str) or not scenario_id:
+        raise SystemExit("Fixed equation records require a non-empty scenario_id.")
+    expression = equation.get("expression")
+    if not isinstance(expression, str) or not expression.strip():
+        raise SystemExit(f"Fixed equation '{scenario_id}' has no expression.")
+    return {
+        "id": scenario_id,
+        "discipline": discipline,
+        "subfield": equation.get("subfield", ""),
+        "mechanism_tag": "fixed_literature_seed",
+        "functional_family": "fixed_equation",
+        "scenario_text": equation.get("scenario_text", ""),
+        "generation_mode": "fixed",
+        "spec": {
+            "model_family": equation.get("model_family", "static"),
+            "target_symbol": equation.get("target_symbol", "y"),
+            "target_description": descriptions[0] if descriptions else "target quantity",
+            "input_symbols": inputs,
+            "expected_behaviors": [],
+            "forbidden_behaviors": [],
+        },
+    }
+
+
+def _run_fixed_equation_import(
+    args: argparse.Namespace,
+    taxonomy_path: Path,
+    source_path: Path,
+    expected_count: int | None = None,
+) -> None:
+    """Write fixed gen0 equations using the same checkpoints as Stage 3."""
+    records = _load_jsonl(source_path)
+    if not records:
+        raise SystemExit(f"Fixed equation source is empty: {source_path}")
+    if expected_count is not None and len(records) != expected_count:
+        raise SystemExit(
+            f"Fixed equation source has {len(records)} records, but taxonomy requires "
+            f"{expected_count}: {source_path}"
+        )
+    equation_ids: set[str] = set()
+    equations: list[dict] = []
+    scenarios: list[dict] = []
+    for raw in records:
+        item = dict(raw)
+        scenario = _fixed_equation_scenario(item, args.subject)
+        scenario_id = scenario["id"]
+        if scenario_id in equation_ids:
+            raise SystemExit(f"Duplicate fixed equation id: {scenario_id}")
+        equation_ids.add(scenario_id)
+        item["scenario_id"] = scenario_id
+        item["discipline"] = args.subject
+        item["subfield"] = scenario["subfield"]
+        item["generation_mode"] = "fixed"
+        scenarios.append(scenario)
+        equations.append(item)
+
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    base_out = Path(args.output_dir) if args.output_dir else Path(__file__).resolve().parent / "outputs"
+    run_name = args.run_name or f"{args.subject}_fixed_{timestamp}"
+    scenarios_dir = base_out / "Scenarios" / run_name
+    equations_dir = base_out / "Equations" / run_name
+    checkpoint_paths = [
+        scenarios_dir / "subfields.json", scenarios_dir / "scenarios.jsonl",
+        equations_dir / "equations.jsonl", equations_dir / "run_meta.json",
+    ]
+    existing = [path for path in checkpoint_paths if path.exists()]
+    if existing:
+        raise SystemExit(
+            f"Run '{run_name}' already has checkpoint files; choose a new --run-name: "
+            + ", ".join(str(path) for path in existing)
+        )
+    scenarios_dir.mkdir(parents=True, exist_ok=True)
+    equations_dir.mkdir(parents=True, exist_ok=True)
+    taxonomy, subfields = _load_taxonomy_subject(taxonomy_path, args.subject)
+    _write_json(scenarios_dir / "subfields.json", {
+        "discipline": args.subject, "subfield_source": "fixed",
+        "taxonomy_file": str(taxonomy_path),
+        "taxonomy_sha256": _sha256_file(taxonomy_path), "subfields": subfields,
+    })
+    _write_jsonl(scenarios_dir / "scenarios.jsonl", scenarios)
+    _write_jsonl(equations_dir / "equations.jsonl", equations)
+    _write_jsonl(equations_dir / "equation_failures.jsonl", [])
+    _build_combined_xlsx(equations_dir / "pipeline.xlsx", scenarios, equations)
+    _write_json(equations_dir / "run_meta.json", {
+        "status": "complete", "run_name": run_name, "subject": args.subject,
+        "subfield_source": "fixed", "equation_mode": "fixed",
+        "fixed_equation_source": str(source_path),
+        "fixed_equation_sha256": _sha256_file(source_path),
+        "n_subfields": len(subfields), "subfield_names": [sf["name"] for sf in subfields],
+        "n_scenarios_generated": len(scenarios), "n_equations_ok": len(equations),
+        "n_equations_failed": 0, "timestamp": timestamp,
+    })
+    _write_json(equations_dir / "progress.json", {
+        "stage": "complete", "n_scenarios_generated": len(scenarios),
+        "n_equations_ok": len(equations), "n_equations_failed": 0,
+        "status": "complete",
+    })
+    print(f"Fixed equations imported: {len(equations)}", file=sys.stderr)
+    print(f"  Scenarios: {scenarios_dir}", file=sys.stderr)
+    print(f"  Equations: {equations_dir}", file=sys.stderr)
+
+
 def _next_scenario_index(records: list[dict], subfield: str, seed: int) -> int:
     prefix = f"m2_{subfield}_{seed}_"
     indices = []
@@ -1239,7 +1351,12 @@ def _build_combined_xlsx(
             "equation_error": eq.get("error", ""),
         })
 
-    pd.DataFrame(rows).to_excel(out_path, index=False)
+    try:
+        pd.DataFrame(rows).to_excel(out_path, index=False)
+    except ImportError as exc:
+        # pandas is optional and its Excel engine is an independent optional
+        # dependency; JSON/JSONL checkpoints remain the source of truth.
+        print(f"    (Excel engine unavailable; skipping xlsx export: {exc})", file=sys.stderr)
 
 
 # ============================================================
@@ -1252,7 +1369,7 @@ def main() -> None:
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument("--subject", required=True,
-                        help="Discipline, e.g. physics, chemistry, biology, geology, economy")
+                        help="Discipline, e.g. physics, biology, AI, chemistry, economy")
     parser.add_argument("--scenarios", type=int, default=None,
                         help="Total scenarios to generate; required for fixed/generate runs")
     parser.add_argument("--n-subfields", type=int, default=None,
@@ -1263,6 +1380,8 @@ def main() -> None:
     parser.add_argument("--taxonomy-file",
                         default=str(Path(__file__).resolve().parent / "taxonomy" / "subfield_taxonomy_v1.json"),
                         help="Frozen taxonomy JSON used by fixed/extend modes")
+    parser.add_argument("--fixed-equations", default=None,
+                        help="Import reviewed Stage-3 equations directly instead of calling the scenario/equation LLMs")
     parser.add_argument("--new-subfields", type=int, default=None,
                         help="Number of extension candidates; required with --subfield-source extend")
     parser.add_argument("--extension-output", default=None,
@@ -1304,6 +1423,33 @@ def main() -> None:
     source: SubfieldSource = args.subfield_source
     taxonomy_path = Path(args.taxonomy_file).expanduser().resolve()
     equation_model = args.equation_model or args.model
+
+    # A taxonomy subject may declare a reviewed fixed-equation source.  Such
+    # records already are Stage-3 gen0 equations, so they use the common
+    # checkpoint layout without making redundant Stage-2/3 API calls.
+    fixed_source_value = args.fixed_equations
+    fixed_equation_count: int | None = None
+    if fixed_source_value is None and source == "fixed":
+        taxonomy_for_mode, _ = _load_taxonomy_subject(taxonomy_path, args.subject)
+        subject_entry = taxonomy_for_mode["subjects"][args.subject]
+        if subject_entry.get("equation_mode") == "fixed":
+            fixed_source_value = subject_entry.get("fixed_equation_source")
+            fixed_equation_count = subject_entry.get("fixed_equation_count")
+    if fixed_source_value:
+        if source != "fixed":
+            raise SystemExit("--fixed-equations requires --subfield-source fixed.")
+        if args.resume:
+            raise SystemExit("--resume is not supported for fixed equation imports; use a new --run-name.")
+        source_path = Path(fixed_source_value).expanduser()
+        if not source_path.is_absolute():
+            repo_relative = Path(__file__).resolve().parent / source_path
+            source_path = repo_relative if repo_relative.exists() else source_path.resolve()
+        if args.dry_run:
+            print(f"[dry-run] Would import fixed equations from {source_path}.", file=sys.stderr)
+            return
+        _run_fixed_equation_import(args, taxonomy_path, source_path, fixed_equation_count)
+        return
+
     rng = random.Random(args.seed)
     fixed_subfields: list[dict] | None = None
     n_subfields = 0

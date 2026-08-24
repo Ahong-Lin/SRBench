@@ -1185,7 +1185,11 @@ def _sampling_replan_block(sampling_replan: dict | None) -> str:
     if not sampling_replan:
         return "SAMPLING REPLAN: none; create the initial complete DataGenSpec."
     baseline = sampling_replan.get("baseline_spec", {})
-    report = sampling_replan.get("parent_refit_report", {})
+    # The redesign can be triggered either by the legacy parent-refit gate or
+    # by the final external SR solver.  Both reports share a score/diagnostic
+    # role; do not bake the parent-refit interpretation into the spec prompt.
+    report = (sampling_replan.get("difficulty_report")
+              or sampling_replan.get("parent_refit_report", {}))
     axes = [
         {key: item.get(key) for key in ("symbol", "range", "n_points", "scale")}
         for item in baseline.get("independent_variables", []) or []
@@ -1198,12 +1202,10 @@ def _sampling_replan_block(sampling_replan: dict | None) -> str:
     }
     return (
         "SAMPLING REPLAN — THIS IS THE ONE ALLOWED REDESIGN PASS:\n"
-        "The equation and its initial spec were valid, but a refitted parent still "
-        f"achieved test R²={report.get('parent_to_child_r2')} (threshold "
-        f"{report.get('threshold_r2')}). The goal is to make an existing structural "
-        "difference observable in a physically plausible experiment.\n"
-        f"DIAGNOSTIC FROM THE INITIAL GATE (where refitted-parent residual was largest):\n"
-        f"{json.dumps(report.get('residual_hotspots', {}), ensure_ascii=False)}\n"
+        "The equation and its initial spec were valid, but the initial benchmark "
+        f"difficulty score was too high (report: {json.dumps(report, ensure_ascii=False)}). "
+        "The goal is to make existing nonlinear/structural behavior observable in "
+        "a physically plausible experiment, without changing the equation.\n"
         "You MUST keep every locked field below exactly unchanged. You may change ONLY "
         "the numeric `range` of each existing independent variable. Do not add/remove "
         "variables; do not alter n_points, scale, parameters, noise, initial conditions, "

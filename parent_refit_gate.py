@@ -252,7 +252,10 @@ def evaluate_parent_refit(
     n_test: int = 1024,
 ) -> dict:
     """Fit parent parameters to child data and return an auditable gate verdict."""
-    if child_spec.get("equation_type") == "static_explicit" and child_spec.get("integrator") == "evaluate_explicit":
+    # DataGenSpec owns the executable classification.  Evolution records use
+    # ``static_explicit`` while specs use ``explicit``, so matching the record
+    # vocabulary against a spec would make every static candidate unassessable.
+    if child_spec.get("integrator") == "evaluate_explicit":
         report = _explicit_gate(parent_record, child_spec, parent_spec, fit_seed=fit_seed,
                                 test_seed=test_seed, n_fit=n_fit, n_test=n_test)
     elif child_record.get("model_family") == "ode":
