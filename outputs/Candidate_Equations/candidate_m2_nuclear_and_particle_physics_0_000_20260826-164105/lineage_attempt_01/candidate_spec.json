@@ -1,0 +1,259 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "N",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        50.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "lambda_decay",
+      "value": 0.05
+    },
+    {
+      "symbol": "beta_stim",
+      "value": 0.5
+    },
+    {
+      "symbol": "N_ref",
+      "value": 2000.0
+    },
+    {
+      "symbol": "gamma_2body",
+      "value": 0.01
+    },
+    {
+      "symbol": "N_sat",
+      "value": 1000.0
+    },
+    {
+      "symbol": "sigma_capture",
+      "value": 1e-05
+    },
+    {
+      "symbol": "kappa_prod",
+      "value": 0.5
+    },
+    {
+      "symbol": "eta_absorb",
+      "value": 1e-05
+    },
+    {
+      "symbol": "mu_leak",
+      "value": 0.02
+    },
+    {
+      "symbol": "alpha_flux",
+      "value": 0.1
+    },
+    {
+      "symbol": "phi_source",
+      "value": 0.01
+    },
+    {
+      "symbol": "chi_burn",
+      "value": 1e-06
+    },
+    {
+      "symbol": "tau_flux",
+      "value": 0.05
+    },
+    {
+      "symbol": "rho_ind",
+      "value": 0.05
+    },
+    {
+      "symbol": "Phi_thr",
+      "value": 1.0
+    }
+  ],
+  "benchmark_output": "dN_dt",
+  "benchmark_target_state": "N",
+  "observed_variables": [
+    "t",
+    "N",
+    "D",
+    "Phi"
+  ],
+  "rhs_for_integrator": "-lambda_decay * N * (1 + beta_stim * exp(-N / N_ref)) - gamma_2body * N**2 / (N + N_sat) + sigma_capture * D * N * (1 + alpha_flux * Phi) + rho_ind * Phi**2 * N / (Phi**2 + Phi_thr**2)",
+  "state_variables": [
+    "N",
+    "D",
+    "Phi"
+  ],
+  "state_rhs": [
+    "-lambda_decay * N * (1 + beta_stim * exp(-N / N_ref)) - gamma_2body * N**2 / (N + N_sat) + sigma_capture * D * N * (1 + alpha_flux * Phi) + rho_ind * Phi**2 * N / (Phi**2 + Phi_thr**2)",
+    "kappa_prod * gamma_2body * N**2 / (N + N_sat) - eta_absorb * D * N - mu_leak * D",
+    "phi_source * gamma_2body * N**2 / (N + N_sat) - chi_burn * Phi * N - tau_flux * Phi"
+  ],
+  "initial_conditions": {
+    "N": 10000.0,
+    "D": 0.0,
+    "Phi": 0.0
+  },
+  "noise": 2.0,
+  "sanity_expectations": [
+    "N starts at 10000 and initially decreases (dN/dt(0) ~ -593)",
+    "D starts at 0 and becomes positive as two-body loss feeds precursor production",
+    "Phi starts at 0 and rises monotonically early, eventually exceeding Phi_thr=1",
+    "all three states remain finite and real over t in [0,50]",
+    "the flux-induced regeneration term grows in importance with time as Phi accumulates"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "ode_system mode, full child-vs-parent trajectory comparison on target N over t in [0,50]. New term rho_ind*Phi^2*N/(Phi^2+Phi_thr^2): max effect on N-trajectory ~6963.6, i.e. ~3481x sigma (sigma=2.0), strongest at t=50 as Phi builds up from 0 past Phi_thr=1. Passes 5x bar strongly. Inherited terms at t=0 (D=Phi=0): decay term ~502 (>250x sigma), two-body term ~91 (>45x sigma); capture term grows as D accumulates. All terms visible above noise.",
+  "role_corrections": [
+    "N: target dynamic state -> dependent variable (confirmed; RHS defines dN_dt)",
+    "t: time axis -> independent variable (confirmed; only sampling axis)",
+    "D: dynamic state -> state variable (confirmed; has own governing RHS)",
+    "Phi: dynamic state -> state variable (confirmed; has own governing RHS)",
+    "lambda_decay: parameter -> fixed (confirmed)",
+    "beta_stim: parameter -> fixed (confirmed)",
+    "N_ref: parameter -> fixed (confirmed)",
+    "gamma_2body: parameter -> fixed (confirmed)",
+    "N_sat: parameter -> fixed (confirmed)",
+    "sigma_capture: parameter -> fixed (confirmed)",
+    "kappa_prod: parameter -> fixed (confirmed)",
+    "eta_absorb: parameter -> fixed (confirmed)",
+    "mu_leak: parameter -> fixed (confirmed)",
+    "alpha_flux: parameter -> fixed (confirmed)",
+    "phi_source: parameter -> fixed (confirmed)",
+    "chi_burn: parameter -> fixed (confirmed)",
+    "tau_flux: parameter -> fixed (confirmed)",
+    "rho_ind: parameter -> fixed (confirmed; new-term coefficient, set to 0.05 within suggested 1e-4..0.1)",
+    "Phi_thr: parameter -> fixed (confirmed; new-term threshold, set to 1.0 within suggested 0.01..10)"
+  ],
+  "rationale": "Typed ODE-system contract inherited verbatim (states N,D,Phi; three RHS; ICs N=10000,D=0,Phi=0). Only time range, fixed parameters, and noise were chosen. lambda_decay=0.05 sets a ~20-unit decay timescale, so t in [0,50] (300 pts) captures both the initial decay and the buildup of the daughter pool D and flux Phi that drive regeneration. gamma_2body=0.01 keeps the two-body loss comparable to decay while seeding kappa_prod/phi_source production of D and Phi; small chi_burn and moderate tau_flux let Phi accumulate past Phi_thr=1 so the NEW induced-regeneration term becomes strongly visible. check_substitution at a representative point is finite/real; excitation_check (is_ode) confirms the new term reaches ~3481x sigma. Noise sigma=2.0 (~0.3% of the initial |dN/dt|) is small vs the dominant term yet is exceeded by every mechanism.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "-lambda_decay * N * (1 + beta_stim * exp(-N / N_ref)) - gamma_2body * N**2 / (N + N_sat) + sigma_capture * D * N * (1 + alpha_flux * Phi) + rho_ind * Phi**2 * N / (Phi**2 + Phi_thr**2)",
+        "target_symbol": "N"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "D",
+          "N",
+          "N_ref",
+          "N_sat",
+          "Phi",
+          "Phi_thr",
+          "alpha_flux",
+          "beta_stim",
+          "gamma_2body",
+          "lambda_decay",
+          "rho_ind",
+          "sigma_capture"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": false,
+        "explicit_solution_preview": null,
+        "classification_hint": "implicit_or_explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "-lambda_decay * N * (1 + beta_stim * exp(-N / N_ref)) - gamma_2body * N**2 / (N + N_sat) + sigma_capture * D * N * (1 + alpha_flux * Phi) + rho_ind * Phi**2 * N / (Phi**2 + Phi_thr**2)",
+        "assignments": {
+          "lambda_decay": 0.05,
+          "beta_stim": 0.5,
+          "N_ref": 2000,
+          "gamma_2body": 0.01,
+          "N_sat": 1000,
+          "sigma_capture": 1e-05,
+          "alpha_flux": 0.1,
+          "rho_ind": 0.05,
+          "Phi_thr": 1,
+          "N": 10000,
+          "D": 378,
+          "Phi": 15
+        },
+        "target_symbol": "N"
+      },
+      "result": {
+        "ok": true,
+        "value_real": -0.3059670393933942,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "N_ref": 2000,
+          "N_sat": 1000,
+          "Phi_thr": 1,
+          "alpha_flux": 0.1,
+          "beta_stim": 0.5,
+          "chi_burn": 1e-06,
+          "eta_absorb": 1e-05,
+          "gamma_2body": 0.01,
+          "kappa_prod": 0.5,
+          "lambda_decay": 0.05,
+          "mu_leak": 0.02,
+          "phi_source": 0.01,
+          "rho_ind": 0.05,
+          "sigma_capture": 1e-05,
+          "tau_flux": 0.05
+        },
+        "indep": [
+          {
+            "symbol": "t",
+            "range": [
+              0,
+              50
+            ],
+            "n_points": 300
+          }
+        ],
+        "is_ode": true,
+        "sigma": 2
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "N",
+        "child_state_count": 3,
+        "parent_state_count": 3,
+        "n_time_points": 300,
+        "new_term_max_effect": 6963.626136071255,
+        "new_term_sigma_multiple": 3481.8130680356276,
+        "strongest_at": {
+          "t": 50.0
+        },
+        "k": 5.0,
+        "passes": true,
+        "advice": "new mechanism is visible on the target trajectory"
+      }
+    }
+  ],
+  "_cost_usd": 0.49730300000000005,
+  "_num_turns": 6,
+  "discipline": "physics",
+  "scenario_text": "A sample of unstable nuclei is prepared and left to decay without replenishment. The number of surviving parent nuclei is monitored over time. The decay proceeds through a single dominant channel with a fixed transition probability per unit time. The observed depletion reflects the intrinsic instability of the nuclear state.",
+  "record_id": "m2_nuclear_and_particle_physics_0_000",
+  "generation": 5,
+  "_n_total": 5000
+}

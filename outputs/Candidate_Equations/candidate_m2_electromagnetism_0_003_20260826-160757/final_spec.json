@@ -1,0 +1,257 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "Q",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        30.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "L",
+      "value": 1.0
+    },
+    {
+      "symbol": "R",
+      "value": 0.2
+    },
+    {
+      "symbol": "C",
+      "value": 1.0
+    },
+    {
+      "symbol": "beta_nl",
+      "value": 0.01
+    },
+    {
+      "symbol": "tau_c",
+      "value": 2.0
+    },
+    {
+      "symbol": "R_sat",
+      "value": 0.5
+    },
+    {
+      "symbol": "I_sat",
+      "value": 1.0
+    },
+    {
+      "symbol": "alpha_ms",
+      "value": 0.05
+    },
+    {
+      "symbol": "V_bd",
+      "value": 1.0
+    },
+    {
+      "symbol": "Q_bd",
+      "value": 1.0
+    },
+    {
+      "symbol": "R_leak",
+      "value": 2.0
+    }
+  ],
+  "benchmark_output": "dQ_dt",
+  "benchmark_target_state": "Q",
+  "observed_variables": [
+    "t",
+    "Q",
+    "I",
+    "phi"
+  ],
+  "rhs_for_integrator": "I - (V_bd/(R_leak))*tanh(Q/Q_bd)",
+  "state_variables": [
+    "Q",
+    "I",
+    "phi"
+  ],
+  "state_rhs": [
+    "I - (V_bd/(R_leak))*tanh(Q/Q_bd)",
+    "-(R/L)*(1 + R_sat*phi)*I - Q/(L*C) - beta_nl*Q**3/L - (alpha_ms/L)*(I**2/I_sat**2 - phi)/tau_c - (V_bd/L)*tanh(Q/Q_bd)",
+    "(I**2/I_sat**2 - phi)/tau_c"
+  ],
+  "initial_conditions": {
+    "Q": 3.0,
+    "I": 0.5,
+    "phi": 0.0
+  },
+  "noise": 0.05,
+  "sanity_expectations": [
+    "Q oscillates near natural frequency omega0=1/sqrt(LC)~1 rad/s (period ~6.28 s) with decaying amplitude",
+    "trajectory is bounded and finite/real over t in [0,30]",
+    "I oscillates roughly 90 deg out of phase with Q and decays",
+    "phi rises from 0 toward the running mean of I^2/I_sat^2 then relaxes as amplitude decays (non-negative, bounded)",
+    "the leakage term bleeds charge, so the child Q trajectory drifts/decays faster than the parent (dQ_dt=I) case",
+    "amplitudes decrease over time (net dissipative system)"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "Noise sigma=0.05 on the benchmark output dQ_dt. New term -(V_bd/R_leak)*tanh(Q/Q_bd) vs parent (dQ_dt=I): peak effect 0.602 on the Q trajectory = 12.0*sigma (k=5 threshold), strongest at t~3.17. Dominant term I reaches amplitude ~3 (>>60*sigma). Other terms exercised over the run: Q/(L*C) restoring (~3), beta_nl*Q^3 stiffening (~0.27, ~9% of restoring), R_sat*phi flux-dependent damping (phi builds toward mean(I^2/I_sat^2)~a few), alpha_ms magnetostrictive coupling and tanh back-EMF all active. New leakage mechanism clearly visible above noise.",
+  "role_corrections": [
+    "t: V->V (confirmed as sole time axis / independent variable)",
+    "Q: dynamic state -> dynamic state (confirmed; target_state, dependent variable)",
+    "I: dynamic state -> dynamic state (confirmed)",
+    "phi: dynamic state -> dynamic state (confirmed; internal flux-state)",
+    "L: P->P (confirmed; fixed 1.0 H)",
+    "R: P->P (confirmed; fixed 0.2 ohm)",
+    "C: P->P (confirmed; fixed 1.0 F)",
+    "beta_nl: P->P (confirmed; 0.01)",
+    "tau_c: P->P (confirmed; 2.0 s)",
+    "R_sat: P->P (confirmed; 0.5)",
+    "I_sat: P->P (confirmed; 1.0 A)",
+    "alpha_ms: P->P (confirmed; 0.05)",
+    "V_bd: P->P (confirmed; 1.0 V)",
+    "Q_bd: P->P (confirmed; 1.0)",
+    "R_leak: P->P (confirmed; fixed 2.0 ohm, within suggested 0.5-20.0 range)"
+  ],
+  "rationale": "Typed ODE-system contract inherited verbatim (states Q,I,phi; three RHS; ICs Q=3,I=0.5,phi=0). Only data-design choices made: lightly-damped RLC scaling L=C=1 (omega0~1), R=0.2 for visible but slow decay; time window [0,30] covers ~5 periods and lets the flux state phi build and the leakage bleed accumulate. Leakage scale V_bd/R_leak=0.5 with Q_bd=1 makes tanh saturate over the Q~3 swing, giving the new mechanism a 12*sigma imprint while staying ~1/6 of the dominant current term. R_leak=2.0 sits inside the suggested 0.5-20.0 band. Excitation confirmed via excitation_check (is_ode=true) in a single pass; no rebalancing needed.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "I - (V_bd/(R_leak))*tanh(Q/Q_bd)",
+        "target_symbol": "Q"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "I",
+          "Q",
+          "Q_bd",
+          "R_leak",
+          "V_bd"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "Q_bd*log(-sqrt(-(I*R_leak + V_bd)/(I*R_leak - V_bd)))",
+          "Q_bd*log(sqrt(-(I*R_leak + V_bd)/(I*R_leak - V_bd)))"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "-(R/L)*(1 + R_sat*phi)*I - Q/(L*C) - beta_nl*Q**3/L - (alpha_ms/L)*(I**2/I_sat**2 - phi)/tau_c - (V_bd/L)*tanh(Q/Q_bd)",
+        "assignments": {
+          "L": 1,
+          "R": 0.2,
+          "C": 1,
+          "beta_nl": 0.01,
+          "tau_c": 2,
+          "R_sat": 0.5,
+          "I_sat": 1,
+          "alpha_ms": 0.05,
+          "V_bd": 1,
+          "Q_bd": 1,
+          "R_leak": 2,
+          "Q": 3,
+          "I": 0.5,
+          "phi": 0
+        },
+        "target_symbol": "I"
+      },
+      "result": {
+        "ok": true,
+        "value_real": -4.371304753686729,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "C": 1,
+          "I_sat": 1,
+          "L": 1,
+          "Q_bd": 1,
+          "R": 0.2,
+          "R_leak": 2,
+          "R_sat": 0.5,
+          "V_bd": 1,
+          "alpha_ms": 0.05,
+          "beta_nl": 0.01,
+          "tau_c": 2
+        },
+        "indep": [
+          {
+            "symbol": "t",
+            "range": [
+              0,
+              30
+            ]
+          }
+        ],
+        "is_ode": true,
+        "sigma": 0.05
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "Q",
+        "child_state_count": 3,
+        "parent_state_count": 3,
+        "n_time_points": 200,
+        "new_term_max_effect": 0.6019908892625487,
+        "new_term_sigma_multiple": 12.039817785250975,
+        "strongest_at": {
+          "t": 3.165829145728643
+        },
+        "k": 5.0,
+        "passes": true,
+        "advice": "new mechanism is visible on the target trajectory"
+      }
+    }
+  ],
+  "_cost_usd": 0.4140885,
+  "_num_turns": 6,
+  "discipline": "physics",
+  "scenario_text": "A series circuit contains an inductor, a resistor, and a capacitor with no external driving source after an initial disturbance. The charge on the capacitor exchanges energy with the inductor while the resistor dissipates it. We track the capacitor charge and the loop current as they evolve. Component values determine both the natural frequency and the damping.",
+  "record_id": "m2_electromagnetism_0_003",
+  "generation": 5,
+  "_n_total": 5000,
+  "finalization": {
+    "mode": "candidate",
+    "accepted_generations": 5,
+    "novelty": {
+      "reasoning": "The classical baseline for the capacitor charge equation in an RLC circuit is simply dQ/dt = I, reflecting that the current is the rate of change of charge. The candidate equation adds a second term: -(V_bd/R_leak)*tanh(Q/Q_bd). This term represents a dielectric-breakdown leakage current that bleeds charge from the capacitor. The tanh form gives a saturating leakage conduction that onsets around a characteristic charge Q_bd, with V_bd/R_leak setting the saturating leakage current magnitude. While the individual concept of leakage current is physically plausible, the specific composite form combining a hyperbolic-tangent charge-dependent leakage with the breakdown voltage scale, leakage resistance, and characteristic breakdown charge is not a standard textbook expression. The classical Kirchhoff-based RLC relation dQ/dt = I is universal and easily recited, but the added nonlinear saturating leakage term is a constructed, non-standard modeling choice. An LLM could not recite this exact combined form from background knowledge; it would require inference from data describing the specific breakdown/leakage behavior. Therefore, relative to the classical baseline, the equation introduces a genuinely novel composite term.",
+      "answer": "Yes",
+      "llm_qa_history": [
+        {
+          "attempt": 1,
+          "model": "claude-opus-4-8",
+          "system_prompt": "You are a top-tier scientist with deep expertise across physics, biology,\nchemistry, and materials science. Your task is to act as a \"Novelty Evaluator\":\nobjectively judge whether a newly generated mathematical equation is\n\"scientifically novel\" within its given scientific context.\n\nCORE CRITERIA:\n- NOT NOVEL: the equation is a well-known classical formula that already exists\n  in textbooks, on the internet, or in the open scientific literature — i.e. a\n  formula that could be obtained simply by recall/recitation.\n- NOVEL: while remaining scientifically sound, the equation introduces uncommon,\n  nonlinear, or genuinely new composite mechanism terms, such that neither a\n  human nor an AI could guess it from background knowledge alone — it could only\n  be recovered through data-driven inference from experimental observations.\n",
+          "user_prompt": "[SCIENTIFIC CONTEXT]:\nField: physics\nProblem description: A series circuit contains an inductor, a resistor, and a capacitor with no external driving source after an initial disturbance. The charge on the capacitor exchanges energy with the inductor while the resistor dissipates it. We track the capacitor charge and the loop current as they evolve. Component values determine both the natural frequency and the damping.\n\n[VARIABLES & PARAMETERS]:\n- Target variable: dQ_dt (time derivative of the charge on the capacitor)\n- Input features: t (time)\n- Dynamic states: Q (charge on the capacitor); I (current flowing in the loop); phi (internal magnetic-core flux-state variable modulating effective resistance)\n- Parameters: L (inductance); R (nominal (low-current) resistance); C (capacitance); beta_nl (nonlinear capacitor stiffening coefficient); tau_c (relaxation time of the core/thermal flux state); R_sat (resistance saturation increment at high flux-state); I_sat (characteristic current scale for flux-state driving); alpha_ms (magnetostrictive back-EMF coupling coefficient linking core flux-state rate to loop EMF); V_bd (dielectric-breakdown leakage voltage scale of the capacitor); Q_bd (characteristic charge at which dielectric leakage conduction onsets); R_leak (effective leakage-path resistance converting breakdown voltage into a charge-bleed current)\n\n[CANDIDATE EQUATION]:\ndQ_dt = I - (V_bd/(R_leak))*tanh(Q/Q_bd)\n\n[CLOSED ODE SYSTEM]:\n{\n  \"time_symbol\": \"t\",\n  \"target_state\": \"Q\",\n  \"states\": [\n    {\n      \"symbol\": \"Q\",\n      \"rhs\": \"I - (V_bd/(R_leak))*tanh(Q/Q_bd)\",\n      \"initial_condition\": 3.0,\n      \"description\": \"charge on the capacitor, changing via loop current minus dielectric leakage bleed\"\n    },\n    {\n      \"symbol\": \"I\",\n      \"rhs\": \"-(R/L)*(1 + R_sat*phi)*I - Q/(L*C) - beta_nl*Q**3/L - (alpha_ms/L)*(I**2/I_sat**2 - phi)/tau_c - (V_bd/L)*tanh(Q/Q_bd)\",\n      \"initial_condition\": 0.5,\n      \"description\": \"current flowing in the loop\"\n    },\n    {\n      \"symbol\": \"phi\",\n      \"rhs\": \"(I**2/I_sat**2 - phi)/tau_c\",\n      \"initial_condition\": 0.0,\n      \"description\": \"slow internal flux/thermal state modulating effective resistance\"\n    }\n  ]\n}\n(Note: this equation comes from an equation-evolution pipeline; assume it is\nmathematically solvable and numerically stable.)\n\n[NOTE ON KNOWN / CLASSICAL TERMS]:\nThe classical / textbook starting point for this phenomenon (the baseline equation) is:\n  dQ_dt = I\nThe terms appearing in this baseline equation can be regarded as the well-known classical terms for this problem. Use this as the reference to judge whether the candidate equation, relative to this classical baseline, introduces additional novel composite terms that cannot be recited directly and could only be discovered through data-driven reasoning.\n\n---\n\nREASONING & OUTPUT REQUIREMENTS:\nLet's think step by step:\n1. Analyze each term in the candidate equation. Which terms are established\n   classical knowledge in this scientific context, and which are newly\n   introduced composite terms?\n2. Drawing on your knowledge of the scientific literature, does this COMPLETE\n   combined form of the equation appear directly in any existing textbook or\n   public reference? Could a large language model \"recite\" this exact formula\n   purely from the context and variable names above?\n3. Assess whether it has true novelty (i.e. it could only be discovered by\n   reasoning over subsequent experimental observation data).\n\nProvide your final answer STRICTLY in the following JSON format, with no extra\nMarkdown markup (no ```json):\n{\n  \"reasoning\": \"Write your detailed step-by-step scientific analysis and novelty assessment here.\",\n  \"answer\": \"Yes\" or \"No\" (write \"Yes\" if the equation is novel and cannot be directly recited; write \"No\" if it is a well-known classical formula or can be directly recited)\n}\n",
+          "raw_response": "{\n  \"reasoning\": \"The classical baseline for the capacitor charge equation in an RLC circuit is simply dQ/dt = I, reflecting that the current is the rate of change of charge. The candidate equation adds a second term: -(V_bd/R_leak)*tanh(Q/Q_bd). This term represents a dielectric-breakdown leakage current that bleeds charge from the capacitor. The tanh form gives a saturating leakage conduction that onsets around a characteristic charge Q_bd, with V_bd/R_leak setting the saturating leakage current magnitude. While the individual concept of leakage current is physically plausible, the specific composite form combining a hyperbolic-tangent charge-dependent leakage with the breakdown voltage scale, leakage resistance, and characteristic breakdown charge is not a standard textbook expression. The classical Kirchhoff-based RLC relation dQ/dt = I is universal and easily recited, but the added nonlinear saturating leakage term is a constructed, non-standard modeling choice. An LLM could not recite this exact combined form from background knowledge; it would require inference from data describing the specific breakdown/leakage behavior. Therefore, relative to the classical baseline, the equation introduces a genuinely novel composite term.\",\n  \"answer\": \"Yes\"\n}",
+          "parsed_response": {
+            "reasoning": "The classical baseline for the capacitor charge equation in an RLC circuit is simply dQ/dt = I, reflecting that the current is the rate of change of charge. The candidate equation adds a second term: -(V_bd/R_leak)*tanh(Q/Q_bd). This term represents a dielectric-breakdown leakage current that bleeds charge from the capacitor. The tanh form gives a saturating leakage conduction that onsets around a characteristic charge Q_bd, with V_bd/R_leak setting the saturating leakage current magnitude. While the individual concept of leakage current is physically plausible, the specific composite form combining a hyperbolic-tangent charge-dependent leakage with the breakdown voltage scale, leakage resistance, and characteristic breakdown charge is not a standard textbook expression. The classical Kirchhoff-based RLC relation dQ/dt = I is universal and easily recited, but the added nonlinear saturating leakage term is a constructed, non-standard modeling choice. An LLM could not recite this exact combined form from background knowledge; it would require inference from data describing the specific breakdown/leakage behavior. Therefore, relative to the classical baseline, the equation introduces a genuinely novel composite term.",
+            "answer": "Yes"
+          }
+        }
+      ]
+    },
+    "total_points": 5000,
+    "data_csv": "/data1/SRBench_fresh/outputs/Candidate_Equations/candidate_m2_electromagnetism_0_003_20260826-160757/lineage_attempt_02/candidate_data/m2_electromagnetism_0_003_gen5_20260826-161745.csv",
+    "evaluation_status": "not_evaluated; choose Harbor split and solver later"
+  }
+}

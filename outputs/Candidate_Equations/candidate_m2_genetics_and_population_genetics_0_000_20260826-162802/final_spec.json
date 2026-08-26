@@ -1,0 +1,393 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "p",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        60.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "w_AA",
+      "value": 1.0
+    },
+    {
+      "symbol": "w_Aa",
+      "value": 0.95
+    },
+    {
+      "symbol": "w_aa",
+      "value": 0.9
+    },
+    {
+      "symbol": "s_fd",
+      "value": 0.1
+    },
+    {
+      "symbol": "p_star",
+      "value": 0.5
+    },
+    {
+      "symbol": "mu_ib",
+      "value": 0.05
+    },
+    {
+      "symbol": "k_ib",
+      "value": 0.1
+    },
+    {
+      "symbol": "N_e",
+      "value": 100.0
+    },
+    {
+      "symbol": "g_drift",
+      "value": 0.02
+    },
+    {
+      "symbol": "s_meiotic",
+      "value": 0.2
+    },
+    {
+      "symbol": "k_md",
+      "value": 0.05
+    }
+  ],
+  "benchmark_output": "dp_dt",
+  "benchmark_target_state": "p",
+  "observed_variables": [
+    "t",
+    "p"
+  ],
+  "rhs_for_integrator": "p*(1 - p)*(p*(w_AA - w_Aa) + (1 - p)*(w_Aa - w_aa)) / (p**2*w_AA + 2*p*(1 - p)*w_Aa + (1 - p)**2*w_aa) + s_fd*p*(1 - p)*(p_star - p) - mu_ib*p*(1 - p)*(1 - p)/(k_ib + p*(1 - p)) - N_e*g_drift*p*(1 - p)*(1 - 2*p)/(1 + N_e) - s_meiotic*p*(1 - p)*p/(k_md + p)",
+  "state_variables": [
+    "p"
+  ],
+  "state_rhs": [
+    "p*(1 - p)*(p*(w_AA - w_Aa) + (1 - p)*(w_Aa - w_aa)) / (p**2*w_AA + 2*p*(1 - p)*w_Aa + (1 - p)**2*w_aa) + s_fd*p*(1 - p)*(p_star - p) - mu_ib*p*(1 - p)*(1 - p)/(k_ib + p*(1 - p)) - N_e*g_drift*p*(1 - p)*(1 - 2*p)/(1 + N_e) - s_meiotic*p*(1 - p)*p/(k_md + p)"
+  ],
+  "initial_conditions": {
+    "p": 0.05
+  },
+  "noise": 0.0006,
+  "sanity_expectations": [
+    "p stays within [0, 1] for all t",
+    "starting from p=0.05, dp_dt<0 immediately (opposing inbreeding + meiotic-drive + drift outweigh weak directional/frequency-dependent gains at low p), so p decreases monotonically",
+    "p approaches the p=0 (allele-loss) equilibrium as a finite lower asymptote; no oscillation",
+    "trajectory is smooth and finite everywhere (denominators mean-fitness, k_ib+p(1-p), k_md+p stay strictly positive)",
+    "child trajectory (with meiotic drive) declines slightly faster than the parent, with the gap peaking early (~t=3 gen) and shrinking as p->0"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "New term = meiotic-drive distortion -s_meiotic*p*(1-p)*p/(k_md+p) (child minus parent). With sigma=0.0006 on the p-trajectory it reaches a peak deviation of 0.00510 = 8.51*sigma, strongest early at t~2.7 gen (where p is still near its max 0.05 and the ~p^2 meiotic term is largest before the allele declines). Comfortably above the 5*sigma bar. The four ancestral terms (mean-fitness directional selection, frequency-dependent selection toward p_star, inbreeding-depression loss, and finite-N_e drift bias) were excited in prior evolution steps and remain O(1e-2) contributors to dp_dt, far above sigma; only the new mechanism was gated here.",
+  "role_corrections": [
+    "dp_dt: output/target-derivative -> dependent-derivative of state p (confirmed)",
+    "t: input/time-axis -> independent variable, generations (confirmed; only sampled axis)",
+    "p: dynamic-state -> dependent state variable, target_state (confirmed)",
+    "w_AA: parameter -> parameter, fixed 1.0 (confirmed)",
+    "w_Aa: parameter -> parameter, fixed 0.95 (confirmed)",
+    "w_aa: parameter -> parameter, fixed 0.9 (confirmed)",
+    "s_fd: parameter -> parameter, fixed 0.1 (confirmed)",
+    "p_star: parameter -> parameter, fixed 0.5 (confirmed)",
+    "mu_ib: parameter -> parameter, fixed 0.05 (confirmed)",
+    "k_ib: parameter -> parameter, fixed 0.1 (confirmed)",
+    "N_e: parameter -> parameter, fixed 100 (confirmed)",
+    "g_drift: parameter -> parameter, fixed 0.02 (confirmed)",
+    "s_meiotic: parameter -> parameter, fixed 0.2 = top of suggested 0.0-0.2 range (confirmed)",
+    "k_md: parameter -> parameter, fixed 0.05 = bottom of suggested 0.05-1.0 range, chosen to make the new meiotic term visible (confirmed)"
+  ],
+  "rationale": "Typed ODE contract inherited verbatim: single-state autonomous system for allele frequency p(t), integrator integrate_system, time t the only sampled axis, all 11 fitness/selection/drift/drive constants fixed as parameters, dummy-free (no integration variables). Parameter values are biologically standard: relative fitnesses ~1 with a mild AA>Aa>aa advantage, N_e=100 for finite-size drift, p_star=0.5. The new meiotic-drive term is a saturating transmission distortion against A; I set s_meiotic=0.2 (top of hint) and k_md=0.05 (bottom of hint) to maximize its otherwise-transient signature, giving 8.5*sigma at sigma=0.0006. Window trimmed to t in [0,60] gen (300 pts) so the informative decline is well resolved without a long flat p~0 tail. excitation_ok=true.\"",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "p*(1 - p)*(p*(w_AA - w_Aa) + (1 - p)*(w_Aa - w_aa)) / (p**2*w_AA + 2*p*(1 - p)*w_Aa + (1 - p)**2*w_aa) + s_fd*p*(1 - p)*(p_star - p) - mu_ib*p*(1 - p)*(1 - p)/(k_ib + p*(1 - p)) - N_e*g_drift*p*(1 - p)*(1 - 2*p)/(1 + N_e) - s_meiotic*p*(1 - p)*p/(k_md + p)",
+        "target_symbol": "dp_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "N_e",
+          "g_drift",
+          "k_ib",
+          "k_md",
+          "mu_ib",
+          "p",
+          "p_star",
+          "s_fd",
+          "s_meiotic",
+          "w_AA",
+          "w_Aa",
+          "w_aa"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "-N_e*g_drift*p*(1 - p)*(1 - 2*p)/(N_e + 1) - mu_ib*p*(1 - p)*(1 - p)/(k_ib + p*(1 - p)) + p*s_fd*(1 - p)*(-p + p_star) -"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "p*(1 - p)*(p*(w_AA - w_Aa) + (1 - p)*(w_Aa - w_aa)) / (p**2*w_AA + 2*p*(1 - p)*w_Aa + (1 - p)**2*w_aa) + s_fd*p*(1 - p)*(p_star - p) - mu_ib*p*(1 - p)*(1 - p)/(k_ib + p*(1 - p)) - N_e*g_drift*p*(1 - p)*(1 - 2*p)/(1 + N_e) - s_meiotic*p*(1 - p)*p/(k_md + p)",
+        "assignments": {
+          "w_AA": 1,
+          "w_Aa": 0.95,
+          "w_aa": 0.9,
+          "s_fd": 0.1,
+          "p_star": 0.5,
+          "mu_ib": 0.05,
+          "k_ib": 0.1,
+          "N_e": 100,
+          "g_drift": 0.02,
+          "s_meiotic": 0.2,
+          "k_md": 0.1,
+          "p": 0.3
+        },
+        "target_symbol": "dp_dt"
+      },
+      "result": {
+        "ok": true,
+        "value_real": -0.04138272117534334,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "N_e": 100,
+          "g_drift": 0.02,
+          "k_ib": 0.1,
+          "k_md": 0.1,
+          "mu_ib": 0.05,
+          "p_star": 0.5,
+          "s_fd": 0.1,
+          "s_meiotic": 0.2,
+          "w_AA": 1,
+          "w_Aa": 0.95,
+          "w_aa": 0.9,
+          "p": 0.05
+        },
+        "indep": [
+          {
+            "symbol": "t",
+            "range": [
+              0,
+              300
+            ]
+          }
+        ],
+        "is_ode": true,
+        "sigma": 0.002
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "p",
+        "child_state_count": 1,
+        "parent_state_count": 1,
+        "n_time_points": 200,
+        "new_term_max_effect": 0.0033867974471475625,
+        "new_term_sigma_multiple": 1.6933987235737813,
+        "strongest_at": {
+          "t": 3.0150753768844223
+        },
+        "k": 5.0,
+        "passes": false,
+        "advice": "new mechanism peaks at only 1.69*sigma (need 5.0); extend the t range or adjust physically valid coefficients"
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "N_e": 100,
+          "g_drift": 0.02,
+          "k_ib": 0.1,
+          "k_md": 0.05,
+          "mu_ib": 0.05,
+          "p": 0.05,
+          "p_star": 0.5,
+          "s_fd": 0.05,
+          "s_meiotic": 0.2,
+          "w_AA": 1,
+          "w_Aa": 0.98,
+          "w_aa": 0.96
+        },
+        "indep": [
+          {
+            "range": [
+              0,
+              500
+            ],
+            "symbol": "t"
+          }
+        ],
+        "is_ode": true,
+        "sigma": 0.001
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "p",
+        "child_state_count": 1,
+        "parent_state_count": 1,
+        "n_time_points": 200,
+        "new_term_max_effect": 0.00420328138568804,
+        "new_term_sigma_multiple": 4.20328138568804,
+        "strongest_at": {
+          "t": 2.512562814070352
+        },
+        "k": 5.0,
+        "passes": false,
+        "advice": "new mechanism peaks at only 4.20*sigma (need 5.0); extend the t range or adjust physically valid coefficients"
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "N_e": 100,
+          "g_drift": 0.02,
+          "k_ib": 0.1,
+          "k_md": 0.05,
+          "mu_ib": 0.05,
+          "p": 0.05,
+          "p_star": 0.5,
+          "s_fd": 0.1,
+          "s_meiotic": 0.2,
+          "w_AA": 1,
+          "w_Aa": 0.95,
+          "w_aa": 0.9
+        },
+        "indep": [
+          {
+            "range": [
+              0,
+              300
+            ],
+            "symbol": "t"
+          }
+        ],
+        "is_ode": true,
+        "sigma": 0.0006
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "p",
+        "child_state_count": 1,
+        "parent_state_count": 1,
+        "n_time_points": 200,
+        "new_term_max_effect": 0.00502917847183653,
+        "new_term_sigma_multiple": 8.38196411972755,
+        "strongest_at": {
+          "t": 3.0150753768844223
+        },
+        "k": 5.0,
+        "passes": true,
+        "advice": "new mechanism is visible on the target trajectory"
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "N_e": 100,
+          "g_drift": 0.02,
+          "k_ib": 0.1,
+          "k_md": 0.05,
+          "mu_ib": 0.05,
+          "p": 0.05,
+          "p_star": 0.5,
+          "s_fd": 0.1,
+          "s_meiotic": 0.2,
+          "w_AA": 1,
+          "w_Aa": 0.95,
+          "w_aa": 0.9
+        },
+        "indep": [
+          {
+            "range": [
+              0,
+              60
+            ],
+            "symbol": "t"
+          }
+        ],
+        "is_ode": true,
+        "sigma": 0.0006
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "p",
+        "child_state_count": 1,
+        "parent_state_count": 1,
+        "n_time_points": 200,
+        "new_term_max_effect": 0.0051034793175593375,
+        "new_term_sigma_multiple": 8.505798862598896,
+        "strongest_at": {
+          "t": 2.7135678391959797
+        },
+        "k": 5.0,
+        "passes": true,
+        "advice": "new mechanism is visible on the target trajectory"
+      }
+    }
+  ],
+  "_cost_usd": 0.83031925,
+  "_num_turns": 9,
+  "discipline": "biology",
+  "scenario_text": "In a large randomly mating population, a single locus has two alleles under selection where each genotype has a distinct relative fitness. Starting from an initial allele frequency, the frequency of the favored allele changes generation after generation due to differential survival and reproduction. Researchers track the trajectory of the allele frequency over many generations under constant selection coefficients. Mutation and migration are assumed negligible over the observation window.",
+  "record_id": "m2_genetics_and_population_genetics_0_000",
+  "generation": 5,
+  "_n_total": 5000,
+  "finalization": {
+    "mode": "candidate",
+    "accepted_generations": 5,
+    "novelty": {
+      "reasoning": "The first term is the classical selection equation for allele frequency change with genotype fitnesses divided by mean fitness — this is textbook standard (Wright's selection equation). The remaining four terms are additional composite mechanism terms: (1) s_fd*p*(1-p)*(p_star-p) is a frequency-dependent selection term pushing toward an equilibrium p_star — reasonable but with a specific cubic structure; (2) -mu_ib*p*(1-p)*(1-p)/(k_ib + p*(1-p)) is a saturating (Michaelis-Menten-like) inbreeding-depression loss term where the saturation is on heterozygosity p*(1-p) — this is a non-standard composite form not found in textbooks; (3) -N_e*g_drift*p*(1-p)*(1-2*p)/(1+N_e) is a directional drift-bias term with a specific N_e/(1+N_e) scaling and (1-2p) asymmetry factor — unusual composite; (4) -s_meiotic*p*(1-p)*p/(k_md+p) is a saturating meiotic-drive transmission distortion term. While each individual mechanism (frequency-dependent selection, inbreeding, drift bias, meiotic drive) is conceptually known in population genetics, the SPECIFIC saturating rational forms (Michaelis-Menten-type denominators on heterozygosity and allele frequency), the exact N_e/(1+N_e) scaling on the drift term, and the entire combined assembly do NOT appear as a single established formula in any textbook. An LLM could recite the first classical term easily but could not recite this exact composite combination with these specific functional forms. These composite saturating terms would only be recoverable through data-driven inference. Therefore the complete equation is novel relative to the classical baseline.",
+      "answer": "Yes",
+      "llm_qa_history": [
+        {
+          "attempt": 1,
+          "model": "claude-opus-4-8",
+          "system_prompt": "You are a top-tier scientist with deep expertise across physics, biology,\nchemistry, and materials science. Your task is to act as a \"Novelty Evaluator\":\nobjectively judge whether a newly generated mathematical equation is\n\"scientifically novel\" within its given scientific context.\n\nCORE CRITERIA:\n- NOT NOVEL: the equation is a well-known classical formula that already exists\n  in textbooks, on the internet, or in the open scientific literature — i.e. a\n  formula that could be obtained simply by recall/recitation.\n- NOVEL: while remaining scientifically sound, the equation introduces uncommon,\n  nonlinear, or genuinely new composite mechanism terms, such that neither a\n  human nor an AI could guess it from background knowledge alone — it could only\n  be recovered through data-driven inference from experimental observations.\n",
+          "user_prompt": "[SCIENTIFIC CONTEXT]:\nField: biology\nProblem description: In a large randomly mating population, a single locus has two alleles under selection where each genotype has a distinct relative fitness. Starting from an initial allele frequency, the frequency of the favored allele changes generation after generation due to differential survival and reproduction. Researchers track the trajectory of the allele frequency over many generations under constant selection coefficients. Mutation and migration are assumed negligible over the observation window.\n\n[VARIABLES & PARAMETERS]:\n- Target variable: dp_dt (rate of change of the favored allele frequency per generation)\n- Input features: t (time in generations)\n- Dynamic states: p (frequency of the favored allele A)\n- Parameters: w_AA (relative fitness of genotype AA); w_Aa (relative fitness of heterozygote Aa); w_aa (relative fitness of genotype aa); s_fd (strength of frequency-dependent selection); p_star (equilibrium frequency toward which frequency-dependent selection pushes); mu_ib (maximal inbreeding-driven loss rate of the favored allele from homozygote excess); k_ib (half-saturation of heterozygosity at which inbreeding depression on allele change saturates); N_e (effective population size scaling the strength of finite-size drift-induced expected drift); g_drift (per-generation coefficient of directional bias in the diffusion approximation of drift at finite population size); s_meiotic (maximal strength of meiotic-drive-induced transmission distortion against the favored allele); k_md (half-saturation frequency at which the meiotic-drive transmission distortion saturates with allele abundance)\n\n[CANDIDATE EQUATION]:\ndp_dt = p*(1 - p)*(p*(w_AA - w_Aa) + (1 - p)*(w_Aa - w_aa)) / (p**2*w_AA + 2*p*(1 - p)*w_Aa + (1 - p)**2*w_aa) + s_fd*p*(1 - p)*(p_star - p) - mu_ib*p*(1 - p)*(1 - p)/(k_ib + p*(1 - p)) - N_e*g_drift*p*(1 - p)*(1 - 2*p)/(1 + N_e) - s_meiotic*p*(1 - p)*p/(k_md + p)\n\n[CLOSED ODE SYSTEM]:\n{\n  \"time_symbol\": \"t\",\n  \"target_state\": \"p\",\n  \"states\": [\n    {\n      \"symbol\": \"p\",\n      \"rhs\": \"p*(1 - p)*(p*(w_AA - w_Aa) + (1 - p)*(w_Aa - w_aa)) / (p**2*w_AA + 2*p*(1 - p)*w_Aa + (1 - p)**2*w_aa) + s_fd*p*(1 - p)*(p_star - p) - mu_ib*p*(1 - p)*(1 - p)/(k_ib + p*(1 - p)) - N_e*g_drift*p*(1 - p)*(1 - 2*p)/(1 + N_e) - s_meiotic*p*(1 - p)*p/(k_md + p)\",\n      \"initial_condition\": 0.05,\n      \"description\": \"frequency of the favored allele A\"\n    }\n  ]\n}\n(Note: this equation comes from an equation-evolution pipeline; assume it is\nmathematically solvable and numerically stable.)\n\n[NOTE ON KNOWN / CLASSICAL TERMS]:\nThe classical / textbook starting point for this phenomenon (the baseline equation) is:\n  dp_dt = p*(1 - p)*(p*(w_AA - w_Aa) + (1 - p)*(w_Aa - w_aa)) / (p**2*w_AA + 2*p*(1 - p)*w_Aa + (1 - p)**2*w_aa)\nThe terms appearing in this baseline equation can be regarded as the well-known classical terms for this problem. Use this as the reference to judge whether the candidate equation, relative to this classical baseline, introduces additional novel composite terms that cannot be recited directly and could only be discovered through data-driven reasoning.\n\n---\n\nREASONING & OUTPUT REQUIREMENTS:\nLet's think step by step:\n1. Analyze each term in the candidate equation. Which terms are established\n   classical knowledge in this scientific context, and which are newly\n   introduced composite terms?\n2. Drawing on your knowledge of the scientific literature, does this COMPLETE\n   combined form of the equation appear directly in any existing textbook or\n   public reference? Could a large language model \"recite\" this exact formula\n   purely from the context and variable names above?\n3. Assess whether it has true novelty (i.e. it could only be discovered by\n   reasoning over subsequent experimental observation data).\n\nProvide your final answer STRICTLY in the following JSON format, with no extra\nMarkdown markup (no ```json):\n{\n  \"reasoning\": \"Write your detailed step-by-step scientific analysis and novelty assessment here.\",\n  \"answer\": \"Yes\" or \"No\" (write \"Yes\" if the equation is novel and cannot be directly recited; write \"No\" if it is a well-known classical formula or can be directly recited)\n}\n",
+          "raw_response": "{\n  \"reasoning\": \"The first term is the classical selection equation for allele frequency change with genotype fitnesses divided by mean fitness — this is textbook standard (Wright's selection equation). The remaining four terms are additional composite mechanism terms: (1) s_fd*p*(1-p)*(p_star-p) is a frequency-dependent selection term pushing toward an equilibrium p_star — reasonable but with a specific cubic structure; (2) -mu_ib*p*(1-p)*(1-p)/(k_ib + p*(1-p)) is a saturating (Michaelis-Menten-like) inbreeding-depression loss term where the saturation is on heterozygosity p*(1-p) — this is a non-standard composite form not found in textbooks; (3) -N_e*g_drift*p*(1-p)*(1-2*p)/(1+N_e) is a directional drift-bias term with a specific N_e/(1+N_e) scaling and (1-2p) asymmetry factor — unusual composite; (4) -s_meiotic*p*(1-p)*p/(k_md+p) is a saturating meiotic-drive transmission distortion term. While each individual mechanism (frequency-dependent selection, inbreeding, drift bias, meiotic drive) is conceptually known in population genetics, the SPECIFIC saturating rational forms (Michaelis-Menten-type denominators on heterozygosity and allele frequency), the exact N_e/(1+N_e) scaling on the drift term, and the entire combined assembly do NOT appear as a single established formula in any textbook. An LLM could recite the first classical term easily but could not recite this exact composite combination with these specific functional forms. These composite saturating terms would only be recoverable through data-driven inference. Therefore the complete equation is novel relative to the classical baseline.\",\n  \"answer\": \"Yes\"\n}",
+          "parsed_response": {
+            "reasoning": "The first term is the classical selection equation for allele frequency change with genotype fitnesses divided by mean fitness — this is textbook standard (Wright's selection equation). The remaining four terms are additional composite mechanism terms: (1) s_fd*p*(1-p)*(p_star-p) is a frequency-dependent selection term pushing toward an equilibrium p_star — reasonable but with a specific cubic structure; (2) -mu_ib*p*(1-p)*(1-p)/(k_ib + p*(1-p)) is a saturating (Michaelis-Menten-like) inbreeding-depression loss term where the saturation is on heterozygosity p*(1-p) — this is a non-standard composite form not found in textbooks; (3) -N_e*g_drift*p*(1-p)*(1-2*p)/(1+N_e) is a directional drift-bias term with a specific N_e/(1+N_e) scaling and (1-2p) asymmetry factor — unusual composite; (4) -s_meiotic*p*(1-p)*p/(k_md+p) is a saturating meiotic-drive transmission distortion term. While each individual mechanism (frequency-dependent selection, inbreeding, drift bias, meiotic drive) is conceptually known in population genetics, the SPECIFIC saturating rational forms (Michaelis-Menten-type denominators on heterozygosity and allele frequency), the exact N_e/(1+N_e) scaling on the drift term, and the entire combined assembly do NOT appear as a single established formula in any textbook. An LLM could recite the first classical term easily but could not recite this exact composite combination with these specific functional forms. These composite saturating terms would only be recoverable through data-driven inference. Therefore the complete equation is novel relative to the classical baseline.",
+            "answer": "Yes"
+          }
+        }
+      ]
+    },
+    "total_points": 5000,
+    "data_csv": "/data1/SRBench_fresh/outputs/Candidate_Equations/candidate_m2_genetics_and_population_genetics_0_000_20260826-162802/lineage_attempt_01/candidate_data/m2_genetics_and_population_genetics_0_000_gen5_20260826-163406.csv",
+    "evaluation_status": "not_evaluated; choose Harbor split and solver later"
+  }
+}

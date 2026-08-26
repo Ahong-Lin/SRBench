@@ -1,0 +1,317 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "v",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        400.0
+      ],
+      "n_points": 400,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "three",
+      "value": 3600.0
+    },
+    {
+      "symbol": "I_ext",
+      "value": 10.0
+    },
+    {
+      "symbol": "a",
+      "value": 0.7
+    },
+    {
+      "symbol": "b",
+      "value": 0.8
+    },
+    {
+      "symbol": "tau",
+      "value": 12.5
+    },
+    {
+      "symbol": "g_leak",
+      "value": 0.5
+    },
+    {
+      "symbol": "v_rev",
+      "value": -80.0
+    },
+    {
+      "symbol": "v_half",
+      "value": -30.0
+    },
+    {
+      "symbol": "k_slope",
+      "value": 10.0
+    },
+    {
+      "symbol": "one",
+      "value": 1.0
+    },
+    {
+      "symbol": "g_ca",
+      "value": 1.0
+    },
+    {
+      "symbol": "k_ca",
+      "value": 20.0
+    },
+    {
+      "symbol": "hill_n",
+      "value": 2.0
+    },
+    {
+      "symbol": "tau_ca",
+      "value": 15.0
+    },
+    {
+      "symbol": "s_inf_min",
+      "value": 0.1
+    },
+    {
+      "symbol": "alpha_ca",
+      "value": 0.01
+    },
+    {
+      "symbol": "c_rest",
+      "value": 0.05
+    },
+    {
+      "symbol": "tau_cai",
+      "value": 50.0
+    },
+    {
+      "symbol": "kd_ca",
+      "value": 0.5
+    },
+    {
+      "symbol": "beta_ca",
+      "value": 2.0
+    },
+    {
+      "symbol": "g_kca",
+      "value": 1.0
+    },
+    {
+      "symbol": "kd_kca",
+      "value": 0.5
+    },
+    {
+      "symbol": "hill_kca",
+      "value": 2.0
+    }
+  ],
+  "benchmark_output": "dv_dt",
+  "benchmark_target_state": "v",
+  "observed_variables": [
+    "t",
+    "v",
+    "w",
+    "s_ca",
+    "c_ca"
+  ],
+  "rhs_for_integrator": "v - v**3/three - w + I_ext - g_leak*(v - v_rev)/(one + exp(-(v - v_half)/k_slope)) - g_ca*s_ca*(v - v_rev)/(one + (k_ca/Abs(v - v_rev))**hill_n) - g_kca*(c_ca**hill_kca/(kd_kca**hill_kca + c_ca**hill_kca))*(v - v_rev)",
+  "state_variables": [
+    "v",
+    "w",
+    "s_ca",
+    "c_ca"
+  ],
+  "state_rhs": [
+    "v - v**3/three - w + I_ext - g_leak*(v - v_rev)/(one + exp(-(v - v_half)/k_slope)) - g_ca*s_ca*(v - v_rev)/(one + (k_ca/Abs(v - v_rev))**hill_n) - g_kca*(c_ca**hill_kca/(kd_kca**hill_kca + c_ca**hill_kca))*(v - v_rev)",
+    "(v + a - b*w)/tau",
+    "((s_inf_min + (one - s_inf_min)/(one + (k_ca/Abs(v - v_rev))**hill_n))/(one + (c_ca/kd_ca)**beta_ca) - s_ca)/tau_ca",
+    "alpha_ca*g_ca*s_ca*Abs(v - v_rev)/(one + (k_ca/Abs(v - v_rev))**hill_n) - (c_ca - c_rest)/tau_cai"
+  ],
+  "initial_conditions": {
+    "v": -65.0,
+    "w": 0.2,
+    "s_ca": 0.0,
+    "c_ca": 0.05
+  },
+  "noise": 0.5,
+  "sanity_expectations": [
+    "v(t) stays bounded and finite (no blow-up) over t in [0,400]",
+    "v exhibits repetitive spiking / relaxation oscillations after the initial transient from v0=-65",
+    "s_ca activates from 0 toward a bounded value in (0,1) as spikes bring v toward v_rev",
+    "c_ca rises from its initial 0.05 as calcium accumulates, then settles to a bounded oscillatory/steady level above c_rest",
+    "the calcium-activated K+ term grows in influence as c_ca accumulates, adding a measurable repolarizing contribution to dv_dt (visible around t~36 onward)"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "Noise yardstick sigma=0.5 on dv_dt (dominant FHN/drive terms are O(10-20), so sigma is ~3% of the signal). ODE-system excitation_check (full child vs parent, on the v trajectory over t in [0,400]) gives the NEW calcium-activated K+ current term (-g_kca*(c_ca^hill_kca/(kd_kca^hill_kca+c_ca^hill_kca))*(v-v_rev)) a peak effect of 18.46 = 36.9*sigma, strongest near t=36 once c_ca accumulates during spiking. passes=true. Inherited parent terms (FHN cubic, drive I_ext, recovery w, sigmoidal gated leak, saturating high-threshold Ca current) were structurally validated upstream and remain O(1-20) across the trajectory.",
+  "role_corrections": [
+    "dv_dt: O->O (confirmed target derivative = RHS of dv/dt)",
+    "t: V->V (confirmed sole time axis; gets the sampling range)",
+    "v: S->S (confirmed target_state, function under the evolved rate law)",
+    "w: S->S (confirmed dynamic recovery state)",
+    "s_ca: S->S (confirmed dynamic slow-gate state)",
+    "c_ca: S->S (confirmed dynamic calcium state)",
+    "three: P->P (fixed=3600 so the FHN cubic is tame at the mV-scale IC v=-65; keeps trajectory bounded)",
+    "I_ext: P->P (confirmed fixed drive)",
+    "a,b,tau: P->P (confirmed recovery params)",
+    "g_leak,v_rev,v_half,k_slope,one: P->P (confirmed gated-leak params)",
+    "g_ca,k_ca,hill_n,tau_ca,s_inf_min: P->P (confirmed saturating-current params)",
+    "alpha_ca,c_rest,tau_cai,kd_ca,beta_ca: P->P (confirmed calcium-handling params)",
+    "g_kca,kd_kca,hill_kca: P->P (confirmed new KCa params; values within suggested ranges g_kca 0-2, kd_kca 0.1-2, hill_kca 1-4)"
+  ],
+  "rationale": "Typed ode_system contract inherited verbatim (4 states, RHS, ICs, target v). I only chose time sampling, fixed parameter values, and noise. Parameters use an mV-scale interpretation consistent with the given IC v=-65: three=3600 places the cubic nullcline zeros near +/-60 mV so v-v^3/three stays O(10) at rest instead of exploding, and v_rev=-80 with a rest-inactive sigmoidal gate (v_half=-30,k_slope=10) makes the gated/Ca currents repolarizing. Slow calcium handling (tau_ca=15, tau_cai=50) lets c_ca build during spiking so the new KCa current becomes active; t in [0,400] with 400 points captures the transient plus several oscillation/accumulation cycles. check_substitution at the IC gives a finite real dv_dt=20.7, and excitation_check confirms the full system integrates bounded with the new term at 36.9*sigma.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "v - v**3/three - w + I_ext - g_leak*(v - v_rev)/(one + exp(-(v - v_half)/k_slope)) - g_ca*s_ca*(v - v_rev)/(one + (k_ca/Abs(v - v_rev))**hill_n) - g_kca*(c_ca**hill_kca/(kd_kca**hill_kca + c_ca**hill_kca))*(v - v_rev)",
+        "target_symbol": "v"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "I_ext",
+          "c_ca",
+          "g_ca",
+          "g_kca",
+          "g_leak",
+          "hill_kca",
+          "hill_n",
+          "k_ca",
+          "k_slope",
+          "kd_kca",
+          "one",
+          "s_ca",
+          "three",
+          "v",
+          "v_half",
+          "v_rev",
+          "w"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": false,
+        "explicit_solution_preview": null,
+        "classification_hint": "implicit_or_explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "v - v**3/three - w + I_ext - g_leak*(v - v_rev)/(one + exp(-(v - v_half)/k_slope)) - g_ca*s_ca*(v - v_rev)/(one + (k_ca/Abs(v - v_rev))**hill_n) - g_kca*(c_ca**hill_kca/(kd_kca**hill_kca + c_ca**hill_kca))*(v - v_rev)",
+        "assignments": {
+          "v": -65,
+          "w": 0.2,
+          "s_ca": 0,
+          "c_ca": 0.05,
+          "three": 3600,
+          "I_ext": 10,
+          "a": 0.7,
+          "b": 0.8,
+          "tau": 12.5,
+          "g_leak": 0.5,
+          "v_rev": -80,
+          "v_half": -30,
+          "k_slope": 10,
+          "one": 1,
+          "g_ca": 1,
+          "k_ca": 20,
+          "hill_n": 2,
+          "tau_ca": 15,
+          "s_inf_min": 0.1,
+          "alpha_ca": 0.01,
+          "c_rest": 0.05,
+          "tau_cai": 50,
+          "kd_ca": 0.5,
+          "beta_ca": 2,
+          "g_kca": 1,
+          "kd_kca": 0.5,
+          "hill_kca": 2
+        },
+        "target_symbol": "v"
+      },
+      "result": {
+        "ok": true,
+        "value_real": 20.71636564010191,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "I_ext": 10,
+          "a": 0.7,
+          "alpha_ca": 0.01,
+          "b": 0.8,
+          "beta_ca": 2,
+          "c_rest": 0.05,
+          "g_ca": 1,
+          "g_kca": 1,
+          "g_leak": 0.5,
+          "hill_kca": 2,
+          "hill_n": 2,
+          "k_ca": 20,
+          "k_slope": 10,
+          "kd_ca": 0.5,
+          "kd_kca": 0.5,
+          "one": 1,
+          "s_inf_min": 0.1,
+          "tau": 12.5,
+          "tau_ca": 15,
+          "tau_cai": 50,
+          "three": 3600,
+          "v_half": -30,
+          "v_rev": -80
+        },
+        "indep": [
+          {
+            "symbol": "t",
+            "range": [
+              0,
+              400
+            ],
+            "n_points": 400
+          }
+        ],
+        "is_ode": true,
+        "sigma": 0.5
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "v",
+        "child_state_count": 4,
+        "parent_state_count": 4,
+        "n_time_points": 400,
+        "new_term_max_effect": 18.461045750592668,
+        "new_term_sigma_multiple": 36.922091501185335,
+        "strongest_at": {
+          "t": 36.09022556390977
+        },
+        "k": 5.0,
+        "passes": true,
+        "advice": "new mechanism is visible on the target trajectory"
+      }
+    }
+  ],
+  "_cost_usd": 1.07778075,
+  "_num_turns": 6,
+  "discipline": "biology",
+  "scenario_text": "A neuron's membrane potential responds to injected current through the interplay of a fast regenerative sodium-like current and a slower recovery current. When driven above threshold, the membrane produces repetitive spiking, but below threshold it relaxes back to rest. We track the coupled evolution of the voltage and a lumped recovery variable under constant drive. The goal is to recover the voltage rate law from observed trajectories.",
+  "record_id": "m2_neuroscience_and_neural_dynamics_0_000",
+  "generation": 5,
+  "_n_total": 5000
+}

@@ -1,0 +1,373 @@
+{
+  "equation_type": "explicit",
+  "integrator": "evaluate_explicit",
+  "dependent_variable": "lambda",
+  "independent_variables": [
+    {
+      "symbol": "c",
+      "range": [
+        1.0,
+        30.0
+      ],
+      "n_points": 400,
+      "scale": "linear"
+    },
+    {
+      "symbol": "p",
+      "range": [
+        0.001,
+        0.3
+      ],
+      "n_points": 400,
+      "scale": "linear"
+    },
+    {
+      "symbol": "I_signal",
+      "range": [
+        0.0,
+        10.0
+      ],
+      "n_points": 400,
+      "scale": "linear"
+    },
+    {
+      "symbol": "b",
+      "range": [
+        0.0,
+        5.0
+      ],
+      "n_points": 400,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "beta0",
+      "value": 0.3
+    },
+    {
+      "symbol": "h",
+      "value": 0.5
+    },
+    {
+      "symbol": "beta_res",
+      "value": 0.2
+    },
+    {
+      "symbol": "p_thresh",
+      "value": 0.1
+    },
+    {
+      "symbol": "n_coop",
+      "value": 2.0
+    },
+    {
+      "symbol": "eff_compliance",
+      "value": 0.7
+    },
+    {
+      "symbol": "k_info",
+      "value": 1.0
+    },
+    {
+      "symbol": "m_hill",
+      "value": 2.0
+    },
+    {
+      "symbol": "I_half",
+      "value": 2.0
+    },
+    {
+      "symbol": "fatigue_strength",
+      "value": 1.0
+    },
+    {
+      "symbol": "crowd_exp",
+      "value": 2.0
+    }
+  ],
+  "benchmark_output": null,
+  "benchmark_target_state": null,
+  "observed_variables": [
+    "c",
+    "p",
+    "I_signal",
+    "b"
+  ],
+  "rhs_for_integrator": "beta0 * c * p * exp(-b * p) / (1 + h * c * p) + beta_res * c * p / (1 + (p / p_thresh)**n_coop) * (1 - eff_compliance * (1 - exp(-k_info * I_signal)) * (I_signal**m_hill / (I_signal**m_hill + I_half**m_hill))) + beta_res * c * p / (1 + h * c * p) * (1 - exp(-fatigue_strength * I_signal * p)) * (h * c * p / (1 + h * c * p))**crowd_exp",
+  "state_variables": [],
+  "state_rhs": [],
+  "initial_conditions": {},
+  "noise": 0.01,
+  "sanity_expectations": [
+    "lambda >= 0 everywhere over the sampled domain (force of infection is non-negative)",
+    "lambda finite and real (no blow-up; denominators 1+h*c*p and Hill terms are strictly positive)",
+    "lambda increases with c and with p at low c*p, then saturates in c*p due to contact-handling term",
+    "at high c, p, and I_signal the new fatigue-reactivation term raises lambda above the parent-equation prediction",
+    "lambda decreases as b increases (behavioral suppression of the baseline channel)"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "sigma=0.01, k=5 (sobol, 512 samples, 4D). Per-term RMS multiples of sigma: term1 baseline-transmission beta0*c*p*exp(-b*p)/(1+h*c*p) = 20.3x; term2 residual/compliance channel = 7.7x; term3 new fatigue-reactivation channel = 5.5x. NEW term (E - parent) peak effect 0.190 = 19.0x sigma, strongest at c~29.3, p~0.28, I_signal~8.7, b~3.1 (high contact, high prevalence, high awareness — where the crowding gate and fatigue erosion both engage). No weak terms; all visible above noise.",
+  "role_corrections": [
+    "lambda: output->output (confirmed; LHS target, explicitly solvable)",
+    "c: V->V (confirmed independent axis, contact rate)",
+    "p: V->V (confirmed independent axis, prevalence fraction)",
+    "I_signal: V->V (confirmed independent axis, awareness signal driving compliance and fatigue channels)",
+    "b: V->V (confirmed independent axis; phenomenon lists 'strength of behavioral response' as a sampled argument)",
+    "beta0: P->P (confirmed fixed parameter)",
+    "h: P->P (confirmed)",
+    "beta_res: P->P (confirmed)",
+    "p_thresh: P->P (confirmed)",
+    "n_coop: P->P (confirmed)",
+    "eff_compliance: P->P (confirmed)",
+    "k_info: P->P (confirmed)",
+    "m_hill: P->P (confirmed)",
+    "I_half: P->P (confirmed)",
+    "fatigue_strength: P->P (confirmed, within hint 0.1-10)",
+    "crowd_exp: P->P (confirmed, within hint 0.5-4)"
+  ],
+  "rationale": "Structure from analyze_expression: no derivatives, no integral kernels, target lambda on the LHS and explicitly solvable => static explicit algebraic response, matching the 'algebraic response under varying sampled conditions' phenomenon (integrator evaluate_explicit). Roles: lambda is the determined output; c, p, I_signal, b are the sampling axes (c, p, and behavioral-response strength b are named as functional arguments in the phenomenon, and I_signal must vary to excite the awareness-driven compliance and fatigue channels); all remaining symbols are fixed background parameters. Parameter magnitudes chosen for epidemiological plausibility (transmission probs ~0.2-0.3, prevalence up to 0.3, Hill exponents ~2, compliance 0.7) and to make the contact-handling saturation (h*c*p ~ O(1-5)) and fatigue reactivation engage within the domain. auto_balance converged with no rescaling (changed={}); excitation_check confirms all three additive terms reach >=5*sigma and the new fatigue term peaks at 19x sigma in the high-contact/high-prevalence/high-awareness corner.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "beta0 * c * p * exp(-b * p) / (1 + h * c * p) + beta_res * c * p / (1 + (p / p_thresh)**n_coop) * (1 - eff_compliance * (1 - exp(-k_info * I_signal)) * (I_signal**m_hill / (I_signal**m_hill + I_half**m_hill))) + beta_res * c * p / (1 + h * c * p) * (1 - exp(-fatigue_strength * I_signal * p)) * (h * c * p / (1 + h * c * p))**crowd_exp",
+        "target_symbol": "lambda"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "I_half",
+          "I_signal",
+          "b",
+          "beta0",
+          "beta_res",
+          "c",
+          "crowd_exp",
+          "eff_compliance",
+          "fatigue_strength",
+          "h",
+          "k_info",
+          "m_hill",
+          "n_coop",
+          "p",
+          "p_thresh"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "beta0*c*p*exp((-b)*p)/(c*h*p + 1) + beta_res*c*p*(c*h*p/(c*h*p + 1))**crowd_exp*(1 - exp(I_signal*(-fatigue_strength)*p)"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "beta0 * c * p * exp(-b * p) / (1 + h * c * p) + beta_res * c * p / (1 + (p / p_thresh)**n_coop) * (1 - eff_compliance * (1 - exp(-k_info * I_signal)) * (I_signal**m_hill / (I_signal**m_hill + I_half**m_hill))) + beta_res * c * p / (1 + h * c * p) * (1 - exp(-fatigue_strength * I_signal * p)) * (h * c * p / (1 + h * c * p))**crowd_exp",
+        "assignments": {
+          "beta0": 0.3,
+          "h": 0.5,
+          "beta_res": 0.2,
+          "p_thresh": 0.1,
+          "n_coop": 2,
+          "eff_compliance": 0.7,
+          "k_info": 1,
+          "m_hill": 2,
+          "I_half": 2,
+          "fatigue_strength": 1,
+          "crowd_exp": 2,
+          "c": 10,
+          "p": 0.15,
+          "I_signal": 3,
+          "b": 1
+        },
+        "target_symbol": "lambda"
+      },
+      "result": {
+        "ok": true,
+        "value_real": 0.2825359929597858,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "auto_balance",
+      "input": {
+        "assignments": {
+          "I_half": 2,
+          "beta0": 0.3,
+          "beta_res": 0.2,
+          "crowd_exp": 2,
+          "eff_compliance": 0.7,
+          "fatigue_strength": 1,
+          "h": 0.5,
+          "k_info": 1,
+          "m_hill": 2,
+          "n_coop": 2,
+          "p_thresh": 0.1
+        },
+        "indep": [
+          {
+            "symbol": "c",
+            "range": [
+              1,
+              30
+            ]
+          },
+          {
+            "symbol": "p",
+            "range": [
+              0.001,
+              0.3
+            ]
+          },
+          {
+            "symbol": "I_signal",
+            "range": [
+              0,
+              10
+            ]
+          },
+          {
+            "symbol": "b",
+            "range": [
+              0,
+              5
+            ]
+          }
+        ],
+        "is_ode": false,
+        "sigma": 0.01
+      },
+      "result": {
+        "ok": true,
+        "assignments": {
+          "I_half": 2,
+          "beta0": 0.3,
+          "beta_res": 0.2,
+          "crowd_exp": 2,
+          "eff_compliance": 0.7,
+          "fatigue_strength": 1,
+          "h": 0.5,
+          "k_info": 1,
+          "m_hill": 2,
+          "n_coop": 2,
+          "p_thresh": 0.1
+        },
+        "changed": {},
+        "converged": true,
+        "note": "all terms reach k*sigma"
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "I_half": 2,
+          "beta0": 0.3,
+          "beta_res": 0.2,
+          "crowd_exp": 2,
+          "eff_compliance": 0.7,
+          "fatigue_strength": 1,
+          "h": 0.5,
+          "k_info": 1,
+          "m_hill": 2,
+          "n_coop": 2,
+          "p_thresh": 0.1
+        },
+        "indep": [
+          {
+            "range": [
+              1,
+              30
+            ],
+            "symbol": "c"
+          },
+          {
+            "range": [
+              0.001,
+              0.3
+            ],
+            "symbol": "p"
+          },
+          {
+            "range": [
+              0,
+              10
+            ],
+            "symbol": "I_signal"
+          },
+          {
+            "range": [
+              0,
+              5
+            ],
+            "symbol": "b"
+          }
+        ],
+        "is_ode": false,
+        "sigma": 0.01
+      },
+      "result": {
+        "ok": true,
+        "mode": "explicit",
+        "k": 5.0,
+        "sigma": 0.01,
+        "sampling": {
+          "method": "sobol",
+          "n_samples": 512,
+          "n_dimensions": 4
+        },
+        "terms": [
+          {
+            "term": "beta0*c*p*exp((-b)*p)/(c*h*p + 1)",
+            "rms": 0.20254350501430962,
+            "sigma_multiple": 20.254350501430963
+          },
+          {
+            "term": "beta_res*c*p*(c*h*p/(c*h*p + 1))**crowd_exp*(1 - exp(I_signal*(-fatigue_strength",
+            "rms": 0.054615699427970975,
+            "sigma_multiple": 5.461569942797097
+          },
+          {
+            "term": "beta_res*c*p*(1 - I_signal**m_hill*eff_compliance*(1 - exp(I_signal*(-k_info)))/",
+            "rms": 0.07702512419367455,
+            "sigma_multiple": 7.702512419367455
+          }
+        ],
+        "weak_terms": [],
+        "new_term": {
+          "delta_expr": "evaluated numerically as current expression minus parent",
+          "max_effect": 0.19036068251156402,
+          "sigma_multiple": 19.0360682511564,
+          "strongest_at": {
+            "c": 29.26384675409645,
+            "p": 0.28184619490709156,
+            "I_signal": 8.656978281214833,
+            "b": 3.0707289138808846
+          },
+          "passes": true
+        },
+        "advice": "all terms visible"
+      }
+    }
+  ],
+  "_cost_usd": 0.61125075,
+  "_num_turns": 7,
+  "discipline": "biology",
+  "scenario_text": "During an outbreak, the effective per-contact transmission is reduced by behavioral interventions whose intensity depends on the currently observed infection level. Researchers measure the instantaneous force of infection as a function of contact rate, current prevalence, and the strength of behavioral response. This is treated as an algebraic response under varying sampled conditions rather than a time integration. Population size and susceptibility are fixed background quantities.",
+  "record_id": "m2_epidemiology_and_disease_dynamics_0_004",
+  "generation": 5,
+  "_n_total": 5000
+}

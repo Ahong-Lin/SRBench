@@ -1,0 +1,275 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "v",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        10.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "g",
+      "value": 9.81
+    },
+    {
+      "symbol": "drag_coeff",
+      "value": 0.1
+    },
+    {
+      "symbol": "mass",
+      "value": 1.0
+    },
+    {
+      "symbol": "linear_drag_coeff",
+      "value": 0.2
+    },
+    {
+      "symbol": "added_mass_coeff",
+      "value": 0.1
+    },
+    {
+      "symbol": "velocity_scale",
+      "value": 2.0
+    },
+    {
+      "symbol": "history_coeff",
+      "value": 0.3
+    },
+    {
+      "symbol": "wake_relax_rate",
+      "value": 1.0
+    },
+    {
+      "symbol": "basset_coeff",
+      "value": 0.1
+    },
+    {
+      "symbol": "basset_relax_rate",
+      "value": 1.0
+    },
+    {
+      "symbol": "drag_reduction_amp",
+      "value": 0.5
+    },
+    {
+      "symbol": "drag_crisis_velocity",
+      "value": 5.0
+    },
+    {
+      "symbol": "drag_crisis_width",
+      "value": 1.0
+    }
+  ],
+  "benchmark_output": "dv_dt",
+  "benchmark_target_state": "v",
+  "observed_variables": [
+    "t",
+    "v",
+    "w",
+    "q"
+  ],
+  "rhs_for_integrator": "g - ((drag_coeff/mass)*(1 + history_coeff*w))*v**2 - (linear_drag_coeff/mass)*v - (added_mass_coeff/mass)*g*tanh(v/velocity_scale) - (basset_coeff/mass)*q - (drag_coeff/mass)*drag_reduction_amp*v**2*(1 - tanh((v - drag_crisis_velocity)/drag_crisis_width))/2",
+  "state_variables": [
+    "v",
+    "w",
+    "q"
+  ],
+  "state_rhs": [
+    "g - ((drag_coeff/mass)*(1 + history_coeff*w))*v**2 - (linear_drag_coeff/mass)*v - (added_mass_coeff/mass)*g*tanh(v/velocity_scale) - (basset_coeff/mass)*q - (drag_coeff/mass)*drag_reduction_amp*v**2*(1 - tanh((v - drag_crisis_velocity)/drag_crisis_width))/2",
+    "wake_relax_rate*((g - (drag_coeff/mass)*v**2 - (linear_drag_coeff/mass)*v - (added_mass_coeff/mass)*g*tanh(v/velocity_scale))/g - w)",
+    "basset_relax_rate*((g - ((drag_coeff/mass)*(1 + history_coeff*w))*v**2 - (linear_drag_coeff/mass)*v - (added_mass_coeff/mass)*g*tanh(v/velocity_scale)) - q)"
+  ],
+  "initial_conditions": {
+    "v": 0.0,
+    "w": 0.0,
+    "q": 0.0
+  },
+  "noise": 0.02,
+  "sanity_expectations": [
+    "v starts at 0 (from rest)",
+    "v is monotone increasing in time",
+    "v approaches a finite asymptote (terminal descent speed ~9-10 m/s)",
+    "dv_dt starts near g=9.81 and decays toward 0 as v saturates",
+    "v stays bounded and positive throughout"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "ODE-system mode compared full child vs parent trajectories for the target state v. The NEW subcritical drag-crisis term reaches 13.18x sigma (peak effect 0.264 m/s^2 at t~0.90 s), well above the 5x threshold — visible because the sphere accelerates from rest through the subcritical regime (v < drag_crisis_velocity=5) before saturating near a terminal speed ~9-10 m/s > 5, so it traverses the crisis transition. Dominant/other terms (gravity ~9.81, quadratic drag driving v to terminal, linear drag up to ~2, added-mass up to ~0.98, Basset via q) are all O(0.1-10) m/s^2, far above sigma=0.02.",
+  "role_corrections": [
+    "dv_dt: output/target derivative -> confirmed (RHS of dv/dt)",
+    "t: time axis -> V confirmed (sole independent variable, sampled 0-10 s)",
+    "v: dynamic state -> confirmed (target_state, integrated)",
+    "w: dynamic state -> confirmed (governed wake/history state)",
+    "q: dynamic state -> confirmed (governed Basset history state)",
+    "g: P confirmed (9.81)",
+    "drag_coeff: P confirmed",
+    "mass: P confirmed",
+    "linear_drag_coeff: P confirmed",
+    "added_mass_coeff: P confirmed",
+    "velocity_scale: P confirmed",
+    "history_coeff: P confirmed",
+    "wake_relax_rate: P confirmed",
+    "basset_coeff: P confirmed",
+    "basset_relax_rate: P confirmed",
+    "drag_reduction_amp: P confirmed (0.5, within suggested 0-1)",
+    "drag_crisis_velocity: P confirmed (5.0, within suggested 1-20)",
+    "drag_crisis_width: P confirmed (1.0, within suggested 0.1-5)"
+  ],
+  "rationale": "Typed ODE-system contract inherited verbatim (states v,w,q; RHS, ICs unchanged). Only time range, parameter values, and noise were chosen. Parameters give a terminal speed (~9-10 m/s) above drag_crisis_velocity=5 so the trajectory sweeps through the subcritical drag-crisis regime, making the new term dynamically active (13x sigma) rather than a constant offset. t in [0,10] s with 300 points captures the full rise-and-saturate transient. Suggested ranges for the new drag-crisis parameters were adopted.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "g - ((drag_coeff/mass)*(1 + history_coeff*w))*v**2 - (linear_drag_coeff/mass)*v - (added_mass_coeff/mass)*g*tanh(v/velocity_scale) - (basset_coeff/mass)*q - (drag_coeff/mass)*drag_reduction_amp*v**2*(1 - tanh((v - drag_crisis_velocity)/drag_crisis_width))/2",
+        "target_symbol": "v"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "added_mass_coeff",
+          "basset_coeff",
+          "drag_coeff",
+          "drag_crisis_velocity",
+          "drag_crisis_width",
+          "drag_reduction_amp",
+          "g",
+          "history_coeff",
+          "linear_drag_coeff",
+          "mass",
+          "q",
+          "v",
+          "velocity_scale",
+          "w"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": false,
+        "explicit_solution_preview": null,
+        "classification_hint": "implicit_or_explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "g - ((drag_coeff/mass)*(1 + history_coeff*w))*v**2 - (linear_drag_coeff/mass)*v - (added_mass_coeff/mass)*g*tanh(v/velocity_scale) - (basset_coeff/mass)*q - (drag_coeff/mass)*drag_reduction_amp*v**2*(1 - tanh((v - drag_crisis_velocity)/drag_crisis_width))/2",
+        "assignments": {
+          "g": 9.81,
+          "mass": 1,
+          "drag_coeff": 0.1,
+          "history_coeff": 0.3,
+          "linear_drag_coeff": 0.2,
+          "added_mass_coeff": 0.1,
+          "velocity_scale": 2,
+          "basset_coeff": 0.1,
+          "drag_reduction_amp": 0.5,
+          "drag_crisis_velocity": 5,
+          "drag_crisis_width": 1,
+          "v": 3,
+          "w": 0.5,
+          "q": 1
+        },
+        "target_symbol": "v"
+      },
+      "result": {
+        "ok": true,
+        "value_real": 6.745143357657328,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "added_mass_coeff": 0.1,
+          "basset_coeff": 0.1,
+          "basset_relax_rate": 1,
+          "drag_coeff": 0.1,
+          "drag_crisis_velocity": 5,
+          "drag_crisis_width": 1,
+          "drag_reduction_amp": 0.5,
+          "g": 9.81,
+          "history_coeff": 0.3,
+          "linear_drag_coeff": 0.2,
+          "mass": 1,
+          "velocity_scale": 2,
+          "wake_relax_rate": 1
+        },
+        "indep": [
+          {
+            "symbol": "t",
+            "range": [
+              0,
+              10
+            ]
+          }
+        ],
+        "is_ode": true,
+        "sigma": 0.02
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "v",
+        "child_state_count": 3,
+        "parent_state_count": 3,
+        "n_time_points": 200,
+        "new_term_max_effect": 0.2635777033891733,
+        "new_term_sigma_multiple": 13.178885169458665,
+        "strongest_at": {
+          "t": 0.9045226130653267
+        },
+        "k": 5.0,
+        "passes": true,
+        "advice": "new mechanism is visible on the target trajectory"
+      }
+    }
+  ],
+  "_cost_usd": 0.420296,
+  "_num_turns": 6,
+  "discipline": "physics",
+  "scenario_text": "A dense sphere falls through a thick fluid column and quickly reaches a steady descent speed where resistance balances gravity. The retarding force grows with speed until motion stabilizes. Starting from rest, the downward speed rises and levels off. The approach depends on the sphere's weight and the fluid's drag characteristics.",
+  "record_id": "m2_classical_mechanics_0_007",
+  "generation": 5,
+  "_n_total": 5000,
+  "finalization": {
+    "mode": "candidate",
+    "accepted_generations": 5,
+    "novelty": {
+      "reasoning": "Analyzing each term: (1) g is classical gravity; (drag_coeff/mass)*v**2 is the classical quadratic drag baseline; (linear_drag_coeff/mass)*v is the standard Stokes linear drag - all established textbook terms. (2) The added-mass/buoyancy term written as (added_mass_coeff/mass)*g*tanh(v/velocity_scale) is unusual - added mass is classically a coefficient multiplying acceleration (dv/dt), not a velocity-saturating tanh of gravity. This is a non-standard, invented composite form. (3) The Basset history force classically appears as a convolution integral with a t^(-1/2) kernel; here it is replaced by an auxiliary relaxation state q with a single-mode ODE approximation - a genuinely non-classical closure. (4) The wake-history modulation (1 + history_coeff*w)*v**2, where w is a normalized wake state relaxing toward normalized acceleration, is a novel dynamic coupling not found in textbooks. (5) The drag-crisis term with drag_reduction_amp*v**2*(1 - tanh((v - drag_crisis_velocity)/drag_crisis_width))/2 encodes a smooth speed-dependent reduction of drag through the drag crisis - a real physical phenomenon but never written in this precise closed-form composite. The complete combined ODE system with three coupled auxiliary states (v, w, q) and these specific tanh-based saturation/transition mechanisms does not appear in any known textbook or reference. No LLM could recite this exact formula from background knowledge; while individual physical concepts (Basset, added mass, drag crisis) are known, their specific mathematical realization here as coupled relaxation states and tanh switches is a data-driven construction. This represents genuine composite novelty beyond the classical baseline.",
+      "answer": "Yes",
+      "llm_qa_history": [
+        {
+          "attempt": 1,
+          "model": "claude-opus-4-8",
+          "system_prompt": "You are a top-tier scientist with deep expertise across physics, biology,\nchemistry, and materials science. Your task is to act as a \"Novelty Evaluator\":\nobjectively judge whether a newly generated mathematical equation is\n\"scientifically novel\" within its given scientific context.\n\nCORE CRITERIA:\n- NOT NOVEL: the equation is a well-known classical formula that already exists\n  in textbooks, on the internet, or in the open scientific literature — i.e. a\n  formula that could be obtained simply by recall/recitation.\n- NOVEL: while remaining scientifically sound, the equation introduces uncommon,\n  nonlinear, or genuinely new composite mechanism terms, such that neither a\n  human nor an AI could guess it from background knowledge alone — it could only\n  be recovered through data-driven inference from experimental observations.\n",
+          "user_prompt": "[SCIENTIFIC CONTEXT]:\nField: physics\nProblem description: A dense sphere falls through a thick fluid column and quickly reaches a steady descent speed where resistance balances gravity. The retarding force grows with speed until motion stabilizes. Starting from rest, the downward speed rises and levels off. The approach depends on the sphere's weight and the fluid's drag characteristics.\n\n[VARIABLES & PARAMETERS]:\n- Target variable: dv_dt (Rate of change of the sphere's downward speed)\n- Input features: t (time)\n- Dynamic states: v (Downward speed of the falling sphere); w (Normalized unsteady wake/history strength that lags the acceleration); q (Effective Basset history-force state that integrates and relaxes past acceleration)\n- Parameters: g (gravitational acceleration); drag_coeff (quadratic drag coefficient); mass (mass of the sphere); linear_drag_coeff (linear (viscous Stokes) drag coefficient); added_mass_coeff (buoyancy-like effective weight reduction coefficient from fluid displacement/added-mass onset); velocity_scale (characteristic speed over which the added-mass/entrainment effect saturates); history_coeff (sensitivity of quadratic drag to the unsteady wake history); wake_relax_rate (relaxation rate at which the wake catches up to the current acceleration); basset_coeff (Basset history-force coefficient (unsteady boundary-layer memory drag)); basset_relax_rate (relaxation rate of the Basset history kernel); drag_reduction_amp (fractional magnitude of the extra quadratic-drag contribution active only in the low-speed (subcritical) regime, removed by the drag crisis); drag_crisis_velocity (critical speed marking the drag-crisis transition where the boundary layer becomes turbulent and the drag coefficient drops); drag_crisis_width (width in speed over which the drag-crisis transition occurs)\n\n[CANDIDATE EQUATION]:\ndv_dt = g - ((drag_coeff/mass)*(1 + history_coeff*w))*v**2 - (linear_drag_coeff/mass)*v - (added_mass_coeff/mass)*g*tanh(v/velocity_scale) - (basset_coeff/mass)*q - (drag_coeff/mass)*drag_reduction_amp*v**2*(1 - tanh((v - drag_crisis_velocity)/drag_crisis_width))/2\n\n[CLOSED ODE SYSTEM]:\n{\n  \"time_symbol\": \"t\",\n  \"target_state\": \"v\",\n  \"states\": [\n    {\n      \"symbol\": \"v\",\n      \"rhs\": \"g - ((drag_coeff/mass)*(1 + history_coeff*w))*v**2 - (linear_drag_coeff/mass)*v - (added_mass_coeff/mass)*g*tanh(v/velocity_scale) - (basset_coeff/mass)*q - (drag_coeff/mass)*drag_reduction_amp*v**2*(1 - tanh((v - drag_crisis_velocity)/drag_crisis_width))/2\",\n      \"initial_condition\": 0.0,\n      \"description\": \"Downward speed of the falling sphere\"\n    },\n    {\n      \"symbol\": \"w\",\n      \"rhs\": \"wake_relax_rate*((g - (drag_coeff/mass)*v**2 - (linear_drag_coeff/mass)*v - (added_mass_coeff/mass)*g*tanh(v/velocity_scale))/g - w)\",\n      \"initial_condition\": 0.0,\n      \"description\": \"Normalized unsteady wake/history strength that relaxes toward the instantaneous normalized acceleration\"\n    },\n    {\n      \"symbol\": \"q\",\n      \"rhs\": \"basset_relax_rate*((g - ((drag_coeff/mass)*(1 + history_coeff*w))*v**2 - (linear_drag_coeff/mass)*v - (added_mass_coeff/mass)*g*tanh(v/velocity_scale)) - q)\",\n      \"initial_condition\": 0.0,\n      \"description\": \"Single-mode approximation of the Basset history force, relaxing toward the current acceleration and vanishing at steady state\"\n    }\n  ]\n}\n(Note: this equation comes from an equation-evolution pipeline; assume it is\nmathematically solvable and numerically stable.)\n\n[NOTE ON KNOWN / CLASSICAL TERMS]:\nThe classical / textbook starting point for this phenomenon (the baseline equation) is:\n  dv_dt = g - (drag_coeff/mass)*v**2\nThe terms appearing in this baseline equation can be regarded as the well-known classical terms for this problem. Use this as the reference to judge whether the candidate equation, relative to this classical baseline, introduces additional novel composite terms that cannot be recited directly and could only be discovered through data-driven reasoning.\n\n---\n\nREASONING & OUTPUT REQUIREMENTS:\nLet's think step by step:\n1. Analyze each term in the candidate equation. Which terms are established\n   classical knowledge in this scientific context, and which are newly\n   introduced composite terms?\n2. Drawing on your knowledge of the scientific literature, does this COMPLETE\n   combined form of the equation appear directly in any existing textbook or\n   public reference? Could a large language model \"recite\" this exact formula\n   purely from the context and variable names above?\n3. Assess whether it has true novelty (i.e. it could only be discovered by\n   reasoning over subsequent experimental observation data).\n\nProvide your final answer STRICTLY in the following JSON format, with no extra\nMarkdown markup (no ```json):\n{\n  \"reasoning\": \"Write your detailed step-by-step scientific analysis and novelty assessment here.\",\n  \"answer\": \"Yes\" or \"No\" (write \"Yes\" if the equation is novel and cannot be directly recited; write \"No\" if it is a well-known classical formula or can be directly recited)\n}\n",
+          "raw_response": "{\n  \"reasoning\": \"Analyzing each term: (1) g is classical gravity; (drag_coeff/mass)*v**2 is the classical quadratic drag baseline; (linear_drag_coeff/mass)*v is the standard Stokes linear drag - all established textbook terms. (2) The added-mass/buoyancy term written as (added_mass_coeff/mass)*g*tanh(v/velocity_scale) is unusual - added mass is classically a coefficient multiplying acceleration (dv/dt), not a velocity-saturating tanh of gravity. This is a non-standard, invented composite form. (3) The Basset history force classically appears as a convolution integral with a t^(-1/2) kernel; here it is replaced by an auxiliary relaxation state q with a single-mode ODE approximation - a genuinely non-classical closure. (4) The wake-history modulation (1 + history_coeff*w)*v**2, where w is a normalized wake state relaxing toward normalized acceleration, is a novel dynamic coupling not found in textbooks. (5) The drag-crisis term with drag_reduction_amp*v**2*(1 - tanh((v - drag_crisis_velocity)/drag_crisis_width))/2 encodes a smooth speed-dependent reduction of drag through the drag crisis - a real physical phenomenon but never written in this precise closed-form composite. The complete combined ODE system with three coupled auxiliary states (v, w, q) and these specific tanh-based saturation/transition mechanisms does not appear in any known textbook or reference. No LLM could recite this exact formula from background knowledge; while individual physical concepts (Basset, added mass, drag crisis) are known, their specific mathematical realization here as coupled relaxation states and tanh switches is a data-driven construction. This represents genuine composite novelty beyond the classical baseline.\",\n  \"answer\": \"Yes\"\n}",
+          "parsed_response": {
+            "reasoning": "Analyzing each term: (1) g is classical gravity; (drag_coeff/mass)*v**2 is the classical quadratic drag baseline; (linear_drag_coeff/mass)*v is the standard Stokes linear drag - all established textbook terms. (2) The added-mass/buoyancy term written as (added_mass_coeff/mass)*g*tanh(v/velocity_scale) is unusual - added mass is classically a coefficient multiplying acceleration (dv/dt), not a velocity-saturating tanh of gravity. This is a non-standard, invented composite form. (3) The Basset history force classically appears as a convolution integral with a t^(-1/2) kernel; here it is replaced by an auxiliary relaxation state q with a single-mode ODE approximation - a genuinely non-classical closure. (4) The wake-history modulation (1 + history_coeff*w)*v**2, where w is a normalized wake state relaxing toward normalized acceleration, is a novel dynamic coupling not found in textbooks. (5) The drag-crisis term with drag_reduction_amp*v**2*(1 - tanh((v - drag_crisis_velocity)/drag_crisis_width))/2 encodes a smooth speed-dependent reduction of drag through the drag crisis - a real physical phenomenon but never written in this precise closed-form composite. The complete combined ODE system with three coupled auxiliary states (v, w, q) and these specific tanh-based saturation/transition mechanisms does not appear in any known textbook or reference. No LLM could recite this exact formula from background knowledge; while individual physical concepts (Basset, added mass, drag crisis) are known, their specific mathematical realization here as coupled relaxation states and tanh switches is a data-driven construction. This represents genuine composite novelty beyond the classical baseline.",
+            "answer": "Yes"
+          }
+        }
+      ]
+    },
+    "total_points": 5000,
+    "data_csv": "/data1/SRBench_fresh/outputs/Candidate_Equations/candidate_m2_classical_mechanics_0_007_20260826-162126/lineage_attempt_01/candidate_data/m2_classical_mechanics_0_007_gen5_20260826-162521.csv",
+    "evaluation_status": "not_evaluated; choose Harbor split and solver later"
+  }
+}

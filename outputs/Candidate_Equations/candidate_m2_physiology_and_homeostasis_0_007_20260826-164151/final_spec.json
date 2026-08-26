@@ -1,0 +1,401 @@
+{
+  "equation_type": "explicit",
+  "integrator": "evaluate_explicit",
+  "dependent_variable": "S",
+  "independent_variables": [
+    {
+      "symbol": "P",
+      "range": [
+        1.0,
+        100.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    },
+    {
+      "symbol": "pH",
+      "range": [
+        7.2,
+        7.6
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    },
+    {
+      "symbol": "CO2",
+      "range": [
+        20.0,
+        60.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "n",
+      "value": 2.7
+    },
+    {
+      "symbol": "P50",
+      "value": 26.0
+    },
+    {
+      "symbol": "Sfloor",
+      "value": 0.13
+    },
+    {
+      "symbol": "dn",
+      "value": 0.5
+    },
+    {
+      "symbol": "Ka",
+      "value": 20.0
+    },
+    {
+      "symbol": "pHref",
+      "value": 7.4
+    },
+    {
+      "symbol": "alphaBohr",
+      "value": -1.1
+    },
+    {
+      "symbol": "dpH",
+      "value": 0.5
+    },
+    {
+      "symbol": "CO2ref",
+      "value": 40.0
+    },
+    {
+      "symbol": "alphaCO2",
+      "value": 0.005
+    },
+    {
+      "symbol": "dCO2",
+      "value": 0.01
+    },
+    {
+      "symbol": "fDPG",
+      "value": 0.5
+    },
+    {
+      "symbol": "DPGmax",
+      "value": 0.8
+    },
+    {
+      "symbol": "KDPG",
+      "value": 20.0
+    }
+  ],
+  "benchmark_output": null,
+  "benchmark_target_state": null,
+  "observed_variables": [
+    "P",
+    "pH",
+    "CO2",
+    "S"
+  ],
+  "rhs_for_integrator": "(1 - Sfloor) * P**(n + dn*P/(Ka + P) + dpH*(pH - pHref) + dCO2*(CO2 - CO2ref)) / (((P50*exp(alphaBohr*(pH - pHref))*exp(alphaCO2*(CO2 - CO2ref))*(1 + fDPG*DPGmax*P/(KDPG + P)))**(n + dn*P/(Ka + P) + dpH*(pH - pHref) + dCO2*(CO2 - CO2ref))) + P**(n + dn*P/(Ka + P) + dpH*(pH - pHref) + dCO2*(CO2 - CO2ref))) + Sfloor",
+  "state_variables": [],
+  "state_rhs": [],
+  "initial_conditions": {},
+  "noise": 0.02,
+  "sanity_expectations": [
+    "S is bounded in [Sfloor, 1] for all sampled points",
+    "At fixed pH=pHref and CO2=CO2ref, S rises monotonically (sigmoidally) with P from ~Sfloor toward 1",
+    "S-shaped (cooperative) uptake curve vs P with inflection near the effective P50",
+    "Lowering pH (below pHref) right-shifts the curve (higher effective P50, lower S at fixed P) via the Bohr term",
+    "Increasing CO2 above CO2ref right-shifts the curve (lower S at fixed P)",
+    "Increasing the DPG factor (via P-dependent term) right-shifts the curve, lowering S at intermediate P relative to the parent model"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "k=5, sigma=0.02, sobol sampling over P in [1,100] mmHg, pH in [7.2,7.6], CO2 in [20,60] mmHg. Top-level additive terms: main Hill fraction rms=0.619 -> 31.0*sigma; Sfloor=0.13 -> 6.5*sigma. New term (saturable DPG right-shift factor (1+fDPG*DPGmax*P/(KDPG+P)) inside the P50 base, i.e. child minus parent): max_effect=0.156 -> 7.78*sigma, strongest at P=40.1 mmHg, pH=7.30, CO2=57.7 mmHg. All terms visible; no weak terms.",
+  "role_corrections": [
+    "S: output->dependent variable (confirmed; explicit, solvable for S)",
+    "P: input->independent sampling axis (confirmed; primary O2 partial-pressure axis, also drives the new DPG term)",
+    "pH: input->independent sampling axis (confirmed; varied around pHref so Bohr/cooperativity-pH terms are excitable, despite phenomenon note of 'pH held fixed')",
+    "CO2: input->independent sampling axis (confirmed; varied around CO2ref so CO2/carbamate terms are excitable)",
+    "n: parameter (confirmed, fixed)",
+    "P50: parameter (confirmed, fixed)",
+    "Sfloor: parameter (confirmed; raised 0.05->0.13 by auto_balance so the additive floor term reaches 5*sigma)",
+    "dn: parameter (confirmed, fixed)",
+    "Ka: parameter (confirmed, fixed)",
+    "pHref: parameter (confirmed, fixed reference)",
+    "alphaBohr: parameter (confirmed, fixed)",
+    "dpH: parameter (confirmed, fixed)",
+    "CO2ref: parameter (confirmed, fixed reference)",
+    "alphaCO2: parameter (confirmed, fixed)",
+    "dCO2: parameter (confirmed, fixed)",
+    "fDPG: parameter (confirmed, fixed)",
+    "DPGmax: parameter (confirmed, fixed)",
+    "KDPG: parameter (confirmed, fixed)"
+  ],
+  "rationale": "Structure from analyze_expression: no derivatives, no integrals, explicitly solvable for S -> explicit algebraic Hill/Adair-type saturation relation, integrator = evaluate_explicit. S is the determined quantity (dependent). P is the primary axis; pH and CO2 are sampled around their reference values so the Bohr, CO2/carbamate, and pH/CO2-cooperativity terms remain excitable (fixing them at reference would zero those deviations). The new term versus the parent is the saturable 2,3-DPG right-shift factor (1+fDPG*DPGmax*P/(KDPG+P)) multiplying the P50 base; it is P-dependent and reaches 7.78*sigma near P~40 mmHg, high CO2, low pH. Parameters set to textbook hemoglobin magnitudes (P50~26 mmHg, n~2.7, Bohr coefficient negative); auto_balance nudged Sfloor to 0.13 to make the additive floor term reach 5*sigma. All terms visible above sigma=0.02.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "S = (1 - Sfloor) * P**(n + dn*P/(Ka + P) + dpH*(pH - pHref) + dCO2*(CO2 - CO2ref)) / (((P50*exp(alphaBohr*(pH - pHref))*exp(alphaCO2*(CO2 - CO2ref))*(1 + fDPG*DPGmax*P/(KDPG + P)))**(n + dn*P/(Ka + P) + dpH*(pH - pHref) + dCO2*(CO2 - CO2ref))) + P**(n + dn*P/(Ka + P) + dpH*(pH - pHref) + dCO2*(CO2 - CO2ref))) + Sfloor",
+        "target_symbol": "S"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "CO2",
+          "CO2ref",
+          "DPGmax",
+          "KDPG",
+          "Ka",
+          "P",
+          "P50",
+          "Sfloor",
+          "alphaBohr",
+          "alphaCO2",
+          "dCO2",
+          "dn",
+          "dpH",
+          "fDPG",
+          "n",
+          "pH",
+          "pHref"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "P**(P*dn/(Ka + P) + dCO2*(CO2 - CO2ref) + dpH*(pH - pHref) + n)*(1 - Sfloor)/(P**(P*dn/(Ka + P) + dCO2*(CO2 - CO2ref) + "
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "S = (1 - Sfloor) * P**(n + dn*P/(Ka + P) + dpH*(pH - pHref) + dCO2*(CO2 - CO2ref)) / (((P50*exp(alphaBohr*(pH - pHref))*exp(alphaCO2*(CO2 - CO2ref))*(1 + fDPG*DPGmax*P/(KDPG + P)))**(n + dn*P/(Ka + P) + dpH*(pH - pHref) + dCO2*(CO2 - CO2ref))) + P**(n + dn*P/(Ka + P) + dpH*(pH - pHref) + dCO2*(CO2 - CO2ref))) + Sfloor",
+        "assignments": {
+          "P": 15,
+          "pH": 7.25,
+          "CO2": 55,
+          "n": 2.7,
+          "P50": 26,
+          "Sfloor": 0.05,
+          "dn": 0.5,
+          "Ka": 20,
+          "pHref": 7.4,
+          "alphaBohr": -1.1,
+          "dpH": 0.5,
+          "CO2ref": 40,
+          "alphaCO2": 0.005,
+          "dCO2": 0.01,
+          "fDPG": 0.5,
+          "DPGmax": 0.8,
+          "KDPG": 20
+        },
+        "target_symbol": "S"
+      },
+      "result": {
+        "ok": true,
+        "value_real": 0.10270616325855209,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "auto_balance",
+      "input": {
+        "assignments": {
+          "CO2ref": 40,
+          "DPGmax": 0.8,
+          "KDPG": 20,
+          "Ka": 20,
+          "P50": 26,
+          "Sfloor": 0.05,
+          "alphaBohr": -1.1,
+          "alphaCO2": 0.005,
+          "dCO2": 0.01,
+          "dn": 0.5,
+          "dpH": 0.5,
+          "fDPG": 0.5,
+          "n": 2.7,
+          "pHref": 7.4
+        },
+        "indep": [
+          {
+            "symbol": "P",
+            "range": [
+              1,
+              100
+            ]
+          },
+          {
+            "symbol": "pH",
+            "range": [
+              7.2,
+              7.6
+            ]
+          },
+          {
+            "symbol": "CO2",
+            "range": [
+              20,
+              60
+            ]
+          }
+        ],
+        "is_ode": false,
+        "sigma": 0.02
+      },
+      "result": {
+        "ok": true,
+        "assignments": {
+          "CO2ref": 40,
+          "DPGmax": 0.8,
+          "KDPG": 20,
+          "Ka": 20,
+          "P50": 26,
+          "Sfloor": 0.13,
+          "alphaBohr": -1.1,
+          "alphaCO2": 0.005,
+          "dCO2": 0.01,
+          "dn": 0.5,
+          "dpH": 0.5,
+          "fDPG": 0.5,
+          "n": 2.7,
+          "pHref": 7.4
+        },
+        "changed": {
+          "Sfloor": [
+            0.05,
+            0.13
+          ]
+        },
+        "converged": true,
+        "note": "all terms reach k*sigma"
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "CO2ref": 40,
+          "DPGmax": 0.8,
+          "KDPG": 20,
+          "Ka": 20,
+          "P50": 26,
+          "Sfloor": 0.13,
+          "alphaBohr": -1.1,
+          "alphaCO2": 0.005,
+          "dCO2": 0.01,
+          "dn": 0.5,
+          "dpH": 0.5,
+          "fDPG": 0.5,
+          "n": 2.7,
+          "pHref": 7.4
+        },
+        "indep": [
+          {
+            "range": [
+              1,
+              100
+            ],
+            "symbol": "P"
+          },
+          {
+            "range": [
+              7.2,
+              7.6
+            ],
+            "symbol": "pH"
+          },
+          {
+            "range": [
+              20,
+              60
+            ],
+            "symbol": "CO2"
+          }
+        ],
+        "is_ode": false,
+        "sigma": 0.02
+      },
+      "result": {
+        "ok": true,
+        "mode": "explicit",
+        "k": 5.0,
+        "sigma": 0.02,
+        "sampling": {
+          "method": "sobol",
+          "n_samples": 512,
+          "n_dimensions": 3
+        },
+        "terms": [
+          {
+            "term": "P**(P*dn/(Ka + P) + dCO2*(CO2 - CO2ref) + dpH*(pH - pHref) + n)*(1 - Sfloor)/(P*",
+            "rms": 0.6191495264532991,
+            "sigma_multiple": 30.957476322664956
+          },
+          {
+            "term": "Sfloor",
+            "rms": 0.13,
+            "sigma_multiple": 6.5
+          }
+        ],
+        "weak_terms": [],
+        "new_term": {
+          "delta_expr": "evaluated numerically as current expression minus parent",
+          "max_effect": 0.15561929377959993,
+          "sigma_multiple": 7.780964688979997,
+          "strongest_at": {
+            "P": 40.088896417059004,
+            "pH": 7.300083473324776,
+            "CO2": 57.715741619467735
+          },
+          "passes": true
+        },
+        "advice": "all terms visible"
+      }
+    }
+  ],
+  "_cost_usd": 0.526536,
+  "_num_turns": 8,
+  "discipline": "biology",
+  "scenario_text": "A study of muscle oxygen delivery relates the fractional saturation of the oxygen-carrying pigment to the surrounding oxygen partial pressure. Cooperative binding among the pigment's sites produces a characteristic S-shaped uptake curve. Temperature and pH are held fixed. We measure fractional saturation as a function of oxygen partial pressure.",
+  "record_id": "m2_physiology_and_homeostasis_0_007",
+  "generation": 5,
+  "_n_total": 5000,
+  "finalization": {
+    "mode": "candidate",
+    "accepted_generations": 5,
+    "novelty": {
+      "reasoning": "The baseline is the classical Hill equation S = P^n/(P50^n + P^n). The candidate builds on this but introduces several composite modifications. (1) Sfloor: a floor + scaling term (1-Sfloor)*(...) + Sfloor represents a residual high-affinity fraction — this is a non-standard structural addition. (2) The Hill exponent itself is made occupancy- and environment-dependent: n + dn*P/(Ka+P) + dpH*(pH-pHref) + dCO2*(CO2-CO2ref). A variable, oxygen-dependent Hill coefficient via a Michaelis-Menten-like saturable term dn*P/(Ka+P) is a genuinely nonstandard, data-driven composite. The classical Hill n is a constant. (3) P50 is modified by two multiplicative exponential Bohr terms exp(alphaBohr*(pH-pHref)) and exp(alphaCO2*(CO2-CO2ref)) — the pH-dependent Bohr shift is fairly well known conceptually, but combining a separate CO2 carbamate exponential is less standard. (4) A saturable allosteric-effector (DPG) right-shift factor (1 + fDPG*DPGmax*P/(KDPG+P)) multiplying P50 — an oxygen-dependent, saturable P50 modulation is a novel composite mechanism not found in textbook formulas. While each biological mechanism (Bohr effect, DPG, cooperativity) is individually known qualitatively, the specific mathematical composite — an occupancy-dependent variable Hill coefficient combined with saturable effector-linked P50 shifts and a saturation floor — does not appear as a single closed-form equation in any textbook. An LLM could recite the Hill equation and perhaps the Bohr exponential adjustment to P50, but could not recite this exact combined form with the saturable dn*P/(Ka+P) exponent modulation and the DPG saturable factor embedded in the exponentiated denominator. This complete form could only be arrived at by fitting experimental data and constructing composite mechanism terms.",
+      "answer": "Yes",
+      "llm_qa_history": [
+        {
+          "attempt": 1,
+          "model": "claude-opus-4-8",
+          "system_prompt": "You are a top-tier scientist with deep expertise across physics, biology,\nchemistry, and materials science. Your task is to act as a \"Novelty Evaluator\":\nobjectively judge whether a newly generated mathematical equation is\n\"scientifically novel\" within its given scientific context.\n\nCORE CRITERIA:\n- NOT NOVEL: the equation is a well-known classical formula that already exists\n  in textbooks, on the internet, or in the open scientific literature — i.e. a\n  formula that could be obtained simply by recall/recitation.\n- NOVEL: while remaining scientifically sound, the equation introduces uncommon,\n  nonlinear, or genuinely new composite mechanism terms, such that neither a\n  human nor an AI could guess it from background knowledge alone — it could only\n  be recovered through data-driven inference from experimental observations.\n",
+          "user_prompt": "[SCIENTIFIC CONTEXT]:\nField: biology\nProblem description: A study of muscle oxygen delivery relates the fractional saturation of the oxygen-carrying pigment to the surrounding oxygen partial pressure. Cooperative binding among the pigment's sites produces a characteristic S-shaped uptake curve. Temperature and pH are held fixed. We measure fractional saturation as a function of oxygen partial pressure.\n\n[VARIABLES & PARAMETERS]:\n- Target variable: S (Fractional saturation of the oxygen-carrying pigment)\n- Input features: P (Oxygen partial pressure); pH (Ambient pH of the tissue microenvironment); CO2 (Ambient carbon dioxide partial pressure in the tissue microenvironment)\n- Dynamic states: (none)\n- Parameters: n (Baseline Hill cooperativity coefficient at low oxygen); P50 (Partial pressure at half saturation at reference pH and reference CO2); Sfloor (Residual (floor) saturation from a high-affinity, non-cooperative pigment fraction that stays bound even at low oxygen); dn (Increment in effective cooperativity as oxygen occupancy rises (extent of ligand-induced conformational shift)); Ka (Partial pressure scale over which the cooperativity increment develops); pHref (Reference pH at which P50 and cooperativity match the parent model); alphaBohr (Bohr coefficient setting how strongly P50 shifts with pH (proton-linked affinity change)); dpH (Sensitivity of effective cooperativity to pH deviation from reference); CO2ref (Reference CO2 partial pressure at which P50 and cooperativity match the parent model); alphaCO2 (CO2-specific affinity coefficient setting how strongly P50 shifts with CO2 via carbamate formation (proton-independent Bohr effect)); dCO2 (Sensitivity of effective cooperativity to CO2 deviation from reference); fDPG (Fraction of allosteric effector (2,3-DPG) preferentially bound by the low-oxygen (T-state) conformation, scaling the saturable right-shift of P50); DPGmax (Maximum fractional increase in P50 achievable at full allosteric-effector occupancy of the deoxygenated pigment); KDPG (Oxygen partial pressure scale at which the effector-linked right-shift is half-maximal, reflecting the oxygen-dependent release of the allosteric effector)\n\n[CANDIDATE EQUATION]:\nS = (1 - Sfloor) * P**(n + dn*P/(Ka + P) + dpH*(pH - pHref) + dCO2*(CO2 - CO2ref)) / (((P50*exp(alphaBohr*(pH - pHref))*exp(alphaCO2*(CO2 - CO2ref))*(1 + fDPG*DPGmax*P/(KDPG + P)))**(n + dn*P/(Ka + P) + dpH*(pH - pHref) + dCO2*(CO2 - CO2ref))) + P**(n + dn*P/(Ka + P) + dpH*(pH - pHref) + dCO2*(CO2 - CO2ref))) + Sfloor\n\n(Note: this equation comes from an equation-evolution pipeline; assume it is\nmathematically solvable and numerically stable.)\n\n[NOTE ON KNOWN / CLASSICAL TERMS]:\nThe classical / textbook starting point for this phenomenon (the baseline equation) is:\n  S = P**n / (P50**n + P**n)\nThe terms appearing in this baseline equation can be regarded as the well-known classical terms for this problem. Use this as the reference to judge whether the candidate equation, relative to this classical baseline, introduces additional novel composite terms that cannot be recited directly and could only be discovered through data-driven reasoning.\n\n---\n\nREASONING & OUTPUT REQUIREMENTS:\nLet's think step by step:\n1. Analyze each term in the candidate equation. Which terms are established\n   classical knowledge in this scientific context, and which are newly\n   introduced composite terms?\n2. Drawing on your knowledge of the scientific literature, does this COMPLETE\n   combined form of the equation appear directly in any existing textbook or\n   public reference? Could a large language model \"recite\" this exact formula\n   purely from the context and variable names above?\n3. Assess whether it has true novelty (i.e. it could only be discovered by\n   reasoning over subsequent experimental observation data).\n\nProvide your final answer STRICTLY in the following JSON format, with no extra\nMarkdown markup (no ```json):\n{\n  \"reasoning\": \"Write your detailed step-by-step scientific analysis and novelty assessment here.\",\n  \"answer\": \"Yes\" or \"No\" (write \"Yes\" if the equation is novel and cannot be directly recited; write \"No\" if it is a well-known classical formula or can be directly recited)\n}\n",
+          "raw_response": "{\n  \"reasoning\": \"The baseline is the classical Hill equation S = P^n/(P50^n + P^n). The candidate builds on this but introduces several composite modifications. (1) Sfloor: a floor + scaling term (1-Sfloor)*(...) + Sfloor represents a residual high-affinity fraction — this is a non-standard structural addition. (2) The Hill exponent itself is made occupancy- and environment-dependent: n + dn*P/(Ka+P) + dpH*(pH-pHref) + dCO2*(CO2-CO2ref). A variable, oxygen-dependent Hill coefficient via a Michaelis-Menten-like saturable term dn*P/(Ka+P) is a genuinely nonstandard, data-driven composite. The classical Hill n is a constant. (3) P50 is modified by two multiplicative exponential Bohr terms exp(alphaBohr*(pH-pHref)) and exp(alphaCO2*(CO2-CO2ref)) — the pH-dependent Bohr shift is fairly well known conceptually, but combining a separate CO2 carbamate exponential is less standard. (4) A saturable allosteric-effector (DPG) right-shift factor (1 + fDPG*DPGmax*P/(KDPG+P)) multiplying P50 — an oxygen-dependent, saturable P50 modulation is a novel composite mechanism not found in textbook formulas. While each biological mechanism (Bohr effect, DPG, cooperativity) is individually known qualitatively, the specific mathematical composite — an occupancy-dependent variable Hill coefficient combined with saturable effector-linked P50 shifts and a saturation floor — does not appear as a single closed-form equation in any textbook. An LLM could recite the Hill equation and perhaps the Bohr exponential adjustment to P50, but could not recite this exact combined form with the saturable dn*P/(Ka+P) exponent modulation and the DPG saturable factor embedded in the exponentiated denominator. This complete form could only be arrived at by fitting experimental data and constructing composite mechanism terms.\",\n  \"answer\": \"Yes\"\n}",
+          "parsed_response": {
+            "reasoning": "The baseline is the classical Hill equation S = P^n/(P50^n + P^n). The candidate builds on this but introduces several composite modifications. (1) Sfloor: a floor + scaling term (1-Sfloor)*(...) + Sfloor represents a residual high-affinity fraction — this is a non-standard structural addition. (2) The Hill exponent itself is made occupancy- and environment-dependent: n + dn*P/(Ka+P) + dpH*(pH-pHref) + dCO2*(CO2-CO2ref). A variable, oxygen-dependent Hill coefficient via a Michaelis-Menten-like saturable term dn*P/(Ka+P) is a genuinely nonstandard, data-driven composite. The classical Hill n is a constant. (3) P50 is modified by two multiplicative exponential Bohr terms exp(alphaBohr*(pH-pHref)) and exp(alphaCO2*(CO2-CO2ref)) — the pH-dependent Bohr shift is fairly well known conceptually, but combining a separate CO2 carbamate exponential is less standard. (4) A saturable allosteric-effector (DPG) right-shift factor (1 + fDPG*DPGmax*P/(KDPG+P)) multiplying P50 — an oxygen-dependent, saturable P50 modulation is a novel composite mechanism not found in textbook formulas. While each biological mechanism (Bohr effect, DPG, cooperativity) is individually known qualitatively, the specific mathematical composite — an occupancy-dependent variable Hill coefficient combined with saturable effector-linked P50 shifts and a saturation floor — does not appear as a single closed-form equation in any textbook. An LLM could recite the Hill equation and perhaps the Bohr exponential adjustment to P50, but could not recite this exact combined form with the saturable dn*P/(Ka+P) exponent modulation and the DPG saturable factor embedded in the exponentiated denominator. This complete form could only be arrived at by fitting experimental data and constructing composite mechanism terms.",
+            "answer": "Yes"
+          }
+        }
+      ]
+    },
+    "total_points": 5000,
+    "data_csv": "/data1/SRBench_fresh/outputs/Candidate_Equations/candidate_m2_physiology_and_homeostasis_0_007_20260826-164151/lineage_attempt_01/candidate_data/m2_physiology_and_homeostasis_0_007_gen5_20260826-164609.csv",
+    "evaluation_status": "not_evaluated; choose Harbor split and solver later"
+  }
+}

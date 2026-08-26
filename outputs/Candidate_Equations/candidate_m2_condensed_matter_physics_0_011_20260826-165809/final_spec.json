@@ -1,0 +1,335 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "n",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        10.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "tau_n",
+      "value": 1.0
+    },
+    {
+      "symbol": "tau_p",
+      "value": 1.0
+    },
+    {
+      "symbol": "coupling_np",
+      "value": 0.5
+    },
+    {
+      "symbol": "coupling_pn",
+      "value": 0.5
+    },
+    {
+      "symbol": "drift_saturation",
+      "value": 0.2
+    },
+    {
+      "symbol": "phonon_bottleneck",
+      "value": 0.3
+    },
+    {
+      "symbol": "n_sat",
+      "value": 1.0
+    },
+    {
+      "symbol": "carrier_temp_coupling",
+      "value": 0.3
+    },
+    {
+      "symbol": "tau_Te",
+      "value": 1.0
+    },
+    {
+      "symbol": "joule_heating",
+      "value": 1.0
+    },
+    {
+      "symbol": "recomb_heating",
+      "value": 1.0
+    },
+    {
+      "symbol": "activation_energy",
+      "value": 1.0
+    },
+    {
+      "symbol": "T_lattice",
+      "value": 1.0
+    },
+    {
+      "symbol": "auger_reinjection",
+      "value": 0.5
+    },
+    {
+      "symbol": "T_impact",
+      "value": 0.5
+    }
+  ],
+  "benchmark_output": "dn_dt",
+  "benchmark_target_state": "n",
+  "observed_variables": [
+    "t",
+    "n",
+    "p",
+    "T_e"
+  ],
+  "rhs_for_integrator": "-n/tau_n + coupling_np*p - drift_saturation*n*p**2 - phonon_bottleneck*n**2/(n_sat + Abs(n)) - carrier_temp_coupling*n*T_e*exp(-activation_energy/(T_lattice + T_e)) + auger_reinjection*n**2*T_e/(T_impact + T_e)",
+  "state_variables": [
+    "n",
+    "p",
+    "T_e"
+  ],
+  "state_rhs": [
+    "-n/tau_n + coupling_np*p - drift_saturation*n*p**2 - phonon_bottleneck*n**2/(n_sat + Abs(n)) - carrier_temp_coupling*n*T_e*exp(-activation_energy/(T_lattice + T_e)) + auger_reinjection*n**2*T_e/(T_impact + T_e)",
+    "-p/tau_p - coupling_pn*n",
+    "-T_e/tau_Te + joule_heating*p**2/tau_p + recomb_heating*phonon_bottleneck*n**2/(n_sat + Abs(n))"
+  ],
+  "initial_conditions": {
+    "n": 2.0,
+    "p": 1.0,
+    "T_e": 0.0
+  },
+  "noise": 0.01,
+  "sanity_expectations": [
+    "n(0)=2.0 and n(t) stays finite and bounded over t in [0,10] (no blow-up despite the positive n^2 auger term)",
+    "p(0)=1.0 and p(t) decays toward 0 (momentum relaxation, coupled forcing from n)",
+    "T_e(0)=0.0, rises to a transient positive peak from Joule and recombination heating, then relaxes back toward 0",
+    "n(t) relaxes toward a small near-equilibrium value by t=10 as scattering dissipates the excess",
+    "dn_dt is negative early (net loss dominates) around the initial transient"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "Full child-vs-parent ODE-system comparison on the n(t) trajectory. New mechanism = auger_reinjection*n^2*T_e/(T_impact+T_e) (impact-ionization reinjection). At sigma=0.01 its peak effect on n(t) is 0.1274 abs = 12.7*sigma (>=5*sigma), strongest at t~0.75, where n is still large and T_e has risen from Joule/recombination heating. All inherited terms (linear -n/tau_n loss, coupling_np*p source, drift_saturation drift-loss, phonon-bottleneck recombination, carrier_temp_coupling Arrhenius channel) were dominant contributors to the RHS (order ~0.1-2) at check_substitution and drive the leading relaxation, so they remain well above sigma. Boosting T_e (joule_heating=recomb_heating=1.0), lowering T_impact=0.5 and setting auger_reinjection=0.5 (both at physical edge of suggested ranges) was needed to lift the new term from 1.1*sigma to 12.7*sigma.",
+  "role_corrections": [
+    "dn_dt: output/target derivative -> confirmed (RHS of the target_state n)",
+    "t: time axis -> V confirmed (sole independent variable, gets sampling range)",
+    "n: dynamic state -> confirmed (target_state, highest/only derivative for this eq)",
+    "p: dynamic state -> confirmed (governed by its own state_rhs)",
+    "T_e: dynamic state -> confirmed (governed by its own state_rhs)",
+    "tau_n: P confirmed (fixed=1.0)",
+    "tau_p: P confirmed (fixed=1.0)",
+    "coupling_np: P confirmed (fixed=0.5)",
+    "coupling_pn: P confirmed (fixed=0.5)",
+    "drift_saturation: P confirmed (fixed=0.2)",
+    "phonon_bottleneck: P confirmed (fixed=0.3)",
+    "n_sat: P confirmed (fixed=1.0)",
+    "carrier_temp_coupling: P confirmed (fixed=0.3)",
+    "tau_Te: P confirmed (fixed=1.0)",
+    "joule_heating: P confirmed (fixed=1.0, raised for excitation)",
+    "recomb_heating: P confirmed (fixed=1.0, raised for excitation)",
+    "activation_energy: P confirmed (fixed=1.0)",
+    "T_lattice: P confirmed (fixed=1.0)",
+    "auger_reinjection: P confirmed (fixed=0.5, top of suggested range for excitation)",
+    "T_impact: P confirmed (fixed=0.5, bottom of suggested range for excitation)"
+  ],
+  "rationale": "Typed ODE-system contract inherited verbatim: state_variables, state_rhs, initial_conditions and target RHS are taken exactly as given; I only chose the time window, fixed parameter values, noise and expectations. Time range [0,10] with 300 linear points spans the fast early transient (dynamics peak near t~0.75) through full relaxation over several unit relaxation times. Relaxation times set to 1.0 and couplings to O(0.5) give a well-conditioned, finite trajectory (verified via check_substitution). The evolution's new impact-ionization reinjection term depends on T_e, which starts at 0, so it is only excited once heating raises T_e; increasing joule/recomb heating to 1.0, setting auger_reinjection=0.5 and T_impact=0.5 (edges of the suggested physical ranges) makes it reach 12.7*sigma at sigma=0.01, comfortably visible above noise.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "-n/tau_n + coupling_np*p - drift_saturation*n*p**2 - phonon_bottleneck*n**2/(n_sat + Abs(n)) - carrier_temp_coupling*n*T_e*exp(-activation_energy/(T_lattice + T_e)) + auger_reinjection*n**2*T_e/(T_impact + T_e)",
+        "target_symbol": "n"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "T_e",
+          "T_impact",
+          "T_lattice",
+          "activation_energy",
+          "auger_reinjection",
+          "carrier_temp_coupling",
+          "coupling_np",
+          "drift_saturation",
+          "n",
+          "n_sat",
+          "p",
+          "phonon_bottleneck",
+          "tau_n"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": false,
+        "explicit_solution_preview": null,
+        "classification_hint": "implicit_or_explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "-n/tau_n + coupling_np*p - drift_saturation*n*p**2 - phonon_bottleneck*n**2/(n_sat + Abs(n)) - carrier_temp_coupling*n*T_e*exp(-activation_energy/(T_lattice + T_e)) + auger_reinjection*n**2*T_e/(T_impact + T_e)",
+        "assignments": {
+          "n": 2,
+          "p": 1,
+          "T_e": 0.5,
+          "tau_n": 1,
+          "coupling_np": 0.5,
+          "drift_saturation": 0.2,
+          "phonon_bottleneck": 0.3,
+          "n_sat": 1,
+          "carrier_temp_coupling": 0.3,
+          "activation_energy": 1,
+          "T_lattice": 1,
+          "auger_reinjection": 0.3,
+          "T_impact": 1
+        },
+        "target_symbol": "n"
+      },
+      "result": {
+        "ok": true,
+        "value_real": -2.0540251357097774,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "T_impact": 1,
+          "T_lattice": 1,
+          "activation_energy": 1,
+          "auger_reinjection": 0.3,
+          "carrier_temp_coupling": 0.3,
+          "coupling_np": 0.5,
+          "coupling_pn": 0.5,
+          "drift_saturation": 0.2,
+          "joule_heating": 0.5,
+          "n_sat": 1,
+          "phonon_bottleneck": 0.3,
+          "recomb_heating": 0.5,
+          "tau_Te": 1,
+          "tau_n": 1,
+          "tau_p": 1
+        },
+        "indep": [
+          {
+            "symbol": "t",
+            "range": [
+              0,
+              10
+            ]
+          }
+        ],
+        "is_ode": true,
+        "sigma": 0.02
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "n",
+        "child_state_count": 3,
+        "parent_state_count": 3,
+        "n_time_points": 200,
+        "new_term_max_effect": 0.022249579552063747,
+        "new_term_sigma_multiple": 1.1124789776031874,
+        "strongest_at": {
+          "t": 0.7035175879396985
+        },
+        "k": 5.0,
+        "passes": false,
+        "advice": "new mechanism peaks at only 1.11*sigma (need 5.0); extend the t range or adjust physically valid coefficients"
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "T_impact": 0.5,
+          "T_lattice": 1,
+          "activation_energy": 1,
+          "auger_reinjection": 0.5,
+          "carrier_temp_coupling": 0.3,
+          "coupling_np": 0.5,
+          "coupling_pn": 0.5,
+          "drift_saturation": 0.2,
+          "joule_heating": 1,
+          "n_sat": 1,
+          "phonon_bottleneck": 0.3,
+          "recomb_heating": 1,
+          "tau_Te": 1,
+          "tau_n": 1,
+          "tau_p": 1
+        },
+        "indep": [
+          {
+            "range": [
+              0,
+              10
+            ],
+            "symbol": "t"
+          }
+        ],
+        "is_ode": true,
+        "sigma": 0.01
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "n",
+        "child_state_count": 3,
+        "parent_state_count": 3,
+        "n_time_points": 200,
+        "new_term_max_effect": 0.12735215391805366,
+        "new_term_sigma_multiple": 12.735215391805365,
+        "strongest_at": {
+          "t": 0.7537688442211056
+        },
+        "k": 5.0,
+        "passes": true,
+        "advice": "new mechanism is visible on the target trajectory"
+      }
+    }
+  ],
+  "_cost_usd": 0.4725445,
+  "_num_turns": 7,
+  "discipline": "physics",
+  "scenario_text": "In a conducting solid, an initial nonuniform population of charge carriers is prepared and then allowed to redistribute under internal scattering and drift processes. The carrier density and the associated internal drift momentum relax back toward equilibrium as collisions dissipate the excess and coupling between the population imbalance and the collective momentum produces transient adjustment. We track how the excess carrier density and the mean drift momentum jointly evolve in time after the perturbation is removed. The interest is in the coupled relaxation dynamics governed by scattering within the electronic subsystem.",
+  "record_id": "m2_condensed_matter_physics_0_011",
+  "generation": 5,
+  "_n_total": 5000,
+  "finalization": {
+    "mode": "candidate",
+    "accepted_generations": 5,
+    "novelty": {
+      "reasoning": "The baseline classical form is dn_dt = -n/tau_n + coupling_np*p, representing linear density relaxation plus momentum coupling. The candidate adds several composite terms beyond this: (1) -drift_saturation*n*p**2, a nonlinear drift-induced density loss coupling momentum squared to density; (2) -phonon_bottleneck*n**2/(n_sat + Abs(n)), a saturating recombination term with a phonon bottleneck denominator, which is a Michaelis-Menten-like nonlinearity; (3) -carrier_temp_coupling*n*T_e*exp(-activation_energy/(T_lattice + T_e)), an Arrhenius/thermally-activated scattering term with a nontrivial temperature-dependent exponential; and (4) +auger_reinjection*n**2*T_e/(T_impact + T_e), an impact-ionization reinjection term with saturating temperature dependence. While each individual mechanism (Auger recombination, phonon bottleneck, thermally activated scattering, Joule heating) is physically motivated and known in semiconductor physics, the specific composite functional forms — especially the Arrhenius factor written as exp(-E/(T_lattice+T_e)), the saturating n^2/(n_sat+|n|) recombination, and the hot-carrier reinjection term n^2*T_e/(T_impact+T_e) — combined into this coupled three-state ODE system are not a standard textbook closed-form. No single reference recites this exact combined equation. An LLM could name the individual physical effects but could not reproduce this precise composite structure with these specific denominators and exponential arguments from context alone. Such forms would realistically be identified only through data-driven inference against experimental relaxation data. Therefore the equation, taken as a whole, exhibits genuine novelty beyond recitable classical knowledge.",
+      "answer": "Yes",
+      "llm_qa_history": [
+        {
+          "attempt": 1,
+          "model": "claude-opus-4-8",
+          "system_prompt": "You are a top-tier scientist with deep expertise across physics, biology,\nchemistry, and materials science. Your task is to act as a \"Novelty Evaluator\":\nobjectively judge whether a newly generated mathematical equation is\n\"scientifically novel\" within its given scientific context.\n\nCORE CRITERIA:\n- NOT NOVEL: the equation is a well-known classical formula that already exists\n  in textbooks, on the internet, or in the open scientific literature — i.e. a\n  formula that could be obtained simply by recall/recitation.\n- NOVEL: while remaining scientifically sound, the equation introduces uncommon,\n  nonlinear, or genuinely new composite mechanism terms, such that neither a\n  human nor an AI could guess it from background knowledge alone — it could only\n  be recovered through data-driven inference from experimental observations.\n",
+          "user_prompt": "[SCIENTIFIC CONTEXT]:\nField: physics\nProblem description: In a conducting solid, an initial nonuniform population of charge carriers is prepared and then allowed to redistribute under internal scattering and drift processes. The carrier density and the associated internal drift momentum relax back toward equilibrium as collisions dissipate the excess and coupling between the population imbalance and the collective momentum produces transient adjustment. We track how the excess carrier density and the mean drift momentum jointly evolve in time after the perturbation is removed. The interest is in the coupled relaxation dynamics governed by scattering within the electronic subsystem.\n\n[VARIABLES & PARAMETERS]:\n- Target variable: dn_dt (Time derivative of the excess carrier density)\n- Input features: t (time)\n- Dynamic states: n (Excess carrier density relative to equilibrium); p (Mean collective drift momentum of the carriers); T_e (Excess electronic temperature of the carrier subsystem relative to lattice)\n- Parameters: tau_n (Density relaxation time from scattering); tau_p (Momentum relaxation time from scattering); coupling_np (Coupling of drift momentum into density relaxation); coupling_pn (Coupling of density imbalance into momentum evolution); drift_saturation (Strength of drift-induced nonlinear density loss (heating-enhanced scattering)); phonon_bottleneck (Rate of density loss through carrier-carrier recombination limited by a phonon emission bottleneck); n_sat (Excess-density scale at which the phonon bottleneck saturates recombination); carrier_temp_coupling (Rate at which elevated carrier temperature enhances density relaxation via thermally activated scattering); tau_Te (Relaxation time of the carrier temperature to the lattice via energy dissipation); joule_heating (Joule-heating rate: drift momentum decay deposits kinetic energy into the carrier thermal bath); recomb_heating (Heating rate from recombination energy deposited into the carrier subsystem); activation_energy (Activation energy (in temperature units) for the thermally activated scattering channel that enhances density relaxation); T_lattice (Reference lattice temperature setting the base thermal energy scale for the Arrhenius factor); auger_reinjection (Rate of impact-ionization carrier reinjection driven by hot carriers); T_impact (Carrier-temperature scale at which impact ionization becomes efficient)\n\n[CANDIDATE EQUATION]:\ndn_dt = -n/tau_n + coupling_np*p - drift_saturation*n*p**2 - phonon_bottleneck*n**2/(n_sat + Abs(n)) - carrier_temp_coupling*n*T_e*exp(-activation_energy/(T_lattice + T_e)) + auger_reinjection*n**2*T_e/(T_impact + T_e)\n\n[CLOSED ODE SYSTEM]:\n{\n  \"time_symbol\": \"t\",\n  \"target_state\": \"n\",\n  \"states\": [\n    {\n      \"symbol\": \"n\",\n      \"rhs\": \"-n/tau_n + coupling_np*p - drift_saturation*n*p**2 - phonon_bottleneck*n**2/(n_sat + Abs(n)) - carrier_temp_coupling*n*T_e*exp(-activation_energy/(T_lattice + T_e)) + auger_reinjection*n**2*T_e/(T_impact + T_e)\",\n      \"initial_condition\": 2.0,\n      \"description\": \"Excess carrier density relative to equilibrium\"\n    },\n    {\n      \"symbol\": \"p\",\n      \"rhs\": \"-p/tau_p - coupling_pn*n\",\n      \"initial_condition\": 1.0,\n      \"description\": \"Mean collective drift momentum of the carriers\"\n    },\n    {\n      \"symbol\": \"T_e\",\n      \"rhs\": \"-T_e/tau_Te + joule_heating*p**2/tau_p + recomb_heating*phonon_bottleneck*n**2/(n_sat + Abs(n))\",\n      \"initial_condition\": 0.0,\n      \"description\": \"Excess electronic temperature of the carrier subsystem relative to the lattice\"\n    }\n  ]\n}\n(Note: this equation comes from an equation-evolution pipeline; assume it is\nmathematically solvable and numerically stable.)\n\n[NOTE ON KNOWN / CLASSICAL TERMS]:\nThe classical / textbook starting point for this phenomenon (the baseline equation) is:\n  dn_dt = -n/tau_n + coupling_np*p\nThe terms appearing in this baseline equation can be regarded as the well-known classical terms for this problem. Use this as the reference to judge whether the candidate equation, relative to this classical baseline, introduces additional novel composite terms that cannot be recited directly and could only be discovered through data-driven reasoning.\n\n---\n\nREASONING & OUTPUT REQUIREMENTS:\nLet's think step by step:\n1. Analyze each term in the candidate equation. Which terms are established\n   classical knowledge in this scientific context, and which are newly\n   introduced composite terms?\n2. Drawing on your knowledge of the scientific literature, does this COMPLETE\n   combined form of the equation appear directly in any existing textbook or\n   public reference? Could a large language model \"recite\" this exact formula\n   purely from the context and variable names above?\n3. Assess whether it has true novelty (i.e. it could only be discovered by\n   reasoning over subsequent experimental observation data).\n\nProvide your final answer STRICTLY in the following JSON format, with no extra\nMarkdown markup (no ```json):\n{\n  \"reasoning\": \"Write your detailed step-by-step scientific analysis and novelty assessment here.\",\n  \"answer\": \"Yes\" or \"No\" (write \"Yes\" if the equation is novel and cannot be directly recited; write \"No\" if it is a well-known classical formula or can be directly recited)\n}\n",
+          "raw_response": "{\n  \"reasoning\": \"The baseline classical form is dn_dt = -n/tau_n + coupling_np*p, representing linear density relaxation plus momentum coupling. The candidate adds several composite terms beyond this: (1) -drift_saturation*n*p**2, a nonlinear drift-induced density loss coupling momentum squared to density; (2) -phonon_bottleneck*n**2/(n_sat + Abs(n)), a saturating recombination term with a phonon bottleneck denominator, which is a Michaelis-Menten-like nonlinearity; (3) -carrier_temp_coupling*n*T_e*exp(-activation_energy/(T_lattice + T_e)), an Arrhenius/thermally-activated scattering term with a nontrivial temperature-dependent exponential; and (4) +auger_reinjection*n**2*T_e/(T_impact + T_e), an impact-ionization reinjection term with saturating temperature dependence. While each individual mechanism (Auger recombination, phonon bottleneck, thermally activated scattering, Joule heating) is physically motivated and known in semiconductor physics, the specific composite functional forms — especially the Arrhenius factor written as exp(-E/(T_lattice+T_e)), the saturating n^2/(n_sat+|n|) recombination, and the hot-carrier reinjection term n^2*T_e/(T_impact+T_e) — combined into this coupled three-state ODE system are not a standard textbook closed-form. No single reference recites this exact combined equation. An LLM could name the individual physical effects but could not reproduce this precise composite structure with these specific denominators and exponential arguments from context alone. Such forms would realistically be identified only through data-driven inference against experimental relaxation data. Therefore the equation, taken as a whole, exhibits genuine novelty beyond recitable classical knowledge.\",\n  \"answer\": \"Yes\"\n}",
+          "parsed_response": {
+            "reasoning": "The baseline classical form is dn_dt = -n/tau_n + coupling_np*p, representing linear density relaxation plus momentum coupling. The candidate adds several composite terms beyond this: (1) -drift_saturation*n*p**2, a nonlinear drift-induced density loss coupling momentum squared to density; (2) -phonon_bottleneck*n**2/(n_sat + Abs(n)), a saturating recombination term with a phonon bottleneck denominator, which is a Michaelis-Menten-like nonlinearity; (3) -carrier_temp_coupling*n*T_e*exp(-activation_energy/(T_lattice + T_e)), an Arrhenius/thermally-activated scattering term with a nontrivial temperature-dependent exponential; and (4) +auger_reinjection*n**2*T_e/(T_impact + T_e), an impact-ionization reinjection term with saturating temperature dependence. While each individual mechanism (Auger recombination, phonon bottleneck, thermally activated scattering, Joule heating) is physically motivated and known in semiconductor physics, the specific composite functional forms — especially the Arrhenius factor written as exp(-E/(T_lattice+T_e)), the saturating n^2/(n_sat+|n|) recombination, and the hot-carrier reinjection term n^2*T_e/(T_impact+T_e) — combined into this coupled three-state ODE system are not a standard textbook closed-form. No single reference recites this exact combined equation. An LLM could name the individual physical effects but could not reproduce this precise composite structure with these specific denominators and exponential arguments from context alone. Such forms would realistically be identified only through data-driven inference against experimental relaxation data. Therefore the equation, taken as a whole, exhibits genuine novelty beyond recitable classical knowledge.",
+            "answer": "Yes"
+          }
+        }
+      ]
+    },
+    "total_points": 5000,
+    "data_csv": "/data1/SRBench_fresh/outputs/Candidate_Equations/candidate_m2_condensed_matter_physics_0_011_20260826-165809/lineage_attempt_01/candidate_data/m2_condensed_matter_physics_0_011_gen5_20260826-170219.csv",
+    "evaluation_status": "not_evaluated; choose Harbor split and solver later"
+  }
+}

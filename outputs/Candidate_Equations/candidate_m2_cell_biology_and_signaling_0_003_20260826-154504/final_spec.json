@@ -1,0 +1,468 @@
+{
+  "equation_type": "explicit",
+  "integrator": "evaluate_explicit",
+  "dependent_variable": "J",
+  "independent_variables": [
+    {
+      "symbol": "C",
+      "range": [
+        0.05,
+        20.0
+      ],
+      "n_points": 50,
+      "scale": "linear"
+    },
+    {
+      "symbol": "Cin",
+      "range": [
+        0.1,
+        20.0
+      ],
+      "n_points": 20,
+      "scale": "linear"
+    },
+    {
+      "symbol": "Vm",
+      "range": [
+        -0.1,
+        0.05
+      ],
+      "n_points": 10,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "T",
+      "value": 1.0
+    },
+    {
+      "symbol": "Jmax",
+      "value": 10.0
+    },
+    {
+      "symbol": "Km",
+      "value": 1.0
+    },
+    {
+      "symbol": "Ki",
+      "value": 50.0
+    },
+    {
+      "symbol": "Jleak",
+      "value": 2.0
+    },
+    {
+      "symbol": "Kd",
+      "value": 1.0
+    },
+    {
+      "symbol": "Ktrans",
+      "value": 10.0
+    },
+    {
+      "symbol": "z_solute",
+      "value": 1.0
+    },
+    {
+      "symbol": "F",
+      "value": 96485.0
+    },
+    {
+      "symbol": "R",
+      "value": 8.314
+    },
+    {
+      "symbol": "Temp",
+      "value": 310.0
+    }
+  ],
+  "benchmark_output": null,
+  "benchmark_target_state": null,
+  "observed_variables": [
+    "C",
+    "Cin",
+    "Vm",
+    "J"
+  ],
+  "rhs_for_integrator": "Jmax * T * C / (Km * (1 + C / Ki) + C) * (1 - Cin / (Cin + Ktrans)) - Jleak * (1 - C / (C + Kd)) * (Cin / (Cin + Kd)) - Jleak * (exp(z_solute * F * Vm / (R * Temp)) - 1) / (exp(z_solute * F * Vm / (R * Temp)) + 1) * (Cin / (Cin + Kd))",
+  "state_variables": [],
+  "state_rhs": [],
+  "initial_conditions": {},
+  "noise": 0.05,
+  "sanity_expectations": [
+    "At fixed Cin and Vm, J rises with external concentration C and saturates at high C (Michaelis-Menten-like uptake).",
+    "The forward uptake term is suppressed as internal concentration Cin increases (trans-inhibition factor 1 - Cin/(Cin+Ktrans) decreases from 1 toward 0).",
+    "Back-leak contributions are non-positive relative to uptake and grow with Cin/(Cin+Kd); net J can become negative when C is small and Cin is large.",
+    "The electrical back-leak term changes sign/magnitude with Vm and vanishes as Vm -> 0.",
+    "J is finite and real everywhere in the sampled region."
+  ],
+  "excitation_ok": true,
+  "excitation_report": "sigma=0.05 (absolute std on J; ~1% of the dominant term). Per-term RMS multiples over the sampled 3D region (Sobol, is_ode=false): forward uptake with trans-inhibition = 97x; concentration-gradient back-leak = 7.3x (raised from 3.7x by increasing Jleak 1->2, since it shares Jleak with term 3); electrical/Vm back-leak = 22x. NEW term (E - parent = the trans-side inhibition factor -Jmax*T*C/(...)*Cin/(Cin+Ktrans)) peaks at 124x sigma, strongest at high external and internal concentration (C~17, Cin~20, Vm~-0.07). All terms and the new term exceed 5*sigma; no weak terms.",
+  "role_corrections": [
+    "J: output->output (confirmed; LHS quantity, explicitly solvable for J)",
+    "C: V->V (confirmed; primary external-concentration sampling axis)",
+    "Cin: V->V (confirmed independent axis; drives the new trans-inhibition term and both back-leak terms)",
+    "Vm: V->V (confirmed independent axis; enters the electrical tanh factor, kept variable so term 3's Vm-structure stays identifiable)",
+    "T: V->P (OVERRIDDEN: phenomenon states fixed transporter abundance; T is a constant linear scaling parameter, fixed to 1)",
+    "Jmax: P->P (confirmed fixed parameter)",
+    "Km: P->P (confirmed)",
+    "Ki: P->P (confirmed)",
+    "Jleak: P->P (confirmed; value tuned 1->2 for term visibility)",
+    "Kd: P->P (confirmed)",
+    "Ktrans: P->P (confirmed; new parameter, fixed to 10 within suggested 0.1-100)",
+    "z_solute: P->P (confirmed physical constant/valence)",
+    "F: P->P (confirmed Faraday constant)",
+    "R: P->P (confirmed gas constant)",
+    "Temp: P->P (confirmed absolute temperature)"
+  ],
+  "rationale": "Structural analysis (analyze_expression) shows an explicit algebraic relation: no derivatives, no integral kernels, target J solvable on the LHS -> equation_type=explicit, integrator=evaluate_explicit. Roles: J is the determined output. C is the primary axis per the phenomenon. Cin and Vm were labeled input axes and genuinely appear as functional arguments (Cin in the trans-inhibition and back-leak saturations, Vm in the electrical exp/tanh factor); keeping both as sampling axes exposes their structure to symbolic regression, so they are confirmed as independent variables. T was labeled an input axis but the phenomenon explicitly fixes transporter abundance, so it is overridden to a constant parameter. All remaining symbols are fixed parameters at physiologically sensible magnitudes (Km=1 sets half-saturation, Ki=50 gives mild substrate inhibition, Jmax=10 vs Jleak=2 keeps back-leak ~20% of max uptake, Ktrans=10 within the suggested 0.1-100 range, F/R/Temp/z_solute physical constants). check_substitution confirmed a finite real value; excitation_check confirmed every term including the newly-introduced trans-inhibition term exceeds 5*sigma at sigma=0.05 after raising Jleak 1->2.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "Jmax * T * C / (Km * (1 + C / Ki) + C) * (1 - Cin / (Cin + Ktrans)) - Jleak * (1 - C / (C + Kd)) * (Cin / (Cin + Kd)) - Jleak * (exp(z_solute * F * Vm / (R * Temp)) - 1) / (exp(z_solute * F * Vm / (R * Temp)) + 1) * (Cin / (Cin + Kd))",
+        "target_symbol": "J"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "C",
+          "Cin",
+          "F",
+          "Jleak",
+          "Jmax",
+          "Kd",
+          "Ki",
+          "Km",
+          "Ktrans",
+          "R",
+          "T",
+          "Temp",
+          "Vm",
+          "z_solute"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "C*Jmax*T*(1 - Cin/(Cin + Ktrans))/(C + Km*(C/Ki + 1)) - Cin*Jleak*(1 - C/(C + Kd))/(Cin + Kd) - Cin*Jleak*(exp(F*Vm*z_so"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "Jmax * T * C / (Km * (1 + C / Ki) + C) * (1 - Cin / (Cin + Ktrans)) - Jleak * (1 - C / (C + Kd)) * (Cin / (Cin + Kd)) - Jleak * (exp(z_solute * F * Vm / (R * Temp)) - 1) / (exp(z_solute * F * Vm / (R * Temp)) + 1) * (Cin / (Cin + Kd))",
+        "assignments": {
+          "C": 2,
+          "Cin": 3,
+          "T": 1,
+          "Vm": -0.06,
+          "Jmax": 10,
+          "Km": 1,
+          "Ki": 50,
+          "Jleak": 1,
+          "Kd": 1,
+          "Ktrans": 10,
+          "z_solute": 1,
+          "F": 96485,
+          "R": 8.314,
+          "Temp": 310
+        },
+        "target_symbol": "J"
+      },
+      "result": {
+        "ok": true,
+        "value_real": 5.417206022043539,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "T": 1,
+          "Vm": -0.06,
+          "Jmax": 10,
+          "Km": 1,
+          "Ki": 50,
+          "Jleak": 1,
+          "Kd": 1,
+          "Ktrans": 10,
+          "z_solute": 1,
+          "F": 96485,
+          "R": 8.314,
+          "Temp": 310
+        },
+        "indep": [
+          {
+            "symbol": "C",
+            "range": [
+              0.05,
+              20
+            ]
+          },
+          {
+            "symbol": "Cin",
+            "range": [
+              0.1,
+              20
+            ]
+          }
+        ],
+        "sigma": 0.05,
+        "is_ode": false
+      },
+      "result": {
+        "ok": true,
+        "mode": "explicit",
+        "k": 5.0,
+        "sigma": 0.05,
+        "sampling": {
+          "method": "sobol",
+          "n_samples": 512,
+          "n_dimensions": 2
+        },
+        "terms": [
+          {
+            "term": "C*Jmax*T*(1 - Cin/(Cin + Ktrans))/(C + Km*(C/Ki + 1))",
+            "rms": 4.872719943134521,
+            "sigma_multiple": 97.45439886269041
+          },
+          {
+            "term": "-Cin*Jleak*(1 - C/(C + Kd))/(Cin + Kd)",
+            "rms": 0.18430425401791156,
+            "sigma_multiple": 3.686085080358231
+          },
+          {
+            "term": "-Cin*Jleak*(exp(F*Vm*z_solute/((R*Temp))) - 1*1)/((Cin + Kd)*(exp(F*Vm*z_solute/",
+            "rms": 0.6988407984078127,
+            "sigma_multiple": 13.976815968156252
+          }
+        ],
+        "weak_terms": [
+          {
+            "term": "-Cin*Jleak*(1 - C/(C + Kd))/(Cin + Kd)",
+            "rms": 0.18430425401791156,
+            "sigma_multiple": 3.686085080358231
+          }
+        ],
+        "new_term": {
+          "delta_expr": "evaluated numerically as current expression minus parent",
+          "max_effect": 6.20504351744532,
+          "sigma_multiple": 124.1008703489064,
+          "strongest_at": {
+            "C": 18.82964685242623,
+            "Cin": 19.928293865080924
+          },
+          "passes": true
+        },
+        "advice": "some terms (or the new term) fall below k*sigma; rescale their coefficients toward the dominant term, or move the sampling region to where they are strongest — staying within physical bounds"
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "T": 1,
+          "Vm": -0.06,
+          "Jmax": 10,
+          "Km": 1,
+          "Ki": 50,
+          "Jleak": 2,
+          "Kd": 1,
+          "Ktrans": 10,
+          "z_solute": 1,
+          "F": 96485,
+          "R": 8.314,
+          "Temp": 310
+        },
+        "indep": [
+          {
+            "symbol": "C",
+            "range": [
+              0.05,
+              20
+            ]
+          },
+          {
+            "symbol": "Cin",
+            "range": [
+              0.1,
+              20
+            ]
+          }
+        ],
+        "sigma": 0.05,
+        "is_ode": false
+      },
+      "result": {
+        "ok": true,
+        "mode": "explicit",
+        "k": 5.0,
+        "sigma": 0.05,
+        "sampling": {
+          "method": "sobol",
+          "n_samples": 512,
+          "n_dimensions": 2
+        },
+        "terms": [
+          {
+            "term": "C*Jmax*T*(1 - Cin/(Cin + Ktrans))/(C + Km*(C/Ki + 1))",
+            "rms": 4.872719943134521,
+            "sigma_multiple": 97.45439886269041
+          },
+          {
+            "term": "-Cin*Jleak*(1 - C/(C + Kd))/(Cin + Kd)",
+            "rms": 0.3686085080358231,
+            "sigma_multiple": 7.372170160716462
+          },
+          {
+            "term": "-Cin*Jleak*(exp(F*Vm*z_solute/((R*Temp))) - 1*1)/((Cin + Kd)*(exp(F*Vm*z_solute/",
+            "rms": 1.3976815968156235,
+            "sigma_multiple": 27.95363193631247
+          }
+        ],
+        "weak_terms": [],
+        "new_term": {
+          "delta_expr": "evaluated numerically as current expression minus parent",
+          "max_effect": 6.20504351744532,
+          "sigma_multiple": 124.1008703489064,
+          "strongest_at": {
+            "C": 18.82964685242623,
+            "Cin": 19.928293865080924
+          },
+          "passes": true
+        },
+        "advice": "all terms visible"
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "T": 1,
+          "Jmax": 10,
+          "Km": 1,
+          "Ki": 50,
+          "Jleak": 2,
+          "Kd": 1,
+          "Ktrans": 10,
+          "z_solute": 1,
+          "F": 96485,
+          "R": 8.314,
+          "Temp": 310
+        },
+        "indep": [
+          {
+            "symbol": "C",
+            "range": [
+              0.05,
+              20
+            ]
+          },
+          {
+            "symbol": "Cin",
+            "range": [
+              0.1,
+              20
+            ]
+          },
+          {
+            "symbol": "Vm",
+            "range": [
+              -0.1,
+              0.05
+            ]
+          }
+        ],
+        "sigma": 0.05,
+        "is_ode": false
+      },
+      "result": {
+        "ok": true,
+        "mode": "explicit",
+        "k": 5.0,
+        "sigma": 0.05,
+        "sampling": {
+          "method": "sobol",
+          "n_samples": 512,
+          "n_dimensions": 3
+        },
+        "terms": [
+          {
+            "term": "C*Jmax*T*(1 - Cin/(Cin + Ktrans))/(C + Km*(C/Ki + 1))",
+            "rms": 4.871430475624301,
+            "sigma_multiple": 97.42860951248602
+          },
+          {
+            "term": "-Cin*Jleak*(1 - C/(C + Kd))/(Cin + Kd)",
+            "rms": 0.36639618547235336,
+            "sigma_multiple": 7.327923709447067
+          },
+          {
+            "term": "-Cin*Jleak*(exp(F*Vm*z_solute/((R*Temp))) - 1*1)/((Cin + Kd)*(exp(F*Vm*z_solute/",
+            "rms": 1.092389087341143,
+            "sigma_multiple": 21.84778174682286
+          }
+        ],
+        "weak_terms": [],
+        "new_term": {
+          "delta_expr": "evaluated numerically as current expression minus parent",
+          "max_effect": 6.1847332374964425,
+          "sigma_multiple": 123.69466474992885,
+          "strongest_at": {
+            "C": 17.268474325817078,
+            "Cin": 19.999216337129475,
+            "Vm": -0.07027679192833602
+          },
+          "passes": true
+        },
+        "advice": "all terms visible"
+      }
+    }
+  ],
+  "_cost_usd": 1.08404775,
+  "_num_turns": 8,
+  "discipline": "biology",
+  "scenario_text": "A membrane transporter moves a solute across the plasma membrane against its gradient. The uptake rate is measured as a function of external solute concentration at fixed transporter abundance. The rate increases with concentration but saturates as all transporters become occupied.",
+  "record_id": "m2_cell_biology_and_signaling_0_003",
+  "generation": 5,
+  "_n_total": 5000,
+  "finalization": {
+    "mode": "candidate",
+    "accepted_generations": 5,
+    "novelty": {
+      "reasoning": "Let me analyze each term in the candidate equation against the classical baseline J = Jmax*T*C/(Km+C).\n\n1. First term: Jmax*T*C/(Km*(1+C/Ki)+C) is a substrate-inhibition Michaelis-Menten form (Haldane equation), which is classical and well-known. Multiplied by (1 - Cin/(Cin+Ktrans)), which is a trans-inhibition (product inhibition) factor. The factor (1 - Cin/(Cin+Ktrans)) simplifies to Ktrans/(Cin+Ktrans), a standard saturable inhibition term. Individually these are known motifs, but their multiplicative combination in this specific arrangement is a composite construction.\n\n2. Second term: Jleak*(1 - C/(C+Kd))*(Cin/(Cin+Kd)) is a back-leak (efflux) term. The construction (1 - C/(C+Kd)) = Kd/(C+Kd) represents external-concentration suppression of leak, and (Cin/(Cin+Kd)) represents internal-solute driven efflux. This composite product using the same Kd scale for two distinct saturation functions is an unusual, non-standard construction not found in textbooks.\n\n3. Third term: Jleak*(exp(z*F*Vm/RT)-1)/(exp(z*F*Vm/RT)+1)*(Cin/(Cin+Kd)). The (exp(x)-1)/(exp(x)+1) = tanh(x/2) form is a voltage-dependent driving factor. This is a hyperbolic tangent electrophysiological driving term multiplied by an internal-solute saturation. The tanh form of voltage dependence is not the classical GHK flux equation (which has a different structure), making this a novel composite electrodiffusive term.\n\nOverall assessment: While each individual motif (Michaelis-Menten, substrate inhibition, trans-inhibition, voltage dependence) is recognizable from the literature, the COMPLETE combined form — with the specific reuse of Kd across multiple saturation terms, the tanh-form voltage factor multiplied by internal-solute saturation, and the particular multiplicative coupling of trans-inhibition to the forward cycle — does not appear as a single recognizable textbook equation. An LLM could not recite this exact composite formula from context alone. The precise coefficient sharing and functional couplings could only be inferred by fitting experimental data. This qualifies as novel.",
+      "answer": "Yes",
+      "llm_qa_history": [
+        {
+          "attempt": 1,
+          "model": "claude-opus-4-8",
+          "system_prompt": "You are a top-tier scientist with deep expertise across physics, biology,\nchemistry, and materials science. Your task is to act as a \"Novelty Evaluator\":\nobjectively judge whether a newly generated mathematical equation is\n\"scientifically novel\" within its given scientific context.\n\nCORE CRITERIA:\n- NOT NOVEL: the equation is a well-known classical formula that already exists\n  in textbooks, on the internet, or in the open scientific literature — i.e. a\n  formula that could be obtained simply by recall/recitation.\n- NOVEL: while remaining scientifically sound, the equation introduces uncommon,\n  nonlinear, or genuinely new composite mechanism terms, such that neither a\n  human nor an AI could guess it from background knowledge alone — it could only\n  be recovered through data-driven inference from experimental observations.\n",
+          "user_prompt": "[SCIENTIFIC CONTEXT]:\nField: biology\nProblem description: A membrane transporter moves a solute across the plasma membrane against its gradient. The uptake rate is measured as a function of external solute concentration at fixed transporter abundance. The rate increases with concentration but saturates as all transporters become occupied.\n\n[VARIABLES & PARAMETERS]:\n- Target variable: J (Solute uptake flux across the membrane)\n- Input features: C (External solute concentration); T (Relative transporter abundance in the membrane); Cin (Internal (cytosolic) solute concentration driving the outward back-leak); Vm (Transmembrane electrical potential (inside relative to outside))\n- Dynamic states: (none)\n- Parameters: Jmax (Maximal uptake flux per unit transporter abundance); Km (Half-saturation constant (concentration at half-maximal flux)); Ki (Substrate-inhibition constant governing binding of a second inhibitory solute molecule to the transporter); Jleak (Maximal back-leak (efflux) flux of solute down its gradient); Kd (Concentration scale at which the concentration-gradient-driven back-leak is half-suppressed); z_solute (Valence (charge number) of the transported solute); F (Faraday constant); R (Gas constant); Temp (Absolute temperature); Ktrans (Internal-solute inhibition constant for trans-side product inhibition of the forward transport cycle)\n\n[CANDIDATE EQUATION]:\nJ = Jmax * T * C / (Km * (1 + C / Ki) + C) * (1 - Cin / (Cin + Ktrans)) - Jleak * (1 - C / (C + Kd)) * (Cin / (Cin + Kd)) - Jleak * (exp(z_solute * F * Vm / (R * Temp)) - 1) / (exp(z_solute * F * Vm / (R * Temp)) + 1) * (Cin / (Cin + Kd))\n\n(Note: this equation comes from an equation-evolution pipeline; assume it is\nmathematically solvable and numerically stable.)\n\n[NOTE ON KNOWN / CLASSICAL TERMS]:\nThe classical / textbook starting point for this phenomenon (the baseline equation) is:\n  J = Jmax * T * C / (Km + C)\nThe terms appearing in this baseline equation can be regarded as the well-known classical terms for this problem. Use this as the reference to judge whether the candidate equation, relative to this classical baseline, introduces additional novel composite terms that cannot be recited directly and could only be discovered through data-driven reasoning.\n\n---\n\nREASONING & OUTPUT REQUIREMENTS:\nLet's think step by step:\n1. Analyze each term in the candidate equation. Which terms are established\n   classical knowledge in this scientific context, and which are newly\n   introduced composite terms?\n2. Drawing on your knowledge of the scientific literature, does this COMPLETE\n   combined form of the equation appear directly in any existing textbook or\n   public reference? Could a large language model \"recite\" this exact formula\n   purely from the context and variable names above?\n3. Assess whether it has true novelty (i.e. it could only be discovered by\n   reasoning over subsequent experimental observation data).\n\nProvide your final answer STRICTLY in the following JSON format, with no extra\nMarkdown markup (no ```json):\n{\n  \"reasoning\": \"Write your detailed step-by-step scientific analysis and novelty assessment here.\",\n  \"answer\": \"Yes\" or \"No\" (write \"Yes\" if the equation is novel and cannot be directly recited; write \"No\" if it is a well-known classical formula or can be directly recited)\n}\n",
+          "raw_response": "{\n  \"reasoning\": \"Let me analyze each term in the candidate equation against the classical baseline J = Jmax*T*C/(Km+C).\\n\\n1. First term: Jmax*T*C/(Km*(1+C/Ki)+C) is a substrate-inhibition Michaelis-Menten form (Haldane equation), which is classical and well-known. Multiplied by (1 - Cin/(Cin+Ktrans)), which is a trans-inhibition (product inhibition) factor. The factor (1 - Cin/(Cin+Ktrans)) simplifies to Ktrans/(Cin+Ktrans), a standard saturable inhibition term. Individually these are known motifs, but their multiplicative combination in this specific arrangement is a composite construction.\\n\\n2. Second term: Jleak*(1 - C/(C+Kd))*(Cin/(Cin+Kd)) is a back-leak (efflux) term. The construction (1 - C/(C+Kd)) = Kd/(C+Kd) represents external-concentration suppression of leak, and (Cin/(Cin+Kd)) represents internal-solute driven efflux. This composite product using the same Kd scale for two distinct saturation functions is an unusual, non-standard construction not found in textbooks.\\n\\n3. Third term: Jleak*(exp(z*F*Vm/RT)-1)/(exp(z*F*Vm/RT)+1)*(Cin/(Cin+Kd)). The (exp(x)-1)/(exp(x)+1) = tanh(x/2) form is a voltage-dependent driving factor. This is a hyperbolic tangent electrophysiological driving term multiplied by an internal-solute saturation. The tanh form of voltage dependence is not the classical GHK flux equation (which has a different structure), making this a novel composite electrodiffusive term.\\n\\nOverall assessment: While each individual motif (Michaelis-Menten, substrate inhibition, trans-inhibition, voltage dependence) is recognizable from the literature, the COMPLETE combined form — with the specific reuse of Kd across multiple saturation terms, the tanh-form voltage factor multiplied by internal-solute saturation, and the particular multiplicative coupling of trans-inhibition to the forward cycle — does not appear as a single recognizable textbook equation. An LLM could not recite this exact composite formula from context alone. The precise coefficient sharing and functional couplings could only be inferred by fitting experimental data. This qualifies as novel.\",\n  \"answer\": \"Yes\"\n}",
+          "parsed_response": {
+            "reasoning": "Let me analyze each term in the candidate equation against the classical baseline J = Jmax*T*C/(Km+C).\n\n1. First term: Jmax*T*C/(Km*(1+C/Ki)+C) is a substrate-inhibition Michaelis-Menten form (Haldane equation), which is classical and well-known. Multiplied by (1 - Cin/(Cin+Ktrans)), which is a trans-inhibition (product inhibition) factor. The factor (1 - Cin/(Cin+Ktrans)) simplifies to Ktrans/(Cin+Ktrans), a standard saturable inhibition term. Individually these are known motifs, but their multiplicative combination in this specific arrangement is a composite construction.\n\n2. Second term: Jleak*(1 - C/(C+Kd))*(Cin/(Cin+Kd)) is a back-leak (efflux) term. The construction (1 - C/(C+Kd)) = Kd/(C+Kd) represents external-concentration suppression of leak, and (Cin/(Cin+Kd)) represents internal-solute driven efflux. This composite product using the same Kd scale for two distinct saturation functions is an unusual, non-standard construction not found in textbooks.\n\n3. Third term: Jleak*(exp(z*F*Vm/RT)-1)/(exp(z*F*Vm/RT)+1)*(Cin/(Cin+Kd)). The (exp(x)-1)/(exp(x)+1) = tanh(x/2) form is a voltage-dependent driving factor. This is a hyperbolic tangent electrophysiological driving term multiplied by an internal-solute saturation. The tanh form of voltage dependence is not the classical GHK flux equation (which has a different structure), making this a novel composite electrodiffusive term.\n\nOverall assessment: While each individual motif (Michaelis-Menten, substrate inhibition, trans-inhibition, voltage dependence) is recognizable from the literature, the COMPLETE combined form — with the specific reuse of Kd across multiple saturation terms, the tanh-form voltage factor multiplied by internal-solute saturation, and the particular multiplicative coupling of trans-inhibition to the forward cycle — does not appear as a single recognizable textbook equation. An LLM could not recite this exact composite formula from context alone. The precise coefficient sharing and functional couplings could only be inferred by fitting experimental data. This qualifies as novel.",
+            "answer": "Yes"
+          }
+        }
+      ]
+    },
+    "total_points": 5000,
+    "data_csv": "/data1/SRBench_fresh/outputs/Candidate_Equations/candidate_m2_cell_biology_and_signaling_0_003_20260826-154504/lineage_attempt_01/candidate_data/m2_cell_biology_and_signaling_0_003_gen5_20260826-155032.csv",
+    "evaluation_status": "not_evaluated; choose Harbor split and solver later"
+  }
+}

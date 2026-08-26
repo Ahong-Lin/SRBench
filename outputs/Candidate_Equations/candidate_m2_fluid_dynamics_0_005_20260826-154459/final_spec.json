@@ -1,0 +1,284 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "C",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        1.0,
+        20.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "decay_rate",
+      "value": 1.0
+    },
+    {
+      "symbol": "reaction_rate",
+      "value": 0.1
+    },
+    {
+      "symbol": "saturation_const",
+      "value": 0.5
+    },
+    {
+      "symbol": "quench_feedback",
+      "value": 0.5
+    },
+    {
+      "symbol": "product_yield",
+      "value": 0.5
+    },
+    {
+      "symbol": "product_clearance",
+      "value": 0.3
+    },
+    {
+      "symbol": "reverse_rate",
+      "value": 0.2
+    },
+    {
+      "symbol": "dissociation_exponent",
+      "value": 1.0
+    },
+    {
+      "symbol": "photobleach_rate",
+      "value": 0.5
+    },
+    {
+      "symbol": "photobleach_half",
+      "value": 2.0
+    }
+  ],
+  "benchmark_output": "dC_dt",
+  "benchmark_target_state": "C",
+  "observed_variables": [
+    "t",
+    "C",
+    "Q"
+  ],
+  "rhs_for_integrator": "-decay_rate * C / t - reaction_rate * C**2 / (1 + saturation_const * C) * (1 + quench_feedback * Q) + reverse_rate * Q / t**dissociation_exponent - photobleach_rate * C / (1 + photobleach_half / t)",
+  "state_variables": [
+    "C",
+    "Q"
+  ],
+  "state_rhs": [
+    "-decay_rate * C / t - reaction_rate * C**2 / (1 + saturation_const * C) * (1 + quench_feedback * Q) + reverse_rate * Q / t**dissociation_exponent - photobleach_rate * C / (1 + photobleach_half / t)",
+    "product_yield * reaction_rate * C**2 / (1 + saturation_const * C) - product_clearance * Q / t - reverse_rate * Q / t**dissociation_exponent"
+  ],
+  "initial_conditions": {
+    "C": 3.0,
+    "Q": 0.0
+  },
+  "noise": 0.02,
+  "sanity_expectations": [
+    "C starts at 3.0 and relaxes (overall monotone decreasing) as the patch broadens",
+    "C remains real, positive, and bounded within (0, 3] over the window",
+    "Q starts at 0, rises as quenched product accumulates, then decays via clearance/reverse terms",
+    "No singularity: t sampled from 1 (>0), so 1/t and 1/t**dissociation_exponent terms stay finite",
+    "New photobleaching term deepens C's decline (most noticeably around t~3-4) relative to the parent system"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "Noise sigma=0.02 (absolute, on C). ODE-system child-vs-parent comparison on the target C trajectory: the NEW photobleaching term (-photobleach_rate*C/(1+photobleach_half/t)) produces a peak deviation of 0.325 in C, = 16.3x sigma, strongest at t~3.67 (well inside t in [1,20]). Above the k=5 threshold, so the new mechanism is clearly visible. The dominant diffusive term (-decay_rate*C/t) drives the overall relaxation from C=3, and the self-quenching/reverse/Q-coupling terms shape Q and the mid-time behavior; all remain active over the window.",
+  "role_corrections": [
+    "t: V->V (confirmed: sole independent time axis, differentiation variable, gets the sampling range)",
+    "C: state->state (confirmed: target/dependent state, function under d/dt)",
+    "Q: state->state (confirmed: second dynamic state with its own governing RHS in the contract; not a parameter)",
+    "decay_rate: P->P (confirmed fixed parameter)",
+    "reaction_rate: P->P (confirmed)",
+    "saturation_const: P->P (confirmed)",
+    "quench_feedback: P->P (confirmed)",
+    "product_yield: P->P (confirmed)",
+    "product_clearance: P->P (confirmed)",
+    "reverse_rate: P->P (confirmed)",
+    "dissociation_exponent: P->P (confirmed)",
+    "photobleach_rate: P->P (confirmed, new-term coefficient)",
+    "photobleach_half: P->P (confirmed, new-term timescale)"
+  ],
+  "rationale": "Typed ode_system contract inherited verbatim (states C,Q; state_rhs; ICs C=3,Q=0). analyze_expression confirmed no derivatives/integrals/delays/ungoverned functions on either RHS, so integrate_system is correct. t is the only independent axis and carries 1/t-type singularities, so sampling starts at t=1 to stay finite (check_substitution at a representative interior point returned finite/real). Parameter magnitudes chosen physically: decay_rate=1 (~2D diffusive t^-1 relaxation), modest reaction/saturation/feedback/yield/clearance/reverse values, dissociation_exponent=1, and the new photobleaching pair within the suggested ranges (photobleach_rate=0.5 in [0,1], photobleach_half=2.0 in [0,5]). excitation_check (is_ode) confirms the new term reaches 16.3x sigma, so it is visible above noise.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "-decay_rate * C / t - reaction_rate * C**2 / (1 + saturation_const * C) * (1 + quench_feedback * Q) + reverse_rate * Q / t**dissociation_exponent - photobleach_rate * C / (1 + photobleach_half / t)",
+        "target_symbol": "C"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "C",
+          "Q",
+          "decay_rate",
+          "dissociation_exponent",
+          "photobleach_half",
+          "photobleach_rate",
+          "quench_feedback",
+          "reaction_rate",
+          "reverse_rate",
+          "saturation_const",
+          "t"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "(Q*photobleach_half*reverse_rate*saturation_const*t + Q*reverse_rate*saturation_const*t**2 - decay_rate*photobleach_half*t**dissociation_exponent - decay_rate*t**(dissociation_exponent + 1) - photobleach_rate*t**(dissociation_exponent + 2) - sqrt(4*Q**2*photobleach_half**2*quench_feedback*reaction_rate*reverse_rate*t**(dissociation_exponent + 2) + Q**2*photobleach_half**2*reverse_rate**2*saturation_const**2*t**2 + 8*Q**2*photobleach_half*quench_feedback*reaction_rate*reverse_rate*t**(dissociation_exponent + 3) + 2*Q**2*photobleach_half*reverse_rate**2*saturation_const**2*t**3 + 4*Q**2*quench_feedback*reaction_rate*reverse_rate*t**(dissociation_exponent + 4) + Q**2*reverse_rate**2*saturation_const**2*t**4 + 2*Q*decay_rate*photobleach_half**2*reverse_rate*saturation_const*t**(dissociation_exponent + 1) + 4*Q*decay_rate*photobleach_half*reverse_rate*saturation_const*t**(dissociation_exponent + 2) + 2*Q*decay_rate*reverse_rate*saturation_const*t**(dissociation_exponent + 3) + 4*Q*photobleach_half**2*reaction_rate*reverse_rate*t**(dissociation_exponent + 2) + 2*Q*photobleach_half*photobleach_rate*reverse_rate*saturation_const*t**(dissociation_exponent + 3) + 8*Q*photobleach_half*reaction_rate*reverse_rate*t**(dissociation_exponent + 3) + 2*Q*photobleach_rate*reverse_rate*saturation_const*t**(dissociation_exponent + 4) + 4*Q*reaction_rate*reverse_rate*t**(dissociation_exponent + 4) + decay_rate**2*photobleach_half**2*t**(2*dissociation_exponent) + 2*decay_rate**2*photobleach_half*t**(2*dissociation_exponent + 1) + decay_rate**2*t**(2*dissociation_exponent + 2) + 2*decay_rate*photobleach_half*photobleach_rate*t**(2*dissociation_exponent + 2) + 2*decay_rate*photobleach_rate*t**(2*dissociation_exponent + 3) + photobleach_rate**2*t**(2*dissociation_exponent + 4)))/(2*t**dissociation_exponent*(Q*photobleach_half*quench_feedback*reaction_rate*t + Q*quench_feedback*reaction_rate*t**2 + decay_rate*photobleach_half*saturation_const + decay_rate*saturation_const*t + photobleach_half*reaction_rate*t + photobleach_rate*saturation_const*t**2 + reaction_rate*t**2))",
+          "(Q*photobleach_half*reverse_rate*saturation_const*t + Q*reverse_rate*saturation_const*t**2 - decay_rate*photobleach_half*t**dissociation_exponent - decay_rate*t**(dissociation_exponent + 1) - photobleach_rate*t**(dissociation_exponent + 2) + sqrt(4*Q**2*photobleach_half**2*quench_feedback*reaction_rate*reverse_rate*t**(dissociation_exponent + 2) + Q**2*photobleach_half**2*reverse_rate**2*saturation_const**2*t**2 + 8*Q**2*photobleach_half*quench_feedback*reaction_rate*reverse_rate*t**(dissociation_exponent + 3) + 2*Q**2*photobleach_half*reverse_rate**2*saturation_const**2*t**3 + 4*Q**2*quench_feedback*reaction_rate*reverse_rate*t**(dissociation_exponent + 4) + Q**2*reverse_rate**2*saturation_const**2*t**4 + 2*Q*decay_rate*photobleach_half**2*reverse_rate*saturation_const*t**(dissociation_exponent + 1) + 4*Q*decay_rate*photobleach_half*reverse_rate*saturation_const*t**(dissociation_exponent + 2) + 2*Q*decay_rate*reverse_rate*saturation_const*t**(dissociation_exponent + 3) + 4*Q*photobleach_half**2*reaction_rate*reverse_rate*t**(dissociation_exponent + 2) + 2*Q*photobleach_half*photobleach_rate*reverse_rate*saturation_const*t**(dissociation_exponent + 3) + 8*Q*photobleach_half*reaction_rate*reverse_rate*t**(dissociation_exponent + 3) + 2*Q*photobleach_rate*reverse_rate*saturation_const*t**(dissociation_exponent + 4) + 4*Q*reaction_rate*reverse_rate*t**(dissociation_exponent + 4) + decay_rate**2*photobleach_half**2*t**(2*dissociation_exponent) + 2*decay_rate**2*photobleach_half*t**(2*dissociation_exponent + 1) + decay_rate**2*t**(2*dissociation_exponent + 2) + 2*decay_rate*photobleach_half*photobleach_rate*t**(2*dissociation_exponent + 2) + 2*decay_rate*photobleach_rate*t**(2*dissociation_exponent + 3) + photobleach_rate**2*t**(2*dissociation_exponent + 4)))/(2*t**dissociation_exponent*(Q*photobleach_half*quench_feedback*reaction_rate*t + Q*quench_feedback*reaction_rate*t**2 + decay_rate*photobleach_half*saturation_const + decay_rate*saturation_const*t + photobleach_half*reaction_rate*t + photobleach_rate*saturation_const*t**2 + reaction_rate*t**2))"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "product_yield * reaction_rate * C**2 / (1 + saturation_const * C) - product_clearance * Q / t - reverse_rate * Q / t**dissociation_exponent",
+        "target_symbol": "Q"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "C",
+          "Q",
+          "dissociation_exponent",
+          "product_clearance",
+          "product_yield",
+          "reaction_rate",
+          "reverse_rate",
+          "saturation_const",
+          "t"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "C**2*product_yield*reaction_rate*t**(dissociation_exponent + 1)/(C*product_clearance*saturation_const*t**dissociation_exponent + C*reverse_rate*saturation_const*t + product_clearance*t**dissociation_exponent + reverse_rate*t)"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "-decay_rate * C / t - reaction_rate * C**2 / (1 + saturation_const * C) * (1 + quench_feedback * Q) + reverse_rate * Q / t**dissociation_exponent - photobleach_rate * C / (1 + photobleach_half / t)",
+        "assignments": {
+          "decay_rate": 1,
+          "reaction_rate": 0.1,
+          "saturation_const": 0.5,
+          "quench_feedback": 0.5,
+          "product_yield": 0.5,
+          "product_clearance": 0.3,
+          "reverse_rate": 0.2,
+          "dissociation_exponent": 1,
+          "photobleach_rate": 0.5,
+          "photobleach_half": 2,
+          "C": 0.5,
+          "Q": 0.3,
+          "t": 8
+        },
+        "target_symbol": "C"
+      },
+      "result": {
+        "ok": true,
+        "value_real": -0.278,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "decay_rate": 1,
+          "dissociation_exponent": 1,
+          "photobleach_half": 2,
+          "photobleach_rate": 0.5,
+          "product_clearance": 0.3,
+          "product_yield": 0.5,
+          "quench_feedback": 0.5,
+          "reaction_rate": 0.1,
+          "reverse_rate": 0.2,
+          "saturation_const": 0.5
+        },
+        "indep": [
+          {
+            "symbol": "t",
+            "range": [
+              1,
+              20
+            ]
+          }
+        ],
+        "is_ode": true,
+        "sigma": 0.02
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "C",
+        "child_state_count": 2,
+        "parent_state_count": 2,
+        "n_time_points": 200,
+        "new_term_max_effect": 0.32519655019243315,
+        "new_term_sigma_multiple": 16.25982750962166,
+        "strongest_at": {
+          "t": 3.6733668341708543
+        },
+        "k": 5.0,
+        "passes": true,
+        "advice": "new mechanism is visible on the target trajectory"
+      }
+    }
+  ],
+  "_cost_usd": 0.65919625,
+  "_num_turns": 7,
+  "discipline": "physics",
+  "scenario_text": "A localized patch of dye is injected into a fluid at rest and spreads outward purely by molecular diffusion. The peak concentration at the injection point decreases over time as the dye disperses through the surrounding medium. We monitor how the centerline concentration relaxes as the patch broadens.",
+  "record_id": "m2_fluid_dynamics_0_005",
+  "generation": 5,
+  "_n_total": 5000,
+  "finalization": {
+    "mode": "candidate",
+    "accepted_generations": 5,
+    "novelty": {
+      "reasoning": "1. Term-by-term analysis: (a) '-decay_rate * C / t' is the classical baseline term representing the power-law decay of peak concentration for diffusive spreading of a point source (analogous to C ~ t^(-d/2)). This is well-known. (b) '-reaction_rate * C**2 / (1 + saturation_const * C) * (1 + quench_feedback * Q)' is a saturable (Michaelis-Menten-like) second-order self-quenching term MULTIPLIED by an aggregate feedback factor. While the saturable second-order form is textbook-flavored, the multiplicative feedback with accumulated aggregate Q is a composite construction. (c) '+ reverse_rate * Q / t**dissociation_exponent' is a reversible dissociation term with a nonstandard time-dilution power-law weighting t^(-dissociation_exponent). This is an unusual explicitly-time-dependent reverse coupling. (d) '- photobleach_rate * C / (1 + photobleach_half / t)' is a first-order photobleaching term modulated by a time-ramping saturation factor 1/(1+photobleach_half/t). This time-ramp modulation is a non-classical composite construct. (e) The coupled Q equation combines a saturable production term, a diffusive clearance -product_clearance*Q/t, and the reverse-dissociation term.\n\n2. This exact combined form does not appear in any textbook or public reference. The classical diffusion-decay problem is described only by dC/dt = -decay_rate*C/t. The additions here — saturable self-quenching with aggregate-enhanced feedback, a two-state reversible aggregate compartment with power-law time dilution, and photobleaching with a time-dependent exposure ramp — together form a highly specific composite ODE system that no LLM could recite verbatim from background knowledge.\n\n3. The individual motifs (power-law decay, saturable kinetics, first-order bleaching) are recognizable, but the specific composite couplings — the multiplicative (1+quench_feedback*Q) enhancement, the t^(-dissociation_exponent) reverse coupling, and the (1+photobleach_half/t) modulation — are non-obvious nonlinear time-explicit mechanism terms that would only emerge from fitting experimental observation data. This crosses the threshold into genuine novelty.",
+      "answer": "Yes",
+      "llm_qa_history": [
+        {
+          "attempt": 1,
+          "model": "claude-opus-4-8",
+          "system_prompt": "You are a top-tier scientist with deep expertise across physics, biology,\nchemistry, and materials science. Your task is to act as a \"Novelty Evaluator\":\nobjectively judge whether a newly generated mathematical equation is\n\"scientifically novel\" within its given scientific context.\n\nCORE CRITERIA:\n- NOT NOVEL: the equation is a well-known classical formula that already exists\n  in textbooks, on the internet, or in the open scientific literature — i.e. a\n  formula that could be obtained simply by recall/recitation.\n- NOVEL: while remaining scientifically sound, the equation introduces uncommon,\n  nonlinear, or genuinely new composite mechanism terms, such that neither a\n  human nor an AI could guess it from background knowledge alone — it could only\n  be recovered through data-driven inference from experimental observations.\n",
+          "user_prompt": "[SCIENTIFIC CONTEXT]:\nField: physics\nProblem description: A localized patch of dye is injected into a fluid at rest and spreads outward purely by molecular diffusion. The peak concentration at the injection point decreases over time as the dye disperses through the surrounding medium. We monitor how the centerline concentration relaxes as the patch broadens.\n\n[VARIABLES & PARAMETERS]:\n- Target variable: dC_dt (Time rate of change of the peak dye concentration at the injection center)\n- Input features: t (time)\n- Dynamic states: C (Peak dye concentration at the center of the spreading patch); Q (Local concentration of quenched/aggregated product accumulated from self-quenching at the center)\n- Parameters: decay_rate (dimensionality-dependent decay exponent factor for diffusive spreading); reaction_rate (second-order loss coefficient for concentration-dependent self-quenching/aggregation of the dye); saturation_const (saturation constant limiting the self-quenching rate at high dye concentration); quench_feedback (enhancement of self-quenching due to accumulated aggregate acting as additional quenching sites); product_yield (fraction of quenched dye converted into persistent aggregate product); product_clearance (diffusive clearance rate of accumulated aggregate away from the center); reverse_rate (rate coefficient for reversible dissociation of aggregate back into free dye); dissociation_exponent (temporal dilution exponent controlling how aggregate dissociation weakens as the patch broadens); photobleach_rate (first-order photobleaching rate coefficient for irreversible destruction of free dye under illumination); photobleach_half (characteristic time scale over which the local light exposure (and thus effective photobleaching) ramps up as the patch settles)\n\n[CANDIDATE EQUATION]:\ndC_dt = -decay_rate * C / t - reaction_rate * C**2 / (1 + saturation_const * C) * (1 + quench_feedback * Q) + reverse_rate * Q / t**dissociation_exponent - photobleach_rate * C / (1 + photobleach_half / t)\n\n[CLOSED ODE SYSTEM]:\n{\n  \"time_symbol\": \"t\",\n  \"target_state\": \"C\",\n  \"states\": [\n    {\n      \"symbol\": \"C\",\n      \"rhs\": \"-decay_rate * C / t - reaction_rate * C**2 / (1 + saturation_const * C) * (1 + quench_feedback * Q) + reverse_rate * Q / t**dissociation_exponent - photobleach_rate * C / (1 + photobleach_half / t)\",\n      \"initial_condition\": 3.0,\n      \"description\": \"Peak dye concentration at the center of the spreading patch\"\n    },\n    {\n      \"symbol\": \"Q\",\n      \"rhs\": \"product_yield * reaction_rate * C**2 / (1 + saturation_const * C) - product_clearance * Q / t - reverse_rate * Q / t**dissociation_exponent\",\n      \"initial_condition\": 0.0,\n      \"description\": \"Local concentration of quenched aggregate product at the center that enhances further quenching, is diffusively cleared, and partially dissociates back into free dye as the patch dilutes\"\n    }\n  ]\n}\n(Note: this equation comes from an equation-evolution pipeline; assume it is\nmathematically solvable and numerically stable.)\n\n[NOTE ON KNOWN / CLASSICAL TERMS]:\nThe classical / textbook starting point for this phenomenon (the baseline equation) is:\n  dC_dt = -decay_rate * C / t\nThe terms appearing in this baseline equation can be regarded as the well-known classical terms for this problem. Use this as the reference to judge whether the candidate equation, relative to this classical baseline, introduces additional novel composite terms that cannot be recited directly and could only be discovered through data-driven reasoning.\n\n---\n\nREASONING & OUTPUT REQUIREMENTS:\nLet's think step by step:\n1. Analyze each term in the candidate equation. Which terms are established\n   classical knowledge in this scientific context, and which are newly\n   introduced composite terms?\n2. Drawing on your knowledge of the scientific literature, does this COMPLETE\n   combined form of the equation appear directly in any existing textbook or\n   public reference? Could a large language model \"recite\" this exact formula\n   purely from the context and variable names above?\n3. Assess whether it has true novelty (i.e. it could only be discovered by\n   reasoning over subsequent experimental observation data).\n\nProvide your final answer STRICTLY in the following JSON format, with no extra\nMarkdown markup (no ```json):\n{\n  \"reasoning\": \"Write your detailed step-by-step scientific analysis and novelty assessment here.\",\n  \"answer\": \"Yes\" or \"No\" (write \"Yes\" if the equation is novel and cannot be directly recited; write \"No\" if it is a well-known classical formula or can be directly recited)\n}\n",
+          "raw_response": "{\n  \"reasoning\": \"1. Term-by-term analysis: (a) '-decay_rate * C / t' is the classical baseline term representing the power-law decay of peak concentration for diffusive spreading of a point source (analogous to C ~ t^(-d/2)). This is well-known. (b) '-reaction_rate * C**2 / (1 + saturation_const * C) * (1 + quench_feedback * Q)' is a saturable (Michaelis-Menten-like) second-order self-quenching term MULTIPLIED by an aggregate feedback factor. While the saturable second-order form is textbook-flavored, the multiplicative feedback with accumulated aggregate Q is a composite construction. (c) '+ reverse_rate * Q / t**dissociation_exponent' is a reversible dissociation term with a nonstandard time-dilution power-law weighting t^(-dissociation_exponent). This is an unusual explicitly-time-dependent reverse coupling. (d) '- photobleach_rate * C / (1 + photobleach_half / t)' is a first-order photobleaching term modulated by a time-ramping saturation factor 1/(1+photobleach_half/t). This time-ramp modulation is a non-classical composite construct. (e) The coupled Q equation combines a saturable production term, a diffusive clearance -product_clearance*Q/t, and the reverse-dissociation term.\\n\\n2. This exact combined form does not appear in any textbook or public reference. The classical diffusion-decay problem is described only by dC/dt = -decay_rate*C/t. The additions here — saturable self-quenching with aggregate-enhanced feedback, a two-state reversible aggregate compartment with power-law time dilution, and photobleaching with a time-dependent exposure ramp — together form a highly specific composite ODE system that no LLM could recite verbatim from background knowledge.\\n\\n3. The individual motifs (power-law decay, saturable kinetics, first-order bleaching) are recognizable, but the specific composite couplings — the multiplicative (1+quench_feedback*Q) enhancement, the t^(-dissociation_exponent) reverse coupling, and the (1+photobleach_half/t) modulation — are non-obvious nonlinear time-explicit mechanism terms that would only emerge from fitting experimental observation data. This crosses the threshold into genuine novelty.\",\n  \"answer\": \"Yes\"\n}",
+          "parsed_response": {
+            "reasoning": "1. Term-by-term analysis: (a) '-decay_rate * C / t' is the classical baseline term representing the power-law decay of peak concentration for diffusive spreading of a point source (analogous to C ~ t^(-d/2)). This is well-known. (b) '-reaction_rate * C**2 / (1 + saturation_const * C) * (1 + quench_feedback * Q)' is a saturable (Michaelis-Menten-like) second-order self-quenching term MULTIPLIED by an aggregate feedback factor. While the saturable second-order form is textbook-flavored, the multiplicative feedback with accumulated aggregate Q is a composite construction. (c) '+ reverse_rate * Q / t**dissociation_exponent' is a reversible dissociation term with a nonstandard time-dilution power-law weighting t^(-dissociation_exponent). This is an unusual explicitly-time-dependent reverse coupling. (d) '- photobleach_rate * C / (1 + photobleach_half / t)' is a first-order photobleaching term modulated by a time-ramping saturation factor 1/(1+photobleach_half/t). This time-ramp modulation is a non-classical composite construct. (e) The coupled Q equation combines a saturable production term, a diffusive clearance -product_clearance*Q/t, and the reverse-dissociation term.\n\n2. This exact combined form does not appear in any textbook or public reference. The classical diffusion-decay problem is described only by dC/dt = -decay_rate*C/t. The additions here — saturable self-quenching with aggregate-enhanced feedback, a two-state reversible aggregate compartment with power-law time dilution, and photobleaching with a time-dependent exposure ramp — together form a highly specific composite ODE system that no LLM could recite verbatim from background knowledge.\n\n3. The individual motifs (power-law decay, saturable kinetics, first-order bleaching) are recognizable, but the specific composite couplings — the multiplicative (1+quench_feedback*Q) enhancement, the t^(-dissociation_exponent) reverse coupling, and the (1+photobleach_half/t) modulation — are non-obvious nonlinear time-explicit mechanism terms that would only emerge from fitting experimental observation data. This crosses the threshold into genuine novelty.",
+            "answer": "Yes"
+          }
+        }
+      ]
+    },
+    "total_points": 5000,
+    "data_csv": "/data1/SRBench_fresh/outputs/Candidate_Equations/candidate_m2_fluid_dynamics_0_005_20260826-154459/lineage_attempt_01/candidate_data/m2_fluid_dynamics_0_005_gen5_20260826-154811.csv",
+    "evaluation_status": "not_evaluated; choose Harbor split and solver later"
+  }
+}

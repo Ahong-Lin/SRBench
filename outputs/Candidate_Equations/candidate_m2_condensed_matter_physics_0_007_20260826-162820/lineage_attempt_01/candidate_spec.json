@@ -1,0 +1,328 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "Psi",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        30.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "growth_rate",
+      "value": 1.5
+    },
+    {
+      "symbol": "saturation_coeff",
+      "value": 1.0
+    },
+    {
+      "symbol": "quintic_coeff",
+      "value": 0.1
+    },
+    {
+      "symbol": "elastic_pinning_coeff",
+      "value": 0.15
+    },
+    {
+      "symbol": "depinning_scale",
+      "value": 0.5
+    },
+    {
+      "symbol": "pinning_relax_coupling",
+      "value": 0.2
+    },
+    {
+      "symbol": "pin_response_rate",
+      "value": 0.5
+    },
+    {
+      "symbol": "pin_amplitude_gain",
+      "value": 0.5
+    },
+    {
+      "symbol": "pin_saturation_scale",
+      "value": 1.0
+    },
+    {
+      "symbol": "phase_slip_coeff",
+      "value": 0.5
+    },
+    {
+      "symbol": "phase_slip_threshold",
+      "value": 0.5
+    },
+    {
+      "symbol": "slip_regularizer",
+      "value": 0.01
+    }
+  ],
+  "benchmark_output": "dPsi_dt",
+  "benchmark_target_state": "Psi",
+  "observed_variables": [
+    "t",
+    "Psi",
+    "phi"
+  ],
+  "rhs_for_integrator": "growth_rate*Psi - saturation_coeff*Psi**3 - quintic_coeff*Psi**5 - elastic_pinning_coeff*Psi/sqrt(Psi**2 + depinning_scale**2) - pinning_relax_coupling*phi*Psi - phase_slip_coeff*Psi*exp(-phase_slip_threshold/(Psi**2 + slip_regularizer))",
+  "state_variables": [
+    "Psi",
+    "phi"
+  ],
+  "state_rhs": [
+    "growth_rate*Psi - saturation_coeff*Psi**3 - quintic_coeff*Psi**5 - elastic_pinning_coeff*Psi/sqrt(Psi**2 + depinning_scale**2) - pinning_relax_coupling*phi*Psi - phase_slip_coeff*Psi*exp(-phase_slip_threshold/(Psi**2 + slip_regularizer))",
+    "pin_response_rate*(pin_amplitude_gain*Psi/(1 + Psi/pin_saturation_scale) - phi)"
+  ],
+  "initial_conditions": {
+    "Psi": 0.01,
+    "phi": 0.0
+  },
+  "noise": 0.01,
+  "sanity_expectations": [
+    "Psi starts near the seed 0.01 and is monotone increasing during the transient",
+    "Psi saturates to a finite positive equilibrium of order ~1 (below the pure-cubic value sqrt(growth_rate/saturation_coeff)=1.22 because pinning, quintic and phase-slip losses lower it)",
+    "phi starts at 0, rises lagging behind Psi, and approaches its own finite equilibrium pin_amplitude_gain*Psi/(1+Psi/pin_saturation_scale)",
+    "both states remain finite, real and bounded over t in [0,30]",
+    "with the phase-slip term the saturation amplitude is measurably lower than the parent system (difference ~0.12 near t≈5)"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "Noise sigma = 0.01 (abs, on Psi). Full child-vs-parent system comparison on the Psi trajectory over t in [0,30]. NEW term (phase-slip: -phase_slip_coeff*Psi*exp(-phase_slip_threshold/(Psi**2+slip_regularizer))) peaks at 0.124 = 12.4*sigma, strongest at t≈5.3 (the growth-to-saturation transient where Psi first climbs into the phase-slip-active regime Psi^2 ~ phase_slip_threshold). All parent terms (linear growth, cubic/quintic Landau saturation, elastic pinning crossover, phi-coupling) are the structurally validated ancestor and set the O(1) saturation amplitude. Key design fix: near the origin the elastic-pinning term ~ -(elastic_pinning_coeff/depinning_scale)*Psi, so growth_rate=1.5 > 0.15/0.5=0.3 keeps net linear growth ~1.2>0 and lets the seed grow to an amplitude (~1) where phase-slip activates.",
+  "role_corrections": [
+    "dPsi_dt: output/target derivative -> confirmed (RHS of the target state Psi)",
+    "t: time axis (V) -> V confirmed (sole independent variable, sampling axis)",
+    "Psi: dynamic state -> confirmed (target state, under highest derivative)",
+    "phi: dynamic state -> confirmed (second governed state with its own RHS; NOT collapsed to a parameter)",
+    "growth_rate: P -> P confirmed (fixed 1.5)",
+    "saturation_coeff: P -> P confirmed (fixed 1.0)",
+    "quintic_coeff: P -> P confirmed (fixed 0.1)",
+    "elastic_pinning_coeff: P -> P confirmed (fixed 0.15)",
+    "depinning_scale: P -> P confirmed (fixed 0.5)",
+    "pinning_relax_coupling: P -> P confirmed (fixed 0.2)",
+    "pin_response_rate: P -> P confirmed (fixed 0.5)",
+    "pin_amplitude_gain: P -> P confirmed (fixed 0.5)",
+    "pin_saturation_scale: P -> P confirmed (fixed 1.0)",
+    "phase_slip_coeff: P -> P confirmed (fixed 0.5, within hint 0.0-1.0)",
+    "phase_slip_threshold: P -> P confirmed (fixed 0.5, within hint 0.05-2.0)",
+    "slip_regularizer: P -> P confirmed (fixed 0.01, within hint 0.001-0.1)"
+  ],
+  "rationale": "Typed ODE-system contract: state system, RHS, and initial conditions inherited verbatim from the validated upstream contract; only time range, fixed parameters, noise and expectations chosen here. Parameters set so the seed (Psi=0.01) grows (net linear rate ~1.2>0 after the near-origin elastic-pinning drag) and saturates near amplitude ~1, i.e. in the regime where the new phase-slip mechanism exp(-phase_slip_threshold/(Psi^2+slip_regularizer)) turns on. t in [0,30] with 300 points captures the full growth->saturation curve plus the lagging phi relaxation (rate 0.5). Phase-slip parameters kept inside the suggested hint bands. Excitation confirmed: new term at 12.4*sigma (>5), so it leaves a clear mark above sigma=0.01 noise.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "growth_rate*Psi - saturation_coeff*Psi**3 - quintic_coeff*Psi**5 - elastic_pinning_coeff*Psi/sqrt(Psi**2 + depinning_scale**2) - pinning_relax_coupling*phi*Psi - phase_slip_coeff*Psi*exp(-phase_slip_threshold/(Psi**2 + slip_regularizer))",
+        "target_symbol": "Psi"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "Psi",
+          "depinning_scale",
+          "elastic_pinning_coeff",
+          "growth_rate",
+          "phase_slip_coeff",
+          "phase_slip_threshold",
+          "phi",
+          "pinning_relax_coupling",
+          "quintic_coeff",
+          "saturation_coeff",
+          "slip_regularizer"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": false,
+        "explicit_solution_preview": null,
+        "classification_hint": "implicit_or_explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "growth_rate*Psi - saturation_coeff*Psi**3 - quintic_coeff*Psi**5 - elastic_pinning_coeff*Psi/sqrt(Psi**2 + depinning_scale**2) - pinning_relax_coupling*phi*Psi - phase_slip_coeff*Psi*exp(-phase_slip_threshold/(Psi**2 + slip_regularizer))",
+        "assignments": {
+          "growth_rate": 1,
+          "saturation_coeff": 1,
+          "quintic_coeff": 0.1,
+          "elastic_pinning_coeff": 0.2,
+          "depinning_scale": 0.2,
+          "pinning_relax_coupling": 0.3,
+          "phase_slip_coeff": 0.5,
+          "phase_slip_threshold": 0.5,
+          "slip_regularizer": 0.01,
+          "phi": 0.3,
+          "Psi": 0.8
+        },
+        "target_symbol": "Psi"
+      },
+      "result": {
+        "ok": true,
+        "value_real": -0.19614424772153657,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "depinning_scale": 0.2,
+          "elastic_pinning_coeff": 0.2,
+          "growth_rate": 1,
+          "phase_slip_coeff": 0.5,
+          "phase_slip_threshold": 0.5,
+          "pin_amplitude_gain": 0.5,
+          "pin_response_rate": 0.5,
+          "pin_saturation_scale": 1,
+          "pinning_relax_coupling": 0.3,
+          "quintic_coeff": 0.1,
+          "saturation_coeff": 1,
+          "slip_regularizer": 0.01
+        },
+        "indep": [
+          {
+            "symbol": "t",
+            "range": [
+              0,
+              40
+            ]
+          }
+        ],
+        "is_ode": true,
+        "sigma": 0.01
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "Psi",
+        "child_state_count": 2,
+        "parent_state_count": 2,
+        "n_time_points": 200,
+        "new_term_max_effect": 0.0,
+        "new_term_sigma_multiple": 0.0,
+        "strongest_at": {
+          "t": 0.0
+        },
+        "k": 5.0,
+        "passes": false,
+        "advice": "new mechanism peaks at only 0.00*sigma (need 5.0); extend the t range or adjust physically valid coefficients"
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "depinning_scale": 0.2,
+          "elastic_pinning_coeff": 0.2,
+          "growth_rate": 1,
+          "phase_slip_coeff": 1,
+          "phase_slip_threshold": 0.3,
+          "pin_amplitude_gain": 0.5,
+          "pin_response_rate": 0.5,
+          "pin_saturation_scale": 1,
+          "pinning_relax_coupling": 0.3,
+          "quintic_coeff": 0.1,
+          "saturation_coeff": 1,
+          "slip_regularizer": 0.01
+        },
+        "indep": [
+          {
+            "range": [
+              0,
+              60
+            ],
+            "symbol": "t"
+          }
+        ],
+        "is_ode": true,
+        "sigma": 0.01
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "Psi",
+        "child_state_count": 2,
+        "parent_state_count": 2,
+        "n_time_points": 200,
+        "new_term_max_effect": 7.59323159904568e-14,
+        "new_term_sigma_multiple": 7.59323159904568e-12,
+        "strongest_at": {
+          "t": 60.0
+        },
+        "k": 5.0,
+        "passes": false,
+        "advice": "new mechanism peaks at only 0.00*sigma (need 5.0); extend the t range or adjust physically valid coefficients"
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "depinning_scale": 0.5,
+          "elastic_pinning_coeff": 0.15,
+          "growth_rate": 1.5,
+          "phase_slip_coeff": 0.5,
+          "phase_slip_threshold": 0.5,
+          "pin_amplitude_gain": 0.5,
+          "pin_response_rate": 0.5,
+          "pin_saturation_scale": 1,
+          "pinning_relax_coupling": 0.2,
+          "quintic_coeff": 0.1,
+          "saturation_coeff": 1,
+          "slip_regularizer": 0.01
+        },
+        "indep": [
+          {
+            "range": [
+              0,
+              30
+            ],
+            "symbol": "t"
+          }
+        ],
+        "is_ode": true,
+        "sigma": 0.01
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "Psi",
+        "child_state_count": 2,
+        "parent_state_count": 2,
+        "n_time_points": 200,
+        "new_term_max_effect": 0.12407594498736052,
+        "new_term_sigma_multiple": 12.407594498736051,
+        "strongest_at": {
+          "t": 5.276381909547738
+        },
+        "k": 5.0,
+        "passes": true,
+        "advice": "new mechanism is visible on the target trajectory"
+      }
+    }
+  ],
+  "_cost_usd": 0.66647225,
+  "_num_turns": 9,
+  "discipline": "physics",
+  "scenario_text": "A charge density wave forms in a low-dimensional conductor as its order parameter grows from a small fluctuation and saturates at an equilibrium amplitude below the transition. The amplitude evolves in time driven by a competition between a growth tendency and a self-limiting nonlinear term. Starting from a tiny seed, the pattern strengthens and levels off. The goal is to evolve the order parameter amplitude over time.",
+  "record_id": "m2_condensed_matter_physics_0_007",
+  "generation": 5,
+  "_n_total": 5000
+}

@@ -1,0 +1,233 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "Q",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        30.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "L",
+      "value": 1.0
+    },
+    {
+      "symbol": "R",
+      "value": 0.2
+    },
+    {
+      "symbol": "C",
+      "value": 1.0
+    },
+    {
+      "symbol": "beta_nl",
+      "value": 0.01
+    },
+    {
+      "symbol": "tau_c",
+      "value": 2.0
+    },
+    {
+      "symbol": "R_sat",
+      "value": 0.5
+    },
+    {
+      "symbol": "I_sat",
+      "value": 1.0
+    },
+    {
+      "symbol": "alpha_ms",
+      "value": 0.05
+    },
+    {
+      "symbol": "V_bd",
+      "value": 1.0
+    },
+    {
+      "symbol": "Q_bd",
+      "value": 1.0
+    },
+    {
+      "symbol": "R_leak",
+      "value": 2.0
+    }
+  ],
+  "benchmark_output": "dQ_dt",
+  "benchmark_target_state": "Q",
+  "observed_variables": [
+    "t",
+    "Q",
+    "I",
+    "phi"
+  ],
+  "rhs_for_integrator": "I - (V_bd/(R_leak))*tanh(Q/Q_bd)",
+  "state_variables": [
+    "Q",
+    "I",
+    "phi"
+  ],
+  "state_rhs": [
+    "I - (V_bd/(R_leak))*tanh(Q/Q_bd)",
+    "-(R/L)*(1 + R_sat*phi)*I - Q/(L*C) - beta_nl*Q**3/L - (alpha_ms/L)*(I**2/I_sat**2 - phi)/tau_c - (V_bd/L)*tanh(Q/Q_bd)",
+    "(I**2/I_sat**2 - phi)/tau_c"
+  ],
+  "initial_conditions": {
+    "Q": 3.0,
+    "I": 0.5,
+    "phi": 0.0
+  },
+  "noise": 0.05,
+  "sanity_expectations": [
+    "Q oscillates near natural frequency omega0=1/sqrt(LC)~1 rad/s (period ~6.28 s) with decaying amplitude",
+    "trajectory is bounded and finite/real over t in [0,30]",
+    "I oscillates roughly 90 deg out of phase with Q and decays",
+    "phi rises from 0 toward the running mean of I^2/I_sat^2 then relaxes as amplitude decays (non-negative, bounded)",
+    "the leakage term bleeds charge, so the child Q trajectory drifts/decays faster than the parent (dQ_dt=I) case",
+    "amplitudes decrease over time (net dissipative system)"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "Noise sigma=0.05 on the benchmark output dQ_dt. New term -(V_bd/R_leak)*tanh(Q/Q_bd) vs parent (dQ_dt=I): peak effect 0.602 on the Q trajectory = 12.0*sigma (k=5 threshold), strongest at t~3.17. Dominant term I reaches amplitude ~3 (>>60*sigma). Other terms exercised over the run: Q/(L*C) restoring (~3), beta_nl*Q^3 stiffening (~0.27, ~9% of restoring), R_sat*phi flux-dependent damping (phi builds toward mean(I^2/I_sat^2)~a few), alpha_ms magnetostrictive coupling and tanh back-EMF all active. New leakage mechanism clearly visible above noise.",
+  "role_corrections": [
+    "t: V->V (confirmed as sole time axis / independent variable)",
+    "Q: dynamic state -> dynamic state (confirmed; target_state, dependent variable)",
+    "I: dynamic state -> dynamic state (confirmed)",
+    "phi: dynamic state -> dynamic state (confirmed; internal flux-state)",
+    "L: P->P (confirmed; fixed 1.0 H)",
+    "R: P->P (confirmed; fixed 0.2 ohm)",
+    "C: P->P (confirmed; fixed 1.0 F)",
+    "beta_nl: P->P (confirmed; 0.01)",
+    "tau_c: P->P (confirmed; 2.0 s)",
+    "R_sat: P->P (confirmed; 0.5)",
+    "I_sat: P->P (confirmed; 1.0 A)",
+    "alpha_ms: P->P (confirmed; 0.05)",
+    "V_bd: P->P (confirmed; 1.0 V)",
+    "Q_bd: P->P (confirmed; 1.0)",
+    "R_leak: P->P (confirmed; fixed 2.0 ohm, within suggested 0.5-20.0 range)"
+  ],
+  "rationale": "Typed ODE-system contract inherited verbatim (states Q,I,phi; three RHS; ICs Q=3,I=0.5,phi=0). Only data-design choices made: lightly-damped RLC scaling L=C=1 (omega0~1), R=0.2 for visible but slow decay; time window [0,30] covers ~5 periods and lets the flux state phi build and the leakage bleed accumulate. Leakage scale V_bd/R_leak=0.5 with Q_bd=1 makes tanh saturate over the Q~3 swing, giving the new mechanism a 12*sigma imprint while staying ~1/6 of the dominant current term. R_leak=2.0 sits inside the suggested 0.5-20.0 band. Excitation confirmed via excitation_check (is_ode=true) in a single pass; no rebalancing needed.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "I - (V_bd/(R_leak))*tanh(Q/Q_bd)",
+        "target_symbol": "Q"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "I",
+          "Q",
+          "Q_bd",
+          "R_leak",
+          "V_bd"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "Q_bd*log(-sqrt(-(I*R_leak + V_bd)/(I*R_leak - V_bd)))",
+          "Q_bd*log(sqrt(-(I*R_leak + V_bd)/(I*R_leak - V_bd)))"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "-(R/L)*(1 + R_sat*phi)*I - Q/(L*C) - beta_nl*Q**3/L - (alpha_ms/L)*(I**2/I_sat**2 - phi)/tau_c - (V_bd/L)*tanh(Q/Q_bd)",
+        "assignments": {
+          "L": 1,
+          "R": 0.2,
+          "C": 1,
+          "beta_nl": 0.01,
+          "tau_c": 2,
+          "R_sat": 0.5,
+          "I_sat": 1,
+          "alpha_ms": 0.05,
+          "V_bd": 1,
+          "Q_bd": 1,
+          "R_leak": 2,
+          "Q": 3,
+          "I": 0.5,
+          "phi": 0
+        },
+        "target_symbol": "I"
+      },
+      "result": {
+        "ok": true,
+        "value_real": -4.371304753686729,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "C": 1,
+          "I_sat": 1,
+          "L": 1,
+          "Q_bd": 1,
+          "R": 0.2,
+          "R_leak": 2,
+          "R_sat": 0.5,
+          "V_bd": 1,
+          "alpha_ms": 0.05,
+          "beta_nl": 0.01,
+          "tau_c": 2
+        },
+        "indep": [
+          {
+            "symbol": "t",
+            "range": [
+              0,
+              30
+            ]
+          }
+        ],
+        "is_ode": true,
+        "sigma": 0.05
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "Q",
+        "child_state_count": 3,
+        "parent_state_count": 3,
+        "n_time_points": 200,
+        "new_term_max_effect": 0.6019908892625487,
+        "new_term_sigma_multiple": 12.039817785250975,
+        "strongest_at": {
+          "t": 3.165829145728643
+        },
+        "k": 5.0,
+        "passes": true,
+        "advice": "new mechanism is visible on the target trajectory"
+      }
+    }
+  ],
+  "_cost_usd": 0.4140885,
+  "_num_turns": 6,
+  "discipline": "physics",
+  "scenario_text": "A series circuit contains an inductor, a resistor, and a capacitor with no external driving source after an initial disturbance. The charge on the capacitor exchanges energy with the inductor while the resistor dissipates it. We track the capacitor charge and the loop current as they evolve. Component values determine both the natural frequency and the damping.",
+  "record_id": "m2_electromagnetism_0_003",
+  "generation": 5,
+  "_n_total": 5000
+}

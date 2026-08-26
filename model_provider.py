@@ -24,6 +24,16 @@ class ModelRequestError(RuntimeError):
     """A compact, provider-neutral error for a failed model request."""
 
 
+def _backoff_seconds(attempt: int) -> float:
+    """Exponential wait with a jitter floor, for a gateway that throttles bursts.
+
+    Full jitter (``delay * random()``) can return a near-zero wait, which retries
+    a throttled request while it is still throttled.  Keeping at least half the
+    nominal delay makes the batch actually spread out.
+    """
+    return min(60.0, 2 ** attempt) * (0.5 + random.random())
+
+
 def _anthropic_kwargs(
     api_key: str | None,
     auth_token: str | None,
@@ -86,10 +96,19 @@ class ModelCaller:
             }
             if system_prompt:
                 kwargs["system"] = system_prompt
-            try:
-                message = self.anthropic_client.messages.create(**kwargs)
-            except anthropic.APIError as exc:
-                raise ModelRequestError(f"Anthropic request failed: {exc}") from exc
+            # The Bedrock-backed gateway throttles readily and answers a bare 429
+            # on the first call of a burst.  The SDK's own two quick retries are
+            # not enough, so back off here with the same policy as OpenRouter.
+            max_retries = int(os.environ.get("SRBENCH_ANTHROPIC_MAX_RETRIES", "10"))
+            for attempt in range(max_retries + 1):
+                try:
+                    message = self.anthropic_client.messages.create(**kwargs)
+                    break
+                except anthropic.APIError as exc:
+                    status = getattr(exc, "status_code", None)
+                    if attempt >= max_retries or status not in {429, 500, 502, 503, 504}:
+                        raise ModelRequestError(f"Anthropic request failed: {exc}") from exc
+                    time.sleep(_backoff_seconds(attempt))
             text = "".join(
                 getattr(block, "text", "")
                 for block in message.content
@@ -145,7 +164,7 @@ class ModelCaller:
             payload["tool_choice"] = "auto"
 
         endpoint = self.openrouter_base_url.rstrip("/") + "/chat/completions"
-        max_retries = int(os.environ.get("SRBENCH_OPENROUTER_MAX_RETRIES", "6"))
+        max_retries = int(os.environ.get("SRBENCH_OPENROUTER_MAX_RETRIES", "10"))
         response: httpx.Response | None = None
         for attempt in range(max_retries + 1):
             try:
@@ -158,16 +177,16 @@ class ModelCaller:
                         "X-Title": "LLM-SRBench v5",
                     },
                     json=payload,
-                    timeout=120.0,
+                    timeout=300.0,
                 )
             except httpx.HTTPError as exc:
                 if attempt >= max_retries:
                     raise ModelRequestError(f"OpenRouter connection failed: {exc}") from exc
-                time.sleep(min(30.0, 2 ** attempt) * random.random())
+                time.sleep(_backoff_seconds(attempt))
                 continue
             if response.status_code not in {429, 500, 502, 503, 504} or attempt >= max_retries:
                 break
-            time.sleep(min(30.0, 2 ** attempt) * random.random())
+            time.sleep(_backoff_seconds(attempt))
         if response is None:  # pragma: no cover - defensive setup guard
             raise ModelRequestError("OpenRouter request produced no response.")
         if response.is_error:

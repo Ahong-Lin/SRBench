@@ -1,0 +1,352 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "Psi",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        30.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "growth_rate",
+      "value": 1.5
+    },
+    {
+      "symbol": "saturation_coeff",
+      "value": 1.0
+    },
+    {
+      "symbol": "quintic_coeff",
+      "value": 0.1
+    },
+    {
+      "symbol": "elastic_pinning_coeff",
+      "value": 0.15
+    },
+    {
+      "symbol": "depinning_scale",
+      "value": 0.5
+    },
+    {
+      "symbol": "pinning_relax_coupling",
+      "value": 0.2
+    },
+    {
+      "symbol": "pin_response_rate",
+      "value": 0.5
+    },
+    {
+      "symbol": "pin_amplitude_gain",
+      "value": 0.5
+    },
+    {
+      "symbol": "pin_saturation_scale",
+      "value": 1.0
+    },
+    {
+      "symbol": "phase_slip_coeff",
+      "value": 0.5
+    },
+    {
+      "symbol": "phase_slip_threshold",
+      "value": 0.5
+    },
+    {
+      "symbol": "slip_regularizer",
+      "value": 0.01
+    }
+  ],
+  "benchmark_output": "dPsi_dt",
+  "benchmark_target_state": "Psi",
+  "observed_variables": [
+    "t",
+    "Psi",
+    "phi"
+  ],
+  "rhs_for_integrator": "growth_rate*Psi - saturation_coeff*Psi**3 - quintic_coeff*Psi**5 - elastic_pinning_coeff*Psi/sqrt(Psi**2 + depinning_scale**2) - pinning_relax_coupling*phi*Psi - phase_slip_coeff*Psi*exp(-phase_slip_threshold/(Psi**2 + slip_regularizer))",
+  "state_variables": [
+    "Psi",
+    "phi"
+  ],
+  "state_rhs": [
+    "growth_rate*Psi - saturation_coeff*Psi**3 - quintic_coeff*Psi**5 - elastic_pinning_coeff*Psi/sqrt(Psi**2 + depinning_scale**2) - pinning_relax_coupling*phi*Psi - phase_slip_coeff*Psi*exp(-phase_slip_threshold/(Psi**2 + slip_regularizer))",
+    "pin_response_rate*(pin_amplitude_gain*Psi/(1 + Psi/pin_saturation_scale) - phi)"
+  ],
+  "initial_conditions": {
+    "Psi": 0.01,
+    "phi": 0.0
+  },
+  "noise": 0.01,
+  "sanity_expectations": [
+    "Psi starts near the seed 0.01 and is monotone increasing during the transient",
+    "Psi saturates to a finite positive equilibrium of order ~1 (below the pure-cubic value sqrt(growth_rate/saturation_coeff)=1.22 because pinning, quintic and phase-slip losses lower it)",
+    "phi starts at 0, rises lagging behind Psi, and approaches its own finite equilibrium pin_amplitude_gain*Psi/(1+Psi/pin_saturation_scale)",
+    "both states remain finite, real and bounded over t in [0,30]",
+    "with the phase-slip term the saturation amplitude is measurably lower than the parent system (difference ~0.12 near t≈5)"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "Noise sigma = 0.01 (abs, on Psi). Full child-vs-parent system comparison on the Psi trajectory over t in [0,30]. NEW term (phase-slip: -phase_slip_coeff*Psi*exp(-phase_slip_threshold/(Psi**2+slip_regularizer))) peaks at 0.124 = 12.4*sigma, strongest at t≈5.3 (the growth-to-saturation transient where Psi first climbs into the phase-slip-active regime Psi^2 ~ phase_slip_threshold). All parent terms (linear growth, cubic/quintic Landau saturation, elastic pinning crossover, phi-coupling) are the structurally validated ancestor and set the O(1) saturation amplitude. Key design fix: near the origin the elastic-pinning term ~ -(elastic_pinning_coeff/depinning_scale)*Psi, so growth_rate=1.5 > 0.15/0.5=0.3 keeps net linear growth ~1.2>0 and lets the seed grow to an amplitude (~1) where phase-slip activates.",
+  "role_corrections": [
+    "dPsi_dt: output/target derivative -> confirmed (RHS of the target state Psi)",
+    "t: time axis (V) -> V confirmed (sole independent variable, sampling axis)",
+    "Psi: dynamic state -> confirmed (target state, under highest derivative)",
+    "phi: dynamic state -> confirmed (second governed state with its own RHS; NOT collapsed to a parameter)",
+    "growth_rate: P -> P confirmed (fixed 1.5)",
+    "saturation_coeff: P -> P confirmed (fixed 1.0)",
+    "quintic_coeff: P -> P confirmed (fixed 0.1)",
+    "elastic_pinning_coeff: P -> P confirmed (fixed 0.15)",
+    "depinning_scale: P -> P confirmed (fixed 0.5)",
+    "pinning_relax_coupling: P -> P confirmed (fixed 0.2)",
+    "pin_response_rate: P -> P confirmed (fixed 0.5)",
+    "pin_amplitude_gain: P -> P confirmed (fixed 0.5)",
+    "pin_saturation_scale: P -> P confirmed (fixed 1.0)",
+    "phase_slip_coeff: P -> P confirmed (fixed 0.5, within hint 0.0-1.0)",
+    "phase_slip_threshold: P -> P confirmed (fixed 0.5, within hint 0.05-2.0)",
+    "slip_regularizer: P -> P confirmed (fixed 0.01, within hint 0.001-0.1)"
+  ],
+  "rationale": "Typed ODE-system contract: state system, RHS, and initial conditions inherited verbatim from the validated upstream contract; only time range, fixed parameters, noise and expectations chosen here. Parameters set so the seed (Psi=0.01) grows (net linear rate ~1.2>0 after the near-origin elastic-pinning drag) and saturates near amplitude ~1, i.e. in the regime where the new phase-slip mechanism exp(-phase_slip_threshold/(Psi^2+slip_regularizer)) turns on. t in [0,30] with 300 points captures the full growth->saturation curve plus the lagging phi relaxation (rate 0.5). Phase-slip parameters kept inside the suggested hint bands. Excitation confirmed: new term at 12.4*sigma (>5), so it leaves a clear mark above sigma=0.01 noise.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "growth_rate*Psi - saturation_coeff*Psi**3 - quintic_coeff*Psi**5 - elastic_pinning_coeff*Psi/sqrt(Psi**2 + depinning_scale**2) - pinning_relax_coupling*phi*Psi - phase_slip_coeff*Psi*exp(-phase_slip_threshold/(Psi**2 + slip_regularizer))",
+        "target_symbol": "Psi"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "Psi",
+          "depinning_scale",
+          "elastic_pinning_coeff",
+          "growth_rate",
+          "phase_slip_coeff",
+          "phase_slip_threshold",
+          "phi",
+          "pinning_relax_coupling",
+          "quintic_coeff",
+          "saturation_coeff",
+          "slip_regularizer"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": false,
+        "explicit_solution_preview": null,
+        "classification_hint": "implicit_or_explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "growth_rate*Psi - saturation_coeff*Psi**3 - quintic_coeff*Psi**5 - elastic_pinning_coeff*Psi/sqrt(Psi**2 + depinning_scale**2) - pinning_relax_coupling*phi*Psi - phase_slip_coeff*Psi*exp(-phase_slip_threshold/(Psi**2 + slip_regularizer))",
+        "assignments": {
+          "growth_rate": 1,
+          "saturation_coeff": 1,
+          "quintic_coeff": 0.1,
+          "elastic_pinning_coeff": 0.2,
+          "depinning_scale": 0.2,
+          "pinning_relax_coupling": 0.3,
+          "phase_slip_coeff": 0.5,
+          "phase_slip_threshold": 0.5,
+          "slip_regularizer": 0.01,
+          "phi": 0.3,
+          "Psi": 0.8
+        },
+        "target_symbol": "Psi"
+      },
+      "result": {
+        "ok": true,
+        "value_real": -0.19614424772153657,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "depinning_scale": 0.2,
+          "elastic_pinning_coeff": 0.2,
+          "growth_rate": 1,
+          "phase_slip_coeff": 0.5,
+          "phase_slip_threshold": 0.5,
+          "pin_amplitude_gain": 0.5,
+          "pin_response_rate": 0.5,
+          "pin_saturation_scale": 1,
+          "pinning_relax_coupling": 0.3,
+          "quintic_coeff": 0.1,
+          "saturation_coeff": 1,
+          "slip_regularizer": 0.01
+        },
+        "indep": [
+          {
+            "symbol": "t",
+            "range": [
+              0,
+              40
+            ]
+          }
+        ],
+        "is_ode": true,
+        "sigma": 0.01
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "Psi",
+        "child_state_count": 2,
+        "parent_state_count": 2,
+        "n_time_points": 200,
+        "new_term_max_effect": 0.0,
+        "new_term_sigma_multiple": 0.0,
+        "strongest_at": {
+          "t": 0.0
+        },
+        "k": 5.0,
+        "passes": false,
+        "advice": "new mechanism peaks at only 0.00*sigma (need 5.0); extend the t range or adjust physically valid coefficients"
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "depinning_scale": 0.2,
+          "elastic_pinning_coeff": 0.2,
+          "growth_rate": 1,
+          "phase_slip_coeff": 1,
+          "phase_slip_threshold": 0.3,
+          "pin_amplitude_gain": 0.5,
+          "pin_response_rate": 0.5,
+          "pin_saturation_scale": 1,
+          "pinning_relax_coupling": 0.3,
+          "quintic_coeff": 0.1,
+          "saturation_coeff": 1,
+          "slip_regularizer": 0.01
+        },
+        "indep": [
+          {
+            "range": [
+              0,
+              60
+            ],
+            "symbol": "t"
+          }
+        ],
+        "is_ode": true,
+        "sigma": 0.01
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "Psi",
+        "child_state_count": 2,
+        "parent_state_count": 2,
+        "n_time_points": 200,
+        "new_term_max_effect": 7.59323159904568e-14,
+        "new_term_sigma_multiple": 7.59323159904568e-12,
+        "strongest_at": {
+          "t": 60.0
+        },
+        "k": 5.0,
+        "passes": false,
+        "advice": "new mechanism peaks at only 0.00*sigma (need 5.0); extend the t range or adjust physically valid coefficients"
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "depinning_scale": 0.5,
+          "elastic_pinning_coeff": 0.15,
+          "growth_rate": 1.5,
+          "phase_slip_coeff": 0.5,
+          "phase_slip_threshold": 0.5,
+          "pin_amplitude_gain": 0.5,
+          "pin_response_rate": 0.5,
+          "pin_saturation_scale": 1,
+          "pinning_relax_coupling": 0.2,
+          "quintic_coeff": 0.1,
+          "saturation_coeff": 1,
+          "slip_regularizer": 0.01
+        },
+        "indep": [
+          {
+            "range": [
+              0,
+              30
+            ],
+            "symbol": "t"
+          }
+        ],
+        "is_ode": true,
+        "sigma": 0.01
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "Psi",
+        "child_state_count": 2,
+        "parent_state_count": 2,
+        "n_time_points": 200,
+        "new_term_max_effect": 0.12407594498736052,
+        "new_term_sigma_multiple": 12.407594498736051,
+        "strongest_at": {
+          "t": 5.276381909547738
+        },
+        "k": 5.0,
+        "passes": true,
+        "advice": "new mechanism is visible on the target trajectory"
+      }
+    }
+  ],
+  "_cost_usd": 0.66647225,
+  "_num_turns": 9,
+  "discipline": "physics",
+  "scenario_text": "A charge density wave forms in a low-dimensional conductor as its order parameter grows from a small fluctuation and saturates at an equilibrium amplitude below the transition. The amplitude evolves in time driven by a competition between a growth tendency and a self-limiting nonlinear term. Starting from a tiny seed, the pattern strengthens and levels off. The goal is to evolve the order parameter amplitude over time.",
+  "record_id": "m2_condensed_matter_physics_0_007",
+  "generation": 5,
+  "_n_total": 5000,
+  "finalization": {
+    "mode": "candidate",
+    "accepted_generations": 5,
+    "novelty": {
+      "reasoning": "Let me analyze each term of the candidate equation against the classical baseline (growth_rate*Psi - saturation_coeff*Psi**3, the standard time-dependent Ginzburg-Landau/Landau relaxational dynamics).\n\n1. growth_rate*Psi: classical linear growth term (proximity below transition). Well-known.\n\n2. -saturation_coeff*Psi**3: classical cubic self-limiting term. Well-known.\n\n3. -quintic_coeff*Psi**5: this is the quintic Landau term. Including a Psi**5 term in a relaxational amplitude equation is standard when dealing with first-order-like transitions or tricritical points. This is a known extension, though slightly beyond the minimal baseline. Individually recitable.\n\n4. -elastic_pinning_coeff*Psi/sqrt(Psi**2 + depinning_scale**2): this is a NON-standard composite term. It represents a saturating pinning force with a crossover scale (depinning_scale). This particular smooth regularized form (Psi/sqrt(Psi^2 + a^2)) modeling a pinning-to-free-growth crossover is not a textbook CDW dynamics term. It resembles a soft-sign/saturation function but its use here is a data-driven construct.\n\n5. -pinning_relax_coupling*phi*Psi: coupling to a lagging internal pinning field phi. This introduces a two-variable dynamical system where phi relaxes toward a saturating equilibrium (pin_amplitude_gain*Psi/(1 + Psi/pin_saturation_scale)). This memory/lag structure is not part of any standard closed-form textbook CDW amplitude equation.\n\n6. -phase_slip_coeff*Psi*exp(-phase_slip_threshold/(Psi**2 + slip_regularizer)): an Arrhenius-like thermally-activated phase-slip loss term with activation energy scaling inversely with Psi**2, regularized to avoid divergence. While phase-slip nucleation is a real physical concept and Arrhenius factors are common, this specific composite form (exp(-threshold/(Psi^2 + reg)) multiplying Psi) as an amplitude-loss term is a bespoke construction not found verbatim in textbooks.\n\nCombined assessment: While each mechanism (quintic Landau, pinning, phase slip) is individually physically motivated and recognizable, the COMPLETE combined form — including (a) the regularized pinning saturation term with a crossover scale, (b) a coupled auxiliary lagging pinning field with a site-saturating equilibrium, and (c) the specific regularized Arrhenius phase-slip factor — does not appear as a single equation in any textbook or standard reference. An LLM could not recite this exact composite system from the context/variable names alone; it goes well beyond the classical baseline. The specific functional forms and their coupling could plausibly only be identified/calibrated via data-driven inference. Therefore the equation qualifies as novel.",
+      "answer": "Yes",
+      "llm_qa_history": [
+        {
+          "attempt": 1,
+          "model": "claude-opus-4-8",
+          "system_prompt": "You are a top-tier scientist with deep expertise across physics, biology,\nchemistry, and materials science. Your task is to act as a \"Novelty Evaluator\":\nobjectively judge whether a newly generated mathematical equation is\n\"scientifically novel\" within its given scientific context.\n\nCORE CRITERIA:\n- NOT NOVEL: the equation is a well-known classical formula that already exists\n  in textbooks, on the internet, or in the open scientific literature — i.e. a\n  formula that could be obtained simply by recall/recitation.\n- NOVEL: while remaining scientifically sound, the equation introduces uncommon,\n  nonlinear, or genuinely new composite mechanism terms, such that neither a\n  human nor an AI could guess it from background knowledge alone — it could only\n  be recovered through data-driven inference from experimental observations.\n",
+          "user_prompt": "[SCIENTIFIC CONTEXT]:\nField: physics\nProblem description: A charge density wave forms in a low-dimensional conductor as its order parameter grows from a small fluctuation and saturates at an equilibrium amplitude below the transition. The amplitude evolves in time driven by a competition between a growth tendency and a self-limiting nonlinear term. Starting from a tiny seed, the pattern strengthens and levels off. The goal is to evolve the order parameter amplitude over time.\n\n[VARIABLES & PARAMETERS]:\n- Target variable: dPsi_dt (rate of change of the charge density wave order parameter amplitude)\n- Input features: t (time)\n- Dynamic states: Psi (amplitude of the charge density wave order parameter); phi (internal impurity-pinning deformation field that lags the amplitude and locally opposes its growth)\n- Parameters: growth_rate (linear growth rate reflecting proximity below the transition); saturation_coeff (nonlinear self-limiting coefficient setting the saturation amplitude); quintic_coeff (higher-order self-limiting coefficient from the quintic term in the Landau free energy); elastic_pinning_coeff (strength of impurity pinning that opposes growth of the ordered amplitude); depinning_scale (amplitude scale marking the crossover between pinning-dominated and free growth regimes); pinning_relax_coupling (coupling strength by which the lagging pinning field opposes amplitude growth); pin_response_rate (relaxation rate at which the pinning deformation field responds to the current amplitude); pin_amplitude_gain (gain relating the equilibrium pinning deformation to the local amplitude); pin_saturation_scale (amplitude scale at which the finite number of pinning sites begins to saturate the equilibrium deformation); phase_slip_coeff (strength of amplitude loss from thermally activated phase-slip proliferation once the condensate is well developed); phase_slip_threshold (activation-energy scale (in amplitude-squared units) controlling the onset of phase-slip nucleation); slip_regularizer (small regularizer preventing divergence of the phase-slip activation factor at vanishing amplitude)\n\n[CANDIDATE EQUATION]:\ndPsi_dt = growth_rate*Psi - saturation_coeff*Psi**3 - quintic_coeff*Psi**5 - elastic_pinning_coeff*Psi/sqrt(Psi**2 + depinning_scale**2) - pinning_relax_coupling*phi*Psi - phase_slip_coeff*Psi*exp(-phase_slip_threshold/(Psi**2 + slip_regularizer))\n\n[CLOSED ODE SYSTEM]:\n{\n  \"time_symbol\": \"t\",\n  \"target_state\": \"Psi\",\n  \"states\": [\n    {\n      \"symbol\": \"Psi\",\n      \"rhs\": \"growth_rate*Psi - saturation_coeff*Psi**3 - quintic_coeff*Psi**5 - elastic_pinning_coeff*Psi/sqrt(Psi**2 + depinning_scale**2) - pinning_relax_coupling*phi*Psi - phase_slip_coeff*Psi*exp(-phase_slip_threshold/(Psi**2 + slip_regularizer))\",\n      \"initial_condition\": 0.01,\n      \"description\": \"amplitude of the charge density wave order parameter\"\n    },\n    {\n      \"symbol\": \"phi\",\n      \"rhs\": \"pin_response_rate*(pin_amplitude_gain*Psi/(1 + Psi/pin_saturation_scale) - phi)\",\n      \"initial_condition\": 0.0,\n      \"description\": \"lagging impurity-pinning deformation field relaxing toward a site-limited (saturating) equilibrium response that opposes further growth\"\n    }\n  ]\n}\n(Note: this equation comes from an equation-evolution pipeline; assume it is\nmathematically solvable and numerically stable.)\n\n[NOTE ON KNOWN / CLASSICAL TERMS]:\nThe classical / textbook starting point for this phenomenon (the baseline equation) is:\n  dPsi_dt = growth_rate*Psi - saturation_coeff*Psi**3\nThe terms appearing in this baseline equation can be regarded as the well-known classical terms for this problem. Use this as the reference to judge whether the candidate equation, relative to this classical baseline, introduces additional novel composite terms that cannot be recited directly and could only be discovered through data-driven reasoning.\n\n---\n\nREASONING & OUTPUT REQUIREMENTS:\nLet's think step by step:\n1. Analyze each term in the candidate equation. Which terms are established\n   classical knowledge in this scientific context, and which are newly\n   introduced composite terms?\n2. Drawing on your knowledge of the scientific literature, does this COMPLETE\n   combined form of the equation appear directly in any existing textbook or\n   public reference? Could a large language model \"recite\" this exact formula\n   purely from the context and variable names above?\n3. Assess whether it has true novelty (i.e. it could only be discovered by\n   reasoning over subsequent experimental observation data).\n\nProvide your final answer STRICTLY in the following JSON format, with no extra\nMarkdown markup (no ```json):\n{\n  \"reasoning\": \"Write your detailed step-by-step scientific analysis and novelty assessment here.\",\n  \"answer\": \"Yes\" or \"No\" (write \"Yes\" if the equation is novel and cannot be directly recited; write \"No\" if it is a well-known classical formula or can be directly recited)\n}\n",
+          "raw_response": "{\n  \"reasoning\": \"Let me analyze each term of the candidate equation against the classical baseline (growth_rate*Psi - saturation_coeff*Psi**3, the standard time-dependent Ginzburg-Landau/Landau relaxational dynamics).\\n\\n1. growth_rate*Psi: classical linear growth term (proximity below transition). Well-known.\\n\\n2. -saturation_coeff*Psi**3: classical cubic self-limiting term. Well-known.\\n\\n3. -quintic_coeff*Psi**5: this is the quintic Landau term. Including a Psi**5 term in a relaxational amplitude equation is standard when dealing with first-order-like transitions or tricritical points. This is a known extension, though slightly beyond the minimal baseline. Individually recitable.\\n\\n4. -elastic_pinning_coeff*Psi/sqrt(Psi**2 + depinning_scale**2): this is a NON-standard composite term. It represents a saturating pinning force with a crossover scale (depinning_scale). This particular smooth regularized form (Psi/sqrt(Psi^2 + a^2)) modeling a pinning-to-free-growth crossover is not a textbook CDW dynamics term. It resembles a soft-sign/saturation function but its use here is a data-driven construct.\\n\\n5. -pinning_relax_coupling*phi*Psi: coupling to a lagging internal pinning field phi. This introduces a two-variable dynamical system where phi relaxes toward a saturating equilibrium (pin_amplitude_gain*Psi/(1 + Psi/pin_saturation_scale)). This memory/lag structure is not part of any standard closed-form textbook CDW amplitude equation.\\n\\n6. -phase_slip_coeff*Psi*exp(-phase_slip_threshold/(Psi**2 + slip_regularizer)): an Arrhenius-like thermally-activated phase-slip loss term with activation energy scaling inversely with Psi**2, regularized to avoid divergence. While phase-slip nucleation is a real physical concept and Arrhenius factors are common, this specific composite form (exp(-threshold/(Psi^2 + reg)) multiplying Psi) as an amplitude-loss term is a bespoke construction not found verbatim in textbooks.\\n\\nCombined assessment: While each mechanism (quintic Landau, pinning, phase slip) is individually physically motivated and recognizable, the COMPLETE combined form — including (a) the regularized pinning saturation term with a crossover scale, (b) a coupled auxiliary lagging pinning field with a site-saturating equilibrium, and (c) the specific regularized Arrhenius phase-slip factor — does not appear as a single equation in any textbook or standard reference. An LLM could not recite this exact composite system from the context/variable names alone; it goes well beyond the classical baseline. The specific functional forms and their coupling could plausibly only be identified/calibrated via data-driven inference. Therefore the equation qualifies as novel.\",\n  \"answer\": \"Yes\"\n}",
+          "parsed_response": {
+            "reasoning": "Let me analyze each term of the candidate equation against the classical baseline (growth_rate*Psi - saturation_coeff*Psi**3, the standard time-dependent Ginzburg-Landau/Landau relaxational dynamics).\n\n1. growth_rate*Psi: classical linear growth term (proximity below transition). Well-known.\n\n2. -saturation_coeff*Psi**3: classical cubic self-limiting term. Well-known.\n\n3. -quintic_coeff*Psi**5: this is the quintic Landau term. Including a Psi**5 term in a relaxational amplitude equation is standard when dealing with first-order-like transitions or tricritical points. This is a known extension, though slightly beyond the minimal baseline. Individually recitable.\n\n4. -elastic_pinning_coeff*Psi/sqrt(Psi**2 + depinning_scale**2): this is a NON-standard composite term. It represents a saturating pinning force with a crossover scale (depinning_scale). This particular smooth regularized form (Psi/sqrt(Psi^2 + a^2)) modeling a pinning-to-free-growth crossover is not a textbook CDW dynamics term. It resembles a soft-sign/saturation function but its use here is a data-driven construct.\n\n5. -pinning_relax_coupling*phi*Psi: coupling to a lagging internal pinning field phi. This introduces a two-variable dynamical system where phi relaxes toward a saturating equilibrium (pin_amplitude_gain*Psi/(1 + Psi/pin_saturation_scale)). This memory/lag structure is not part of any standard closed-form textbook CDW amplitude equation.\n\n6. -phase_slip_coeff*Psi*exp(-phase_slip_threshold/(Psi**2 + slip_regularizer)): an Arrhenius-like thermally-activated phase-slip loss term with activation energy scaling inversely with Psi**2, regularized to avoid divergence. While phase-slip nucleation is a real physical concept and Arrhenius factors are common, this specific composite form (exp(-threshold/(Psi^2 + reg)) multiplying Psi) as an amplitude-loss term is a bespoke construction not found verbatim in textbooks.\n\nCombined assessment: While each mechanism (quintic Landau, pinning, phase slip) is individually physically motivated and recognizable, the COMPLETE combined form — including (a) the regularized pinning saturation term with a crossover scale, (b) a coupled auxiliary lagging pinning field with a site-saturating equilibrium, and (c) the specific regularized Arrhenius phase-slip factor — does not appear as a single equation in any textbook or standard reference. An LLM could not recite this exact composite system from the context/variable names alone; it goes well beyond the classical baseline. The specific functional forms and their coupling could plausibly only be identified/calibrated via data-driven inference. Therefore the equation qualifies as novel.",
+            "answer": "Yes"
+          }
+        }
+      ]
+    },
+    "total_points": 5000,
+    "data_csv": "/data1/SRBench_fresh/outputs/Candidate_Equations/candidate_m2_condensed_matter_physics_0_007_20260826-162820/lineage_attempt_01/candidate_data/m2_condensed_matter_physics_0_007_gen5_20260826-163257.csv",
+    "evaluation_status": "not_evaluated; choose Harbor split and solver later"
+  }
+}

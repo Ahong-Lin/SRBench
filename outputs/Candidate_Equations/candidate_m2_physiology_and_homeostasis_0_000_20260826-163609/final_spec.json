@@ -1,0 +1,256 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "P",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        60.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "k_baro",
+      "value": 0.1
+    },
+    {
+      "symbol": "P_half",
+      "value": 20.0
+    },
+    {
+      "symbol": "k_reset",
+      "value": 0.5
+    },
+    {
+      "symbol": "P_reset",
+      "value": 10.0
+    },
+    {
+      "symbol": "k_adapt",
+      "value": 0.02
+    },
+    {
+      "symbol": "alpha_reset",
+      "value": 0.1
+    },
+    {
+      "symbol": "g_symp",
+      "value": 0.5
+    },
+    {
+      "symbol": "tau_auto",
+      "value": 5.0
+    },
+    {
+      "symbol": "beta_auto",
+      "value": 0.05
+    },
+    {
+      "symbol": "k_vagal",
+      "value": 0.3
+    },
+    {
+      "symbol": "R_sat",
+      "value": 1.0
+    }
+  ],
+  "benchmark_output": "dP_dt",
+  "benchmark_target_state": "P",
+  "observed_variables": [
+    "t",
+    "P",
+    "S_set",
+    "R"
+  ],
+  "rhs_for_integrator": "-k_baro * (1 + g_symp * R) * P / (1 + (Abs(P) / P_half)) - k_reset * tanh((P - S_set) / P_reset) - k_vagal * R * P / (1 + (R / R_sat)**2)",
+  "state_variables": [
+    "P",
+    "S_set",
+    "R"
+  ],
+  "state_rhs": [
+    "-k_baro * (1 + g_symp * R) * P / (1 + (Abs(P) / P_half)) - k_reset * tanh((P - S_set) / P_reset) - k_vagal * R * P / (1 + (R / R_sat)**2)",
+    "k_adapt * (alpha_reset * P - S_set)",
+    "(beta_auto * P - R) / tau_auto"
+  ],
+  "initial_conditions": {
+    "P": 25.0,
+    "S_set": 0.0,
+    "R": 0.0
+  },
+  "noise": 0.2,
+  "sanity_expectations": [
+    "P starts at 25 and relaxes toward its regulated value near 0 (deviation decays)",
+    "P trajectory is bounded and does not diverge",
+    "R rises from 0 toward beta_auto*P then decays as P decays (single hump)",
+    "S_set drifts slowly toward alpha_reset*P and stays small in magnitude",
+    "recovery is monotone-ish decay of |P| with a fast baroreflex phase then slower settling"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "ODE-system child-vs-parent comparison on target state P over t in [0,60] s (300 pts), sigma=0.2 mmHg (5*sigma=1.0). New vagal term -k_vagal*R*P/(1+(R/R_sat)^2) reaches peak effect 7.31 mmHg on the P trajectory = 36.5x sigma, strongest at t~7.0 s (where R has risen and P is still large). Dominant baroreflex term and k_reset saturating term drive the primary relaxation from P0=25, far above sigma. All terms visible; new mechanism clearly excited.",
+  "role_corrections": [
+    "dP_dt: output->output (confirmed, target derivative of state P)",
+    "t: time-axis->independent variable (confirmed, only sampling axis)",
+    "P: dynamic state->dynamic state (confirmed, target state)",
+    "S_set: dynamic state->dynamic state (confirmed, governed by k_adapt*(alpha_reset*P - S_set))",
+    "R: dynamic state->dynamic state (confirmed, governed by (beta_auto*P - R)/tau_auto)",
+    "k_baro: parameter->parameter (confirmed)",
+    "P_half: parameter->parameter (confirmed)",
+    "k_reset: parameter->parameter (confirmed)",
+    "P_reset: parameter->parameter (confirmed)",
+    "k_adapt: parameter->parameter (confirmed)",
+    "alpha_reset: parameter->parameter (confirmed)",
+    "g_symp: parameter->parameter (confirmed)",
+    "tau_auto: parameter->parameter (confirmed)",
+    "beta_auto: parameter->parameter (confirmed)",
+    "k_vagal: parameter->parameter (confirmed, new-term coefficient)",
+    "R_sat: parameter->parameter (confirmed, new-term saturation scale)"
+  ],
+  "rationale": "Typed ODE-system contract inherited verbatim: 3 states (P, S_set, R), target state P, integrate_system. Time sampled 0-60 s (300 pts) covering the full baroreflex recovery (k_baro time-scale ~10 s, tau_auto=5 s, slow S_set adaptation via k_adapt=0.02). Parameters chosen in physiological magnitudes (mmHg, 1/s): k_vagal=0.3 and R_sat=1.0 within suggested ranges. sigma=0.2 mmHg is small vs the ~25 mmHg dominant relaxation but is the visibility yardstick; excitation_check confirms the new vagal term reaches 36.5x sigma, so the added mechanism leaves a clear mark.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "-k_baro * (1 + g_symp * R) * P / (1 + (Abs(P) / P_half)) - k_reset * tanh((P - S_set) / P_reset) - k_vagal * R * P / (1 + (R / R_sat)**2)",
+        "target_symbol": "P"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "P",
+          "P_half",
+          "P_reset",
+          "R",
+          "R_sat",
+          "S_set",
+          "g_symp",
+          "k_baro",
+          "k_reset",
+          "k_vagal"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": false,
+        "explicit_solution_preview": null,
+        "classification_hint": "implicit_or_explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "-k_baro * (1 + g_symp * R) * P / (1 + (Abs(P) / P_half)) - k_reset * tanh((P - S_set) / P_reset) - k_vagal * R * P / (1 + (R / R_sat)**2)",
+        "assignments": {
+          "P": 25,
+          "R": 0.6,
+          "S_set": 0,
+          "k_baro": 0.1,
+          "P_half": 20,
+          "k_reset": 0.5,
+          "P_reset": 10,
+          "g_symp": 0.5,
+          "k_vagal": 0.3,
+          "R_sat": 1
+        },
+        "target_symbol": "P"
+      },
+      "result": {
+        "ok": true,
+        "value_real": -5.246575122931924,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "P_half": 20,
+          "P_reset": 10,
+          "R_sat": 1,
+          "alpha_reset": 0.1,
+          "beta_auto": 0.05,
+          "g_symp": 0.5,
+          "k_adapt": 0.02,
+          "k_baro": 0.1,
+          "k_reset": 0.5,
+          "k_vagal": 0.3,
+          "tau_auto": 5
+        },
+        "indep": [
+          {
+            "symbol": "t",
+            "range": [
+              0,
+              60
+            ],
+            "n_points": 300
+          }
+        ],
+        "is_ode": true,
+        "sigma": 0.2
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "P",
+        "child_state_count": 3,
+        "parent_state_count": 3,
+        "n_time_points": 300,
+        "new_term_max_effect": 7.308858175625086,
+        "new_term_sigma_multiple": 36.54429087812543,
+        "strongest_at": {
+          "t": 7.023411371237458
+        },
+        "k": 5.0,
+        "passes": true,
+        "advice": "new mechanism is visible on the target trajectory"
+      }
+    }
+  ],
+  "_cost_usd": 0.6524459999999999,
+  "_num_turns": 6,
+  "discipline": "biology",
+  "scenario_text": "A researcher studies how arterial blood pressure recovers toward its baseline set point after a brief perturbation caused by a postural change. The baroreflex adjusts heart rate and vascular tone to drive pressure back to the regulated value. The recovery reflects a control system that senses deviation and reduces it over time. We track the deviation of mean arterial pressure from its set point as it relaxes.",
+  "record_id": "m2_physiology_and_homeostasis_0_000",
+  "generation": 5,
+  "_n_total": 5000,
+  "finalization": {
+    "mode": "candidate",
+    "accepted_generations": 5,
+    "novelty": {
+      "reasoning": "The baseline classical term is -k_baro * P, a simple linear restoring force. The candidate equation extends this substantially. Term 1: -k_baro*(1 + g_symp*R)*P / (1 + |P|/P_half) combines a linear correction with autonomic gain modulation (multiplicative coupling to state R) and a saturating denominator that reduces efficiency at large deviations — this is a Michaelis-Menten/saturable form applied to the correction rate, a nontrivial composite. Term 2: -k_reset*tanh((P - S_set)/P_reset) is a saturating restoring term referenced to a dynamically drifting set point S_set, representing baroreflex resetting/integral-like behavior — this is uncommon and specifically composite. Term 3: -k_vagal*R*P/(1 + (R/R_sat)^2) is a vagally mediated correction that depends jointly on autonomic drive R and P, with a Lorentzian-type saturation in R — a distinctive nonlinear mechanism. The coupled ODE system adds first-order relaxation dynamics for S_set (adaptation toward alpha_reset*P) and R (relaxation toward beta_auto*P). While individual building blocks (tanh saturation, Michaelis-Menten denominators, first-order neural lags) are individually known motifs in physiological control modeling, the specific COMPLETE combined form — with three distinct nonlinear correction terms coupled to two auxiliary dynamic states in exactly this configuration — does not appear in any standard textbook or public reference. No LLM could recite this exact equation from the context alone; it could only be recovered by data-driven inference/fitting to experimental recovery data. The composite structure goes well beyond classical recitable formulas.",
+      "answer": "Yes",
+      "llm_qa_history": [
+        {
+          "attempt": 1,
+          "model": "claude-opus-4-8",
+          "system_prompt": "You are a top-tier scientist with deep expertise across physics, biology,\nchemistry, and materials science. Your task is to act as a \"Novelty Evaluator\":\nobjectively judge whether a newly generated mathematical equation is\n\"scientifically novel\" within its given scientific context.\n\nCORE CRITERIA:\n- NOT NOVEL: the equation is a well-known classical formula that already exists\n  in textbooks, on the internet, or in the open scientific literature — i.e. a\n  formula that could be obtained simply by recall/recitation.\n- NOVEL: while remaining scientifically sound, the equation introduces uncommon,\n  nonlinear, or genuinely new composite mechanism terms, such that neither a\n  human nor an AI could guess it from background knowledge alone — it could only\n  be recovered through data-driven inference from experimental observations.\n",
+          "user_prompt": "[SCIENTIFIC CONTEXT]:\nField: biology\nProblem description: A researcher studies how arterial blood pressure recovers toward its baseline set point after a brief perturbation caused by a postural change. The baroreflex adjusts heart rate and vascular tone to drive pressure back to the regulated value. The recovery reflects a control system that senses deviation and reduces it over time. We track the deviation of mean arterial pressure from its set point as it relaxes.\n\n[VARIABLES & PARAMETERS]:\n- Target variable: dP_dt (Rate of change of the deviation of mean arterial pressure from its regulated set point)\n- Input features: t (time)\n- Dynamic states: P (Deviation of mean arterial pressure from its regulated set point); S_set (Slowly drifting effective set-point offset of the resetting process (baroreflex adaptation/resetting internal state)); R (Autonomic (sympatho-vagal) neural drive state that dynamically modulates the effective baroreflex gain)\n- Parameters: k_baro (Baroreflex correction rate constant); P_half (Half-saturation deviation at which baroreflex correction efficiency is reduced by half); k_reset (Maximal saturating correction rate contributed by the slower resetting/integral-like restoring process); P_reset (Deviation scale over which the resetting correction saturates toward its maximal rate); k_adapt (Rate at which the resetting set-point offset adapts toward the current pressure deviation); alpha_reset (Fractional relaxation of the set-point offset back toward zero (true baseline)); g_symp (Fractional enhancement of baroreflex correction rate per unit autonomic drive); tau_auto (Time constant of autonomic neural drive relaxation (neural integration/lag)); beta_auto (Sensitivity of the autonomic drive to the current pressure deviation); k_vagal (Rate constant of the additional vagally mediated correction that acts jointly with autonomic drive and pressure deviation); R_sat (Autonomic drive magnitude at which the vagally mediated correction saturates (neural firing/effector saturation))\n\n[CANDIDATE EQUATION]:\ndP_dt = -k_baro * (1 + g_symp * R) * P / (1 + (Abs(P) / P_half)) - k_reset * tanh((P - S_set) / P_reset) - k_vagal * R * P / (1 + (R / R_sat)**2)\n\n[CLOSED ODE SYSTEM]:\n{\n  \"time_symbol\": \"t\",\n  \"target_state\": \"P\",\n  \"states\": [\n    {\n      \"symbol\": \"P\",\n      \"rhs\": \"-k_baro * (1 + g_symp * R) * P / (1 + (Abs(P) / P_half)) - k_reset * tanh((P - S_set) / P_reset) - k_vagal * R * P / (1 + (R / R_sat)**2)\",\n      \"initial_condition\": 25.0,\n      \"description\": \"Deviation of mean arterial pressure from its regulated set point\"\n    },\n    {\n      \"symbol\": \"S_set\",\n      \"rhs\": \"k_adapt * (alpha_reset * P - S_set)\",\n      \"initial_condition\": 0.0,\n      \"description\": \"Slowly drifting effective set-point offset of the resetting process (baroreflex resetting internal state)\"\n    },\n    {\n      \"symbol\": \"R\",\n      \"rhs\": \"(beta_auto * P - R) / tau_auto\",\n      \"initial_condition\": 0.0,\n      \"description\": \"Autonomic (sympatho-vagal) neural drive state that dynamically modulates the effective baroreflex correction gain, relaxing toward beta_auto*P with time constant tau_auto\"\n    }\n  ]\n}\n(Note: this equation comes from an equation-evolution pipeline; assume it is\nmathematically solvable and numerically stable.)\n\n[NOTE ON KNOWN / CLASSICAL TERMS]:\nThe classical / textbook starting point for this phenomenon (the baseline equation) is:\n  dP_dt = -k_baro * P\nThe terms appearing in this baseline equation can be regarded as the well-known classical terms for this problem. Use this as the reference to judge whether the candidate equation, relative to this classical baseline, introduces additional novel composite terms that cannot be recited directly and could only be discovered through data-driven reasoning.\n\n---\n\nREASONING & OUTPUT REQUIREMENTS:\nLet's think step by step:\n1. Analyze each term in the candidate equation. Which terms are established\n   classical knowledge in this scientific context, and which are newly\n   introduced composite terms?\n2. Drawing on your knowledge of the scientific literature, does this COMPLETE\n   combined form of the equation appear directly in any existing textbook or\n   public reference? Could a large language model \"recite\" this exact formula\n   purely from the context and variable names above?\n3. Assess whether it has true novelty (i.e. it could only be discovered by\n   reasoning over subsequent experimental observation data).\n\nProvide your final answer STRICTLY in the following JSON format, with no extra\nMarkdown markup (no ```json):\n{\n  \"reasoning\": \"Write your detailed step-by-step scientific analysis and novelty assessment here.\",\n  \"answer\": \"Yes\" or \"No\" (write \"Yes\" if the equation is novel and cannot be directly recited; write \"No\" if it is a well-known classical formula or can be directly recited)\n}\n",
+          "raw_response": "{\n  \"reasoning\": \"The baseline classical term is -k_baro * P, a simple linear restoring force. The candidate equation extends this substantially. Term 1: -k_baro*(1 + g_symp*R)*P / (1 + |P|/P_half) combines a linear correction with autonomic gain modulation (multiplicative coupling to state R) and a saturating denominator that reduces efficiency at large deviations — this is a Michaelis-Menten/saturable form applied to the correction rate, a nontrivial composite. Term 2: -k_reset*tanh((P - S_set)/P_reset) is a saturating restoring term referenced to a dynamically drifting set point S_set, representing baroreflex resetting/integral-like behavior — this is uncommon and specifically composite. Term 3: -k_vagal*R*P/(1 + (R/R_sat)^2) is a vagally mediated correction that depends jointly on autonomic drive R and P, with a Lorentzian-type saturation in R — a distinctive nonlinear mechanism. The coupled ODE system adds first-order relaxation dynamics for S_set (adaptation toward alpha_reset*P) and R (relaxation toward beta_auto*P). While individual building blocks (tanh saturation, Michaelis-Menten denominators, first-order neural lags) are individually known motifs in physiological control modeling, the specific COMPLETE combined form — with three distinct nonlinear correction terms coupled to two auxiliary dynamic states in exactly this configuration — does not appear in any standard textbook or public reference. No LLM could recite this exact equation from the context alone; it could only be recovered by data-driven inference/fitting to experimental recovery data. The composite structure goes well beyond classical recitable formulas.\",\n  \"answer\": \"Yes\"\n}",
+          "parsed_response": {
+            "reasoning": "The baseline classical term is -k_baro * P, a simple linear restoring force. The candidate equation extends this substantially. Term 1: -k_baro*(1 + g_symp*R)*P / (1 + |P|/P_half) combines a linear correction with autonomic gain modulation (multiplicative coupling to state R) and a saturating denominator that reduces efficiency at large deviations — this is a Michaelis-Menten/saturable form applied to the correction rate, a nontrivial composite. Term 2: -k_reset*tanh((P - S_set)/P_reset) is a saturating restoring term referenced to a dynamically drifting set point S_set, representing baroreflex resetting/integral-like behavior — this is uncommon and specifically composite. Term 3: -k_vagal*R*P/(1 + (R/R_sat)^2) is a vagally mediated correction that depends jointly on autonomic drive R and P, with a Lorentzian-type saturation in R — a distinctive nonlinear mechanism. The coupled ODE system adds first-order relaxation dynamics for S_set (adaptation toward alpha_reset*P) and R (relaxation toward beta_auto*P). While individual building blocks (tanh saturation, Michaelis-Menten denominators, first-order neural lags) are individually known motifs in physiological control modeling, the specific COMPLETE combined form — with three distinct nonlinear correction terms coupled to two auxiliary dynamic states in exactly this configuration — does not appear in any standard textbook or public reference. No LLM could recite this exact equation from the context alone; it could only be recovered by data-driven inference/fitting to experimental recovery data. The composite structure goes well beyond classical recitable formulas.",
+            "answer": "Yes"
+          }
+        }
+      ]
+    },
+    "total_points": 5000,
+    "data_csv": "/data1/SRBench_fresh/outputs/Candidate_Equations/candidate_m2_physiology_and_homeostasis_0_000_20260826-163609/lineage_attempt_01/candidate_data/m2_physiology_and_homeostasis_0_000_gen5_20260826-163939.csv",
+    "evaluation_status": "not_evaluated; choose Harbor split and solver later"
+  }
+}

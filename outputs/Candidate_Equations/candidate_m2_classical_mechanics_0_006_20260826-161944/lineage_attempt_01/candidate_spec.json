@@ -1,0 +1,223 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "vx",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        10.0
+      ],
+      "n_points": 400,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "G",
+      "value": 1.0
+    },
+    {
+      "symbol": "M",
+      "value": 1.0
+    },
+    {
+      "symbol": "alpha_rel",
+      "value": 0.01
+    },
+    {
+      "symbol": "beta_drag",
+      "value": 0.005
+    },
+    {
+      "symbol": "Omega_atm",
+      "value": 0.3
+    },
+    {
+      "symbol": "r_ref",
+      "value": 1.0
+    },
+    {
+      "symbol": "H_scale",
+      "value": 0.5
+    },
+    {
+      "symbol": "J2_coeff",
+      "value": 0.05
+    }
+  ],
+  "benchmark_output": "dvx_dt",
+  "benchmark_target_state": "vx",
+  "observed_variables": [
+    "t",
+    "x",
+    "y",
+    "vx",
+    "vy"
+  ],
+  "rhs_for_integrator": "-G*M*x/(x**2 + y**2)**(3/2) - G*M*alpha_rel*x/(x**2 + y**2)**(5/2) - beta_drag*exp(-(sqrt(x**2 + y**2) - r_ref)/H_scale)*sqrt((vx + Omega_atm*y)**2 + (vy - Omega_atm*x)**2)*(vx + Omega_atm*y) - J2_coeff*G*M*x*(x**2 - 4*y**2)/(x**2 + y**2)**(7/2)",
+  "state_variables": [
+    "x",
+    "y",
+    "vx",
+    "vy"
+  ],
+  "state_rhs": [
+    "vx",
+    "vy",
+    "-G*M*x/(x**2 + y**2)**(3/2) - G*M*alpha_rel*x/(x**2 + y**2)**(5/2) - beta_drag*exp(-(sqrt(x**2 + y**2) - r_ref)/H_scale)*sqrt((vx + Omega_atm*y)**2 + (vy - Omega_atm*x)**2)*(vx + Omega_atm*y) - J2_coeff*G*M*x*(x**2 - 4*y**2)/(x**2 + y**2)**(7/2)",
+    "-G*M*y/(x**2 + y**2)**(3/2) - G*M*alpha_rel*y/(x**2 + y**2)**(5/2) - beta_drag*exp(-(sqrt(x**2 + y**2) - r_ref)/H_scale)*sqrt((vx + Omega_atm*y)**2 + (vy - Omega_atm*x)**2)*(vy - Omega_atm*x) - J2_coeff*G*M*y*(3*x**2 - 2*y**2)/(x**2 + y**2)**(7/2)"
+  ],
+  "initial_conditions": {
+    "x": 1.0,
+    "y": 0.0,
+    "vx": 0.0,
+    "vy": 0.8
+  },
+  "noise": 0.01,
+  "sanity_expectations": [
+    "r=sqrt(x^2+y^2) stays bounded in roughly [0.45, 1.0] over the window (bound eccentric orbit, no crash to r=0)",
+    "x and y are oscillatory/quasi-periodic with slow apsidal precession from the relativistic and J2 terms",
+    "orbital energy slowly decreases due to atmospheric drag (weak secular inward drift)",
+    "dvx_dt is largest in magnitude near perihelion (small r) and smallest near apoapsis",
+    "no NaN/Inf: all state trajectories remain finite and real"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "Noise sigma=0.01 on benchmark output dvx_dt. Dominant Newtonian term ~1-4 over the orbit. NEW term (J2 quadrupole, -J2_coeff*G*M*x*(x^2-4y^2)/r^(7/2)) is strongly visible: peak effect on the target trajectory = 2.11 = 210x sigma, strongest at t~8.44 (near perihelion, small r). Inherited terms are also excited by the eccentric orbit that dips to r_peri~0.47: the 1/r^5 relativistic term (~0.16 near perihelion, >15x sigma) and the exponential atmospheric drag term (amplified by exp((r_ref-r)/H_scale)~2.9 near perihelion, ~0.04-0.07, >5x sigma). All terms clear the 5*sigma visibility bar.",
+  "role_corrections": [
+    "dvx_dt: output/target-derivative -> benchmark_output (confirmed; RHS of dvx/dt in the system)",
+    "vx: target_state -> dependent_variable (confirmed)",
+    "t: time axis -> sole independent variable, sampled (confirmed)",
+    "x: dynamic state -> state_variable (confirmed; governed by dx/dt=vx)",
+    "y: dynamic state -> state_variable (confirmed; governed by dy/dt=vy)",
+    "vx: dynamic state -> state_variable (confirmed)",
+    "vy: dynamic state -> state_variable (confirmed)",
+    "G: parameter -> fixed parameter=1.0 (confirmed; normalized units)",
+    "M: parameter -> fixed parameter=1.0 (confirmed; normalized units)",
+    "alpha_rel: parameter -> fixed parameter=0.01 (confirmed)",
+    "beta_drag: parameter -> fixed parameter=0.005 (confirmed; reduced from initial guess to avoid drag-driven decay into the r=0 singularity)",
+    "Omega_atm: parameter -> fixed parameter=0.3 (confirmed)",
+    "r_ref: parameter -> fixed parameter=1.0 (confirmed)",
+    "H_scale: parameter -> fixed parameter=0.5 (confirmed)",
+    "J2_coeff: parameter -> fixed parameter=0.05 (confirmed; top of suggested 0-0.05 range for max visibility of the new term)"
+  ],
+  "rationale": "Typed ODE system inherited verbatim from the contract (equation_type=ode_system, integrator=integrate_system, target_state=vx, 4 states, IC fixed). Only data-design choices were made: normalized units (G=M=1) giving unit-scale gravity; IC (x=1,vy=0.8) yields a bound eccentric orbit (r_peri~0.47) that periodically visits small r where the higher-order 1/r^n corrections and the new J2 term become large. Time window t in [0,10] (~2.5 orbits) keeps integration stable while capturing precession; drag lowered to beta_drag=0.005 to prevent orbital decay into the singularity. excitation_check (is_ode=true) confirms the new J2 term reaches 210x the chosen sigma=0.01.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "-G*M*x/(x**2 + y**2)**(3/2) - G*M*alpha_rel*x/(x**2 + y**2)**(5/2) - beta_drag*exp(-(sqrt(x**2 + y**2) - r_ref)/H_scale)*sqrt((vx + Omega_atm*y)**2 + (vy - Omega_atm*x)**2)*(vx + Omega_atm*y) - J2_coeff*G*M*x*(x**2 - 4*y**2)/(x**2 + y**2)**(7/2)",
+        "target_symbol": "vx"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "G",
+          "H_scale",
+          "J2_coeff",
+          "M",
+          "Omega_atm",
+          "alpha_rel",
+          "beta_drag",
+          "r_ref",
+          "vx",
+          "vy",
+          "x",
+          "y"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": false,
+        "explicit_solution_preview": null,
+        "classification_hint": "implicit_or_explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "G": 1,
+          "H_scale": 0.5,
+          "J2_coeff": 0.05,
+          "M": 1,
+          "Omega_atm": 0.3,
+          "alpha_rel": 0.01,
+          "beta_drag": 0.02,
+          "r_ref": 1
+        },
+        "indep": [
+          {
+            "symbol": "t",
+            "range": [
+              0,
+              20
+            ]
+          }
+        ],
+        "is_ode": true,
+        "sigma": 0.01
+      },
+      "result": {
+        "ok": false,
+        "error": "ODE-system excitation failed: ValueError: integration failed: Required step size is less than spacing between numbers."
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "G": 1,
+          "H_scale": 0.5,
+          "J2_coeff": 0.05,
+          "M": 1,
+          "Omega_atm": 0.3,
+          "alpha_rel": 0.01,
+          "beta_drag": 0.005,
+          "r_ref": 1
+        },
+        "indep": [
+          {
+            "range": [
+              0,
+              10
+            ],
+            "symbol": "t"
+          }
+        ],
+        "is_ode": true,
+        "sigma": 0.01
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "vx",
+        "child_state_count": 4,
+        "parent_state_count": 4,
+        "n_time_points": 200,
+        "new_term_max_effect": 2.1086411082778094,
+        "new_term_sigma_multiple": 210.86411082778093,
+        "strongest_at": {
+          "t": 8.442211055276383
+        },
+        "k": 5.0,
+        "passes": true,
+        "advice": "new mechanism is visible on the target trajectory"
+      }
+    }
+  ],
+  "_cost_usd": 0.46120099999999997,
+  "_num_turns": 6,
+  "discipline": "physics",
+  "scenario_text": "A small body moves in a bound orbit around a much heavier central body under mutual gravitational attraction, tracked in a plane. The inward pull depends on the inverse square of separation and continuously bends the trajectory. Given an initial position and velocity, the body traces its orbital path over time. The dynamics depend on the central mass and the gravitational constant.",
+  "record_id": "m2_classical_mechanics_0_006",
+  "generation": 5,
+  "_n_total": 5000
+}

@@ -1,0 +1,369 @@
+{
+  "equation_type": "explicit",
+  "integrator": "evaluate_explicit",
+  "dependent_variable": "rho",
+  "independent_variables": [
+    {
+      "symbol": "T",
+      "range": [
+        10.0,
+        100.0
+      ],
+      "n_points": 250,
+      "scale": "linear"
+    },
+    {
+      "symbol": "n_imp",
+      "range": [
+        0.1,
+        1.0
+      ],
+      "n_points": 120,
+      "scale": "linear"
+    },
+    {
+      "symbol": "B_field",
+      "range": [
+        0.0,
+        10.0
+      ],
+      "n_points": 120,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "rho0",
+      "value": 5.423066182906353
+    },
+    {
+      "symbol": "A",
+      "value": 24.849177351975808
+    },
+    {
+      "symbol": "Integral_placeholder",
+      "value": 100.0
+    },
+    {
+      "symbol": "rho_sat",
+      "value": 50.0
+    },
+    {
+      "symbol": "A_ee",
+      "value": 0.01
+    },
+    {
+      "symbol": "B_mag",
+      "value": 1.0
+    },
+    {
+      "symbol": "B0",
+      "value": 5.0
+    },
+    {
+      "symbol": "K_ki",
+      "value": 1.0
+    },
+    {
+      "symbol": "A_k",
+      "value": 311.5806057774763
+    },
+    {
+      "symbol": "D_k",
+      "value": 30.0
+    },
+    {
+      "symbol": "D",
+      "value": 300.0
+    }
+  ],
+  "benchmark_output": null,
+  "benchmark_target_state": null,
+  "observed_variables": [
+    "T",
+    "n_imp",
+    "B_field"
+  ],
+  "rhs_for_integrator": "rho0 * n_imp / (1 + rho0 * n_imp / rho_sat) + A * (T/D)**5 * Integral_placeholder + A_ee * T**2 * (1 + B_mag * (B_field/B0)**2) + rho_sat * K_ki * (B_field/B0)**2 / (1 + K_ki * (B_field/B0)**2) + A_k * (T/D)**3 * exp(-D_k/T)",
+  "state_variables": [],
+  "state_rhs": [],
+  "initial_conditions": {},
+  "noise": 0.5,
+  "sanity_expectations": [
+    "rho is strictly positive and finite everywhere in the sampled region",
+    "rho is monotonically increasing in T at fixed n_imp and B_field (all T-dependent terms rise with T)",
+    "rho increases and saturates with n_imp (Ioffe-Regel ceiling via rho_sat)",
+    "rho increases with |B_field|, with the Kohler orbital term saturating at large field",
+    "as T->low edge (10 K) the phonon/umklapp contributions vanish and rho approaches the residual + field-only value",
+    "the umklapp exp(-D_k/T) contribution is negligible at low T and only becomes appreciable near the upper T edge (~100 K)"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "sigma=0.5, k=5. All five additive terms visible over T[10,100], n_imp[0.1,1], B_field[0,10] (512-pt sobol): impurity/saturation term 6.1sigma; Bloch-Gruneisen A*(T/D)^5 6.5sigma; e-e + magnetoresistance A_ee*T^2*(1+B_mag*(B/B0)^2) 247sigma (dominant); Kohler orbital MR 51.9sigma; NEW umklapp A_k*(T/D)^3*exp(-D_k/T) 6.5sigma rms. New-term peak effect 8.5 (17.0sigma), strongest at T~99.8, n_imp~0.26, B_field~5.5 — i.e. the high-T edge of the low-T window where the exponential freeze-out lifts. All terms pass; no weak terms.",
+  "role_corrections": [
+    "rho: output->dependent variable (confirmed; explicit LHS, solvable-for-target)",
+    "T: input/axis->independent variable (confirmed; primary temperature axis)",
+    "n_imp: input/axis->independent variable (confirmed; scattering-center density axis per phenomenon goal)",
+    "B_field: input/axis->independent variable (confirmed; drives magnetoresistance terms)",
+    "D: input/axis->PARAMETER (overridden; Debye cutoff temperature is a fixed material constant setting the T/D ratio, not a swept axis)",
+    "rho0: parameter->parameter (confirmed; retuned by auto_balance)",
+    "A: parameter->parameter (confirmed; retuned)",
+    "Integral_placeholder: parameter->parameter (confirmed; plain dimensionless constant, NOT an actual integral kernel)",
+    "rho_sat: parameter->parameter (confirmed)",
+    "A_ee: parameter->parameter (confirmed)",
+    "B_mag: parameter->parameter (confirmed)",
+    "B0: parameter->parameter (confirmed)",
+    "K_ki: parameter->parameter (confirmed)",
+    "A_k: parameter->parameter (confirmed; retuned above hint ceiling, see rationale)",
+    "D_k: parameter->parameter (confirmed)"
+  ],
+  "rationale": "Structure is fully explicit (analyze_expression: no derivatives, no integral kernels, solvable for rho); Integral_placeholder is a plain symbol so the Bloch-Gruneisen integral is pre-evaluated to a constant, not a live integrand -> evaluate_explicit, no integrator machinery. Roles: rho is the LHS output; T, n_imp, B_field are the physical sampling axes (temperature, impurity density, applied field) per the phenomenon; every other free symbol is a fixed constant. D (Debye temperature) was labeled an input axis but is physically a fixed material constant that only sets the T/D ratio, so it is overridden to a parameter and held at 300 K to keep the sampled window (T<=100 K) genuinely in the low-temperature regime T<<D. Coefficients were tuned with auto_balance (converged) so every term reaches >=5sigma; it rescaled A, A_k, rho0. NOTE on the hint: the suggested A_k ceiling was 10, but the (T/D)^3 geometric factor at T/D<=1/3 suppresses the umklapp term by ~1e-2, so honoring A_k<=10 would push the new term below the 0.5 noise floor (invisible). Per the excitation directive, visibility overrides the magnitude hint: A_k=311.6 makes the new term reach 6.5sigma rms / 17sigma peak while the effective physical contribution stays modest (a few units of rho). D_k=30 K kept within its 1-100 K hint. All terms confirmed visible; excitation_ok=true.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "rho0 * n_imp / (1 + rho0 * n_imp / rho_sat) + A * (T/D)**5 * Integral_placeholder + A_ee * T**2 * (1 + B_mag * (B_field/B0)**2) + rho_sat * K_ki * (B_field/B0)**2 / (1 + K_ki * (B_field/B0)**2) + A_k * (T/D)**3 * exp(-D_k/T)",
+        "target_symbol": "rho"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "A",
+          "A_ee",
+          "A_k",
+          "B0",
+          "B_field",
+          "B_mag",
+          "D",
+          "D_k",
+          "Integral_placeholder",
+          "K_ki",
+          "T",
+          "n_imp",
+          "rho0",
+          "rho_sat"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "A*Integral_placeholder*(T/D)**5 + A_ee*T**2*(B_mag*(B_field/B0)**2 + 1) + A_k*(T/D)**3*exp((-D_k)/T) + K_ki*rho_sat*(B_f"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "rho0 * n_imp / (1 + rho0 * n_imp / rho_sat) + A * (T/D)**5 * Integral_placeholder + A_ee * T**2 * (1 + B_mag * (B_field/B0)**2) + rho_sat * K_ki * (B_field/B0)**2 / (1 + K_ki * (B_field/B0)**2) + A_k * (T/D)**3 * exp(-D_k/T)",
+        "assignments": {
+          "rho0": 1,
+          "rho_sat": 50,
+          "A": 1,
+          "Integral_placeholder": 100,
+          "D": 300,
+          "A_ee": 0.01,
+          "B_mag": 1,
+          "B0": 5,
+          "K_ki": 1,
+          "A_k": 1,
+          "D_k": 30,
+          "T": 50,
+          "n_imp": 0.5,
+          "B_field": 5
+        },
+        "target_symbol": "rho"
+      },
+      "result": {
+        "ok": true,
+        "value_real": 75.51045038186658,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "auto_balance",
+      "input": {
+        "assignments": {
+          "A": 1,
+          "A_ee": 0.01,
+          "A_k": 1,
+          "B0": 5,
+          "B_mag": 1,
+          "D": 300,
+          "D_k": 30,
+          "Integral_placeholder": 100,
+          "K_ki": 1,
+          "rho0": 1,
+          "rho_sat": 50
+        },
+        "indep": [
+          {
+            "symbol": "T",
+            "range": [
+              10,
+              100
+            ]
+          },
+          {
+            "symbol": "n_imp",
+            "range": [
+              0.1,
+              1
+            ]
+          },
+          {
+            "symbol": "B_field",
+            "range": [
+              0,
+              10
+            ]
+          }
+        ],
+        "is_ode": false,
+        "sigma": 0.5
+      },
+      "result": {
+        "ok": true,
+        "assignments": {
+          "A": 24.849177351975808,
+          "A_ee": 0.01,
+          "A_k": 311.5806057774763,
+          "B0": 5,
+          "B_mag": 1,
+          "D": 300,
+          "D_k": 30,
+          "Integral_placeholder": 100,
+          "K_ki": 1,
+          "rho0": 5.423066182906353,
+          "rho_sat": 50
+        },
+        "changed": {
+          "A": [
+            1.0,
+            24.849177351975808
+          ],
+          "A_k": [
+            1.0,
+            311.5806057774763
+          ],
+          "rho0": [
+            1.0,
+            5.423066182906353
+          ]
+        },
+        "converged": true,
+        "note": "all terms reach k*sigma"
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "A": 24.849177351975808,
+          "A_ee": 0.01,
+          "A_k": 311.5806057774763,
+          "B0": 5,
+          "B_mag": 1,
+          "D": 300,
+          "D_k": 30,
+          "Integral_placeholder": 100,
+          "K_ki": 1,
+          "rho0": 5.423066182906353,
+          "rho_sat": 50
+        },
+        "indep": [
+          {
+            "range": [
+              10,
+              100
+            ],
+            "symbol": "T"
+          },
+          {
+            "range": [
+              0.1,
+              1
+            ],
+            "symbol": "n_imp"
+          },
+          {
+            "range": [
+              0,
+              10
+            ],
+            "symbol": "B_field"
+          }
+        ],
+        "is_ode": false,
+        "sigma": 0.5
+      },
+      "result": {
+        "ok": true,
+        "mode": "explicit",
+        "k": 5.0,
+        "sigma": 0.5,
+        "sampling": {
+          "method": "sobol",
+          "n_samples": 512,
+          "n_dimensions": 3
+        },
+        "terms": [
+          {
+            "term": "A*Integral_placeholder*(T/D)**5",
+            "rms": 3.249999999999997,
+            "sigma_multiple": 6.499999999999994
+          },
+          {
+            "term": "A_ee*T**2*(B_mag*(B_field/B0)**2 + 1)",
+            "rms": 123.57516302114756,
+            "sigma_multiple": 247.15032604229512
+          },
+          {
+            "term": "A_k*(T/D)**3*exp((-D_k)/T)",
+            "rms": 3.2499999999999956,
+            "sigma_multiple": 6.499999999999991
+          },
+          {
+            "term": "K_ki*rho_sat*(B_field/B0)**2/(K_ki*(B_field/B0)**2 + 1)",
+            "rms": 25.963354711383275,
+            "sigma_multiple": 51.92670942276655
+          },
+          {
+            "term": "n_imp*rho0/(n_imp*rho0/rho_sat + 1)",
+            "rms": 3.052110558578976,
+            "sigma_multiple": 6.104221117157952
+          }
+        ],
+        "weak_terms": [],
+        "new_term": {
+          "delta_expr": "evaluated numerically as current expression minus parent",
+          "max_effect": 8.499594747512504,
+          "sigma_multiple": 16.999189495025007,
+          "strongest_at": {
+            "T": 99.82432855293155,
+            "n_imp": 0.264719664119184,
+            "B_field": 5.484818443655968
+          },
+          "passes": true
+        },
+        "advice": "all terms visible"
+      }
+    }
+  ],
+  "_cost_usd": 0.6149835,
+  "_num_turns": 7,
+  "discipline": "physics",
+  "scenario_text": "A metallic sample is cooled below its transition temperature and its electrical resistance drops as scattering channels freeze out. Experimenters measure the residual electrical resistivity at various temperatures in the low-temperature regime where lattice vibration contributions dominate. Each measurement is an independent equilibrium reading of resistivity at a fixed bath temperature. The goal is to relate the measured resistivity to temperature and the density of scattering centers.",
+  "record_id": "m2_condensed_matter_physics_0_000",
+  "generation": 5,
+  "_n_total": 5000
+}

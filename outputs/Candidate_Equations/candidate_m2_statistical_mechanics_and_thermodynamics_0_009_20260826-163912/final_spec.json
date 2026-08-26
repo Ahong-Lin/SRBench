@@ -1,0 +1,344 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "n",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        150.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "hop_rate_left",
+      "value": 0.02
+    },
+    {
+      "symbol": "hop_rate_right",
+      "value": 0.02
+    },
+    {
+      "symbol": "N_total",
+      "value": 1000.0
+    },
+    {
+      "symbol": "crowding_coeff",
+      "value": 0.01
+    },
+    {
+      "symbol": "aperture_relax_rate",
+      "value": 0.01
+    },
+    {
+      "symbol": "aperture_response",
+      "value": 0.06
+    },
+    {
+      "symbol": "aperture_time",
+      "value": 2.0
+    },
+    {
+      "symbol": "g_eq",
+      "value": 0.0
+    },
+    {
+      "symbol": "aperture_saturation",
+      "value": 4.0
+    },
+    {
+      "symbol": "aperture_recovery_exp",
+      "value": 1.0
+    },
+    {
+      "symbol": "aperture_feedback_gain",
+      "value": 0.2
+    },
+    {
+      "symbol": "aperture_feedback_scale",
+      "value": 1.0
+    }
+  ],
+  "benchmark_output": "dn_dt",
+  "benchmark_target_state": "n",
+  "observed_variables": [
+    "t",
+    "n",
+    "g"
+  ],
+  "rhs_for_integrator": "hop_rate_left * (N_total - n) - hop_rate_right * n - crowding_coeff * n * (N_total - n) / N_total - aperture_relax_rate * n * (N_total - n) / N_total * (g - g_eq)",
+  "state_variables": [
+    "n",
+    "g"
+  ],
+  "state_rhs": [
+    "hop_rate_left * (N_total - n) - hop_rate_right * n - crowding_coeff * n * (N_total - n) / N_total - aperture_relax_rate * n * (N_total - n) / N_total * (g - g_eq)",
+    "(g_eq - g) / (aperture_time * (1 + Abs(g - g_eq)**aperture_recovery_exp)) + aperture_response * Abs(hop_rate_left * (N_total - n) - hop_rate_right * n) / (aperture_saturation + Abs(hop_rate_left * (N_total - n) - hop_rate_right * n)) + aperture_feedback_gain * (g - g_eq) / (1 + Abs(g - g_eq) / aperture_feedback_scale)"
+  ],
+  "initial_conditions": {
+    "n": 800.0,
+    "g": 0.0
+  },
+  "noise": 0.05,
+  "sanity_expectations": [
+    "n starts at 800 and relaxes monotonically toward balance (decreasing), staying bounded within [0, N_total]",
+    "n approaches a finite near-equilibrium asymptote below 500 (symmetric hop balance at 500, shifted slightly down by the always-negative crowding and aperture-coupling terms)",
+    "g starts at 0, rises to a bounded positive steady value of order 1 (no runaway), then settles",
+    "dn_dt begins strongly negative (~-12) and its magnitude decays smoothly toward 0 as n nears equilibrium"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "Typed ODE excitation compares the full child vs parent 2-state systems on the target n-trajectory. sigma=0.05 (abs std on dn_dt, ~0.4% of the ~12 peak flux). NEW term (aperture_feedback_gain*(g-g_eq)/(1+|g-g_eq|/aperture_feedback_scale) in the g-equation): peak effect 2.10 in n-units = ~42x sigma, strongest near t=150 (accumulated steady g-offset). All standard n-equation terms are strongly excited over the run: hop flux |0.02*(N-2n)| up to ~12, crowding ~2.3, aperture coupling ~2.5 at n~650 with g~O(1) — each thousands of sigma. First (runaway) parameter set with aperture_time=8 gave 3527x sigma via g->inf; shortened aperture_time to 2 so relaxation cap (1/aperture_time=0.5) exceeds the drive (aperture_response+gain*scale=0.26), keeping g bounded (~1) and n within [0,N_total] while the new term stays clearly visible.",
+  "role_corrections": [
+    "dn_dt: O->O (confirmed) target derivative / benchmark output",
+    "t: V->V (confirmed) sole independent time axis, gets sampling range",
+    "n: state->state (confirmed) target dynamic state under d/dt",
+    "g: state->state (confirmed) second dynamic state with its own governing RHS; NOT replaced by a constant",
+    "hop_rate_left: P->P (confirmed) fixed",
+    "hop_rate_right: P->P (confirmed) fixed",
+    "N_total: P->P (confirmed) fixed total particle count",
+    "crowding_coeff: P->P (confirmed) fixed",
+    "aperture_relax_rate: P->P (confirmed) fixed",
+    "aperture_response: P->P (confirmed) fixed",
+    "aperture_time: P->P (confirmed) fixed",
+    "g_eq: P->P (confirmed) fixed aperture rest value",
+    "aperture_saturation: P->P (confirmed) fixed",
+    "aperture_recovery_exp: P->P (confirmed) fixed",
+    "aperture_feedback_gain: P->P (confirmed) fixed; new-term coefficient, 0.2 within hint [0,2]",
+    "aperture_feedback_scale: P->P (confirmed) fixed; 1.0 within hint [0.1,3]"
+  ],
+  "rationale": "Typed ode_system contract inherited verbatim (states [n,g], both state_rhs, ICs n=800,g=0). Roles confirmed against structure: n is the target state, g is a genuine second dynamic state with its own equation (kept, not frozen), t is the only axis, remaining 12 symbols are fixed parameters. Parameters chosen for physical, bounded relaxation: symmetric hop rates (linear balance at N_total/2=500), N_total=1000>n0=800, modest crowding and aperture coupling so g and n stay bounded. The evolution's new mechanism is the saturating positive-feedback term in the g-equation; aperture_time=2 was chosen so relaxation caps above the total g-drive, preventing the g-runaway seen at aperture_time=8 while the new term still marks the n-trajectory at ~42x sigma. Feedback gain/scale kept inside the suggested hint ranges.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "hop_rate_left * (N_total - n) - hop_rate_right * n - crowding_coeff * n * (N_total - n) / N_total - aperture_relax_rate * n * (N_total - n) / N_total * (g - g_eq)",
+        "target_symbol": "n"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "N_total",
+          "aperture_relax_rate",
+          "crowding_coeff",
+          "g",
+          "g_eq",
+          "hop_rate_left",
+          "hop_rate_right",
+          "n"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "N_total*(aperture_relax_rate*g - aperture_relax_rate*g_eq + crowding_coeff + hop_rate_left + hop_rate_right - sqrt(aperture_relax_rate**2*g**2 - 2*aperture_relax_rate**2*g*g_eq + aperture_relax_rate**2*g_eq**2 + 2*aperture_relax_rate*crowding_coeff*g - 2*aperture_relax_rate*crowding_coeff*g_eq - 2*aperture_relax_rate*g*hop_rate_left + 2*aperture_relax_rate*g*hop_rate_right + 2*aperture_relax_rate*g_eq*hop_rate_left - 2*aperture_relax_rate*g_eq*hop_rate_right + crowding_coeff**2 - 2*crowding_coeff*hop_rate_left + 2*crowding_coeff*hop_rate_right + hop_rate_left**2 + 2*hop_rate_left*hop_rate_right + hop_rate_right**2))/(2*(aperture_relax_rate*g - aperture_relax_rate*g_eq + crowding_coeff))",
+          "N_total*(aperture_relax_rate*g - aperture_relax_rate*g_eq + crowding_coeff + hop_rate_left + hop_rate_right + sqrt(aperture_relax_rate**2*g**2 - 2*aperture_relax_rate**2*g*g_eq + aperture_relax_rate**2*g_eq**2 + 2*aperture_relax_rate*crowding_coeff*g - 2*aperture_relax_rate*crowding_coeff*g_eq - 2*aperture_relax_rate*g*hop_rate_left + 2*aperture_relax_rate*g*hop_rate_right + 2*aperture_relax_rate*g_eq*hop_rate_left - 2*aperture_relax_rate*g_eq*hop_rate_right + crowding_coeff**2 - 2*crowding_coeff*hop_rate_left + 2*crowding_coeff*hop_rate_right + hop_rate_left**2 + 2*hop_rate_left*hop_rate_right + hop_rate_right**2))/(2*(aperture_relax_rate*g - aperture_relax_rate*g_eq + crowding_coeff))"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "(g_eq - g) / (aperture_time * (1 + Abs(g - g_eq)**aperture_recovery_exp)) + aperture_response * Abs(hop_rate_left * (N_total - n) - hop_rate_right * n) / (aperture_saturation + Abs(hop_rate_left * (N_total - n) - hop_rate_right * n)) + aperture_feedback_gain * (g - g_eq) / (1 + Abs(g - g_eq) / aperture_feedback_scale)",
+        "target_symbol": "g"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "N_total",
+          "aperture_feedback_gain",
+          "aperture_feedback_scale",
+          "aperture_recovery_exp",
+          "aperture_response",
+          "aperture_saturation",
+          "aperture_time",
+          "g",
+          "g_eq",
+          "hop_rate_left",
+          "hop_rate_right",
+          "n"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": false,
+        "explicit_solution_preview": null,
+        "classification_hint": "implicit_or_explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "(g_eq - g) / (aperture_time * (1 + Abs(g - g_eq)**aperture_recovery_exp)) + aperture_response * Abs(hop_rate_left * (N_total - n) - hop_rate_right * n) / (aperture_saturation + Abs(hop_rate_left * (N_total - n) - hop_rate_right * n)) + aperture_feedback_gain * (g - g_eq) / (1 + Abs(g - g_eq) / aperture_feedback_scale)",
+        "assignments": {
+          "hop_rate_left": 0.02,
+          "hop_rate_right": 0.02,
+          "N_total": 1000,
+          "crowding_coeff": 0.01,
+          "aperture_relax_rate": 0.02,
+          "aperture_response": 0.1,
+          "aperture_time": 8,
+          "g_eq": 0,
+          "aperture_saturation": 4,
+          "aperture_recovery_exp": 1,
+          "aperture_feedback_gain": 0.3,
+          "aperture_feedback_scale": 1,
+          "n": 650,
+          "g": 0.6
+        },
+        "target_symbol": "g"
+      },
+      "result": {
+        "ok": true,
+        "value_real": 0.125625,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "N_total": 1000,
+          "aperture_feedback_gain": 0.3,
+          "aperture_feedback_scale": 1,
+          "aperture_recovery_exp": 1,
+          "aperture_relax_rate": 0.02,
+          "aperture_response": 0.1,
+          "aperture_saturation": 4,
+          "aperture_time": 8,
+          "crowding_coeff": 0.01,
+          "g_eq": 0,
+          "hop_rate_left": 0.02,
+          "hop_rate_right": 0.02
+        },
+        "indep": [
+          {
+            "symbol": "t",
+            "range": [
+              0,
+              120
+            ],
+            "n_points": 300
+          }
+        ],
+        "is_ode": true,
+        "sigma": 0.1
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "n",
+        "child_state_count": 2,
+        "parent_state_count": 2,
+        "n_time_points": 300,
+        "new_term_max_effect": 352.7957314073893,
+        "new_term_sigma_multiple": 3527.957314073893,
+        "strongest_at": {
+          "t": 69.03010033444816
+        },
+        "k": 5.0,
+        "passes": true,
+        "advice": "new mechanism is visible on the target trajectory"
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "N_total": 1000,
+          "aperture_feedback_gain": 0.2,
+          "aperture_feedback_scale": 1,
+          "aperture_recovery_exp": 1,
+          "aperture_relax_rate": 0.01,
+          "aperture_response": 0.06,
+          "aperture_saturation": 4,
+          "aperture_time": 2,
+          "crowding_coeff": 0.01,
+          "g_eq": 0,
+          "hop_rate_left": 0.02,
+          "hop_rate_right": 0.02
+        },
+        "indep": [
+          {
+            "n_points": 300,
+            "range": [
+              0,
+              150
+            ],
+            "symbol": "t"
+          }
+        ],
+        "is_ode": true,
+        "sigma": 0.05
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "n",
+        "child_state_count": 2,
+        "parent_state_count": 2,
+        "n_time_points": 300,
+        "new_term_max_effect": 2.0995880873179544,
+        "new_term_sigma_multiple": 41.99176174635909,
+        "strongest_at": {
+          "t": 150.0
+        },
+        "k": 5.0,
+        "passes": true,
+        "advice": "new mechanism is visible on the target trajectory"
+      }
+    }
+  ],
+  "_cost_usd": 0.74789725,
+  "_num_turns": 8,
+  "discipline": "physics",
+  "scenario_text": "A container is divided into two compartments connected by a small opening, holding a fixed total number of gas particles that hop between sides. Starting from an uneven split, the particle count in one compartment relaxes toward an even balance driven by the greater number of accessible microstates near equality. Observers track the population of one compartment as it evolves toward balance.",
+  "record_id": "m2_statistical_mechanics_and_thermodynamics_0_009",
+  "generation": 5,
+  "_n_total": 5000,
+  "finalization": {
+    "mode": "candidate",
+    "accepted_generations": 5,
+    "novelty": {
+      "reasoning": "The classical baseline is the two-box (Ehrenfest urn / linear relaxation) model: dn_dt = hop_rate*(N_total - 2*n), which is the standard textbook form describing linear relaxation toward equal populations. The candidate equation retains this classical linear structure via the first two terms hop_rate_left*(N_total - n) - hop_rate_right*n (a generalization allowing asymmetric hopping rates, still classical). Beyond this, it adds two nonstandard composite terms: (1) a logistic-like crowding term -crowding_coeff * n*(N_total-n)/N_total representing aperture congestion proportional to the product of populations, and (2) a coupling term -aperture_relax_rate * n*(N_total-n)/N_total * (g - g_eq) that ties the flux to a dynamic congestion field g. The field g itself obeys a highly non-trivial ODE: relaxation toward g_eq with a congestion-slowed rate involving |g-g_eq|^aperture_recovery_exp in the denominator, a Michaelis-Menten/saturating forcing term driven by the absolute crossing flux, and a saturating autocatalytic jam-feedback term aperture_feedback_gain*(g-g_eq)/(1+|g-g_eq|/aperture_feedback_scale). None of these composite structures appear in any textbook treatment of the two-compartment gas relaxation problem, which is nearly always presented as simple linear relaxation. The saturating traffic-forced, self-reinforcing congestion field coupled back into a logistic flux term is an invented mechanistic construction. An LLM could not recite this exact combined form from background knowledge; it could only be recovered by fitting to observational data. Thus, relative to the classical baseline, the equation introduces genuinely novel, non-recitable composite mechanism terms.",
+      "answer": "Yes",
+      "llm_qa_history": [
+        {
+          "attempt": 1,
+          "model": "claude-opus-4-8",
+          "system_prompt": "You are a top-tier scientist with deep expertise across physics, biology,\nchemistry, and materials science. Your task is to act as a \"Novelty Evaluator\":\nobjectively judge whether a newly generated mathematical equation is\n\"scientifically novel\" within its given scientific context.\n\nCORE CRITERIA:\n- NOT NOVEL: the equation is a well-known classical formula that already exists\n  in textbooks, on the internet, or in the open scientific literature — i.e. a\n  formula that could be obtained simply by recall/recitation.\n- NOVEL: while remaining scientifically sound, the equation introduces uncommon,\n  nonlinear, or genuinely new composite mechanism terms, such that neither a\n  human nor an AI could guess it from background knowledge alone — it could only\n  be recovered through data-driven inference from experimental observations.\n",
+          "user_prompt": "[SCIENTIFIC CONTEXT]:\nField: physics\nProblem description: A container is divided into two compartments connected by a small opening, holding a fixed total number of gas particles that hop between sides. Starting from an uneven split, the particle count in one compartment relaxes toward an even balance driven by the greater number of accessible microstates near equality. Observers track the population of one compartment as it evolves toward balance.\n\n[VARIABLES & PARAMETERS]:\n- Target variable: dn_dt (Rate of change of the particle count in the first compartment)\n- Input features: t (time)\n- Dynamic states: n (Number of particles in the first compartment); g (Dynamic effective throughput factor of the small opening (dimensionless aperture-congestion field))\n- Parameters: hop_rate_left (Per-particle hopping rate from the second (right) compartment into the first (left) compartment through the opening); hop_rate_right (Per-particle hopping rate from the first (left) compartment into the second (right) compartment through the opening); N_total (Fixed total number of particles in the container); crowding_coeff (Coefficient for opening-throughput saturation caused by mutual particle blocking at the small aperture); aperture_relax_rate (Coefficient coupling the dynamic aperture-congestion field to the crossing flux); aperture_response (Sensitivity of the aperture-congestion field to the instantaneous imbalance-driven flux pressure); aperture_time (Relaxation time over which the aperture-congestion field responds to changes in traffic); g_eq (Equilibrium (rest) value of the aperture-congestion field at balanced, quiescent flow); aperture_saturation (Half-saturation flux scale at which the congestion field's driving response becomes sublinear (jamming onset)); aperture_recovery_exp (Exponent controlling how sharply the congestion field's relaxation slows as the field grows away from rest); aperture_feedback_gain (Gain of the autocatalytic self-reinforcement of the congestion field once it exceeds rest (jam positive feedback)); aperture_feedback_scale (Congestion-field scale beyond which the self-reinforcing jam feedback saturates)\n\n[CANDIDATE EQUATION]:\ndn_dt = hop_rate_left * (N_total - n) - hop_rate_right * n - crowding_coeff * n * (N_total - n) / N_total - aperture_relax_rate * n * (N_total - n) / N_total * (g - g_eq)\n\n[CLOSED ODE SYSTEM]:\n{\n  \"time_symbol\": \"t\",\n  \"target_state\": \"n\",\n  \"states\": [\n    {\n      \"symbol\": \"n\",\n      \"rhs\": \"hop_rate_left * (N_total - n) - hop_rate_right * n - crowding_coeff * n * (N_total - n) / N_total - aperture_relax_rate * n * (N_total - n) / N_total * (g - g_eq)\",\n      \"initial_condition\": 800.0,\n      \"description\": \"Number of particles in the first compartment\"\n    },\n    {\n      \"symbol\": \"g\",\n      \"rhs\": \"(g_eq - g) / (aperture_time * (1 + Abs(g - g_eq)**aperture_recovery_exp)) + aperture_response * Abs(hop_rate_left * (N_total - n) - hop_rate_right * n) / (aperture_saturation + Abs(hop_rate_left * (N_total - n) - hop_rate_right * n)) + aperture_feedback_gain * (g - g_eq) / (1 + Abs(g - g_eq) / aperture_feedback_scale)\",\n      \"initial_condition\": 0.0,\n      \"description\": \"Dynamic effective aperture-congestion field with saturating traffic forcing, congestion-slowed relaxation toward g_eq, and a self-reinforcing saturating jam feedback amplifying excess congestion above rest\"\n    }\n  ]\n}\n(Note: this equation comes from an equation-evolution pipeline; assume it is\nmathematically solvable and numerically stable.)\n\n[NOTE ON KNOWN / CLASSICAL TERMS]:\nThe classical / textbook starting point for this phenomenon (the baseline equation) is:\n  dn_dt = hop_rate * (N_total - 2*n)\nThe terms appearing in this baseline equation can be regarded as the well-known classical terms for this problem. Use this as the reference to judge whether the candidate equation, relative to this classical baseline, introduces additional novel composite terms that cannot be recited directly and could only be discovered through data-driven reasoning.\n\n---\n\nREASONING & OUTPUT REQUIREMENTS:\nLet's think step by step:\n1. Analyze each term in the candidate equation. Which terms are established\n   classical knowledge in this scientific context, and which are newly\n   introduced composite terms?\n2. Drawing on your knowledge of the scientific literature, does this COMPLETE\n   combined form of the equation appear directly in any existing textbook or\n   public reference? Could a large language model \"recite\" this exact formula\n   purely from the context and variable names above?\n3. Assess whether it has true novelty (i.e. it could only be discovered by\n   reasoning over subsequent experimental observation data).\n\nProvide your final answer STRICTLY in the following JSON format, with no extra\nMarkdown markup (no ```json):\n{\n  \"reasoning\": \"Write your detailed step-by-step scientific analysis and novelty assessment here.\",\n  \"answer\": \"Yes\" or \"No\" (write \"Yes\" if the equation is novel and cannot be directly recited; write \"No\" if it is a well-known classical formula or can be directly recited)\n}\n",
+          "raw_response": "{\n  \"reasoning\": \"The classical baseline is the two-box (Ehrenfest urn / linear relaxation) model: dn_dt = hop_rate*(N_total - 2*n), which is the standard textbook form describing linear relaxation toward equal populations. The candidate equation retains this classical linear structure via the first two terms hop_rate_left*(N_total - n) - hop_rate_right*n (a generalization allowing asymmetric hopping rates, still classical). Beyond this, it adds two nonstandard composite terms: (1) a logistic-like crowding term -crowding_coeff * n*(N_total-n)/N_total representing aperture congestion proportional to the product of populations, and (2) a coupling term -aperture_relax_rate * n*(N_total-n)/N_total * (g - g_eq) that ties the flux to a dynamic congestion field g. The field g itself obeys a highly non-trivial ODE: relaxation toward g_eq with a congestion-slowed rate involving |g-g_eq|^aperture_recovery_exp in the denominator, a Michaelis-Menten/saturating forcing term driven by the absolute crossing flux, and a saturating autocatalytic jam-feedback term aperture_feedback_gain*(g-g_eq)/(1+|g-g_eq|/aperture_feedback_scale). None of these composite structures appear in any textbook treatment of the two-compartment gas relaxation problem, which is nearly always presented as simple linear relaxation. The saturating traffic-forced, self-reinforcing congestion field coupled back into a logistic flux term is an invented mechanistic construction. An LLM could not recite this exact combined form from background knowledge; it could only be recovered by fitting to observational data. Thus, relative to the classical baseline, the equation introduces genuinely novel, non-recitable composite mechanism terms.\",\n  \"answer\": \"Yes\"\n}",
+          "parsed_response": {
+            "reasoning": "The classical baseline is the two-box (Ehrenfest urn / linear relaxation) model: dn_dt = hop_rate*(N_total - 2*n), which is the standard textbook form describing linear relaxation toward equal populations. The candidate equation retains this classical linear structure via the first two terms hop_rate_left*(N_total - n) - hop_rate_right*n (a generalization allowing asymmetric hopping rates, still classical). Beyond this, it adds two nonstandard composite terms: (1) a logistic-like crowding term -crowding_coeff * n*(N_total-n)/N_total representing aperture congestion proportional to the product of populations, and (2) a coupling term -aperture_relax_rate * n*(N_total-n)/N_total * (g - g_eq) that ties the flux to a dynamic congestion field g. The field g itself obeys a highly non-trivial ODE: relaxation toward g_eq with a congestion-slowed rate involving |g-g_eq|^aperture_recovery_exp in the denominator, a Michaelis-Menten/saturating forcing term driven by the absolute crossing flux, and a saturating autocatalytic jam-feedback term aperture_feedback_gain*(g-g_eq)/(1+|g-g_eq|/aperture_feedback_scale). None of these composite structures appear in any textbook treatment of the two-compartment gas relaxation problem, which is nearly always presented as simple linear relaxation. The saturating traffic-forced, self-reinforcing congestion field coupled back into a logistic flux term is an invented mechanistic construction. An LLM could not recite this exact combined form from background knowledge; it could only be recovered by fitting to observational data. Thus, relative to the classical baseline, the equation introduces genuinely novel, non-recitable composite mechanism terms.",
+            "answer": "Yes"
+          }
+        }
+      ]
+    },
+    "total_points": 5000,
+    "data_csv": "/data1/SRBench_fresh/outputs/Candidate_Equations/candidate_m2_statistical_mechanics_and_thermodynamics_0_009_20260826-163912/lineage_attempt_02/candidate_data/m2_statistical_mechanics_and_thermodynamics_0_009_gen5_20260826-165419.csv",
+    "evaluation_status": "not_evaluated; choose Harbor split and solver later"
+  }
+}

@@ -1,0 +1,256 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "v",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        10.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "g_eff",
+      "value": 5.0
+    },
+    {
+      "symbol": "drag_coeff",
+      "value": 0.01
+    },
+    {
+      "symbol": "sphere_mass",
+      "value": 0.01
+    },
+    {
+      "symbol": "quad_drag_coeff",
+      "value": 0.003
+    },
+    {
+      "symbol": "history_drag_coeff",
+      "value": 0.01
+    },
+    {
+      "symbol": "v_shear",
+      "value": 0.1
+    },
+    {
+      "symbol": "added_mass_coeff",
+      "value": 0.003
+    },
+    {
+      "symbol": "am_relax_rate",
+      "value": 5.0
+    },
+    {
+      "symbol": "thermal_thinning",
+      "value": 0.01
+    },
+    {
+      "symbol": "T_ref",
+      "value": 293.0
+    },
+    {
+      "symbol": "visc_heat_rate",
+      "value": 2.0
+    },
+    {
+      "symbol": "T_relax_rate",
+      "value": 0.5
+    },
+    {
+      "symbol": "T_ambient",
+      "value": 293.0
+    },
+    {
+      "symbol": "wall_drag_coeff",
+      "value": 0.01
+    },
+    {
+      "symbol": "wall_gap_scale",
+      "value": 1.0
+    }
+  ],
+  "benchmark_output": "dv_dt",
+  "benchmark_target_state": "v",
+  "observed_variables": [
+    "t",
+    "v",
+    "a_int",
+    "T_oil"
+  ],
+  "rhs_for_integrator": "g_eff - (drag_coeff / sphere_mass) * v * (1 + thermal_thinning * (T_oil - T_ref)) - (quad_drag_coeff / sphere_mass) * v**2 - (history_drag_coeff / sphere_mass) * v / (v_shear + Abs(v)) - (added_mass_coeff / sphere_mass) * a_int - (wall_drag_coeff / sphere_mass) * v / (1 + wall_gap_scale * v)",
+  "state_variables": [
+    "v",
+    "a_int",
+    "T_oil"
+  ],
+  "state_rhs": [
+    "g_eff - (drag_coeff / sphere_mass) * v * (1 + thermal_thinning * (T_oil - T_ref)) - (quad_drag_coeff / sphere_mass) * v**2 - (history_drag_coeff / sphere_mass) * v / (v_shear + Abs(v)) - (added_mass_coeff / sphere_mass) * a_int - (wall_drag_coeff / sphere_mass) * v / (1 + wall_gap_scale * v)",
+    "am_relax_rate * (g_eff - (drag_coeff / sphere_mass) * v * (1 + thermal_thinning * (T_oil - T_ref)) - (quad_drag_coeff / sphere_mass) * v**2 - (history_drag_coeff / sphere_mass) * v / (v_shear + Abs(v)) - a_int)",
+    "visc_heat_rate * (drag_coeff / sphere_mass) * v**2 - T_relax_rate * (T_oil - T_ambient)"
+  ],
+  "initial_conditions": {
+    "v": 0.0,
+    "a_int": 0.0,
+    "T_oil": 293.0
+  },
+  "noise": 0.05,
+  "sanity_expectations": [
+    "v starts at 0 and increases monotonically from rest",
+    "v approaches a finite terminal-velocity asymptote (dv_dt -> 0)",
+    "v stays bounded and positive over the whole window",
+    "T_oil rises above ambient 293 K due to viscous heating then plateaus at a finite temperature",
+    "a_int rises from 0 and relaxes toward the net acceleration, then settles",
+    "dv_dt decreases monotonically from g_eff=5 toward 0"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "Noise sigma=0.05 (abs std on dv_dt; ~1% of the peak dv_dt=g_eff=5 at t=0). New term = the wall-correction drag -(wall_drag_coeff/sphere_mass)*v/(1+wall_gap_scale*v) (E minus parent). excitation_check (ode_system, full child-vs-parent trajectory comparison) gives new_term peak effect 0.364 m/s^2 = 7.28*sigma at t=2.68 s, passes (k=5). The trajectory rises from rest, so the new term is strongest in the mid-transient just before terminal velocity, which lies inside the sampled window. Inherited terms (linear/quad/history drag, added-mass, thermal thinning via T_oil self-heating) were validated in the parent contract; with these values each contributes O(0.1-1.5) m/s^2 near terminal, all well above 5*sigma=0.25.",
+  "role_corrections": [
+    "t: V->V (confirmed: sole independent time axis, gets the sampling range)",
+    "v: dynamic-state->dependent/target state (confirmed: function under the governing derivative dv_dt)",
+    "a_int: dynamic-state->dynamic-state (confirmed: internal latent added-mass reaction, governed by its own RHS; not sampled, not fixed)",
+    "T_oil: dynamic-state->dynamic-state (confirmed: governed viscous-heating state)",
+    "g_eff: P->P (confirmed, fixed constant)",
+    "drag_coeff: P->P (confirmed)",
+    "sphere_mass: P->P (confirmed)",
+    "quad_drag_coeff: P->P (confirmed)",
+    "history_drag_coeff: P->P (confirmed)",
+    "v_shear: P->P (confirmed)",
+    "added_mass_coeff: P->P (confirmed)",
+    "am_relax_rate: P->P (confirmed)",
+    "thermal_thinning: P->P (confirmed)",
+    "T_ref: P->P (confirmed)",
+    "visc_heat_rate: P->P (confirmed)",
+    "T_relax_rate: P->P (confirmed)",
+    "T_ambient: P->P (confirmed)",
+    "wall_drag_coeff: P->P (confirmed: new-term coefficient, set within suggested 1e-3..1e0 kg/s)",
+    "wall_gap_scale: P->P (confirmed: new-term coefficient, set within suggested 1e-1..1e1 s/m)"
+  ],
+  "rationale": "Typed ode_system contract inherited verbatim (states [v, a_int, T_oil], their RHS, and ICs); only time range, fixed parameter values, noise, and expectations were chosen. Parameters set to physically modest magnitudes (m=10 g sphere, net g_eff=5 m/s^2, drag/wall coeffs O(1e-2) kg/s, v_shear=0.1 m/s) giving a terminal velocity ~1-2 m/s reached within a few seconds; t in [0,10] s at 300 points captures the full transient and plateau. Wall-drag (the new mechanism) confirmed visible at 7.28*sigma.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "g_eff - (drag_coeff / sphere_mass) * v * (1 + thermal_thinning * (T_oil - T_ref)) - (quad_drag_coeff / sphere_mass) * v**2 - (history_drag_coeff / sphere_mass) * v / (v_shear + Abs(v)) - (added_mass_coeff / sphere_mass) * a_int - (wall_drag_coeff / sphere_mass) * v / (1 + wall_gap_scale * v)",
+        "target_symbol": "v"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "T_oil",
+          "T_ref",
+          "a_int",
+          "added_mass_coeff",
+          "drag_coeff",
+          "g_eff",
+          "history_drag_coeff",
+          "quad_drag_coeff",
+          "sphere_mass",
+          "thermal_thinning",
+          "v",
+          "v_shear",
+          "wall_drag_coeff",
+          "wall_gap_scale"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": false,
+        "explicit_solution_preview": null,
+        "classification_hint": "implicit_or_explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "g_eff": 5,
+          "drag_coeff": 0.01,
+          "sphere_mass": 0.01,
+          "quad_drag_coeff": 0.003,
+          "history_drag_coeff": 0.01,
+          "v_shear": 0.1,
+          "added_mass_coeff": 0.003,
+          "am_relax_rate": 5,
+          "thermal_thinning": 0.01,
+          "T_ref": 293,
+          "visc_heat_rate": 2,
+          "T_relax_rate": 0.5,
+          "T_ambient": 293,
+          "wall_drag_coeff": 0.01,
+          "wall_gap_scale": 1
+        },
+        "indep": [
+          {
+            "symbol": "t",
+            "range": [
+              0,
+              10
+            ],
+            "n_points": 300
+          }
+        ],
+        "sigma": 0.05,
+        "is_ode": true
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "v",
+        "child_state_count": 3,
+        "parent_state_count": 3,
+        "n_time_points": 300,
+        "new_term_max_effect": 0.3639035139551068,
+        "new_term_sigma_multiple": 7.278070279102136,
+        "strongest_at": {
+          "t": 2.6755852842809364
+        },
+        "k": 5.0,
+        "passes": true,
+        "advice": "new mechanism is visible on the target trajectory"
+      }
+    }
+  ],
+  "_cost_usd": 0.75441325,
+  "_num_turns": 5,
+  "discipline": "physics",
+  "scenario_text": "A small solid sphere is released from rest into a tall column of viscous oil. As it falls, the drag force grows with speed until it balances the net gravitational pull, and the sphere approaches a steady descent velocity. We track how the vertical velocity evolves over time from the moment of release.",
+  "record_id": "m2_fluid_dynamics_0_000",
+  "generation": 5,
+  "_n_total": 5000,
+  "finalization": {
+    "mode": "candidate",
+    "accepted_generations": 5,
+    "novelty": {
+      "reasoning": "Term-by-term analysis: (1) g_eff is the classical net gravitational/buoyancy term - standard. (2) -(drag_coeff/sphere_mass)*v is the classical Stokes linear drag - standard textbook. However, it is multiplied by (1 + thermal_thinning*(T_oil - T_ref)), coupling drag to a dynamically evolving wake temperature state - this is a nonstandard composite. (3) -(quad_drag_coeff/sphere_mass)*v**2 is a well-known quadratic/form drag term - individually classical. (4) -(history_drag_coeff/sphere_mass)*v/(v_shear + Abs(v)) is a saturating shear-thinning drag term - this is a non-classical, empirically motivated composite form not from standard textbooks. (5) -(added_mass_coeff/sphere_mass)*a_int couples to a separate relaxation ODE for added-mass/Basset history rather than the classical instantaneous added-mass term - this is a novel dynamical surrogate for Basset history. (6) -(wall_drag_coeff/sphere_mass)*v/(1 + wall_gap_scale*v) is a saturating wall-correction term - not a standard closed-form (classical wall corrections like Faxen are geometric ratios, not this rational velocity-saturation form). Additionally the T_oil ODE with viscous self-heating proportional to drag power and thermal relaxation, plus the a_int relaxation ODE, form a coupled 3-state system. While each physical effect (added mass, Basset history, shear thinning, viscous heating, wall correction) is individually documented in the literature, the specific combined closed-form with these particular saturating rational functional forms, the temperature-drag coupling via a self-heating wake state, and the added-mass relaxation ODE is NOT a formula that appears in any textbook or can be recited. An LLM could name these effects but could not reproduce this exact composite equation with these specific functional structures. The full system could only be identified/calibrated against experimental data. Therefore, relative to the classical baseline (dv_dt = g_eff - drag_coeff/m * v), this equation introduces multiple genuinely novel composite mechanism terms.",
+      "answer": "Yes",
+      "llm_qa_history": [
+        {
+          "attempt": 1,
+          "model": "claude-opus-4-8",
+          "system_prompt": "You are a top-tier scientist with deep expertise across physics, biology,\nchemistry, and materials science. Your task is to act as a \"Novelty Evaluator\":\nobjectively judge whether a newly generated mathematical equation is\n\"scientifically novel\" within its given scientific context.\n\nCORE CRITERIA:\n- NOT NOVEL: the equation is a well-known classical formula that already exists\n  in textbooks, on the internet, or in the open scientific literature — i.e. a\n  formula that could be obtained simply by recall/recitation.\n- NOVEL: while remaining scientifically sound, the equation introduces uncommon,\n  nonlinear, or genuinely new composite mechanism terms, such that neither a\n  human nor an AI could guess it from background knowledge alone — it could only\n  be recovered through data-driven inference from experimental observations.\n",
+          "user_prompt": "[SCIENTIFIC CONTEXT]:\nField: physics\nProblem description: A small solid sphere is released from rest into a tall column of viscous oil. As it falls, the drag force grows with speed until it balances the net gravitational pull, and the sphere approaches a steady descent velocity. We track how the vertical velocity evolves over time from the moment of release.\n\n[VARIABLES & PARAMETERS]:\n- Target variable: dv_dt (Time rate of change of the sphere's downward velocity)\n- Input features: t (time)\n- Dynamic states: v (Downward velocity of the sphere through the viscous oil); a_int (Internal acceleration-like state tracking the delayed entrained-fluid (added-mass/Basset history) reaction); T_oil (Local oil temperature in the sheared wake region around the sphere, evolving from viscous self-heating)\n- Parameters: g_eff (Effective gravitational acceleration accounting for buoyancy (net downward pull per unit mass)); drag_coeff (Stokes linear drag coefficient (evaluated at reference temperature T_ref)); sphere_mass (Mass of the solid sphere); quad_drag_coeff (Quadratic (inertial/form) drag coefficient arising at finite Reynolds number); history_drag_coeff (Saturating shear-thinning drag coefficient capturing the reduced apparent viscosity of the oil at higher shear rates); v_shear (Characteristic velocity marking the onset of shear-thinning saturation in the oil); added_mass_coeff (Effective mass of oil entrained/accelerated with the sphere (added-mass reaction coefficient)); am_relax_rate (Relaxation rate at which the entrained-fluid acceleration state tracks the true sphere acceleration); thermal_thinning (Fractional temperature sensitivity of the oil's viscosity (linearized Arrhenius thinning coefficient)); T_ref (Reference temperature at which drag_coeff is defined); visc_heat_rate (Rate at which mechanical drag power heats the local sheared oil per unit velocity-squared); T_relax_rate (Thermal relaxation rate of the sheared wake back toward ambient by conduction/advection); T_ambient (Ambient oil temperature far from the sphere); wall_drag_coeff (Wall-correction drag coefficient from the finite-radius column retarding the sphere via back-flow of displaced oil); wall_gap_scale (Velocity scale at which the confined back-flow retardation begins to saturate as recirculation develops)\n\n[CANDIDATE EQUATION]:\ndv_dt = g_eff - (drag_coeff / sphere_mass) * v * (1 + thermal_thinning * (T_oil - T_ref)) - (quad_drag_coeff / sphere_mass) * v**2 - (history_drag_coeff / sphere_mass) * v / (v_shear + Abs(v)) - (added_mass_coeff / sphere_mass) * a_int - (wall_drag_coeff / sphere_mass) * v / (1 + wall_gap_scale * v)\n\n[CLOSED ODE SYSTEM]:\n{\n  \"time_symbol\": \"t\",\n  \"target_state\": \"v\",\n  \"states\": [\n    {\n      \"symbol\": \"v\",\n      \"rhs\": \"g_eff - (drag_coeff / sphere_mass) * v * (1 + thermal_thinning * (T_oil - T_ref)) - (quad_drag_coeff / sphere_mass) * v**2 - (history_drag_coeff / sphere_mass) * v / (v_shear + Abs(v)) - (added_mass_coeff / sphere_mass) * a_int - (wall_drag_coeff / sphere_mass) * v / (1 + wall_gap_scale * v)\",\n      \"initial_condition\": 0.0,\n      \"description\": \"Downward velocity of the sphere through the viscous oil\"\n    },\n    {\n      \"symbol\": \"a_int\",\n      \"rhs\": \"am_relax_rate * (g_eff - (drag_coeff / sphere_mass) * v * (1 + thermal_thinning * (T_oil - T_ref)) - (quad_drag_coeff / sphere_mass) * v**2 - (history_drag_coeff / sphere_mass) * v / (v_shear + Abs(v)) - a_int)\",\n      \"initial_condition\": 0.0,\n      \"description\": \"Delayed entrained-fluid acceleration reaction relaxing toward the sphere's instantaneous acceleration\"\n    },\n    {\n      \"symbol\": \"T_oil\",\n      \"rhs\": \"visc_heat_rate * (drag_coeff / sphere_mass) * v**2 - T_relax_rate * (T_oil - T_ambient)\",\n      \"initial_condition\": 293.0,\n      \"description\": \"Local sheared-wake oil temperature raised by viscous dissipation (proportional to drag power) and relaxing toward ambient\"\n    }\n  ]\n}\n(Note: this equation comes from an equation-evolution pipeline; assume it is\nmathematically solvable and numerically stable.)\n\n[NOTE ON KNOWN / CLASSICAL TERMS]:\nThe classical / textbook starting point for this phenomenon (the baseline equation) is:\n  dv_dt = g_eff - (drag_coeff / sphere_mass) * v\nThe terms appearing in this baseline equation can be regarded as the well-known classical terms for this problem. Use this as the reference to judge whether the candidate equation, relative to this classical baseline, introduces additional novel composite terms that cannot be recited directly and could only be discovered through data-driven reasoning.\n\n---\n\nREASONING & OUTPUT REQUIREMENTS:\nLet's think step by step:\n1. Analyze each term in the candidate equation. Which terms are established\n   classical knowledge in this scientific context, and which are newly\n   introduced composite terms?\n2. Drawing on your knowledge of the scientific literature, does this COMPLETE\n   combined form of the equation appear directly in any existing textbook or\n   public reference? Could a large language model \"recite\" this exact formula\n   purely from the context and variable names above?\n3. Assess whether it has true novelty (i.e. it could only be discovered by\n   reasoning over subsequent experimental observation data).\n\nProvide your final answer STRICTLY in the following JSON format, with no extra\nMarkdown markup (no ```json):\n{\n  \"reasoning\": \"Write your detailed step-by-step scientific analysis and novelty assessment here.\",\n  \"answer\": \"Yes\" or \"No\" (write \"Yes\" if the equation is novel and cannot be directly recited; write \"No\" if it is a well-known classical formula or can be directly recited)\n}\n",
+          "raw_response": "{\n  \"reasoning\": \"Term-by-term analysis: (1) g_eff is the classical net gravitational/buoyancy term - standard. (2) -(drag_coeff/sphere_mass)*v is the classical Stokes linear drag - standard textbook. However, it is multiplied by (1 + thermal_thinning*(T_oil - T_ref)), coupling drag to a dynamically evolving wake temperature state - this is a nonstandard composite. (3) -(quad_drag_coeff/sphere_mass)*v**2 is a well-known quadratic/form drag term - individually classical. (4) -(history_drag_coeff/sphere_mass)*v/(v_shear + Abs(v)) is a saturating shear-thinning drag term - this is a non-classical, empirically motivated composite form not from standard textbooks. (5) -(added_mass_coeff/sphere_mass)*a_int couples to a separate relaxation ODE for added-mass/Basset history rather than the classical instantaneous added-mass term - this is a novel dynamical surrogate for Basset history. (6) -(wall_drag_coeff/sphere_mass)*v/(1 + wall_gap_scale*v) is a saturating wall-correction term - not a standard closed-form (classical wall corrections like Faxen are geometric ratios, not this rational velocity-saturation form). Additionally the T_oil ODE with viscous self-heating proportional to drag power and thermal relaxation, plus the a_int relaxation ODE, form a coupled 3-state system. While each physical effect (added mass, Basset history, shear thinning, viscous heating, wall correction) is individually documented in the literature, the specific combined closed-form with these particular saturating rational functional forms, the temperature-drag coupling via a self-heating wake state, and the added-mass relaxation ODE is NOT a formula that appears in any textbook or can be recited. An LLM could name these effects but could not reproduce this exact composite equation with these specific functional structures. The full system could only be identified/calibrated against experimental data. Therefore, relative to the classical baseline (dv_dt = g_eff - drag_coeff/m * v), this equation introduces multiple genuinely novel composite mechanism terms.\",\n  \"answer\": \"Yes\"\n}",
+          "parsed_response": {
+            "reasoning": "Term-by-term analysis: (1) g_eff is the classical net gravitational/buoyancy term - standard. (2) -(drag_coeff/sphere_mass)*v is the classical Stokes linear drag - standard textbook. However, it is multiplied by (1 + thermal_thinning*(T_oil - T_ref)), coupling drag to a dynamically evolving wake temperature state - this is a nonstandard composite. (3) -(quad_drag_coeff/sphere_mass)*v**2 is a well-known quadratic/form drag term - individually classical. (4) -(history_drag_coeff/sphere_mass)*v/(v_shear + Abs(v)) is a saturating shear-thinning drag term - this is a non-classical, empirically motivated composite form not from standard textbooks. (5) -(added_mass_coeff/sphere_mass)*a_int couples to a separate relaxation ODE for added-mass/Basset history rather than the classical instantaneous added-mass term - this is a novel dynamical surrogate for Basset history. (6) -(wall_drag_coeff/sphere_mass)*v/(1 + wall_gap_scale*v) is a saturating wall-correction term - not a standard closed-form (classical wall corrections like Faxen are geometric ratios, not this rational velocity-saturation form). Additionally the T_oil ODE with viscous self-heating proportional to drag power and thermal relaxation, plus the a_int relaxation ODE, form a coupled 3-state system. While each physical effect (added mass, Basset history, shear thinning, viscous heating, wall correction) is individually documented in the literature, the specific combined closed-form with these particular saturating rational functional forms, the temperature-drag coupling via a self-heating wake state, and the added-mass relaxation ODE is NOT a formula that appears in any textbook or can be recited. An LLM could name these effects but could not reproduce this exact composite equation with these specific functional structures. The full system could only be identified/calibrated against experimental data. Therefore, relative to the classical baseline (dv_dt = g_eff - drag_coeff/m * v), this equation introduces multiple genuinely novel composite mechanism terms.",
+            "answer": "Yes"
+          }
+        }
+      ]
+    },
+    "total_points": 5000,
+    "data_csv": "/data1/SRBench_fresh/outputs/Candidate_Equations/candidate_m2_fluid_dynamics_0_000_20260826-153327/lineage_attempt_02/candidate_data/m2_fluid_dynamics_0_000_gen5_20260826-154107.csv",
+    "evaluation_status": "not_evaluated; choose Harbor split and solver later"
+  }
+}

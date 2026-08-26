@@ -1,0 +1,406 @@
+{
+  "equation_type": "explicit",
+  "integrator": "evaluate_explicit",
+  "dependent_variable": "P",
+  "independent_variables": [
+    {
+      "symbol": "D",
+      "range": [
+        0.1,
+        10.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    },
+    {
+      "symbol": "T",
+      "range": [
+        1.0,
+        40.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    },
+    {
+      "symbol": "s",
+      "range": [
+        0.5,
+        2.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    },
+    {
+      "symbol": "A",
+      "range": [
+        20.0,
+        80.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "alpha",
+      "value": 0.001
+    },
+    {
+      "symbol": "gamma",
+      "value": 2.0
+    },
+    {
+      "symbol": "beta",
+      "value": 1.0
+    },
+    {
+      "symbol": "D_sat",
+      "value": 5.0
+    },
+    {
+      "symbol": "rho",
+      "value": 1.0
+    },
+    {
+      "symbol": "lambda_rep",
+      "value": 0.001
+    },
+    {
+      "symbol": "eta",
+      "value": 0.5
+    },
+    {
+      "symbol": "phi",
+      "value": 0.01
+    },
+    {
+      "symbol": "A_ref",
+      "value": 50.0
+    },
+    {
+      "symbol": "kappa",
+      "value": 3.0
+    },
+    {
+      "symbol": "K_hit",
+      "value": 5.0
+    }
+  ],
+  "benchmark_output": null,
+  "benchmark_target_state": null,
+  "observed_variables": [
+    "D",
+    "T",
+    "s",
+    "A",
+    "P"
+  ],
+  "rhs_for_integrator": "1 - exp(-s * alpha * (D**gamma / (1 + (D/D_sat)**gamma)) * T**beta * (1 + rho * s * D / (1 + rho * s * D)) * (1 + kappa * (s * D)**2 / (K_hit**2 + (s * D)**2)) * exp(-lambda_rep * (1 + phi * (A - A_ref)) * (T / (1 + eta * s * D)) * A))",
+  "state_variables": [],
+  "state_rhs": [],
+  "initial_conditions": {},
+  "noise": 0.02,
+  "sanity_expectations": [
+    "P stays within [0,1] everywhere",
+    "P increases monotonically with cumulative dose D up to dose saturation (D_sat)",
+    "P increases with exposure duration T",
+    "P increases with susceptibility s",
+    "P is reduced by the age-dependent repair/clearance factor (larger A lowers effective damage)",
+    "the multi-hit factor lifts P most where s*D ~ K_hit (near D~8-9 at s~1), giving a visible convex bump versus the parent"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "sigma=0.02 on P (P is bounded in [0,1], so this is 2% of full range; 5*sigma=0.1). auto_balance converged with no changes to the starting values (all top-level terms already visible): constant term '1' at 50x sigma, and the -exp(-H) term at 21.1x sigma. NEW TERM (multi-hit kappa factor, 1 + kappa*(s*D)^2/(K_hit^2+(s*D)^2)) = E - parent: max effect on P = 0.286, i.e. 14.3x sigma, well above the 5x threshold. Strongest at D~8.52, T~37.3, s~1.04, A~41.9 — inside the sampled region. excitation_check reproduced identical numbers. All terms visible.",
+  "role_corrections": [
+    "P: output->output (confirmed; LHS, explicitly solvable target)",
+    "D: V->V (confirmed; sampled independent axis = cumulative dose)",
+    "T: V->V (confirmed; sampled independent axis = exposure duration)",
+    "s: V->V (confirmed; sampled independent axis = susceptibility)",
+    "A: V->V (confirmed; sampled independent axis = age at assessment)",
+    "alpha: P->P (confirmed; baseline hazard scaling, fixed=0.001 to keep P in sensitive [0,1] range)",
+    "gamma: P->P (confirmed; dose exponent=2)",
+    "beta: P->P (confirmed; duration exponent=1)",
+    "D_sat: P->P (confirmed; half-saturation dose=5)",
+    "rho: P->P (confirmed; sensitization=1)",
+    "lambda_rep: P->P (confirmed; repair rate=0.001)",
+    "eta: P->P (confirmed; repair-saturation=0.5)",
+    "phi: P->P (confirmed; age-dependence=0.01)",
+    "A_ref: P->P (confirmed; reference age=50)",
+    "kappa: P->P (confirmed; multi-hit amplification=3, within suggested 0.5-5)",
+    "K_hit: P->P (confirmed; multi-hit half-max dose=5, within suggested 1-50)"
+  ],
+  "rationale": "Static cross-sectional relation: P is given explicitly as 1-exp(-H) with H a product of dose-saturation, duration, sensitization, multi-hit, and age-repair factors. analyze_expression confirms no derivatives/integrals and explicit solvability for P, so equation_type=explicit / integrator=evaluate_explicit. D, T, s, A are the per-individual sampled axes (independent variables); all Greek/threshold symbols are fixed parameters; there are no integration dummies. alpha fixed small (0.001) so the hazard sits in the sensitive part of 1-exp(-H) rather than saturating at 1, making all multiplicative factors leave a mark. Parameter magnitudes follow the physical hints (kappa in 0.5-5, K_hit in 1-50) and keep the expression finite/real (checked at D=5,T=20,s=1,A=50 -> P=0.577). Excitation confirmed: the new multi-hit term reaches 14.3x sigma inside the region.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "1 - exp(-s * alpha * (D**gamma / (1 + (D/D_sat)**gamma)) * T**beta * (1 + rho * s * D / (1 + rho * s * D)) * (1 + kappa * (s * D)**2 / (K_hit**2 + (s * D)**2)) * exp(-lambda_rep * (1 + phi * (A - A_ref)) * (T / (1 + eta * s * D)) * A))",
+        "target_symbol": "P"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "A",
+          "A_ref",
+          "D",
+          "D_sat",
+          "K_hit",
+          "T",
+          "alpha",
+          "beta",
+          "eta",
+          "gamma",
+          "kappa",
+          "lambda_rep",
+          "phi",
+          "rho",
+          "s"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "1 - exp(D**gamma*T**beta*alpha*(-s)*(kappa*(D*s)**2/(K_hit**2 + (D*s)**2) + 1)*(D*rho*s/(D*rho*s + 1) + 1)*exp(A*T*(-lam"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "1 - exp(-s * alpha * (D**gamma / (1 + (D/D_sat)**gamma)) * T**beta * (1 + rho * s * D / (1 + rho * s * D)) * (1 + kappa * (s * D)**2 / (K_hit**2 + (s * D)**2)) * exp(-lambda_rep * (1 + phi * (A - A_ref)) * (T / (1 + eta * s * D)) * A))",
+        "assignments": {
+          "alpha": 0.001,
+          "gamma": 2,
+          "beta": 1,
+          "D_sat": 5,
+          "rho": 1,
+          "lambda_rep": 0.001,
+          "eta": 0.5,
+          "phi": 0.01,
+          "A_ref": 50,
+          "kappa": 3,
+          "K_hit": 5,
+          "D": 5,
+          "T": 20,
+          "s": 1,
+          "A": 50
+        },
+        "target_symbol": "P"
+      },
+      "result": {
+        "ok": true,
+        "value_real": 0.5772895001027758,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "auto_balance",
+      "input": {
+        "assignments": {
+          "A": 50,
+          "A_ref": 50,
+          "D": 5,
+          "D_sat": 5,
+          "K_hit": 5,
+          "T": 20,
+          "alpha": 0.001,
+          "beta": 1,
+          "eta": 0.5,
+          "gamma": 2,
+          "kappa": 3,
+          "lambda_rep": 0.001,
+          "phi": 0.01,
+          "rho": 1,
+          "s": 1
+        },
+        "indep": [
+          {
+            "symbol": "D",
+            "range": [
+              0.1,
+              10
+            ]
+          },
+          {
+            "symbol": "T",
+            "range": [
+              1,
+              40
+            ]
+          },
+          {
+            "symbol": "s",
+            "range": [
+              0.5,
+              2
+            ]
+          },
+          {
+            "symbol": "A",
+            "range": [
+              20,
+              80
+            ]
+          }
+        ],
+        "is_ode": false,
+        "sigma": 0.02
+      },
+      "result": {
+        "ok": true,
+        "assignments": {
+          "A": 50,
+          "A_ref": 50,
+          "D": 5,
+          "D_sat": 5,
+          "K_hit": 5,
+          "T": 20,
+          "alpha": 0.001,
+          "beta": 1,
+          "eta": 0.5,
+          "gamma": 2,
+          "kappa": 3,
+          "lambda_rep": 0.001,
+          "phi": 0.01,
+          "rho": 1,
+          "s": 1
+        },
+        "changed": {},
+        "converged": true,
+        "note": "all terms reach k*sigma"
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "A": 50,
+          "A_ref": 50,
+          "D": 5,
+          "D_sat": 5,
+          "K_hit": 5,
+          "T": 20,
+          "alpha": 0.001,
+          "beta": 1,
+          "eta": 0.5,
+          "gamma": 2,
+          "kappa": 3,
+          "lambda_rep": 0.001,
+          "phi": 0.01,
+          "rho": 1,
+          "s": 1
+        },
+        "indep": [
+          {
+            "range": [
+              0.1,
+              10
+            ],
+            "symbol": "D"
+          },
+          {
+            "range": [
+              1,
+              40
+            ],
+            "symbol": "T"
+          },
+          {
+            "range": [
+              0.5,
+              2
+            ],
+            "symbol": "s"
+          },
+          {
+            "range": [
+              20,
+              80
+            ],
+            "symbol": "A"
+          }
+        ],
+        "is_ode": false,
+        "sigma": 0.02
+      },
+      "result": {
+        "ok": true,
+        "mode": "explicit",
+        "k": 5.0,
+        "sigma": 0.02,
+        "sampling": {
+          "method": "sobol",
+          "n_samples": 512,
+          "n_dimensions": 4
+        },
+        "terms": [
+          {
+            "term": "1",
+            "rms": 1.0,
+            "sigma_multiple": 50.0
+          },
+          {
+            "term": "-exp(D**gamma*T**beta*alpha*(-s)*(kappa*(D*s)**2/(K_hit**2 + (D*s)**2) + 1)*(D*r",
+            "rms": 0.422710499897224,
+            "sigma_multiple": 21.1355249948612
+          }
+        ],
+        "weak_terms": [],
+        "new_term": {
+          "delta_expr": "evaluated numerically as current expression minus parent",
+          "max_effect": 0.28591571445900504,
+          "sigma_multiple": 14.295785722950251,
+          "strongest_at": {
+            "D": 8.520796125102787,
+            "T": 37.32327419426292,
+            "s": 1.0440763854421675,
+            "A": 41.873009614646435
+          },
+          "passes": true
+        },
+        "advice": "all terms visible"
+      }
+    }
+  ],
+  "_cost_usd": 0.8238565,
+  "_num_turns": 7,
+  "discipline": "biology",
+  "scenario_text": "An accumulating exposure disease relates individual risk of developing illness to the total cumulative dose of a harmful agent received. In a cross-sectional analysis, the probability of disease onset is modeled as an instantaneous function of cumulative exposure, exposure duration, and individual susceptibility. Investigators sample many individuals with different exposure histories. Genetic and treatment factors are held fixed as background.",
+  "record_id": "m2_epidemiology_and_disease_dynamics_0_006",
+  "generation": 5,
+  "_n_total": 5000,
+  "finalization": {
+    "mode": "candidate",
+    "accepted_generations": 5,
+    "novelty": {
+      "reasoning": "The baseline classical form is P = 1 - exp(-s*alpha*D^gamma*T^beta), a standard complementary-log-log / Weibull-type cumulative hazard model. The candidate equation retains this core (s*alpha*D^gamma*T^beta) but layers on multiple additional composite mechanism terms: (1) a dose-saturation factor D^gamma/(1+(D/D_sat)^gamma) representing rate-limited per-dose damage machinery; (2) a susceptibility-dose sensitization factor (1 + rho*s*D/(1+rho*s*D)) which is a saturating Michaelis-Menten-like term; (3) a cooperative multi-hit Hill-type amplification factor (1 + kappa*(s*D)^2/(K_hit^2+(s*D)^2)); and (4) an age- and susceptibility-dependent repair/clearance exponential term exp(-lambda_rep*(1+phi*(A-A_ref))*(T/(1+eta*s*D))*A), which couples age-modulated repair rate, repair saturation by susceptibility-weighted dose, and duration. While each individual building block draws on recognizable functional motifs (Hill functions, Michaelis-Menten saturation, Weibull hazard, exponential decay of repair), the COMPLETE nested and multiplicatively coupled form is not a standard textbook equation. No public reference or LLM could recite this exact composite structure verbatim, especially the specific coupling like T/(1+eta*s*D) inside an age-scaled repair exponential and the simultaneous nesting of dose saturation, sensitization, and multi-hit cooperativity. This particular assembly would only emerge from data-driven inference/equation evolution against observational data. Therefore the equation goes substantially beyond the classical baseline and constitutes a genuinely novel composite form.",
+      "answer": "Yes",
+      "llm_qa_history": [
+        {
+          "attempt": 1,
+          "model": "claude-opus-4-8",
+          "system_prompt": "You are a top-tier scientist with deep expertise across physics, biology,\nchemistry, and materials science. Your task is to act as a \"Novelty Evaluator\":\nobjectively judge whether a newly generated mathematical equation is\n\"scientifically novel\" within its given scientific context.\n\nCORE CRITERIA:\n- NOT NOVEL: the equation is a well-known classical formula that already exists\n  in textbooks, on the internet, or in the open scientific literature — i.e. a\n  formula that could be obtained simply by recall/recitation.\n- NOVEL: while remaining scientifically sound, the equation introduces uncommon,\n  nonlinear, or genuinely new composite mechanism terms, such that neither a\n  human nor an AI could guess it from background knowledge alone — it could only\n  be recovered through data-driven inference from experimental observations.\n",
+          "user_prompt": "[SCIENTIFIC CONTEXT]:\nField: biology\nProblem description: An accumulating exposure disease relates individual risk of developing illness to the total cumulative dose of a harmful agent received. In a cross-sectional analysis, the probability of disease onset is modeled as an instantaneous function of cumulative exposure, exposure duration, and individual susceptibility. Investigators sample many individuals with different exposure histories. Genetic and treatment factors are held fixed as background.\n\n[VARIABLES & PARAMETERS]:\n- Target variable: P (Probability of disease onset given accumulated exposure)\n- Input features: D (Cumulative exposure dose); T (Duration of exposure in years); s (Individual susceptibility coefficient); A (Age at assessment in years (time available for cumulative repair/clearance of damage))\n- Dynamic states: (none)\n- Parameters: alpha (Baseline hazard scaling constant); gamma (Dose nonlinearity exponent); beta (Duration nonlinearity exponent); D_sat (Half-saturation cumulative dose at which per-dose damage machinery becomes rate-limited); rho (Susceptibility-dose sensitization coefficient governing damage-repair overwhelm); lambda_rep (Baseline repair/clearance rate constant reducing effective accumulated damage); eta (Repair-saturation coefficient by which susceptibility-weighted dose degrades repair efficiency); phi (Age-dependence coefficient of repair/clearance rate (senescent decline or maturation of repair capacity)); A_ref (Reference age at which repair rate equals its baseline value lambda_rep); kappa (Maximal fractional hazard amplification from multi-hit cooperative damage accumulation); K_hit (Susceptibility-weighted cumulative dose threshold at which cooperative multi-hit damage becomes half-maximal)\n\n[CANDIDATE EQUATION]:\nP = 1 - exp(-s * alpha * (D**gamma / (1 + (D/D_sat)**gamma)) * T**beta * (1 + rho * s * D / (1 + rho * s * D)) * (1 + kappa * (s * D)**2 / (K_hit**2 + (s * D)**2)) * exp(-lambda_rep * (1 + phi * (A - A_ref)) * (T / (1 + eta * s * D)) * A))\n\n(Note: this equation comes from an equation-evolution pipeline; assume it is\nmathematically solvable and numerically stable.)\n\n[NOTE ON KNOWN / CLASSICAL TERMS]:\nThe classical / textbook starting point for this phenomenon (the baseline equation) is:\n  P = 1 - exp(-s * alpha * D**gamma * T**beta)\nThe terms appearing in this baseline equation can be regarded as the well-known classical terms for this problem. Use this as the reference to judge whether the candidate equation, relative to this classical baseline, introduces additional novel composite terms that cannot be recited directly and could only be discovered through data-driven reasoning.\n\n---\n\nREASONING & OUTPUT REQUIREMENTS:\nLet's think step by step:\n1. Analyze each term in the candidate equation. Which terms are established\n   classical knowledge in this scientific context, and which are newly\n   introduced composite terms?\n2. Drawing on your knowledge of the scientific literature, does this COMPLETE\n   combined form of the equation appear directly in any existing textbook or\n   public reference? Could a large language model \"recite\" this exact formula\n   purely from the context and variable names above?\n3. Assess whether it has true novelty (i.e. it could only be discovered by\n   reasoning over subsequent experimental observation data).\n\nProvide your final answer STRICTLY in the following JSON format, with no extra\nMarkdown markup (no ```json):\n{\n  \"reasoning\": \"Write your detailed step-by-step scientific analysis and novelty assessment here.\",\n  \"answer\": \"Yes\" or \"No\" (write \"Yes\" if the equation is novel and cannot be directly recited; write \"No\" if it is a well-known classical formula or can be directly recited)\n}\n",
+          "raw_response": "{\n  \"reasoning\": \"The baseline classical form is P = 1 - exp(-s*alpha*D^gamma*T^beta), a standard complementary-log-log / Weibull-type cumulative hazard model. The candidate equation retains this core (s*alpha*D^gamma*T^beta) but layers on multiple additional composite mechanism terms: (1) a dose-saturation factor D^gamma/(1+(D/D_sat)^gamma) representing rate-limited per-dose damage machinery; (2) a susceptibility-dose sensitization factor (1 + rho*s*D/(1+rho*s*D)) which is a saturating Michaelis-Menten-like term; (3) a cooperative multi-hit Hill-type amplification factor (1 + kappa*(s*D)^2/(K_hit^2+(s*D)^2)); and (4) an age- and susceptibility-dependent repair/clearance exponential term exp(-lambda_rep*(1+phi*(A-A_ref))*(T/(1+eta*s*D))*A), which couples age-modulated repair rate, repair saturation by susceptibility-weighted dose, and duration. While each individual building block draws on recognizable functional motifs (Hill functions, Michaelis-Menten saturation, Weibull hazard, exponential decay of repair), the COMPLETE nested and multiplicatively coupled form is not a standard textbook equation. No public reference or LLM could recite this exact composite structure verbatim, especially the specific coupling like T/(1+eta*s*D) inside an age-scaled repair exponential and the simultaneous nesting of dose saturation, sensitization, and multi-hit cooperativity. This particular assembly would only emerge from data-driven inference/equation evolution against observational data. Therefore the equation goes substantially beyond the classical baseline and constitutes a genuinely novel composite form.\",\n  \"answer\": \"Yes\"\n}",
+          "parsed_response": {
+            "reasoning": "The baseline classical form is P = 1 - exp(-s*alpha*D^gamma*T^beta), a standard complementary-log-log / Weibull-type cumulative hazard model. The candidate equation retains this core (s*alpha*D^gamma*T^beta) but layers on multiple additional composite mechanism terms: (1) a dose-saturation factor D^gamma/(1+(D/D_sat)^gamma) representing rate-limited per-dose damage machinery; (2) a susceptibility-dose sensitization factor (1 + rho*s*D/(1+rho*s*D)) which is a saturating Michaelis-Menten-like term; (3) a cooperative multi-hit Hill-type amplification factor (1 + kappa*(s*D)^2/(K_hit^2+(s*D)^2)); and (4) an age- and susceptibility-dependent repair/clearance exponential term exp(-lambda_rep*(1+phi*(A-A_ref))*(T/(1+eta*s*D))*A), which couples age-modulated repair rate, repair saturation by susceptibility-weighted dose, and duration. While each individual building block draws on recognizable functional motifs (Hill functions, Michaelis-Menten saturation, Weibull hazard, exponential decay of repair), the COMPLETE nested and multiplicatively coupled form is not a standard textbook equation. No public reference or LLM could recite this exact composite structure verbatim, especially the specific coupling like T/(1+eta*s*D) inside an age-scaled repair exponential and the simultaneous nesting of dose saturation, sensitization, and multi-hit cooperativity. This particular assembly would only emerge from data-driven inference/equation evolution against observational data. Therefore the equation goes substantially beyond the classical baseline and constitutes a genuinely novel composite form.",
+            "answer": "Yes"
+          }
+        }
+      ]
+    },
+    "total_points": 5000,
+    "data_csv": "/data1/SRBench_fresh/outputs/Candidate_Equations/candidate_m2_epidemiology_and_disease_dynamics_0_006_20260826-162411/lineage_attempt_01/candidate_data/m2_epidemiology_and_disease_dynamics_0_006_gen5_20260826-162759.csv",
+    "evaluation_status": "not_evaluated; choose Harbor split and solver later"
+  }
+}

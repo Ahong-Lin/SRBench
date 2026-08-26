@@ -47,6 +47,7 @@ import os
 import random
 import re
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Literal, Optional
@@ -996,6 +997,42 @@ class OpenRouterRequestError(RuntimeError):
     """HTTP error returned by OpenRouter, with a compact safe error message."""
 
 
+_THROTTLE_STATUSES = frozenset({429, 500, 502, 503, 504})
+
+
+def _throttle_status(outcome: object) -> int | None:
+    """Read the HTTP status from either an exception or an httpx response."""
+    if isinstance(outcome, anthropic.APIStatusError):
+        return outcome.status_code
+    if isinstance(outcome, httpx.Response) and outcome.is_error:
+        return outcome.status_code
+    return None
+
+
+def _with_throttle_backoff(request):
+    """Retry one request while the gateway reports throttling or a 5xx.
+
+    The Bedrock-backed gateway answers a bare 429 on the first call of a burst,
+    and the per-stage retry loops below re-prompt immediately with no delay, so
+    a throttled batch would exhaust its attempts in under a second.  Waiting
+    here — the one place every protocol funnels through — keeps the scientific
+    retry logic (schema repair, validation feedback) separate from transport
+    congestion.
+    """
+    max_retries = int(os.environ.get("SRBENCH_THROTTLE_MAX_RETRIES", "10"))
+    for attempt in range(max_retries + 1):
+        try:
+            outcome = request()
+        except anthropic.APIStatusError as exc:
+            if attempt >= max_retries or _throttle_status(exc) not in _THROTTLE_STATUSES:
+                raise
+        else:
+            if attempt >= max_retries or _throttle_status(outcome) not in _THROTTLE_STATUSES:
+                return outcome
+        time.sleep(min(60.0, 2 ** attempt) * (0.5 + random.random()))
+    raise RuntimeError("unreachable")  # pragma: no cover
+
+
 class ModelCaller:
     """Minimal adapter over the two API protocols used by this workflow."""
 
@@ -1016,30 +1053,34 @@ class ModelCaller:
         if self.provider == "anthropic":
             if self.anthropic_client is None:  # pragma: no cover - guarded at setup
                 raise RuntimeError("Anthropic client was not initialized.")
-            message = self.anthropic_client.messages.create(
-                model=model,
-                max_tokens=max_tokens,
-                messages=[{"role": "user", "content": prompt}],
+            message = _with_throttle_backoff(
+                lambda: self.anthropic_client.messages.create(
+                    model=model,
+                    max_tokens=max_tokens,
+                    messages=[{"role": "user", "content": prompt}],
+                )
             )
             return _read_text_from_message(message)
 
         if not self.openrouter_api_key or not self.openrouter_base_url:
             raise RuntimeError("OpenRouter client was not initialized.")
         endpoint = self.openrouter_base_url.rstrip("/") + "/chat/completions"
-        response = httpx.post(
-            endpoint,
-            headers={
-                "Authorization": f"Bearer {self.openrouter_api_key}",
-                "Content-Type": "application/json",
-                "HTTP-Referer": "https://github.com/llm-srbench",
-                "X-Title": "LLM-SRBench v5",
-            },
-            json={
-                "model": model,
-                "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": max_tokens,
-            },
-            timeout=120.0,
+        response = _with_throttle_backoff(
+            lambda: httpx.post(
+                endpoint,
+                headers={
+                    "Authorization": f"Bearer {self.openrouter_api_key}",
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "https://github.com/llm-srbench",
+                    "X-Title": "LLM-SRBench v5",
+                },
+                json={
+                    "model": model,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": max_tokens,
+                },
+                timeout=120.0,
+            )
         )
         if response.is_error:
             try:

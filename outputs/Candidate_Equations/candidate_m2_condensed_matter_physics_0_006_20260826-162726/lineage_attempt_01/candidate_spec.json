@@ -1,0 +1,236 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "Theta",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        100.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "tau",
+      "value": 20.0
+    },
+    {
+      "symbol": "sigma_rad",
+      "value": 2e-10
+    },
+    {
+      "symbol": "T_res",
+      "value": 300.0
+    },
+    {
+      "symbol": "h_nat",
+      "value": 0.01
+    },
+    {
+      "symbol": "one_quarter",
+      "value": 0.25
+    },
+    {
+      "symbol": "k_couple",
+      "value": 0.02
+    },
+    {
+      "symbol": "tau_surf",
+      "value": 30.0
+    },
+    {
+      "symbol": "gamma_loss",
+      "value": 0.02
+    },
+    {
+      "symbol": "beta_temp",
+      "value": 0.001
+    },
+    {
+      "symbol": "one",
+      "value": 1.0
+    },
+    {
+      "symbol": "alpha_contact",
+      "value": 2.0
+    },
+    {
+      "symbol": "delta_gap",
+      "value": 10.0
+    }
+  ],
+  "benchmark_output": "dTheta_dt",
+  "benchmark_target_state": "Theta",
+  "observed_variables": [
+    "t",
+    "Theta",
+    "Theta_surf"
+  ],
+  "rhs_for_integrator": "-Theta / tau - sigma_rad * ((Theta + T_res)**4 - T_res**4) - h_nat * Abs(Theta)**(one_quarter) * Theta - k_couple * (Theta - Theta_surf) * (one + beta_temp * Theta) - k_couple * alpha_contact * (Theta - Theta_surf) / (one + (Theta - Theta_surf)**2 / delta_gap**2)",
+  "state_variables": [
+    "Theta",
+    "Theta_surf"
+  ],
+  "state_rhs": [
+    "-Theta / tau - sigma_rad * ((Theta + T_res)**4 - T_res**4) - h_nat * Abs(Theta)**(one_quarter) * Theta - k_couple * (Theta - Theta_surf) * (one + beta_temp * Theta) - k_couple * alpha_contact * (Theta - Theta_surf) / (one + (Theta - Theta_surf)**2 / delta_gap**2)",
+    "gamma_loss * (Theta - Theta_surf) * (one + beta_temp * Theta_surf) - Theta_surf / tau_surf - sigma_rad * ((Theta_surf + T_res)**4 - T_res**4) - h_nat * Abs(Theta_surf)**(one_quarter) * Theta_surf"
+  ],
+  "initial_conditions": {
+    "Theta": 100.0,
+    "Theta_surf": 100.0
+  },
+  "noise": 0.03,
+  "sanity_expectations": [
+    "Theta decreases monotonically from 100 K toward ~0 (relaxes to reservoir equilibrium)",
+    "Theta_surf decreases from 100 K toward ~0",
+    "dTheta_dt is negative throughout the trajectory",
+    "both states remain bounded and non-negative over t in [0,100] s",
+    "Theta approaches a finite near-zero asymptote as t grows",
+    "core-surface excess difference (Theta-Theta_surf) grows from 0, passes through ~delta_gap scale near t~18 s, then decays"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "Full child-vs-parent ODE-system comparison on the target Theta trajectory. New term (contact-conductance enhancement: -k_couple*alpha_contact*(Theta-Theta_surf)/(1+(Theta-Theta_surf)^2/delta_gap^2)) peak effect 0.880 K/s = 29.3*sigma, strongest at t=18.1 s where the core-surface excess difference is near delta_gap=10 K. Dominant inherited terms are O(5-10 K/s) at t=0 (Theta/tau=5, radiative~3.5, natural convection~3.2), all far above sigma=0.03. New mechanism clearly visible (>>5*sigma).",
+  "role_corrections": [
+    "t: V->V (confirmed time axis; only independent variable, gets sampling range)",
+    "Theta: state->state (confirmed target_state; dependent variable, benchmark output dTheta_dt)",
+    "Theta_surf: state->state (confirmed second dynamic state with its own governing RHS; integrated, exposed as observed column, not sampled)",
+    "tau: P->P (confirmed)",
+    "sigma_rad: P->P (confirmed)",
+    "T_res: P->P (confirmed)",
+    "h_nat: P->P (confirmed)",
+    "one_quarter: P->P (confirmed; fixed exponent 1/4=0.25)",
+    "k_couple: P->P (confirmed)",
+    "tau_surf: P->P (confirmed)",
+    "gamma_loss: P->P (confirmed)",
+    "beta_temp: P->P (confirmed)",
+    "one: P->P (confirmed; dimensionless unit constant fixed to 1)",
+    "alpha_contact: P->P (confirmed; set 2.0 within suggested 0.1-5.0)",
+    "delta_gap: P->P (confirmed; set 10 K within suggested 1-20 K)"
+  ],
+  "rationale": "Typed ode_system contract inherited verbatim: 2 states (Theta target, Theta_surf), state_rhs and initial conditions unchanged. analyze_expression confirmed no derivatives/integrals/delays and free symbols = 2 states + 12 parameters, matching the contract; all roles confirmed (no overrides). Time sampled linearly on [0,100] s (300 points) covering the full relaxation given tau=20, tau_surf=30. Parameters set to physically sensible magnitudes: radiative coefficient sigma_rad~2e-10 keeps the (Theta+T_res)^4 term O(few K/s) against T_res=300 K; h_nat=0.01 gives convection O(3 K/s); alpha_contact and delta_gap taken from suggested ranges. excitation_check (is_ode) confirms the new contact-enhancement term reaches 29.3*sigma, so it is clearly visible above noise sigma=0.03.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "-Theta / tau - sigma_rad * ((Theta + T_res)**4 - T_res**4) - h_nat * Abs(Theta)**(one_quarter) * Theta - k_couple * (Theta - Theta_surf) * (one + beta_temp * Theta) - k_couple * alpha_contact * (Theta - Theta_surf) / (one + (Theta - Theta_surf)**2 / delta_gap**2)",
+        "target_symbol": "Theta"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "T_res",
+          "Theta",
+          "Theta_surf",
+          "alpha_contact",
+          "beta_temp",
+          "delta_gap",
+          "h_nat",
+          "k_couple",
+          "one",
+          "one_quarter",
+          "sigma_rad",
+          "tau"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": false,
+        "explicit_solution_preview": null,
+        "classification_hint": "implicit_or_explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "-Theta / tau - sigma_rad * ((Theta + T_res)**4 - T_res**4) - h_nat * Abs(Theta)**(one_quarter) * Theta - k_couple * (Theta - Theta_surf) * (one + beta_temp * Theta) - k_couple * alpha_contact * (Theta - Theta_surf) / (one + (Theta - Theta_surf)**2 / delta_gap**2)",
+        "assignments": {
+          "Theta": 60,
+          "Theta_surf": 50,
+          "tau": 20,
+          "sigma_rad": 2e-10,
+          "T_res": 300,
+          "h_nat": 0.01,
+          "one_quarter": 0.25,
+          "k_couple": 0.02,
+          "beta_temp": 0.001,
+          "one": 1,
+          "alpha_contact": 2,
+          "delta_gap": 10
+        },
+        "target_symbol": "Theta"
+      },
+      "result": {
+        "ok": true,
+        "value_real": -6.821126610228244,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "tau": 20,
+          "sigma_rad": 2e-10,
+          "T_res": 300,
+          "h_nat": 0.01,
+          "one_quarter": 0.25,
+          "k_couple": 0.02,
+          "tau_surf": 30,
+          "gamma_loss": 0.02,
+          "beta_temp": 0.001,
+          "one": 1,
+          "alpha_contact": 2,
+          "delta_gap": 10
+        },
+        "indep": [
+          {
+            "symbol": "t",
+            "range": [
+              0,
+              100
+            ]
+          }
+        ],
+        "sigma": 0.03,
+        "is_ode": true
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "Theta",
+        "child_state_count": 2,
+        "parent_state_count": 2,
+        "n_time_points": 200,
+        "new_term_max_effect": 0.8804375283319388,
+        "new_term_sigma_multiple": 29.347917611064627,
+        "strongest_at": {
+          "t": 18.09045226130653
+        },
+        "k": 5.0,
+        "passes": true,
+        "advice": "new mechanism is visible on the target trajectory"
+      }
+    }
+  ],
+  "_cost_usd": 0.40759075,
+  "_num_turns": 6,
+  "discipline": "physics",
+  "scenario_text": "A metallic block is suddenly brought into contact with a cold reservoir and its internal temperature relaxes toward equilibrium as heat conducts away. The evolving temperature difference and stored thermal energy jointly change over time as heat flows out. The relaxation is governed by the coupling between the block and its surroundings. The task is to evolve the temperature excess over time from an initial heated state.",
+  "record_id": "m2_condensed_matter_physics_0_006",
+  "generation": 5,
+  "_n_total": 5000
+}

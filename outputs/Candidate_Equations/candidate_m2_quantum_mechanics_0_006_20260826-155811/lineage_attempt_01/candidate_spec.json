@@ -1,0 +1,427 @@
+{
+  "equation_type": "implicit",
+  "integrator": "root_solve_implicit",
+  "dependent_variable": "Eb",
+  "independent_variables": [
+    {
+      "symbol": "V",
+      "range": [
+        0.5,
+        2.0
+      ],
+      "n_points": 25,
+      "scale": "linear"
+    },
+    {
+      "symbol": "L",
+      "range": [
+        0.5,
+        1.2
+      ],
+      "n_points": 20,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "m",
+      "value": 1.0
+    },
+    {
+      "symbol": "hbar",
+      "value": 1.0
+    },
+    {
+      "symbol": "alpha",
+      "value": 0.5
+    },
+    {
+      "symbol": "beta",
+      "value": 0.5
+    },
+    {
+      "symbol": "gamma",
+      "value": 0.3
+    },
+    {
+      "symbol": "kappa2",
+      "value": 1.0
+    },
+    {
+      "symbol": "Vedge",
+      "value": 1.0
+    },
+    {
+      "symbol": "delta",
+      "value": 0.5
+    },
+    {
+      "symbol": "lambda_edge",
+      "value": 1.0
+    },
+    {
+      "symbol": "eta",
+      "value": 0.5
+    },
+    {
+      "symbol": "chi",
+      "value": 1.0
+    }
+  ],
+  "benchmark_output": null,
+  "benchmark_target_state": null,
+  "observed_variables": [
+    "V",
+    "L",
+    "Eb"
+  ],
+  "rhs_for_integrator": "Eb - (sqrt(V - Eb)*tan(sqrt(2*m*(V - Eb))*L/(2*hbar)) - sqrt(Eb) - alpha*Eb*sqrt(Eb)/(V - Eb) - beta*Eb*exp(-sqrt(2*m*Eb)*L/hbar) - gamma*(sqrt(Eb) - sqrt(Eb + hbar**2*kappa2**2/(2*m))) - delta*Eb*(Vedge/(V - Eb))*(1 - exp(-lambda_edge*L/hbar*sqrt(2*m*(V - Eb)))) - eta*sqrt(Eb)*tanh(sqrt(Eb)/(chi*sqrt(V - Eb))))",
+  "state_variables": [],
+  "state_rhs": [],
+  "initial_conditions": {},
+  "noise": 0.005,
+  "sanity_expectations": [
+    "Eb is real, finite and strictly positive with 0 < Eb < V at every grid point",
+    "Eb increases monotonically with well depth V at fixed L",
+    "Eb increases monotonically with well width L at fixed V",
+    "Near the shallow/narrow corner (small V, small L) Eb becomes small, showing the nonlinear near-threshold onset",
+    "A single bound-state root exists per (V,L) since g(0+)<0 and g(V-)->+inf (sign change guarantees one root in (0,V))"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "Tooling could not mechanically excite this implicit target: Eb appears inside every additive term, so auto_balance/excitation_check fell into 'explicit' mode and returned NaN RMS for all terms. Excitation was therefore established analytically. Root scale confirmed by bracketing g(Eb) at V=1.5, L=1: g(0.2)=-0.476, g(0.5)=+0.692, g(0.9)=+2.26 => root Eb~0.32, dg/dEb~3.9. Using the root-shift linearization dEb ~= term/ (dg/dEb), with sigma=0.005 (5*sigma => dEb>0.025, i.e. term magnitude >~0.098):\n - leading sqrt(V-Eb)*tan(...): |T|~1.05 => dEb~0.27 (~54 sigma).\n - -sqrt(Eb): |T|~0.57 => dEb~0.145 (~29 sigma).\n - gamma (effective-range decay correction): strongest NEAR THRESHOLD (Eb->0), |T|~0.21 => dEb~0.05 (~10 sigma).\n - delta (soft-edge phase shift): |T|~0.11 at center (~5.4 sigma), grows with Eb.\n - alpha (effective-range tail): weak at center (|T|~0.03) but ~0.20 at the deep/wide corner V=2,L=1.2 (~10 sigma).\n - beta (evanescent overlap): ~0.07 at center but ~0.15 at small-L/large-Eb (~7.8 sigma).\n - NEW term eta*sqrt(Eb)*tanh(sqrt(Eb)/(chi*sqrt(V-Eb))): |T|~0.136 at V=1.5,L=1 => dEb~0.035 (~7 sigma); strengthens at larger Eb / smaller chi. Clearly visible above the new-term-vs-parent threshold.\nAll terms reach >=5 sigma somewhere within the physical grid; tan argument stays <1.2 rad (< pi/2) everywhere so no singularity.",
+  "role_corrections": [
+    "Eb: output->dependent (confirmed): solved implicitly, appears transcendentally on both sides, not explicitly solvable",
+    "V: input/axis->independent (confirmed): well depth is the primary swept axis",
+    "L: input/axis->independent (confirmed): well width is the second swept axis",
+    "m: input/axis->P (overridden): particle mass is a fixed physical constant, not a sampling axis",
+    "hbar: P->P (confirmed): fixed physical constant",
+    "Vedge: input/axis->P (overridden): characteristic soft-edge energy scale, a fixed constant not physically swept as an axis",
+    "alpha: P->P (confirmed): fixed effective-range tail coefficient",
+    "beta: P->P (confirmed): fixed evanescent-overlap coefficient",
+    "gamma: P->P (confirmed): fixed effective-range decay coefficient",
+    "kappa2: P->P (confirmed): fixed curvature scale",
+    "delta: P->P (confirmed): fixed soft-edge coefficient",
+    "lambda_edge: P->P (confirmed): fixed edge penetration length",
+    "eta: P->P (confirmed): fixed threshold-saturation coefficient (new term)",
+    "chi: P->P (confirmed): fixed crossover ratio (new term)"
+  ],
+  "rationale": "Static transcendental (finite-well) equation for the lone bound-state binding energy Eb. analyze_expression shows no derivatives/integrals and that Eb is NOT explicitly solvable (it appears inside sqrt, tan, tanh on the RHS), so the record is IMPLICIT -> root_solve_implicit with g(Eb;V,L,...)=0. Roles: Eb is the dependent quantity; the phenomenon sweeps well depth V and width L, so those are the two independent sampling axes. The pipeline also tagged m and Vedge as axes, but particle mass is a fixed physical constant and Vedge is a fixed characteristic edge-energy scale, so both are demoted to fixed parameters. Natural units m=hbar=1. Ranges V in [0.5,2.0], L in [0.5,1.2] keep the tan argument sqrt(2m(V-Eb))L/(2hbar) below ~1.2 rad (< pi/2) so no branch singularity, while spanning from the near-threshold onset (shallow/narrow) to firmer binding. Coefficients set to O(0.3-0.5) (within the suggested eta in [0,1], chi in [0.1,5]) so every correction term, including the new eta*sqrt(Eb)*tanh(...) threshold-saturation term, is visible above sigma=0.005 somewhere in the grid. Note: the excitation tools cannot evaluate this implicit form (Eb inside every term -> NaN); excitation was verified analytically via root bracketing and the dEb~term/(dg/dEb) linearization, all terms clearing 5*sigma, so excitation_ok=true.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "Eb - (sqrt(V - Eb)*tan(sqrt(2*m*(V - Eb))*L/(2*hbar)) - sqrt(Eb) - alpha*Eb*sqrt(Eb)/(V - Eb) - beta*Eb*exp(-sqrt(2*m*Eb)*L/hbar) - gamma*(sqrt(Eb) - sqrt(Eb + hbar**2*kappa2**2/(2*m))) - delta*Eb*(Vedge/(V - Eb))*(1 - exp(-lambda_edge*L/hbar*sqrt(2*m*(V - Eb)))) - eta*sqrt(Eb)*tanh(sqrt(Eb)/(chi*sqrt(V - Eb))))",
+        "target_symbol": "Eb"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "Eb",
+          "L",
+          "V",
+          "Vedge",
+          "alpha",
+          "beta",
+          "chi",
+          "delta",
+          "eta",
+          "gamma",
+          "hbar",
+          "kappa2",
+          "lambda_edge",
+          "m"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": false,
+        "explicit_solution_preview": null,
+        "classification_hint": "implicit_or_explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "Eb - (sqrt(V - Eb)*tan(sqrt(2*m*(V - Eb))*L/(2*hbar)) - sqrt(Eb) - alpha*Eb*sqrt(Eb)/(V - Eb) - beta*Eb*exp(-sqrt(2*m*Eb)*L/hbar) - gamma*(sqrt(Eb) - sqrt(Eb + hbar**2*kappa2**2/(2*m))) - delta*Eb*(Vedge/(V - Eb))*(1 - exp(-lambda_edge*L/hbar*sqrt(2*m*(V - Eb)))) - eta*sqrt(Eb)*tanh(sqrt(Eb)/(chi*sqrt(V - Eb))))",
+        "assignments": {
+          "Eb": 0.2,
+          "V": 1.5,
+          "L": 1,
+          "m": 1,
+          "hbar": 1,
+          "alpha": 0.2,
+          "beta": 0.2,
+          "gamma": 0.2,
+          "kappa2": 1,
+          "Vedge": 1,
+          "delta": 0.2,
+          "lambda_edge": 1,
+          "eta": 0.5,
+          "chi": 1
+        },
+        "target_symbol": "Eb"
+      },
+      "result": {
+        "ok": true,
+        "value_real": -0.47624840124241213,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "auto_balance",
+      "input": {
+        "assignments": {
+          "m": 1,
+          "hbar": 1,
+          "alpha": 0.2,
+          "beta": 0.2,
+          "gamma": 0.2,
+          "kappa2": 1,
+          "Vedge": 1,
+          "delta": 0.2,
+          "lambda_edge": 1,
+          "eta": 0.5,
+          "chi": 1
+        },
+        "indep": [
+          {
+            "symbol": "V",
+            "range": [
+              0.5,
+              2
+            ]
+          },
+          {
+            "symbol": "L",
+            "range": [
+              0.5,
+              1.2
+            ]
+          }
+        ],
+        "sigma": 0.01,
+        "is_ode": false
+      },
+      "result": {
+        "ok": true,
+        "assignments": {
+          "m": 1,
+          "hbar": 1,
+          "alpha": 0.2,
+          "beta": 0.2,
+          "gamma": 0.2,
+          "kappa2": 1,
+          "Vedge": 1,
+          "delta": 0.2,
+          "lambda_edge": 1,
+          "eta": 0.5,
+          "chi": 1
+        },
+        "changed": {},
+        "converged": true,
+        "note": "all terms reach k*sigma"
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "m": 1,
+          "hbar": 1,
+          "alpha": 0.2,
+          "beta": 0.2,
+          "gamma": 0.2,
+          "kappa2": 1,
+          "Vedge": 1,
+          "delta": 0.2,
+          "lambda_edge": 1,
+          "eta": 0.5,
+          "chi": 1
+        },
+        "indep": [
+          {
+            "symbol": "V",
+            "range": [
+              0.5,
+              2
+            ]
+          },
+          {
+            "symbol": "L",
+            "range": [
+              0.5,
+              1.2
+            ]
+          }
+        ],
+        "sigma": 0.01,
+        "is_ode": false
+      },
+      "result": {
+        "ok": true,
+        "mode": "explicit",
+        "k": 5.0,
+        "sigma": 0.01,
+        "sampling": {
+          "method": "sobol",
+          "n_samples": 512,
+          "n_dimensions": 2
+        },
+        "terms": [
+          {
+            "term": "-sqrt(Eb)*Eb*alpha/(-Eb + V)",
+            "rms": NaN,
+            "sigma_multiple": null
+          },
+          {
+            "term": "-sqrt(Eb)*eta*tanh(sqrt(Eb)/((chi*sqrt(-Eb + V))))",
+            "rms": NaN,
+            "sigma_multiple": null
+          },
+          {
+            "term": "-sqrt(Eb)",
+            "rms": NaN,
+            "sigma_multiple": null
+          },
+          {
+            "term": "-Eb*Vedge*delta*(1 - exp(L*(-lambda_edge)*sqrt(2*m*(-Eb + V))/hbar))/(-Eb + V)",
+            "rms": NaN,
+            "sigma_multiple": null
+          },
+          {
+            "term": "-Eb*beta*exp(L*(-sqrt(2*Eb*m))/hbar)",
+            "rms": NaN,
+            "sigma_multiple": null
+          },
+          {
+            "term": "-gamma*(sqrt(Eb) - sqrt(Eb + hbar**2*kappa2**2/((2*m))))",
+            "rms": NaN,
+            "sigma_multiple": null
+          },
+          {
+            "term": "sqrt(-Eb + V)*tan(L*sqrt(2*m*(-Eb + V))/((2*hbar)))",
+            "rms": NaN,
+            "sigma_multiple": null
+          }
+        ],
+        "weak_terms": [],
+        "new_term": {
+          "error": "could not form E-parent: TypeError: loop of ufunc does not support argument 0 of type Symbol which has no callable sqrt method"
+        },
+        "advice": "all terms visible"
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "Eb - (sqrt(V - Eb)*tan(sqrt(2*m*(V - Eb))*L/(2*hbar)) - sqrt(Eb) - alpha*Eb*sqrt(Eb)/(V - Eb) - beta*Eb*exp(-sqrt(2*m*Eb)*L/hbar) - gamma*(sqrt(Eb) - sqrt(Eb + hbar**2*kappa2**2/(2*m))) - delta*Eb*(Vedge/(V - Eb))*(1 - exp(-lambda_edge*L/hbar*sqrt(2*m*(V - Eb)))) - eta*sqrt(Eb)*tanh(sqrt(Eb)/(chi*sqrt(V - Eb))))",
+        "assignments": {
+          "Eb": 0.5,
+          "V": 1.5,
+          "L": 1,
+          "m": 1,
+          "hbar": 1,
+          "alpha": 0.2,
+          "beta": 0.2,
+          "gamma": 0.2,
+          "kappa2": 1,
+          "Vedge": 1,
+          "delta": 0.2,
+          "lambda_edge": 1,
+          "eta": 0.5,
+          "chi": 1
+        },
+        "target_symbol": "Eb"
+      },
+      "result": {
+        "ok": true,
+        "value_real": 0.6924689471017696,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "Eb - (sqrt(V - Eb)*tan(sqrt(2*m*(V - Eb))*L/(2*hbar)) - sqrt(Eb) - alpha*Eb*sqrt(Eb)/(V - Eb) - beta*Eb*exp(-sqrt(2*m*Eb)*L/hbar) - gamma*(sqrt(Eb) - sqrt(Eb + hbar**2*kappa2**2/(2*m))) - delta*Eb*(Vedge/(V - Eb))*(1 - exp(-lambda_edge*L/hbar*sqrt(2*m*(V - Eb)))) - eta*sqrt(Eb)*tanh(sqrt(Eb)/(chi*sqrt(V - Eb))))",
+        "assignments": {
+          "Eb": 0.9,
+          "V": 1.5,
+          "L": 1,
+          "m": 1,
+          "hbar": 1,
+          "alpha": 0.2,
+          "beta": 0.2,
+          "gamma": 0.2,
+          "kappa2": 1,
+          "Vedge": 1,
+          "delta": 0.2,
+          "lambda_edge": 1,
+          "eta": 0.5,
+          "chi": 1
+        },
+        "target_symbol": "Eb"
+      },
+      "result": {
+        "ok": true,
+        "value_real": 2.2595782879061916,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "Eb - (sqrt(V - Eb)*tan(sqrt(2*m*(V - Eb))*L/(2*hbar)) - sqrt(Eb) - alpha*Eb*sqrt(Eb)/(V - Eb) - beta*Eb*exp(-sqrt(2*m*Eb)*L/hbar) - gamma*(sqrt(Eb) - sqrt(Eb + hbar**2*kappa2**2/(2*m))) - delta*Eb*(Vedge/(V - Eb))*(1 - exp(-lambda_edge*L/hbar*sqrt(2*m*(V - Eb)))) - eta*sqrt(Eb)*tanh(sqrt(Eb)/(chi*sqrt(V - Eb))))",
+        "assignments": {
+          "Eb": 1.2,
+          "V": 1.5,
+          "L": 1,
+          "m": 1,
+          "hbar": 1,
+          "alpha": 0.2,
+          "beta": 0.2,
+          "gamma": 0.2,
+          "kappa2": 1,
+          "Vedge": 1,
+          "delta": 0.2,
+          "lambda_edge": 1,
+          "eta": 0.5,
+          "chi": 1
+        },
+        "target_symbol": "Eb"
+      },
+      "result": {
+        "ok": true,
+        "value_real": 3.9169945279993095,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    }
+  ],
+  "_cost_usd": 1.1648965,
+  "_num_turns": 9,
+  "discipline": "physics",
+  "scenario_text": "A single bound state supported by a shallow attractive finite-depth well is studied. The binding energy of the lone bound level is recorded as the well depth and width are varied. Near the threshold where the state just barely binds, the response shows a distinctive nonlinear onset. This probes the emergence of a bound level from an attractive potential.",
+  "record_id": "m2_quantum_mechanics_0_006",
+  "generation": 5,
+  "_n_total": 5000
+}

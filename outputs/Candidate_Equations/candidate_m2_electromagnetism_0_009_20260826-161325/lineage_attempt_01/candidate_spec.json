@@ -1,0 +1,297 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "v",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        15.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "q",
+      "value": 1.0
+    },
+    {
+      "symbol": "E",
+      "value": 1.0
+    },
+    {
+      "symbol": "b",
+      "value": 0.5
+    },
+    {
+      "symbol": "m",
+      "value": 1.0
+    },
+    {
+      "symbol": "c_quad",
+      "value": 0.2
+    },
+    {
+      "symbol": "beta_field",
+      "value": 0.3
+    },
+    {
+      "symbol": "v_ref",
+      "value": 1.0
+    },
+    {
+      "symbol": "alpha_screen",
+      "value": 0.1
+    },
+    {
+      "symbol": "tau_screen",
+      "value": 1.0
+    },
+    {
+      "symbol": "q0_screen",
+      "value": 0.5
+    },
+    {
+      "symbol": "kappa_shear",
+      "value": 0.5
+    },
+    {
+      "symbol": "gamma_pol",
+      "value": 0.3
+    },
+    {
+      "symbol": "tau_pol",
+      "value": 1.0
+    },
+    {
+      "symbol": "chi_pol",
+      "value": 1.0
+    },
+    {
+      "symbol": "nl_pol",
+      "value": 1.5
+    },
+    {
+      "symbol": "v_pol",
+      "value": 1.0
+    }
+  ],
+  "benchmark_output": "dv_dt",
+  "benchmark_target_state": "v",
+  "observed_variables": [
+    "t",
+    "v",
+    "q_eff",
+    "p_pol"
+  ],
+  "rhs_for_integrator": "(q * E - b * v - c_quad * v * Abs(v) - q * E * beta_field * v / (v_ref + Abs(v)) - alpha_screen * q_eff - gamma_pol * p_pol) / m",
+  "state_variables": [
+    "v",
+    "q_eff",
+    "p_pol"
+  ],
+  "state_rhs": [
+    "(q * E - b * v - c_quad * v * Abs(v) - q * E * beta_field * v / (v_ref + Abs(v)) - alpha_screen * q_eff - gamma_pol * p_pol) / m",
+    "(q0_screen - q_eff) / tau_screen - kappa_shear * Abs(v) * q_eff",
+    "(chi_pol * v / (1 + nl_pol * Abs(v) / v_pol) - p_pol) / tau_pol"
+  ],
+  "initial_conditions": {
+    "v": 0.0,
+    "q_eff": 0.0,
+    "p_pol": 0.0
+  },
+  "noise": 0.01,
+  "sanity_expectations": [
+    "v starts at 0 (from rest)",
+    "v is monotone increasing during the transient",
+    "v relaxes smoothly to a finite terminal drift ~1.0 (no oscillation, no blow-up)",
+    "q_eff rises from 0 toward q0_screen then is suppressed by shear stripping as |v| grows",
+    "p_pol rises from 0 and saturates as v approaches terminal (bounded)",
+    "all states bounded and real over t in [0,15]"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "Typed ODE excitation on the target v trajectory (full child-vs-parent systems, sigma=0.01, k=5). The NEW term is the nonlinear polarization-drive saturation nl_pol*Abs(v)/v_pol inside the p_pol state equation (only place nl_pol/v_pol enter). Its effect on the v trajectory peaks at 0.145 = 14.5x sigma near t=8.0 (mid-approach to terminal drift), well above the 5x visibility bar -> passes. Dominant drive q*E and Stokes/quadratic drag are O(0.1-1), far above sigma; polarization retarding force gamma_pol*p_pol ~0.12 at terminal and screening alpha_screen*q_eff are all >> sigma across the transient.",
+  "role_corrections": [
+    "dv_dt: output/target derivative -> confirmed (RHS of the highest/only derivative of target state v)",
+    "t: time axis -> V confirmed (sole independent sampling variable)",
+    "v: dynamic state -> confirmed (target state, integrated from 0)",
+    "q_eff: dynamic state -> confirmed (own governing ODE, screening charge)",
+    "p_pol: dynamic state -> confirmed (own governing ODE, polarization displacement)",
+    "q: P confirmed (fixed=1.0)",
+    "E: P confirmed (fixed=1.0)",
+    "b: P confirmed (fixed=0.5)",
+    "m: P confirmed (fixed=1.0)",
+    "c_quad: P confirmed (fixed=0.2)",
+    "beta_field: P confirmed (fixed=0.3)",
+    "v_ref: P confirmed (fixed=1.0)",
+    "alpha_screen: P confirmed (fixed=0.1)",
+    "tau_screen: P confirmed (fixed=1.0)",
+    "q0_screen: P confirmed (fixed=0.5)",
+    "kappa_shear: P confirmed (fixed=0.5)",
+    "gamma_pol: P confirmed (fixed=0.3)",
+    "tau_pol: P confirmed (fixed=1.0)",
+    "chi_pol: P confirmed (fixed=1.0)",
+    "nl_pol: P confirmed (fixed=1.5, within hinted 0-3)",
+    "v_pol: P confirmed (fixed=1.0, within hinted 0.05-5)"
+  ],
+  "rationale": "Typed ode_system contract inherited verbatim (states v, q_eff, p_pol; RHS and initial conditions unchanged). Only data-design choices were made: parameters set to physically sensible O(1) magnitudes giving a smooth relaxation from rest to a terminal drift ~1.0; time window [0,15] with 300 points captures the full approach and the regime (t~8) where the new polarization-saturation nonlinearity is strongest. gamma_pol/chi_pol chosen on the larger end of reasonable so the polarization back-reaction (and thus the nl_pol saturation) is a non-negligible fraction of the force balance. Noise sigma=0.01 (~1% of terminal v); new term at 14.5x sigma.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "(q * E - b * v - c_quad * v * Abs(v) - q * E * beta_field * v / (v_ref + Abs(v)) - alpha_screen * q_eff - gamma_pol * p_pol) / m",
+        "target_symbol": "v"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "E",
+          "alpha_screen",
+          "b",
+          "beta_field",
+          "c_quad",
+          "gamma_pol",
+          "m",
+          "p_pol",
+          "q",
+          "q_eff",
+          "v",
+          "v_ref"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": false,
+        "explicit_solution_preview": null,
+        "classification_hint": "implicit_or_explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "(chi_pol * v / (1 + nl_pol * Abs(v) / v_pol) - p_pol) / tau_pol",
+        "target_symbol": "p_pol"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "chi_pol",
+          "nl_pol",
+          "p_pol",
+          "tau_pol",
+          "v",
+          "v_pol"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "chi_pol*v*v_pol/(nl_pol*Abs(v) + v_pol)"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "(q * E - b * v - c_quad * v * Abs(v) - q * E * beta_field * v / (v_ref + Abs(v)) - alpha_screen * q_eff - gamma_pol * p_pol) / m",
+        "assignments": {
+          "q": 1,
+          "E": 1,
+          "m": 1,
+          "b": 0.5,
+          "c_quad": 0.2,
+          "beta_field": 0.3,
+          "v_ref": 1,
+          "alpha_screen": 0.1,
+          "gamma_pol": 0.3,
+          "v": 1,
+          "q_eff": 0.3,
+          "p_pol": 0.3
+        },
+        "target_symbol": "v"
+      },
+      "result": {
+        "ok": true,
+        "value_real": 0.03,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "E": 1,
+          "alpha_screen": 0.1,
+          "b": 0.5,
+          "beta_field": 0.3,
+          "c_quad": 0.2,
+          "chi_pol": 1,
+          "gamma_pol": 0.3,
+          "kappa_shear": 0.5,
+          "m": 1,
+          "nl_pol": 1.5,
+          "q": 1,
+          "q0_screen": 0.5,
+          "tau_pol": 1,
+          "tau_screen": 1,
+          "v_pol": 1,
+          "v_ref": 1
+        },
+        "indep": [
+          {
+            "symbol": "t",
+            "range": [
+              0,
+              15
+            ]
+          }
+        ],
+        "is_ode": true,
+        "sigma": 0.01
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "v",
+        "child_state_count": 3,
+        "parent_state_count": 3,
+        "n_time_points": 200,
+        "new_term_max_effect": 0.14491956117348992,
+        "new_term_sigma_multiple": 14.491956117348991,
+        "strongest_at": {
+          "t": 7.989949748743718
+        },
+        "k": 5.0,
+        "passes": true,
+        "advice": "new mechanism is visible on the target trajectory"
+      }
+    }
+  ],
+  "_cost_usd": 0.42718749999999994,
+  "_num_turns": 7,
+  "discipline": "physics",
+  "scenario_text": "A charged particle moves through a viscous medium while being pushed by a constant uniform electric field, reaching a balance between electric force and drag. We track the particle velocity as it accelerates from rest toward its terminal drift value. The field strength, charge, and drag coefficient set the approach. The velocity relaxes smoothly to a steady drift.",
+  "record_id": "m2_electromagnetism_0_009",
+  "generation": 5,
+  "_n_total": 5000
+}

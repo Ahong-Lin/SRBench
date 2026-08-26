@@ -1,0 +1,321 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "v",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        15.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "q",
+      "value": 1.0
+    },
+    {
+      "symbol": "E",
+      "value": 1.0
+    },
+    {
+      "symbol": "b",
+      "value": 0.5
+    },
+    {
+      "symbol": "m",
+      "value": 1.0
+    },
+    {
+      "symbol": "c_quad",
+      "value": 0.2
+    },
+    {
+      "symbol": "beta_field",
+      "value": 0.3
+    },
+    {
+      "symbol": "v_ref",
+      "value": 1.0
+    },
+    {
+      "symbol": "alpha_screen",
+      "value": 0.1
+    },
+    {
+      "symbol": "tau_screen",
+      "value": 1.0
+    },
+    {
+      "symbol": "q0_screen",
+      "value": 0.5
+    },
+    {
+      "symbol": "kappa_shear",
+      "value": 0.5
+    },
+    {
+      "symbol": "gamma_pol",
+      "value": 0.3
+    },
+    {
+      "symbol": "tau_pol",
+      "value": 1.0
+    },
+    {
+      "symbol": "chi_pol",
+      "value": 1.0
+    },
+    {
+      "symbol": "nl_pol",
+      "value": 1.5
+    },
+    {
+      "symbol": "v_pol",
+      "value": 1.0
+    }
+  ],
+  "benchmark_output": "dv_dt",
+  "benchmark_target_state": "v",
+  "observed_variables": [
+    "t",
+    "v",
+    "q_eff",
+    "p_pol"
+  ],
+  "rhs_for_integrator": "(q * E - b * v - c_quad * v * Abs(v) - q * E * beta_field * v / (v_ref + Abs(v)) - alpha_screen * q_eff - gamma_pol * p_pol) / m",
+  "state_variables": [
+    "v",
+    "q_eff",
+    "p_pol"
+  ],
+  "state_rhs": [
+    "(q * E - b * v - c_quad * v * Abs(v) - q * E * beta_field * v / (v_ref + Abs(v)) - alpha_screen * q_eff - gamma_pol * p_pol) / m",
+    "(q0_screen - q_eff) / tau_screen - kappa_shear * Abs(v) * q_eff",
+    "(chi_pol * v / (1 + nl_pol * Abs(v) / v_pol) - p_pol) / tau_pol"
+  ],
+  "initial_conditions": {
+    "v": 0.0,
+    "q_eff": 0.0,
+    "p_pol": 0.0
+  },
+  "noise": 0.01,
+  "sanity_expectations": [
+    "v starts at 0 (from rest)",
+    "v is monotone increasing during the transient",
+    "v relaxes smoothly to a finite terminal drift ~1.0 (no oscillation, no blow-up)",
+    "q_eff rises from 0 toward q0_screen then is suppressed by shear stripping as |v| grows",
+    "p_pol rises from 0 and saturates as v approaches terminal (bounded)",
+    "all states bounded and real over t in [0,15]"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "Typed ODE excitation on the target v trajectory (full child-vs-parent systems, sigma=0.01, k=5). The NEW term is the nonlinear polarization-drive saturation nl_pol*Abs(v)/v_pol inside the p_pol state equation (only place nl_pol/v_pol enter). Its effect on the v trajectory peaks at 0.145 = 14.5x sigma near t=8.0 (mid-approach to terminal drift), well above the 5x visibility bar -> passes. Dominant drive q*E and Stokes/quadratic drag are O(0.1-1), far above sigma; polarization retarding force gamma_pol*p_pol ~0.12 at terminal and screening alpha_screen*q_eff are all >> sigma across the transient.",
+  "role_corrections": [
+    "dv_dt: output/target derivative -> confirmed (RHS of the highest/only derivative of target state v)",
+    "t: time axis -> V confirmed (sole independent sampling variable)",
+    "v: dynamic state -> confirmed (target state, integrated from 0)",
+    "q_eff: dynamic state -> confirmed (own governing ODE, screening charge)",
+    "p_pol: dynamic state -> confirmed (own governing ODE, polarization displacement)",
+    "q: P confirmed (fixed=1.0)",
+    "E: P confirmed (fixed=1.0)",
+    "b: P confirmed (fixed=0.5)",
+    "m: P confirmed (fixed=1.0)",
+    "c_quad: P confirmed (fixed=0.2)",
+    "beta_field: P confirmed (fixed=0.3)",
+    "v_ref: P confirmed (fixed=1.0)",
+    "alpha_screen: P confirmed (fixed=0.1)",
+    "tau_screen: P confirmed (fixed=1.0)",
+    "q0_screen: P confirmed (fixed=0.5)",
+    "kappa_shear: P confirmed (fixed=0.5)",
+    "gamma_pol: P confirmed (fixed=0.3)",
+    "tau_pol: P confirmed (fixed=1.0)",
+    "chi_pol: P confirmed (fixed=1.0)",
+    "nl_pol: P confirmed (fixed=1.5, within hinted 0-3)",
+    "v_pol: P confirmed (fixed=1.0, within hinted 0.05-5)"
+  ],
+  "rationale": "Typed ode_system contract inherited verbatim (states v, q_eff, p_pol; RHS and initial conditions unchanged). Only data-design choices were made: parameters set to physically sensible O(1) magnitudes giving a smooth relaxation from rest to a terminal drift ~1.0; time window [0,15] with 300 points captures the full approach and the regime (t~8) where the new polarization-saturation nonlinearity is strongest. gamma_pol/chi_pol chosen on the larger end of reasonable so the polarization back-reaction (and thus the nl_pol saturation) is a non-negligible fraction of the force balance. Noise sigma=0.01 (~1% of terminal v); new term at 14.5x sigma.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "(q * E - b * v - c_quad * v * Abs(v) - q * E * beta_field * v / (v_ref + Abs(v)) - alpha_screen * q_eff - gamma_pol * p_pol) / m",
+        "target_symbol": "v"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "E",
+          "alpha_screen",
+          "b",
+          "beta_field",
+          "c_quad",
+          "gamma_pol",
+          "m",
+          "p_pol",
+          "q",
+          "q_eff",
+          "v",
+          "v_ref"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": false,
+        "explicit_solution_preview": null,
+        "classification_hint": "implicit_or_explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "(chi_pol * v / (1 + nl_pol * Abs(v) / v_pol) - p_pol) / tau_pol",
+        "target_symbol": "p_pol"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "chi_pol",
+          "nl_pol",
+          "p_pol",
+          "tau_pol",
+          "v",
+          "v_pol"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "chi_pol*v*v_pol/(nl_pol*Abs(v) + v_pol)"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "(q * E - b * v - c_quad * v * Abs(v) - q * E * beta_field * v / (v_ref + Abs(v)) - alpha_screen * q_eff - gamma_pol * p_pol) / m",
+        "assignments": {
+          "q": 1,
+          "E": 1,
+          "m": 1,
+          "b": 0.5,
+          "c_quad": 0.2,
+          "beta_field": 0.3,
+          "v_ref": 1,
+          "alpha_screen": 0.1,
+          "gamma_pol": 0.3,
+          "v": 1,
+          "q_eff": 0.3,
+          "p_pol": 0.3
+        },
+        "target_symbol": "v"
+      },
+      "result": {
+        "ok": true,
+        "value_real": 0.03,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "E": 1,
+          "alpha_screen": 0.1,
+          "b": 0.5,
+          "beta_field": 0.3,
+          "c_quad": 0.2,
+          "chi_pol": 1,
+          "gamma_pol": 0.3,
+          "kappa_shear": 0.5,
+          "m": 1,
+          "nl_pol": 1.5,
+          "q": 1,
+          "q0_screen": 0.5,
+          "tau_pol": 1,
+          "tau_screen": 1,
+          "v_pol": 1,
+          "v_ref": 1
+        },
+        "indep": [
+          {
+            "symbol": "t",
+            "range": [
+              0,
+              15
+            ]
+          }
+        ],
+        "is_ode": true,
+        "sigma": 0.01
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "v",
+        "child_state_count": 3,
+        "parent_state_count": 3,
+        "n_time_points": 200,
+        "new_term_max_effect": 0.14491956117348992,
+        "new_term_sigma_multiple": 14.491956117348991,
+        "strongest_at": {
+          "t": 7.989949748743718
+        },
+        "k": 5.0,
+        "passes": true,
+        "advice": "new mechanism is visible on the target trajectory"
+      }
+    }
+  ],
+  "_cost_usd": 0.42718749999999994,
+  "_num_turns": 7,
+  "discipline": "physics",
+  "scenario_text": "A charged particle moves through a viscous medium while being pushed by a constant uniform electric field, reaching a balance between electric force and drag. We track the particle velocity as it accelerates from rest toward its terminal drift value. The field strength, charge, and drag coefficient set the approach. The velocity relaxes smoothly to a steady drift.",
+  "record_id": "m2_electromagnetism_0_009",
+  "generation": 5,
+  "_n_total": 5000,
+  "finalization": {
+    "mode": "candidate",
+    "accepted_generations": 5,
+    "novelty": {
+      "reasoning": "The candidate equation extends the classical drift-velocity ODE dv_dt = (qE - bv)/m with multiple additional mechanism terms. Classical/known terms: qE (driving force), -bv (Stokes linear drag), and division by m. The quadratic drag term -c_quad*v*Abs(v) is a standard nonlinear drag form also found in textbooks. Beyond these, the equation introduces several nontrivial composite terms: (1) a saturating driving-force reduction -qE*beta_field*v/(v_ref+Abs(v)), representing field saturation with drift velocity; (2) a coupling to a dynamically evolving screening charge q_eff via -alpha_screen*q_eff, where q_eff itself follows a relaxation-plus-shear-stripping ODE (q0_screen - q_eff)/tau_screen - kappa_shear*Abs(v)*q_eff; and (3) a coupling to a lagging polarization displacement p_pol via -gamma_pol*p_pol, where p_pol follows a relaxation ODE toward a velocity-driven, nonlinearly saturating target chi_pol*v/(1+nl_pol*Abs(v)/v_pol). While each individual physical concept (electrophoretic relaxation, ionic cloud polarization, screening-charge dynamics) has grounding in colloid/electrophoresis physics, the specific composite closed three-state ODE system with these exact functional forms — velocity-dependent shear stripping of screening charge, saturating polarization response, and the particular saturating field term — is not a standard textbook formula. No existing reference presents this exact combined form, and an LLM could not recite it verbatim from background knowledge; the specific coupling structures and saturation forms could only be identified through data-driven inference. Thus, relative to the classical baseline, the equation introduces genuinely novel composite mechanism terms.",
+      "answer": "Yes",
+      "llm_qa_history": [
+        {
+          "attempt": 1,
+          "model": "claude-opus-4-8",
+          "system_prompt": "You are a top-tier scientist with deep expertise across physics, biology,\nchemistry, and materials science. Your task is to act as a \"Novelty Evaluator\":\nobjectively judge whether a newly generated mathematical equation is\n\"scientifically novel\" within its given scientific context.\n\nCORE CRITERIA:\n- NOT NOVEL: the equation is a well-known classical formula that already exists\n  in textbooks, on the internet, or in the open scientific literature — i.e. a\n  formula that could be obtained simply by recall/recitation.\n- NOVEL: while remaining scientifically sound, the equation introduces uncommon,\n  nonlinear, or genuinely new composite mechanism terms, such that neither a\n  human nor an AI could guess it from background knowledge alone — it could only\n  be recovered through data-driven inference from experimental observations.\n",
+          "user_prompt": "[SCIENTIFIC CONTEXT]:\nField: physics\nProblem description: A charged particle moves through a viscous medium while being pushed by a constant uniform electric field, reaching a balance between electric force and drag. We track the particle velocity as it accelerates from rest toward its terminal drift value. The field strength, charge, and drag coefficient set the approach. The velocity relaxes smoothly to a steady drift.\n\n[VARIABLES & PARAMETERS]:\n- Target variable: dv_dt (time derivative of the charged particle's drift velocity)\n- Input features: t (time)\n- Dynamic states: v (drift velocity of the charged particle); q_eff (dynamic screening-charge / induced counter-force coefficient accumulated in the ionic cloud around the moving particle); p_pol (polarization dipole displacement of the ionic cloud lagging behind the particle motion, generating a back-reaction restoring force)\n- Parameters: q (particle charge); E (electric field strength); b (linear (Stokes) drag coefficient); m (particle mass); c_quad (quadratic (form/inertial) drag coefficient); beta_field (fractional saturation depth of the effective driving force at high drift velocity); v_ref (characteristic drift velocity scale at which the driving force begins to saturate); alpha_screen (coupling strength converting the accumulated screening charge into a retarding force); tau_screen (relaxation time over which the ionic screening cloud reforms/deforms around the particle); q0_screen (equilibrium (static) screening-charge magnitude of the surrounding cloud at rest); kappa_shear (shear stripping rate at which motion through the medium reduces the screening cloud); gamma_pol (coupling strength converting the lagging polarization displacement into a retarding electrophoretic-relaxation force); tau_pol (relaxation time over which the polarization dipole of the ionic cloud re-centers on the particle); chi_pol (susceptibility relating instantaneous drift velocity to the driven polarization displacement of the cloud); nl_pol (nonlinear saturation strength of the velocity-driven polarization response at high drift velocity); v_pol (characteristic velocity scale above which the polarization-driving response saturates)\n\n[CANDIDATE EQUATION]:\ndv_dt = (q * E - b * v - c_quad * v * Abs(v) - q * E * beta_field * v / (v_ref + Abs(v)) - alpha_screen * q_eff - gamma_pol * p_pol) / m\n\n[CLOSED ODE SYSTEM]:\n{\n  \"time_symbol\": \"t\",\n  \"target_state\": \"v\",\n  \"states\": [\n    {\n      \"symbol\": \"v\",\n      \"rhs\": \"(q * E - b * v - c_quad * v * Abs(v) - q * E * beta_field * v / (v_ref + Abs(v)) - alpha_screen * q_eff - gamma_pol * p_pol) / m\",\n      \"initial_condition\": 0.0,\n      \"description\": \"drift velocity of the charged particle\"\n    },\n    {\n      \"symbol\": \"q_eff\",\n      \"rhs\": \"(q0_screen - q_eff) / tau_screen - kappa_shear * Abs(v) * q_eff\",\n      \"initial_condition\": 0.0,\n      \"description\": \"dynamic screening-charge / induced counter-force coefficient of the ionic cloud, relaxing toward q0_screen while being sheared away by motion\"\n    },\n    {\n      \"symbol\": \"p_pol\",\n      \"rhs\": \"(chi_pol * v / (1 + nl_pol * Abs(v) / v_pol) - p_pol) / tau_pol\",\n      \"initial_condition\": 0.0,\n      \"description\": \"polarization dipole displacement of the lagging ionic cloud, relaxing toward its velocity-driven value which saturates at high drift velocity due to finite ionic mobility\"\n    }\n  ]\n}\n(Note: this equation comes from an equation-evolution pipeline; assume it is\nmathematically solvable and numerically stable.)\n\n[NOTE ON KNOWN / CLASSICAL TERMS]:\nThe classical / textbook starting point for this phenomenon (the baseline equation) is:\n  dv_dt = (q * E - b * v) / m\nThe terms appearing in this baseline equation can be regarded as the well-known classical terms for this problem. Use this as the reference to judge whether the candidate equation, relative to this classical baseline, introduces additional novel composite terms that cannot be recited directly and could only be discovered through data-driven reasoning.\n\n---\n\nREASONING & OUTPUT REQUIREMENTS:\nLet's think step by step:\n1. Analyze each term in the candidate equation. Which terms are established\n   classical knowledge in this scientific context, and which are newly\n   introduced composite terms?\n2. Drawing on your knowledge of the scientific literature, does this COMPLETE\n   combined form of the equation appear directly in any existing textbook or\n   public reference? Could a large language model \"recite\" this exact formula\n   purely from the context and variable names above?\n3. Assess whether it has true novelty (i.e. it could only be discovered by\n   reasoning over subsequent experimental observation data).\n\nProvide your final answer STRICTLY in the following JSON format, with no extra\nMarkdown markup (no ```json):\n{\n  \"reasoning\": \"Write your detailed step-by-step scientific analysis and novelty assessment here.\",\n  \"answer\": \"Yes\" or \"No\" (write \"Yes\" if the equation is novel and cannot be directly recited; write \"No\" if it is a well-known classical formula or can be directly recited)\n}\n",
+          "raw_response": "{\n  \"reasoning\": \"The candidate equation extends the classical drift-velocity ODE dv_dt = (qE - bv)/m with multiple additional mechanism terms. Classical/known terms: qE (driving force), -bv (Stokes linear drag), and division by m. The quadratic drag term -c_quad*v*Abs(v) is a standard nonlinear drag form also found in textbooks. Beyond these, the equation introduces several nontrivial composite terms: (1) a saturating driving-force reduction -qE*beta_field*v/(v_ref+Abs(v)), representing field saturation with drift velocity; (2) a coupling to a dynamically evolving screening charge q_eff via -alpha_screen*q_eff, where q_eff itself follows a relaxation-plus-shear-stripping ODE (q0_screen - q_eff)/tau_screen - kappa_shear*Abs(v)*q_eff; and (3) a coupling to a lagging polarization displacement p_pol via -gamma_pol*p_pol, where p_pol follows a relaxation ODE toward a velocity-driven, nonlinearly saturating target chi_pol*v/(1+nl_pol*Abs(v)/v_pol). While each individual physical concept (electrophoretic relaxation, ionic cloud polarization, screening-charge dynamics) has grounding in colloid/electrophoresis physics, the specific composite closed three-state ODE system with these exact functional forms — velocity-dependent shear stripping of screening charge, saturating polarization response, and the particular saturating field term — is not a standard textbook formula. No existing reference presents this exact combined form, and an LLM could not recite it verbatim from background knowledge; the specific coupling structures and saturation forms could only be identified through data-driven inference. Thus, relative to the classical baseline, the equation introduces genuinely novel composite mechanism terms.\",\n  \"answer\": \"Yes\"\n}",
+          "parsed_response": {
+            "reasoning": "The candidate equation extends the classical drift-velocity ODE dv_dt = (qE - bv)/m with multiple additional mechanism terms. Classical/known terms: qE (driving force), -bv (Stokes linear drag), and division by m. The quadratic drag term -c_quad*v*Abs(v) is a standard nonlinear drag form also found in textbooks. Beyond these, the equation introduces several nontrivial composite terms: (1) a saturating driving-force reduction -qE*beta_field*v/(v_ref+Abs(v)), representing field saturation with drift velocity; (2) a coupling to a dynamically evolving screening charge q_eff via -alpha_screen*q_eff, where q_eff itself follows a relaxation-plus-shear-stripping ODE (q0_screen - q_eff)/tau_screen - kappa_shear*Abs(v)*q_eff; and (3) a coupling to a lagging polarization displacement p_pol via -gamma_pol*p_pol, where p_pol follows a relaxation ODE toward a velocity-driven, nonlinearly saturating target chi_pol*v/(1+nl_pol*Abs(v)/v_pol). While each individual physical concept (electrophoretic relaxation, ionic cloud polarization, screening-charge dynamics) has grounding in colloid/electrophoresis physics, the specific composite closed three-state ODE system with these exact functional forms — velocity-dependent shear stripping of screening charge, saturating polarization response, and the particular saturating field term — is not a standard textbook formula. No existing reference presents this exact combined form, and an LLM could not recite it verbatim from background knowledge; the specific coupling structures and saturation forms could only be identified through data-driven inference. Thus, relative to the classical baseline, the equation introduces genuinely novel composite mechanism terms.",
+            "answer": "Yes"
+          }
+        }
+      ]
+    },
+    "total_points": 5000,
+    "data_csv": "/data1/SRBench_fresh/outputs/Candidate_Equations/candidate_m2_electromagnetism_0_009_20260826-161325/lineage_attempt_01/candidate_data/m2_electromagnetism_0_009_gen5_20260826-161717.csv",
+    "evaluation_status": "not_evaluated; choose Harbor split and solver later"
+  }
+}

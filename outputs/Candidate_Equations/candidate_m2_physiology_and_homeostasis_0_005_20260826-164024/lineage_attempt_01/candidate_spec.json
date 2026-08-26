@@ -1,0 +1,388 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "V",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        400.0
+      ],
+      "n_points": 1200,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "epsilon_fast",
+      "value": 0.08
+    },
+    {
+      "symbol": "cubic_coeff",
+      "value": 3.0
+    },
+    {
+      "symbol": "I_background",
+      "value": 0.5
+    },
+    {
+      "symbol": "recovery_gain",
+      "value": 0.08
+    },
+    {
+      "symbol": "coupling_a",
+      "value": 0.7
+    },
+    {
+      "symbol": "coupling_b",
+      "value": 0.8
+    },
+    {
+      "symbol": "sat_gain",
+      "value": 0.02
+    },
+    {
+      "symbol": "sat_half",
+      "value": 0.5
+    },
+    {
+      "symbol": "leak_gain",
+      "value": 0.02
+    },
+    {
+      "symbol": "leak_half",
+      "value": 0.5
+    },
+    {
+      "symbol": "g_slow",
+      "value": 0.05
+    },
+    {
+      "symbol": "E_slow",
+      "value": -1.5
+    },
+    {
+      "symbol": "tau_z",
+      "value": 5.0
+    },
+    {
+      "symbol": "z_half",
+      "value": 0.0
+    },
+    {
+      "symbol": "z_slope",
+      "value": 0.3
+    },
+    {
+      "symbol": "g_ca",
+      "value": 0.02
+    },
+    {
+      "symbol": "E_ca",
+      "value": 2.0
+    },
+    {
+      "symbol": "ca_influx",
+      "value": 0.1
+    },
+    {
+      "symbol": "ca_extrude",
+      "value": 0.2
+    },
+    {
+      "symbol": "ca_half_gate",
+      "value": 0.0
+    },
+    {
+      "symbol": "ca_gate_slope",
+      "value": 0.3
+    },
+    {
+      "symbol": "ca_buffer_capacity",
+      "value": 0.1
+    },
+    {
+      "symbol": "ca_buffer_half",
+      "value": 0.3
+    },
+    {
+      "symbol": "ca_gate_shift",
+      "value": 0.1
+    },
+    {
+      "symbol": "ca_feedback_slope",
+      "value": 0.5
+    },
+    {
+      "symbol": "ca_z_potentiation",
+      "value": 0.5
+    },
+    {
+      "symbol": "ca_z_half",
+      "value": 0.3
+    },
+    {
+      "symbol": "ca_extrude_km",
+      "value": 0.3
+    },
+    {
+      "symbol": "ca_extrude_hill",
+      "value": 2.0
+    }
+  ],
+  "benchmark_output": "dV_dt",
+  "benchmark_target_state": "V",
+  "observed_variables": [
+    "t",
+    "V",
+    "w",
+    "z",
+    "ca"
+  ],
+  "rhs_for_integrator": "(V - V**3/cubic_coeff - w + I_background - g_slow*z*(V - E_slow) - g_ca*ca*(V - E_ca))/epsilon_fast",
+  "state_variables": [
+    "V",
+    "w",
+    "z",
+    "ca"
+  ],
+  "state_rhs": [
+    "(V - V**3/cubic_coeff - w + I_background - g_slow*z*(V - E_slow) - g_ca*ca*(V - E_ca))/epsilon_fast",
+    "recovery_gain*(V + coupling_a - coupling_b*w) + sat_gain*tanh(V/sat_half) - leak_gain*w**2/(leak_half**2 + w**2)",
+    "((1 + ca_z_potentiation*ca/(ca_z_half + ca))/(1 + exp(-(V - z_half)/z_slope)) - z)/tau_z",
+    "ca_influx/(1 + exp(-(V - (ca_half_gate + ca_gate_shift*tanh(ca/ca_feedback_slope)))/ca_gate_slope)) - ca_extrude*ca**ca_extrude_hill/(ca_extrude_km**ca_extrude_hill + ca**ca_extrude_hill) - ca_buffer_capacity*ca/(ca_buffer_half + ca)"
+  ],
+  "initial_conditions": {
+    "V": -1.0,
+    "w": 0.0,
+    "z": 0.0,
+    "ca": 0.0
+  },
+  "noise": 0.1,
+  "sanity_expectations": [
+    "V exhibits self-sustained periodic oscillations (repeated depolarize-fire-reset cycles), not decay to a fixed point",
+    "V stays bounded, roughly within [-2.5, 2.5]",
+    "w, z, ca remain bounded and non-divergent; ca >= 0 throughout",
+    "the slow variables (z, ca) modulate spike amplitude/interval over successive cycles rather than staying constant",
+    "dV_dt shows large fast excursions during spikes and near-zero segments between spikes"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "is_ode=true, full child-vs-parent system comparison on the V trajectory. New term = Hill-kinetics Ca extrusion (ca_extrude*ca^hill/(km^hill+ca^hill)) replacing the parent's simpler extrusion; its influence reaches dV_dt through g_ca*ca*(V-E_ca) and through Ca-potentiation of the z gate. sigma=0.1 on dV_dt. The new mechanism's effect accumulates over successive cycles, peaking at 6.55*sigma (max abs effect 0.655) near t≈393. At the shorter [0,200] window it only reached 2.97*sigma, so the range was extended to [0,400] where it clears the 5*sigma bar. Dominant intrinsic terms (V, V^3/cubic_coeff, w, I_background) drive spikes with |dV_dt| of order 10+, far above sigma.",
+  "role_corrections": [
+    "V: dynamic-state -> target_state V (confirmed; function under dV_dt)",
+    "w: dynamic-state -> state (confirmed)",
+    "z: dynamic-state -> state (confirmed)",
+    "ca: dynamic-state -> state (confirmed)",
+    "t: time-axis -> independent variable (confirmed; only sampling axis)",
+    "dV_dt: output derivative -> benchmark_output (confirmed)",
+    "all 29 parameter_symbols -> fixed parameters (confirmed; none are integration dummies)"
+  ],
+  "rationale": "FitzHugh-Nagumo-type pacemaker with a fast voltage V (epsilon_fast=0.08) and slow recovery w, augmented by a Ca-activated K-like adaptation gate z (E_slow=-1.5, slow tau_z=5) and an intracellular Ca state driven by a small voltage-gated Ca current (E_ca=+2). Parameters chosen in standard FHN magnitudes (cubic_coeff=3, coupling_a=0.7, coupling_b=0.8, I_background=0.5) to sit in the limit-cycle regime and produce self-sustained rhythmic firing. Ca handling uses the suggested ranges (ca_extrude_km=0.3 in [0.05,1.0], ca_extrude_hill=2 in [1,3]). check_substitution confirmed the target RHS is finite/real; time range set to [0,400] with 1200 points to resolve fast spikes AND accumulate the slow Hill-extrusion divergence so the new term clears 5*sigma.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "(V - V**3/cubic_coeff - w + I_background - g_slow*z*(V - E_slow) - g_ca*ca*(V - E_ca))/epsilon_fast",
+        "target_symbol": "V"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "E_ca",
+          "E_slow",
+          "I_background",
+          "V",
+          "ca",
+          "cubic_coeff",
+          "epsilon_fast",
+          "g_ca",
+          "g_slow",
+          "w",
+          "z"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "-(-3*ca*cubic_coeff*g_ca - 3*cubic_coeff*g_slow*z + 3*cubic_coeff)/(3*(-27*E_ca*ca*cubic_coeff*g_ca/2 - 27*E_slow*cubic_coeff*g_slow*z/2 - 27*I_background*cubic_coeff/2 + 27*cubic_coeff*w/2 + sqrt(-4*(-3*ca*cubic_coeff*g_ca - 3*cubic_coeff*g_slow*z + 3*cubic_coeff)**3 + (-27*E_ca*ca*cubic_coeff*g_ca - 27*E_slow*cubic_coeff*g_slow*z - 27*I_background*cubic_coeff + 27*cubic_coeff*w)**2)/2)**(1/3)) - (-27*E_ca*ca*cubic_coeff*g_ca/2 - 27*E_slow*cubic_coeff*g_slow*z/2 - 27*I_background*cubic_coeff/2 + 27*cubic_coeff*w/2 + sqrt(-4*(-3*ca*cubic_coeff*g_ca - 3*cubic_coeff*g_slow*z + 3*cubic_coeff)**3 + (-27*E_ca*ca*cubic_coeff*g_ca - 27*E_slow*cubic_coeff*g_slow*z - 27*I_background*cubic_coeff + 27*cubic_coeff*w)**2)/2)**(1/3)/3",
+          "-(-3*ca*cubic_coeff*g_ca - 3*cubic_coeff*g_slow*z + 3*cubic_coeff)/(3*(-1/2 - sqrt(3)*I/2)*(-27*E_ca*ca*cubic_coeff*g_ca/2 - 27*E_slow*cubic_coeff*g_slow*z/2 - 27*I_background*cubic_coeff/2 + 27*cubic_coeff*w/2 + sqrt(-4*(-3*ca*cubic_coeff*g_ca - 3*cubic_coeff*g_slow*z + 3*cubic_coeff)**3 + (-27*E_ca*ca*cubic_coeff*g_ca - 27*E_slow*cubic_coeff*g_slow*z - 27*I_background*cubic_coeff + 27*cubic_coeff*w)**2)/2)**(1/3)) - (-1/2 - sqrt(3)*I/2)*(-27*E_ca*ca*cubic_coeff*g_ca/2 - 27*E_slow*cubic_coeff*g_slow*z/2 - 27*I_background*cubic_coeff/2 + 27*cubic_coeff*w/2 + sqrt(-4*(-3*ca*cubic_coeff*g_ca - 3*cubic_coeff*g_slow*z + 3*cubic_coeff)**3 + (-27*E_ca*ca*cubic_coeff*g_ca - 27*E_slow*cubic_coeff*g_slow*z - 27*I_background*cubic_coeff + 27*cubic_coeff*w)**2)/2)**(1/3)/3",
+          "-(-3*ca*cubic_coeff*g_ca - 3*cubic_coeff*g_slow*z + 3*cubic_coeff)/(3*(-1/2 + sqrt(3)*I/2)*(-27*E_ca*ca*cubic_coeff*g_ca/2 - 27*E_slow*cubic_coeff*g_slow*z/2 - 27*I_background*cubic_coeff/2 + 27*cubic_coeff*w/2 + sqrt(-4*(-3*ca*cubic_coeff*g_ca - 3*cubic_coeff*g_slow*z + 3*cubic_coeff)**3 + (-27*E_ca*ca*cubic_coeff*g_ca - 27*E_slow*cubic_coeff*g_slow*z - 27*I_background*cubic_coeff + 27*cubic_coeff*w)**2)/2)**(1/3)) - (-1/2 + sqrt(3)*I/2)*(-27*E_ca*ca*cubic_coeff*g_ca/2 - 27*E_slow*cubic_coeff*g_slow*z/2 - 27*I_background*cubic_coeff/2 + 27*cubic_coeff*w/2 + sqrt(-4*(-3*ca*cubic_coeff*g_ca - 3*cubic_coeff*g_slow*z + 3*cubic_coeff)**3 + (-27*E_ca*ca*cubic_coeff*g_ca - 27*E_slow*cubic_coeff*g_slow*z - 27*I_background*cubic_coeff + 27*cubic_coeff*w)**2)/2)**(1/3)/3"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "(V - V**3/cubic_coeff - w + I_background - g_slow*z*(V - E_slow) - g_ca*ca*(V - E_ca))/epsilon_fast",
+        "assignments": {
+          "cubic_coeff": 3,
+          "I_background": 0.5,
+          "g_slow": 0.05,
+          "E_slow": -1.5,
+          "g_ca": 0.02,
+          "E_ca": 2,
+          "epsilon_fast": 0.08,
+          "V": -1,
+          "w": 0,
+          "z": 0,
+          "ca": 0
+        },
+        "target_symbol": "V"
+      },
+      "result": {
+        "ok": true,
+        "value_real": -2.0833333333333335,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "epsilon_fast": 0.08,
+          "cubic_coeff": 3,
+          "I_background": 0.5,
+          "recovery_gain": 0.08,
+          "coupling_a": 0.7,
+          "coupling_b": 0.8,
+          "sat_gain": 0.02,
+          "sat_half": 0.5,
+          "leak_gain": 0.02,
+          "leak_half": 0.5,
+          "g_slow": 0.05,
+          "E_slow": -1.5,
+          "tau_z": 5,
+          "z_half": 0,
+          "z_slope": 0.3,
+          "g_ca": 0.02,
+          "E_ca": 2,
+          "ca_influx": 0.1,
+          "ca_extrude": 0.2,
+          "ca_half_gate": 0,
+          "ca_gate_slope": 0.3,
+          "ca_buffer_capacity": 0.1,
+          "ca_buffer_half": 0.3,
+          "ca_gate_shift": 0.1,
+          "ca_feedback_slope": 0.5,
+          "ca_z_potentiation": 0.5,
+          "ca_z_half": 0.3,
+          "ca_extrude_km": 0.3,
+          "ca_extrude_hill": 2
+        },
+        "indep": [
+          {
+            "symbol": "t",
+            "range": [
+              0,
+              200
+            ],
+            "n_points": 500
+          }
+        ],
+        "sigma": 0.1,
+        "is_ode": true
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "V",
+        "child_state_count": 4,
+        "parent_state_count": 4,
+        "n_time_points": 500,
+        "new_term_max_effect": 0.29679002795223863,
+        "new_term_sigma_multiple": 2.9679002795223863,
+        "strongest_at": {
+          "t": 193.98797595190382
+        },
+        "k": 5.0,
+        "passes": false,
+        "advice": "new mechanism peaks at only 2.97*sigma (need 5.0); extend the t range or adjust physically valid coefficients"
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "epsilon_fast": 0.08,
+          "cubic_coeff": 3,
+          "I_background": 0.5,
+          "recovery_gain": 0.08,
+          "coupling_a": 0.7,
+          "coupling_b": 0.8,
+          "sat_gain": 0.02,
+          "sat_half": 0.5,
+          "leak_gain": 0.02,
+          "leak_half": 0.5,
+          "g_slow": 0.05,
+          "E_slow": -1.5,
+          "tau_z": 5,
+          "z_half": 0,
+          "z_slope": 0.3,
+          "g_ca": 0.02,
+          "E_ca": 2,
+          "ca_influx": 0.1,
+          "ca_extrude": 0.2,
+          "ca_half_gate": 0,
+          "ca_gate_slope": 0.3,
+          "ca_buffer_capacity": 0.1,
+          "ca_buffer_half": 0.3,
+          "ca_gate_shift": 0.1,
+          "ca_feedback_slope": 0.5,
+          "ca_z_potentiation": 0.5,
+          "ca_z_half": 0.3,
+          "ca_extrude_km": 0.3,
+          "ca_extrude_hill": 2
+        },
+        "indep": [
+          {
+            "symbol": "t",
+            "range": [
+              0,
+              400
+            ],
+            "n_points": 1200
+          }
+        ],
+        "sigma": 0.1,
+        "is_ode": true
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "V",
+        "child_state_count": 4,
+        "parent_state_count": 4,
+        "n_time_points": 1200,
+        "new_term_max_effect": 0.6552957273449436,
+        "new_term_sigma_multiple": 6.552957273449436,
+        "strongest_at": {
+          "t": 392.6605504587156
+        },
+        "k": 5.0,
+        "passes": true,
+        "advice": "new mechanism is visible on the target trajectory"
+      }
+    }
+  ],
+  "_cost_usd": 0.51856075,
+  "_num_turns": 7,
+  "discipline": "biology",
+  "scenario_text": "A population of pacemaker cells generates a membrane potential that spontaneously depolarizes, fires, and resets in a repeating cycle. A slow recovery variable interacts with a fast voltage variable to produce self-sustained rhythmic firing. No external drive is applied beyond a constant background. We track the membrane voltage and its slow recovery variable.",
+  "record_id": "m2_physiology_and_homeostasis_0_005",
+  "generation": 8,
+  "_n_total": 5000
+}

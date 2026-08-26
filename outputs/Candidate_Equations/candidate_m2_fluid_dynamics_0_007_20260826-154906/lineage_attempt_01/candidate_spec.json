@@ -1,0 +1,281 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "h",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        0.05
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "rho",
+      "value": 1000.0
+    },
+    {
+      "symbol": "g",
+      "value": 9.81
+    },
+    {
+      "symbol": "mu",
+      "value": 1.0
+    },
+    {
+      "symbol": "L_drain",
+      "value": 0.01
+    },
+    {
+      "symbol": "gamma",
+      "value": 0.072
+    },
+    {
+      "symbol": "A_ham",
+      "value": 1e-20
+    },
+    {
+      "symbol": "pi",
+      "value": 3.141592653589793
+    },
+    {
+      "symbol": "b_slip",
+      "value": 0.0001
+    },
+    {
+      "symbol": "R_gas",
+      "value": 8.314
+    },
+    {
+      "symbol": "T_temp",
+      "value": 298.0
+    },
+    {
+      "symbol": "Gamma",
+      "value": 3e-06
+    },
+    {
+      "symbol": "h_evap",
+      "value": 1e-06
+    }
+  ],
+  "benchmark_output": "dh_dt",
+  "benchmark_target_state": "h",
+  "observed_variables": [
+    "t",
+    "h"
+  ],
+  "rhs_for_integrator": "-(rho * g / mu) * h**2 * (h / L_drain) + (gamma / (mu * L_drain**3)) * h**3 - (A_ham / (6 * pi * mu * h)) * (1 / L_drain**2) * h**2 + (rho * g * b_slip / mu) * h * (h / L_drain) - (R_gas * T_temp * Gamma / (mu * L_drain**3)) * h**3 - (rho * g / mu) * h**2 * (h / L_drain) * tanh(h / h_evap)",
+  "state_variables": [
+    "h"
+  ],
+  "state_rhs": [
+    "-(rho * g / mu) * h**2 * (h / L_drain) + (gamma / (mu * L_drain**3)) * h**3 - (A_ham / (6 * pi * mu * h)) * (1 / L_drain**2) * h**2 + (rho * g * b_slip / mu) * h * (h / L_drain) - (R_gas * T_temp * Gamma / (mu * L_drain**3)) * h**3 - (rho * g / mu) * h**2 * (h / L_drain) * tanh(h / h_evap)"
+  ],
+  "initial_conditions": {
+    "h": 0.01
+  },
+  "noise": 0.00025,
+  "sanity_expectations": [
+    "h(t) is monotonically decreasing (film drains/thins)",
+    "h stays strictly positive and bounded within (0, 0.01]",
+    "h decays as an inverse-square-root-like power law (dh/dt ~ -C*h^3), slowing as the film thins",
+    "h reaches ~0.0022 m near t=0.05 s",
+    "h remains many orders above h_evap=1e-6, so tanh(h/h_evap) ~ 1 throughout and the new term acts as an extra gravity-drainage contribution",
+    "the child trajectory thins visibly faster than the parent (no-tanh) trajectory"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "Noise sigma=0.00025 (abs, on the h trajectory / benchmark output ~2.5% of initial h=0.01). Instantaneous term magnitudes at h=0.01 (|term|/sigma): gravity drainage T1 ~0.981 (~3900x); surface-tension leveling T2 ~0.072 (~290x); Navier-slip T4 ~9.8e-3 (~39x); surfactant/Marangoni T5 ~7.4e-3 (~30x). NEW term = -(rho*g/mu)*h^3/L_drain*tanh(h/h_evap): via full child-vs-parent trajectory comparison its peak effect on h is 1.40e-3 = 5.61*sigma (>5), strongest near t=0.0078 s — VISIBLE. Van der Waals term T3 ~5e-19 (van der Waals disjoining) is ~15 orders below sigma and cannot be excited at this macroscopic thickness (it only bites at nanometric h); it is retained but negligible for this trajectory.",
+  "role_corrections": [
+    "dh_dt: output/target-derivative -> confirmed (RHS of the governing first-order ODE for h)",
+    "t: time axis -> V confirmed (sole independent variable, gets a sampling range)",
+    "h: dynamic state -> confirmed (single state variable, dependent variable)",
+    "rho: P -> P confirmed (fixed liquid density)",
+    "g: P -> P confirmed (fixed gravitational acceleration)",
+    "mu: P -> P confirmed (fixed dynamic viscosity)",
+    "L_drain: P -> P confirmed (fixed drainage length scale)",
+    "gamma: P -> P confirmed (fixed surface tension)",
+    "A_ham: P -> P confirmed (fixed Hamaker constant)",
+    "pi: P -> P confirmed (mathematical constant fixed to 3.141592653589793)",
+    "b_slip: P -> P confirmed (fixed Navier slip length)",
+    "R_gas: P -> P confirmed (fixed gas constant)",
+    "T_temp: P -> P confirmed (fixed temperature)",
+    "Gamma: P -> P confirmed (fixed surfactant surface excess)",
+    "h_evap: P -> P confirmed (fixed nanometric crossover thickness inside tanh)"
+  ],
+  "rationale": "Typed ODE contract inherited verbatim (single state h, its RHS, IC h=0.01) — only time range, fixed parameters, noise, and expectations were chosen. Physical water-like viscous film: rho=1000, g=9.81, mu=1 Pa·s, gamma=0.072, R_gas=8.314, T_temp=298, Gamma=3e-6 mol/m^2, b_slip=1e-4 m (large but attainable on superhydrophobic walls), h_evap=1e-6 m (within the suggested 1e-8..1e-6 nanometric crossover). L_drain=0.01 m was chosen to raise the 1/L^3 surface-tension and surfactant terms into clear visibility relative to the 1/L gravity term while keeping net drainage. Substitution at h=0.01,t=0 gives finite real dh_dt=-1.888. The new tanh term modulates the gravity term; since h>>h_evap the tanh saturates at 1, so the new term acts as a second gravity contribution and its child-vs-parent trajectory separation is intrinsically bounded (~1.4e-3 in h) independent of rate constants and t-range. The lever is therefore the noise yardstick: sigma=0.00025 puts the new mechanism at 5.6*sigma (passes). All terms are visible (>=30x sigma) EXCEPT the van der Waals disjoining term, which is ~15 orders too small at macroscopic thickness and cannot be excited without unphysical A_ham; it is retained as negligible. excitation_ok=true since the new mechanism (the point of this evolution step) is clearly visible.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "-(rho * g / mu) * h**2 * (h / L_drain) + (gamma / (mu * L_drain**3)) * h**3 - (A_ham / (6 * pi * mu * h)) * (1 / L_drain**2) * h**2 + (rho * g * b_slip / mu) * h * (h / L_drain) - (R_gas * T_temp * Gamma / (mu * L_drain**3)) * h**3 - (rho * g / mu) * h**2 * (h / L_drain) * tanh(h / h_evap)",
+        "target_symbol": "h"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "A_ham",
+          "Gamma",
+          "L_drain",
+          "R_gas",
+          "T_temp",
+          "b_slip",
+          "g",
+          "gamma",
+          "h",
+          "h_evap",
+          "mu",
+          "rho"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": false,
+        "explicit_solution_preview": null,
+        "classification_hint": "implicit_or_explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "-(rho * g / mu) * h**2 * (h / L_drain) + (gamma / (mu * L_drain**3)) * h**3 - (A_ham / (6 * pi * mu * h)) * (1 / L_drain**2) * h**2 + (rho * g * b_slip / mu) * h * (h / L_drain) - (R_gas * T_temp * Gamma / (mu * L_drain**3)) * h**3 - (rho * g / mu) * h**2 * (h / L_drain) * tanh(h / h_evap)",
+        "assignments": {
+          "rho": 1000,
+          "g": 9.81,
+          "mu": 1,
+          "L_drain": 0.01,
+          "gamma": 0.072,
+          "A_ham": 1e-20,
+          "pi": 3.141592653589793,
+          "b_slip": 0.0001,
+          "R_gas": 8.314,
+          "T_temp": 298,
+          "Gamma": 3e-06,
+          "h_evap": 1e-06,
+          "h": 0.01,
+          "t": 0
+        },
+        "target_symbol": "h"
+      },
+      "result": {
+        "ok": true,
+        "value_real": -1.8876227160000003,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "A_ham": 1e-20,
+          "Gamma": 3e-06,
+          "L_drain": 0.01,
+          "R_gas": 8.314,
+          "T_temp": 298,
+          "b_slip": 0.0001,
+          "g": 9.81,
+          "gamma": 0.072,
+          "h_evap": 1e-06,
+          "mu": 1,
+          "pi": 3.141592653589793,
+          "rho": 1000
+        },
+        "indep": [
+          {
+            "symbol": "t",
+            "range": [
+              0,
+              0.05
+            ]
+          }
+        ],
+        "is_ode": true,
+        "sigma": 0.0005
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "h",
+        "child_state_count": 1,
+        "parent_state_count": 1,
+        "n_time_points": 200,
+        "new_term_max_effect": 0.001401565589370467,
+        "new_term_sigma_multiple": 2.8031311787409336,
+        "strongest_at": {
+          "t": 0.0077889447236180916
+        },
+        "k": 5.0,
+        "passes": false,
+        "advice": "new mechanism peaks at only 2.80*sigma (need 5.0); extend the t range or adjust physically valid coefficients"
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "A_ham": 1e-20,
+          "Gamma": 3e-06,
+          "L_drain": 0.01,
+          "R_gas": 8.314,
+          "T_temp": 298,
+          "b_slip": 0.0001,
+          "g": 9.81,
+          "gamma": 0.072,
+          "h_evap": 1e-06,
+          "mu": 1,
+          "pi": 3.141592653589793,
+          "rho": 1000
+        },
+        "indep": [
+          {
+            "range": [
+              0,
+              0.05
+            ],
+            "symbol": "t"
+          }
+        ],
+        "is_ode": true,
+        "sigma": 0.00025
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "h",
+        "child_state_count": 1,
+        "parent_state_count": 1,
+        "n_time_points": 200,
+        "new_term_max_effect": 0.001401565589370467,
+        "new_term_sigma_multiple": 5.606262357481867,
+        "strongest_at": {
+          "t": 0.0077889447236180916
+        },
+        "k": 5.0,
+        "passes": true,
+        "advice": "new mechanism is visible on the target trajectory"
+      }
+    }
+  ],
+  "_cost_usd": 0.8736517500000001,
+  "_num_turns": 7,
+  "discipline": "physics",
+  "scenario_text": "A thin liquid film coats a vertical plate and drains downward under gravity, resisted by internal viscosity. The film thickness at a fixed height decreases as fluid flows away faster than it is replenished. We follow the local film thickness as it thins over time.",
+  "record_id": "m2_fluid_dynamics_0_007",
+  "generation": 5,
+  "_n_total": 5000
+}

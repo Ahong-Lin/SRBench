@@ -1,0 +1,314 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "I",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        12.0
+      ],
+      "n_points": 600,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "beta0",
+      "value": 3.0
+    },
+    {
+      "symbol": "eps",
+      "value": 0.3
+    },
+    {
+      "symbol": "T_period",
+      "value": 1.0
+    },
+    {
+      "symbol": "gamma",
+      "value": 1.0
+    },
+    {
+      "symbol": "mu",
+      "value": 0.02
+    },
+    {
+      "symbol": "pi",
+      "value": 3.141592653589793
+    },
+    {
+      "symbol": "gamma_sat",
+      "value": 0.5
+    },
+    {
+      "symbol": "I_half",
+      "value": 0.05
+    },
+    {
+      "symbol": "rho",
+      "value": 0.1
+    },
+    {
+      "symbol": "I_waning",
+      "value": 0.1
+    },
+    {
+      "symbol": "omega",
+      "value": 0.1
+    },
+    {
+      "symbol": "kappa",
+      "value": 1.5
+    },
+    {
+      "symbol": "c_prod",
+      "value": 2.0
+    },
+    {
+      "symbol": "c_decay",
+      "value": 0.5
+    },
+    {
+      "symbol": "C_sat",
+      "value": 1.5
+    },
+    {
+      "symbol": "delta_syn",
+      "value": 3.0
+    },
+    {
+      "symbol": "C_half",
+      "value": 0.05
+    }
+  ],
+  "benchmark_output": "dI_dt",
+  "benchmark_target_state": "I",
+  "observed_variables": [
+    "t",
+    "S",
+    "I",
+    "R",
+    "C"
+  ],
+  "rhs_for_integrator": "beta0*(1 + eps*cos(2*pi*t/T_period))*S*I - (gamma + mu)*I - gamma_sat*I**2/(I_half + I) + gamma*rho*R*exp(-I/I_waning) - kappa*C*I - kappa*C*I*(delta_syn*C/(C_half + C))",
+  "state_variables": [
+    "S",
+    "I",
+    "R",
+    "C"
+  ],
+  "state_rhs": [
+    "mu - beta0*(1 + eps*cos(2*pi*t/T_period))*S*I - mu*S + omega*R",
+    "beta0*(1 + eps*cos(2*pi*t/T_period))*S*I - (gamma + mu)*I - gamma_sat*I**2/(I_half + I) + gamma*rho*R*exp(-I/I_waning) - kappa*C*I - kappa*C*I*(delta_syn*C/(C_half + C))",
+    "gamma*I - mu*R - omega*R - gamma*rho*R*exp(-I/I_waning)",
+    "c_prod*I*(1 - C/C_sat) - c_decay*C"
+  ],
+  "initial_conditions": {
+    "S": 0.6,
+    "I": 0.01,
+    "R": 0.39,
+    "C": 0.0
+  },
+  "noise": 0.003,
+  "sanity_expectations": [
+    "I(t) stays strictly positive and bounded in (0,1) for all t",
+    "I(t) shows recurrent annual peaks (period ~ T_period=1) that neither die out nor grow without bound",
+    "S, R, C remain non-negative; S+I+R stays near 1 (small drift from turnover mu)",
+    "C(t) rises during infection waves and relaxes between them, lagging I",
+    "dI_dt oscillates around zero, sign-changing at each epidemic peak and trough"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "New synergy term -kappa*C*I*(delta_syn*C/(C_half+C)) peaks at 0.0323 = 10.8*sigma (need 5), strongest near t=3.25 where infection wave drives capacity C up. Full 4-state child vs parent systems compared on the I trajectory over 12 forcing periods; new mechanism clearly visible above noise. Dominant transmission/recovery terms are O(0.1-1), far above sigma=0.003; saturating-removal, waning-relapse, and base kappa*C*I removal all remain excited by the recurrent waves.",
+  "role_corrections": [
+    "dI_dt: output->output (confirmed target derivative)",
+    "t: V->V (confirmed sole time axis, sampled 0..12)",
+    "S: dynamic state->state (confirmed)",
+    "I: dynamic state->target state (confirmed)",
+    "R: dynamic state->state (confirmed)",
+    "C: dynamic state->state (confirmed, governed by its own RHS; not collapsed to a parameter)",
+    "beta0,eps,T_period,gamma,mu,gamma_sat,I_half,rho,I_waning,omega,kappa,c_prod,c_decay,C_sat,delta_syn,C_half: P->P (confirmed, fixed constants)",
+    "pi: P->constant (fixed to 3.141592653589793)"
+  ],
+  "rationale": "Typed ODE-system contract inherited verbatim (states S,I,R,C; target I; sole time axis t). analyze_expression confirmed no derivatives/integrals/ungoverned functions in the target RHS and target not algebraically isolated, consistent with a state-RHS in a system. Parameters set to epidemiologically sensible SIRS-with-seasonal-forcing magnitudes giving R0=beta0/(gamma+mu)~2.9 and sustained yearly waves. The new term is the response-capacity synergy boost; it only bites once C accumulates, so I set delta_syn=3.0 (max of suggested 0-3), C_half=0.05 (floor of suggested 0.05-1.0), and raised c_prod, C_sat, and kappa to build C during waves. excitation_check (is_ode) confirms the new mechanism reaches 10.8*sigma on the I trajectory.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "beta0*(1 + eps*cos(2*pi*t/T_period))*S*I - (gamma + mu)*I - gamma_sat*I**2/(I_half + I) + gamma*rho*R*exp(-I/I_waning) - kappa*C*I - kappa*C*I*(delta_syn*C/(C_half + C))",
+        "target_symbol": "I"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "C",
+          "C_half",
+          "I",
+          "I_half",
+          "I_waning",
+          "R",
+          "S",
+          "T_period",
+          "beta0",
+          "delta_syn",
+          "eps",
+          "gamma",
+          "gamma_sat",
+          "kappa",
+          "mu",
+          "rho",
+          "t"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": false,
+        "explicit_solution_preview": null,
+        "classification_hint": "implicit_or_explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "beta0": 3,
+          "eps": 0.3,
+          "T_period": 1,
+          "gamma": 1,
+          "mu": 0.02,
+          "pi": 3.141592653589793,
+          "gamma_sat": 0.5,
+          "I_half": 0.05,
+          "rho": 0.1,
+          "I_waning": 0.1,
+          "omega": 0.1,
+          "kappa": 1,
+          "c_prod": 1,
+          "c_decay": 0.5,
+          "C_sat": 1,
+          "delta_syn": 1.5,
+          "C_half": 0.2
+        },
+        "indep": [
+          {
+            "symbol": "t",
+            "range": [
+              0,
+              10
+            ],
+            "n_points": 500
+          }
+        ],
+        "sigma": 0.005,
+        "is_ode": true
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "I",
+        "child_state_count": 4,
+        "parent_state_count": 4,
+        "n_time_points": 500,
+        "new_term_max_effect": 0.006112798289828941,
+        "new_term_sigma_multiple": 1.2225596579657882,
+        "strongest_at": {
+          "t": 4.248496993987976
+        },
+        "k": 5.0,
+        "passes": false,
+        "advice": "new mechanism peaks at only 1.22*sigma (need 5.0); extend the t range or adjust physically valid coefficients"
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "C_half": 0.05,
+          "C_sat": 1.5,
+          "I_half": 0.05,
+          "I_waning": 0.1,
+          "T_period": 1,
+          "beta0": 3,
+          "c_decay": 0.5,
+          "c_prod": 2,
+          "delta_syn": 3,
+          "eps": 0.3,
+          "gamma": 1,
+          "gamma_sat": 0.5,
+          "kappa": 1.5,
+          "mu": 0.02,
+          "omega": 0.1,
+          "pi": 3.141592653589793,
+          "rho": 0.1
+        },
+        "indep": [
+          {
+            "n_points": 600,
+            "range": [
+              0,
+              12
+            ],
+            "symbol": "t"
+          }
+        ],
+        "is_ode": true,
+        "sigma": 0.003
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "I",
+        "child_state_count": 4,
+        "parent_state_count": 4,
+        "n_time_points": 600,
+        "new_term_max_effect": 0.03232330295164499,
+        "new_term_sigma_multiple": 10.774434317214997,
+        "strongest_at": {
+          "t": 3.2454090150250416
+        },
+        "k": 5.0,
+        "passes": true,
+        "advice": "new mechanism is visible on the target trajectory"
+      }
+    }
+  ],
+  "_cost_usd": 0.41666975000000006,
+  "_num_turns": 5,
+  "discipline": "biology",
+  "scenario_text": "A seasonally forced infection shows recurrent yearly waves driven by periodic variation in transmissibility tied to environmental cycles. Epidemiologists observe repeated epidemic peaks in the infectious population that neither die out nor grow without bound. The periodic modulation of transmission combined with recovery and susceptible replenishment sustains the oscillations. The amplitude and period of environmental forcing are fixed inputs to the dynamics.",
+  "record_id": "m2_epidemiology_and_disease_dynamics_0_005",
+  "generation": 5,
+  "_n_total": 5000,
+  "finalization": {
+    "mode": "candidate",
+    "accepted_generations": 5,
+    "novelty": {
+      "reasoning": "Step 1 - Term-by-term analysis: (a) beta0*(1 + eps*cos(2*pi*t/T_period))*S*I is the classical seasonally forced transmission term (baseline). (b) -(gamma + mu)*I is the classical recovery+turnover removal (baseline). (c) -gamma_sat*I**2/(I_half + I) is a nonstandard saturating quadratic removal term coupling care capacity limits to infection burden - not in the baseline. (d) +gamma*rho*R*exp(-I/I_waning) is a highly unusual relapse/reactivation term where recovered individuals re-enter the infectious pool with an exponentially crowding-suppressed rate - this is a novel composite mechanism. (e) -kappa*C*I is a bilinear removal by mobilized care capacity, itself governed by a separate logistic-with-decay ODE for C - this is a nonstandard state coupling. (f) -kappa*C*I*(delta_syn*C/(C_half + C)) is a synergistic saturating boost to removal efficacy, quadratic in C with Michaelis-Menten-like saturation - a genuinely novel composite term.\n\nStep 2 - Recitability: The classical seasonally forced SIR/SEIR model only contains terms (a) and (b). The full candidate equation combines: a saturating quadratic self-removal, an exponentially-suppressed relapse term feeding from R, and an added state variable C with both bilinear and synergistic saturating removal contributions. This exact composite form does not appear in any standard textbook or public reference. No LLM could recite this specific combination purely from the context; the structure (exp(-I/I_waning) reactivation, C-driven synergy via delta_syn*C/(C_half+C)) is bespoke.\n\nStep 3 - True novelty: While each individual mathematical motif (Michaelis-Menten saturation, exponential suppression, logistic capacity) is known, their specific composition here as a coupled epidemiological model with a mobilized-care state and synergistic efficacy boost is a data-inferred construction rather than recall. It goes well beyond the classical baseline and would only be recovered by fitting to observations.",
+      "answer": "Yes",
+      "llm_qa_history": [
+        {
+          "attempt": 1,
+          "model": "claude-opus-4-8",
+          "system_prompt": "You are a top-tier scientist with deep expertise across physics, biology,\nchemistry, and materials science. Your task is to act as a \"Novelty Evaluator\":\nobjectively judge whether a newly generated mathematical equation is\n\"scientifically novel\" within its given scientific context.\n\nCORE CRITERIA:\n- NOT NOVEL: the equation is a well-known classical formula that already exists\n  in textbooks, on the internet, or in the open scientific literature — i.e. a\n  formula that could be obtained simply by recall/recitation.\n- NOVEL: while remaining scientifically sound, the equation introduces uncommon,\n  nonlinear, or genuinely new composite mechanism terms, such that neither a\n  human nor an AI could guess it from background knowledge alone — it could only\n  be recovered through data-driven inference from experimental observations.\n",
+          "user_prompt": "[SCIENTIFIC CONTEXT]:\nField: biology\nProblem description: A seasonally forced infection shows recurrent yearly waves driven by periodic variation in transmissibility tied to environmental cycles. Epidemiologists observe repeated epidemic peaks in the infectious population that neither die out nor grow without bound. The periodic modulation of transmission combined with recovery and susceptible replenishment sustains the oscillations. The amplitude and period of environmental forcing are fixed inputs to the dynamics.\n\n[VARIABLES & PARAMETERS]:\n- Target variable: dI_dt (Rate of change of the infectious fraction under seasonal forcing)\n- Input features: t (time)\n- Dynamic states: S (Fraction of the population that is susceptible); I (Fraction of the population that is infectious); R (Fraction of the population that is recovered/immune but subject to waning); C (Mobilized public-health/care response capacity acting to remove infectious individuals)\n- Parameters: beta0 (Baseline transmission rate); eps (Amplitude of seasonal forcing in transmission); T_period (Period of environmental forcing); gamma (Recovery rate); mu (Per-capita birth/death (turnover) rate); pi (Mathematical constant pi); gamma_sat (Maximum additional per-capita removal rate from saturating care capacity); I_half (Infectious fraction at which additional removal reaches half its maximum); rho (Per-capita rate at which recovered individuals lose immunity and become reactivatable); I_waning (Infectious fraction above which crowding suppresses relapse-driven reactivation); omega (Baseline rate of loss of immunity feeding recovered individuals back toward susceptibility); kappa (Per-capita removal efficacy of mobilized response capacity acting on the infectious pool); c_prod (Rate at which response capacity is mobilized in proportion to current infection burden); c_decay (Relaxation/decay rate of mobilized response capacity when infection subsides); C_sat (Saturation level limiting how much response capacity can be mobilized); delta_syn (Maximum fractional synergistic boost to removal efficacy when response capacity is highly mobilized); C_half (Response capacity level at which the synergistic efficacy boost reaches half its maximum)\n\n[CANDIDATE EQUATION]:\ndI_dt = beta0*(1 + eps*cos(2*pi*t/T_period))*S*I - (gamma + mu)*I - gamma_sat*I**2/(I_half + I) + gamma*rho*R*exp(-I/I_waning) - kappa*C*I - kappa*C*I*(delta_syn*C/(C_half + C))\n\n[CLOSED ODE SYSTEM]:\n{\n  \"time_symbol\": \"t\",\n  \"target_state\": \"I\",\n  \"states\": [\n    {\n      \"symbol\": \"S\",\n      \"rhs\": \"mu - beta0*(1 + eps*cos(2*pi*t/T_period))*S*I - mu*S + omega*R\",\n      \"initial_condition\": 0.6,\n      \"description\": \"Fraction of the population that is susceptible\"\n    },\n    {\n      \"symbol\": \"I\",\n      \"rhs\": \"beta0*(1 + eps*cos(2*pi*t/T_period))*S*I - (gamma + mu)*I - gamma_sat*I**2/(I_half + I) + gamma*rho*R*exp(-I/I_waning) - kappa*C*I - kappa*C*I*(delta_syn*C/(C_half + C))\",\n      \"initial_condition\": 0.01,\n      \"description\": \"Fraction of the population that is infectious\"\n    },\n    {\n      \"symbol\": \"R\",\n      \"rhs\": \"gamma*I - mu*R - omega*R - gamma*rho*R*exp(-I/I_waning)\",\n      \"initial_condition\": 0.39,\n      \"description\": \"Fraction of the population that is recovered/immune and subject to waning\"\n    },\n    {\n      \"symbol\": \"C\",\n      \"rhs\": \"c_prod*I*(1 - C/C_sat) - c_decay*C\",\n      \"initial_condition\": 0.0,\n      \"description\": \"Mobilized public-health/care response capacity that builds with infection burden and relaxes when infection subsides\"\n    }\n  ]\n}\n(Note: this equation comes from an equation-evolution pipeline; assume it is\nmathematically solvable and numerically stable.)\n\n[NOTE ON KNOWN / CLASSICAL TERMS]:\nThe classical / textbook starting point for this phenomenon (the baseline equation) is:\n  dI_dt = beta0*(1 + eps*cos(2*pi*t/T_period))*S*I - (gamma + mu)*I\nThe terms appearing in this baseline equation can be regarded as the well-known classical terms for this problem. Use this as the reference to judge whether the candidate equation, relative to this classical baseline, introduces additional novel composite terms that cannot be recited directly and could only be discovered through data-driven reasoning.\n\n---\n\nREASONING & OUTPUT REQUIREMENTS:\nLet's think step by step:\n1. Analyze each term in the candidate equation. Which terms are established\n   classical knowledge in this scientific context, and which are newly\n   introduced composite terms?\n2. Drawing on your knowledge of the scientific literature, does this COMPLETE\n   combined form of the equation appear directly in any existing textbook or\n   public reference? Could a large language model \"recite\" this exact formula\n   purely from the context and variable names above?\n3. Assess whether it has true novelty (i.e. it could only be discovered by\n   reasoning over subsequent experimental observation data).\n\nProvide your final answer STRICTLY in the following JSON format, with no extra\nMarkdown markup (no ```json):\n{\n  \"reasoning\": \"Write your detailed step-by-step scientific analysis and novelty assessment here.\",\n  \"answer\": \"Yes\" or \"No\" (write \"Yes\" if the equation is novel and cannot be directly recited; write \"No\" if it is a well-known classical formula or can be directly recited)\n}\n",
+          "raw_response": "{\n  \"reasoning\": \"Step 1 - Term-by-term analysis: (a) beta0*(1 + eps*cos(2*pi*t/T_period))*S*I is the classical seasonally forced transmission term (baseline). (b) -(gamma + mu)*I is the classical recovery+turnover removal (baseline). (c) -gamma_sat*I**2/(I_half + I) is a nonstandard saturating quadratic removal term coupling care capacity limits to infection burden - not in the baseline. (d) +gamma*rho*R*exp(-I/I_waning) is a highly unusual relapse/reactivation term where recovered individuals re-enter the infectious pool with an exponentially crowding-suppressed rate - this is a novel composite mechanism. (e) -kappa*C*I is a bilinear removal by mobilized care capacity, itself governed by a separate logistic-with-decay ODE for C - this is a nonstandard state coupling. (f) -kappa*C*I*(delta_syn*C/(C_half + C)) is a synergistic saturating boost to removal efficacy, quadratic in C with Michaelis-Menten-like saturation - a genuinely novel composite term.\\n\\nStep 2 - Recitability: The classical seasonally forced SIR/SEIR model only contains terms (a) and (b). The full candidate equation combines: a saturating quadratic self-removal, an exponentially-suppressed relapse term feeding from R, and an added state variable C with both bilinear and synergistic saturating removal contributions. This exact composite form does not appear in any standard textbook or public reference. No LLM could recite this specific combination purely from the context; the structure (exp(-I/I_waning) reactivation, C-driven synergy via delta_syn*C/(C_half+C)) is bespoke.\\n\\nStep 3 - True novelty: While each individual mathematical motif (Michaelis-Menten saturation, exponential suppression, logistic capacity) is known, their specific composition here as a coupled epidemiological model with a mobilized-care state and synergistic efficacy boost is a data-inferred construction rather than recall. It goes well beyond the classical baseline and would only be recovered by fitting to observations.\",\n  \"answer\": \"Yes\"\n}",
+          "parsed_response": {
+            "reasoning": "Step 1 - Term-by-term analysis: (a) beta0*(1 + eps*cos(2*pi*t/T_period))*S*I is the classical seasonally forced transmission term (baseline). (b) -(gamma + mu)*I is the classical recovery+turnover removal (baseline). (c) -gamma_sat*I**2/(I_half + I) is a nonstandard saturating quadratic removal term coupling care capacity limits to infection burden - not in the baseline. (d) +gamma*rho*R*exp(-I/I_waning) is a highly unusual relapse/reactivation term where recovered individuals re-enter the infectious pool with an exponentially crowding-suppressed rate - this is a novel composite mechanism. (e) -kappa*C*I is a bilinear removal by mobilized care capacity, itself governed by a separate logistic-with-decay ODE for C - this is a nonstandard state coupling. (f) -kappa*C*I*(delta_syn*C/(C_half + C)) is a synergistic saturating boost to removal efficacy, quadratic in C with Michaelis-Menten-like saturation - a genuinely novel composite term.\n\nStep 2 - Recitability: The classical seasonally forced SIR/SEIR model only contains terms (a) and (b). The full candidate equation combines: a saturating quadratic self-removal, an exponentially-suppressed relapse term feeding from R, and an added state variable C with both bilinear and synergistic saturating removal contributions. This exact composite form does not appear in any standard textbook or public reference. No LLM could recite this specific combination purely from the context; the structure (exp(-I/I_waning) reactivation, C-driven synergy via delta_syn*C/(C_half+C)) is bespoke.\n\nStep 3 - True novelty: While each individual mathematical motif (Michaelis-Menten saturation, exponential suppression, logistic capacity) is known, their specific composition here as a coupled epidemiological model with a mobilized-care state and synergistic efficacy boost is a data-inferred construction rather than recall. It goes well beyond the classical baseline and would only be recovered by fitting to observations.",
+            "answer": "Yes"
+          }
+        }
+      ]
+    },
+    "total_points": 5000,
+    "data_csv": "/data1/SRBench_fresh/outputs/Candidate_Equations/candidate_m2_epidemiology_and_disease_dynamics_0_005_20260826-162411/lineage_attempt_01/candidate_data/m2_epidemiology_and_disease_dynamics_0_005_gen5_20260826-162754.csv",
+    "evaluation_status": "not_evaluated; choose Harbor split and solver later"
+  }
+}

@@ -1,0 +1,191 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "m",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        80.0
+      ],
+      "n_points": 400,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "m_inf",
+      "value": 0.8
+    },
+    {
+      "symbol": "tau_m",
+      "value": 5.0
+    },
+    {
+      "symbol": "k_coop",
+      "value": 2.0
+    },
+    {
+      "symbol": "k_close",
+      "value": 1.0
+    },
+    {
+      "symbol": "K_half",
+      "value": 0.5
+    },
+    {
+      "symbol": "tau_h",
+      "value": 30.0
+    },
+    {
+      "symbol": "h_inf",
+      "value": 1.0
+    },
+    {
+      "symbol": "k_hm",
+      "value": 1.0
+    },
+    {
+      "symbol": "p_close",
+      "value": 2.0
+    },
+    {
+      "symbol": "k_reopen",
+      "value": 1.0
+    }
+  ],
+  "benchmark_output": "dm_dt",
+  "benchmark_target_state": "m",
+  "observed_variables": [
+    "t",
+    "m",
+    "h"
+  ],
+  "rhs_for_integrator": "(m_inf - m) / tau_m - k_coop * m**2 * (m_inf - m) - k_close * h * m**p_close / (K_half**p_close + m**p_close) + k_reopen * h * (m_inf - m) * (1 - m)",
+  "state_variables": [
+    "m",
+    "h"
+  ],
+  "state_rhs": [
+    "(m_inf - m) / tau_m - k_coop * m**2 * (m_inf - m) - k_close * h * m**p_close / (K_half**p_close + m**p_close) + k_reopen * h * (m_inf - m) * (1 - m)",
+    "(h_inf / (1 + k_hm * m) - h) / tau_h"
+  ],
+  "initial_conditions": {
+    "m": 0.05,
+    "h": 1.0
+  },
+  "noise": 0.01,
+  "sanity_expectations": [
+    "m starts at 0.05 and rises smoothly (no oscillation) toward a bounded steady value strictly within (0, m_inf)",
+    "m stays within [0, 1] for all t",
+    "h starts at 1.0 and decreases monotonically toward its steady value ~ h_inf/(1 + k_hm*m_ss) < 1",
+    "dm_dt starts large and positive (reopening + relaxation drive dominate at low m) and decays toward ~0 as the system approaches steady state",
+    "trajectory reaches an approximately constant asymptote well before t=80 (tau_m=5, tau_h=30)"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "Typed ODE full-system child-vs-parent comparison on the target m-trajectory, sigma=0.01 on dm_dt, k=5. NEW term (k_reopen*h*(m_inf-m)*(1-m), availability-gated reopening) peak effect = 0.183 => 18.3x sigma, strongest at t~0.8 (early, when m is far from m_inf and h~1). passes=true. Parent terms are also visible along the trajectory: linear relaxation (m_inf-m)/tau_m ~0.15 at t=0; saturable closing drive grows with h*m^p and reaches ~0.1 order; cooperative self-suppression k_coop*m^2*(m_inf-m) peaks ~0.15 near m~0.53 as the trajectory sweeps through mid-range. All terms clear 5x sigma somewhere in the sampled window.",
+  "role_corrections": [
+    "dm_dt: O->O (confirmed target derivative / benchmark output)",
+    "t: V->V (confirmed, sole time axis, gets sampling range)",
+    "m: S->S (confirmed target dynamic state)",
+    "h: S->S (confirmed second dynamic state, has its own governing equation in the contract; not a parameter)",
+    "m_inf: P->P (confirmed, fixed under held voltage step)",
+    "tau_m: P->P (confirmed)",
+    "k_coop: P->P (confirmed)",
+    "k_close: P->P (confirmed)",
+    "K_half: P->P (confirmed)",
+    "tau_h: P->P (confirmed, appears only in h-equation)",
+    "h_inf: P->P (confirmed, appears only in h-equation)",
+    "k_hm: P->P (confirmed, appears only in h-equation)",
+    "p_close: P->P (confirmed, Hill exponent)",
+    "k_reopen: P->P (confirmed, new-term coefficient, value 1.0 within suggested 0-5 range)"
+  ],
+  "rationale": "Typed ode_system contract inherited verbatim: two states (m, h), the two state_rhs, and initial conditions m=0.05, h=1.0 are copied without modification; only time range, parameter values, noise, and expectations are design choices. Parameters chosen at physiologically sensible gating magnitudes: activation target m_inf=0.8 with fast relaxation tau_m=5 and slower availability tau_h=30, half-saturation K_half=0.5, Hill exponent p_close=2, and k_reopen=1.0 taken from the suggested 0-5 range. Time window 0-80 with 400 points captures the fast m rise and the slower h relaxation. excitation_check (is_ode=true) confirms the new availability-gated reopening term is highly visible (18.3x sigma) on the target trajectory.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "(m_inf - m) / tau_m - k_coop * m**2 * (m_inf - m) - k_close * h * m**p_close / (K_half**p_close + m**p_close) + k_reopen * h * (m_inf - m) * (1 - m)",
+        "target_symbol": "m"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "K_half",
+          "h",
+          "k_close",
+          "k_coop",
+          "k_reopen",
+          "m",
+          "m_inf",
+          "p_close",
+          "tau_m"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": false,
+        "explicit_solution_preview": null,
+        "classification_hint": "implicit_or_explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "K_half": 0.5,
+          "h_inf": 1,
+          "k_close": 1,
+          "k_coop": 2,
+          "k_hm": 1,
+          "k_reopen": 1,
+          "m_inf": 0.8,
+          "p_close": 2,
+          "tau_h": 30,
+          "tau_m": 5
+        },
+        "indep": [
+          {
+            "symbol": "t",
+            "range": [
+              0,
+              80
+            ]
+          }
+        ],
+        "is_ode": true,
+        "sigma": 0.01
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "m",
+        "child_state_count": 2,
+        "parent_state_count": 2,
+        "n_time_points": 200,
+        "new_term_max_effect": 0.18272371551158814,
+        "new_term_sigma_multiple": 18.272371551158813,
+        "strongest_at": {
+          "t": 0.8040201005025126
+        },
+        "k": 5.0,
+        "passes": true,
+        "advice": "new mechanism is visible on the target trajectory"
+      }
+    }
+  ],
+  "_cost_usd": 0.3640065,
+  "_num_turns": 5,
+  "discipline": "biology",
+  "scenario_text": "The activation of a voltage-gated ion channel population is described by the fraction of channels in the open state, which relaxes toward a voltage-dependent steady value with a voltage-dependent time constant. Under a voltage step held fixed, the open fraction evolves smoothly to its new target. We observe the gating variable's trajectory. The goal is to recover its rate of change.",
+  "record_id": "m2_neuroscience_and_neural_dynamics_0_007",
+  "generation": 5,
+  "_n_total": 5000
+}

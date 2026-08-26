@@ -1,0 +1,277 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "P",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        50.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "k_deg",
+      "value": 1.0
+    },
+    {
+      "symbol": "K_m",
+      "value": 1.0
+    },
+    {
+      "symbol": "k_auto",
+      "value": 0.5
+    },
+    {
+      "symbol": "K_a",
+      "value": 1.0
+    },
+    {
+      "symbol": "k_syn_E",
+      "value": 0.1
+    },
+    {
+      "symbol": "k_ind",
+      "value": 1.0
+    },
+    {
+      "symbol": "K_ind",
+      "value": 5.0
+    },
+    {
+      "symbol": "gamma_E",
+      "value": 0.1
+    },
+    {
+      "symbol": "K_e",
+      "value": 1.0
+    },
+    {
+      "symbol": "k_agg",
+      "value": 0.5
+    },
+    {
+      "symbol": "K_ag",
+      "value": 1.0
+    },
+    {
+      "symbol": "k_nuc",
+      "value": 0.01
+    },
+    {
+      "symbol": "k_seq",
+      "value": 0.3
+    },
+    {
+      "symbol": "gamma_A",
+      "value": 0.1
+    },
+    {
+      "symbol": "k_dis",
+      "value": 0.5
+    }
+  ],
+  "benchmark_output": "dP_dt",
+  "benchmark_target_state": "P",
+  "observed_variables": [
+    "t",
+    "P",
+    "E",
+    "A"
+  ],
+  "rhs_for_integrator": "-k_deg * P / (K_m + P) - k_auto * P**2 / (K_a + P) * (E / (K_e + E)) - k_agg * A * P / (K_ag + P) + k_dis * A * (E / (K_e + E))",
+  "state_variables": [
+    "P",
+    "E",
+    "A"
+  ],
+  "state_rhs": [
+    "-k_deg * P / (K_m + P) - k_auto * P**2 / (K_a + P) * (E / (K_e + E)) - k_agg * A * P / (K_ag + P) + k_dis * A * (E / (K_e + E))",
+    "k_syn_E + k_ind * P / (K_ind + P) - gamma_E * E",
+    "k_nuc * P**2 + k_seq * A * P / (K_ag + P) - gamma_A * A * (E / (K_e + E))"
+  ],
+  "initial_conditions": {
+    "P": 10.0,
+    "E": 1.0,
+    "A": 0.0
+  },
+  "noise": 0.05,
+  "sanity_expectations": [
+    "P decreases from its initial value 10 during the early phase (net first-order proteolytic turnover dominates)",
+    "P stays positive and finite over the whole window",
+    "E increases from 1.0 (basal synthesis + substrate-induced induction outpace gamma_E decay) and remains bounded",
+    "A increases from 0 (nucleation + growth) and remains bounded",
+    "Late in the window the k_dis disaggregation flux partially returns protein to the soluble pool, slowing P's decline relative to the parent system"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "Noise sigma = 0.05 (absolute std on dP_dt), ~5% of the initial dominant degradation flux (|dP/dt|~0.9 at t=0). New term vs parent (+k_dis*A*E/(K_e+E)) reaches 68.2x sigma (max effect 3.41 on the P trajectory), strongest at t=50. It is an inherently late-time mechanism: A starts at 0 and accumulates via nucleation (k_nuc*P^2) and growth (k_seq), so disaggregation grows monotonically and exceeds 5*sigma throughout the latter half of the window (already 24.7x at t=30). Dominant Michaelis degradation and the k_auto/k_agg terms drive P visibly down from 10 in the early window. Full child/parent system comparison passes (k=5).",
+  "role_corrections": [
+    "t: V->V (confirmed as sole time axis / independent variable)",
+    "P: dynamic state -> dependent target state (confirmed; target_state P)",
+    "E: dynamic state -> state variable (confirmed; governed by its own RHS)",
+    "A: dynamic state -> state variable (confirmed; governed by its own RHS)",
+    "k_deg: P->P (confirmed, fixed)",
+    "K_m: P->P (confirmed, fixed)",
+    "k_auto: P->P (confirmed, fixed)",
+    "K_a: P->P (confirmed, fixed)",
+    "k_syn_E: P->P (confirmed, fixed)",
+    "k_ind: P->P (confirmed, fixed)",
+    "K_ind: P->P (confirmed, fixed)",
+    "gamma_E: P->P (confirmed, fixed)",
+    "K_e: P->P (confirmed, fixed)",
+    "k_agg: P->P (confirmed, fixed)",
+    "K_ag: P->P (confirmed, fixed)",
+    "k_nuc: P->P (confirmed, fixed)",
+    "k_seq: P->P (confirmed, fixed)",
+    "gamma_A: P->P (confirmed, fixed)",
+    "k_dis: P->P (confirmed, fixed; suggested range 0.01-1.0, chose 0.5 for strong excitation)"
+  ],
+  "rationale": "Typed ode_system contract inherited verbatim (states P,E,A; RHS and ICs unchanged). Only data-design choices made: time window [0,50] with 300 points, physically reasonable parameter magnitudes (Michaelis constants ~1, rates O(0.1-1), nucleation k_nuc small since it multiplies P^2). The window is deliberately long because the NEW disaggregation term depends on aggregate concentration A, which starts at 0 and only builds up over time; a short window would leave the new mechanism invisible. Excitation confirmed at 68x sigma. Integration was stable/finite across the range.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "-k_deg * P / (K_m + P) - k_auto * P**2 / (K_a + P) * (E / (K_e + E)) - k_agg * A * P / (K_ag + P) + k_dis * A * (E / (K_e + E))",
+        "target_symbol": "P"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "A",
+          "E",
+          "K_a",
+          "K_ag",
+          "K_e",
+          "K_m",
+          "P",
+          "k_agg",
+          "k_auto",
+          "k_deg",
+          "k_dis"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": false,
+        "explicit_solution_preview": null,
+        "classification_hint": "implicit_or_explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "K_a": 1,
+          "K_ag": 1,
+          "K_e": 1,
+          "K_ind": 5,
+          "K_m": 1,
+          "gamma_A": 0.1,
+          "gamma_E": 0.1,
+          "k_agg": 0.5,
+          "k_auto": 0.5,
+          "k_deg": 1,
+          "k_dis": 0.5,
+          "k_ind": 1,
+          "k_nuc": 0.01,
+          "k_seq": 0.3,
+          "k_syn_E": 0.1
+        },
+        "indep": [
+          {
+            "symbol": "t",
+            "range": [
+              0,
+              30
+            ]
+          }
+        ],
+        "is_ode": true,
+        "sigma": 0.05
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "P",
+        "child_state_count": 3,
+        "parent_state_count": 3,
+        "n_time_points": 200,
+        "new_term_max_effect": 1.23740403702134,
+        "new_term_sigma_multiple": 24.748080740426797,
+        "strongest_at": {
+          "t": 30.0
+        },
+        "k": 5.0,
+        "passes": true,
+        "advice": "new mechanism is visible on the target trajectory"
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "K_a": 1,
+          "K_ag": 1,
+          "K_e": 1,
+          "K_ind": 5,
+          "K_m": 1,
+          "gamma_A": 0.1,
+          "gamma_E": 0.1,
+          "k_agg": 0.5,
+          "k_auto": 0.5,
+          "k_deg": 1,
+          "k_dis": 0.5,
+          "k_ind": 1,
+          "k_nuc": 0.01,
+          "k_seq": 0.3,
+          "k_syn_E": 0.1
+        },
+        "indep": [
+          {
+            "range": [
+              0,
+              50
+            ],
+            "symbol": "t"
+          }
+        ],
+        "is_ode": true,
+        "sigma": 0.05
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "P",
+        "child_state_count": 3,
+        "parent_state_count": 3,
+        "n_time_points": 200,
+        "new_term_max_effect": 3.408245856838734,
+        "new_term_sigma_multiple": 68.16491713677468,
+        "strongest_at": {
+          "t": 50.0
+        },
+        "k": 5.0,
+        "passes": true,
+        "advice": "new mechanism is visible on the target trajectory"
+      }
+    }
+  ],
+  "_cost_usd": 0.45437475000000005,
+  "_num_turns": 7,
+  "discipline": "biology",
+  "scenario_text": "A cell degrades a specific protein after a synthesis burst is halted. The protein is removed by first-order proteolytic turnover, so its concentration decays over time. Biologists track the decline to infer the effective degradation dynamics.",
+  "record_id": "m2_cell_biology_and_signaling_0_004",
+  "generation": 5,
+  "_n_total": 5000
+}

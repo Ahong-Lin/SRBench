@@ -1,0 +1,343 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "v",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        12.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "F_drive",
+      "value": 1.0
+    },
+    {
+      "symbol": "drag_coeff",
+      "value": 1.0
+    },
+    {
+      "symbol": "tracer_mass",
+      "value": 1.0
+    },
+    {
+      "symbol": "quad_drag_coeff",
+      "value": 0.5
+    },
+    {
+      "symbol": "added_mass_coeff",
+      "value": 0.5
+    },
+    {
+      "symbol": "rho_fluid",
+      "value": 1.0
+    },
+    {
+      "symbol": "volume_scale",
+      "value": 1.0
+    },
+    {
+      "symbol": "shear_thin_scale",
+      "value": 0.5
+    },
+    {
+      "symbol": "drag_thermal_coeff",
+      "value": 1.0
+    },
+    {
+      "symbol": "visc_heating_coeff",
+      "value": 3.0
+    },
+    {
+      "symbol": "thermal_relax_rate",
+      "value": 1.0
+    },
+    {
+      "symbol": "thermal_advect_coeff",
+      "value": 0.5
+    },
+    {
+      "symbol": "buoyant_convect_coeff",
+      "value": 5.0
+    }
+  ],
+  "benchmark_output": "dv_dt",
+  "benchmark_target_state": "v",
+  "observed_variables": [
+    "t",
+    "v",
+    "T_local"
+  ],
+  "rhs_for_integrator": "(F_drive - drag_coeff*v*(1 + drag_thermal_coeff*T_local) - quad_drag_coeff*v*Abs(v)) / (tracer_mass + added_mass_coeff*rho_fluid*volume_scale/(1 + shear_thin_scale*Abs(v)))",
+  "state_variables": [
+    "v",
+    "T_local"
+  ],
+  "state_rhs": [
+    "(F_drive - drag_coeff*v*(1 + drag_thermal_coeff*T_local) - quad_drag_coeff*v*Abs(v)) / (tracer_mass + added_mass_coeff*rho_fluid*volume_scale/(1 + shear_thin_scale*Abs(v)))",
+    "visc_heating_coeff*drag_coeff*v*v - thermal_relax_rate*(1 + thermal_advect_coeff*Abs(v))*T_local - buoyant_convect_coeff*T_local*Abs(T_local)"
+  ],
+  "initial_conditions": {
+    "v": 0.0,
+    "T_local": 0.0
+  },
+  "noise": 0.01,
+  "sanity_expectations": [
+    "v starts at 0 and increases monotonically toward a finite terminal drift velocity (~0.6-0.7)",
+    "v is bounded and never goes negative",
+    "v approaches a finite asymptote (terminal drift) as t grows",
+    "T_local starts at 0, rises as viscous heating turns on, then settles to a finite positive steady plateau",
+    "T_local remains bounded and non-negative"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "ODE-system child/parent comparison on target state v, sigma=0.01. New term buoyant_convect_coeff*T_local*Abs(T_local) (in the T_local equation) reaches the target v via the drag_thermal_coeff*T_local coupling: peak effect 0.0809 = 8.09*sigma at t~5.1, above the 5*sigma bar (passes). Dominant balance terms (F_drive vs linear+quadratic drag, and viscous-heating vs thermal-relaxation) are all O(1e-1..1), far above sigma. An earlier trial with buoyant_convect_coeff=3, visc_heating_coeff=2 gave 4.93*sigma (just under); raising visc_heating_coeff to 3 (larger T_local) and buoyant_convect_coeff to 5 (top of suggested 0-5 range) lifted it to 8.09*sigma.",
+  "role_corrections": [
+    "dv_dt: claimed-output/target derivative -> benchmark_output (confirmed)",
+    "v: claimed-dynamic state -> target state / dependent_variable (confirmed)",
+    "T_local: claimed-dynamic state -> second state variable (confirmed; has its own governing RHS, not ungoverned)",
+    "t: claimed-time axis -> sole independent variable (confirmed)",
+    "F_drive: P->P (confirmed, fixed)",
+    "drag_coeff: P->P (confirmed, fixed)",
+    "tracer_mass: P->P (confirmed, fixed)",
+    "quad_drag_coeff: P->P (confirmed, fixed)",
+    "added_mass_coeff: P->P (confirmed, fixed)",
+    "rho_fluid: P->P (confirmed, fixed)",
+    "volume_scale: P->P (confirmed, fixed)",
+    "shear_thin_scale: P->P (confirmed, fixed)",
+    "drag_thermal_coeff: P->P (confirmed, fixed)",
+    "visc_heating_coeff: P->P (confirmed, fixed)",
+    "thermal_relax_rate: P->P (confirmed, fixed)",
+    "thermal_advect_coeff: P->P (confirmed, fixed)",
+    "buoyant_convect_coeff: P->P (confirmed, fixed; the new-term coefficient)"
+  ],
+  "rationale": "Typed ODE-system contract inherited verbatim: two coupled first-order states (v, T_local), target v, integrator integrate_system. analyze_expression confirmed no derivatives/integrals/ungoverned functions and that both RHS depend only on the two states plus the listed parameters, so no hidden dynamic state exists (not a delay/Basset case). Parameters fixed in reduced units (mass~1, drive~1, drags O(0.5-1)) so the tracer starts from rest and approaches an O(1) terminal drift on an O(1-5) timescale; t in [0,12] captures both the acceleration transient and the thermal plateau where the new buoyant term is strongest.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "(F_drive - drag_coeff*v*(1 + drag_thermal_coeff*T_local) - quad_drag_coeff*v*Abs(v)) / (tracer_mass + added_mass_coeff*rho_fluid*volume_scale/(1 + shear_thin_scale*Abs(v)))",
+        "target_symbol": "v"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "F_drive",
+          "T_local",
+          "added_mass_coeff",
+          "drag_coeff",
+          "drag_thermal_coeff",
+          "quad_drag_coeff",
+          "rho_fluid",
+          "shear_thin_scale",
+          "tracer_mass",
+          "v",
+          "volume_scale"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": false,
+        "explicit_solution_preview": null,
+        "classification_hint": "implicit_or_explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "visc_heating_coeff*drag_coeff*v*v - thermal_relax_rate*(1 + thermal_advect_coeff*Abs(v))*T_local - buoyant_convect_coeff*T_local*Abs(T_local)",
+        "target_symbol": "T_local"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "T_local",
+          "buoyant_convect_coeff",
+          "drag_coeff",
+          "thermal_advect_coeff",
+          "thermal_relax_rate",
+          "v",
+          "visc_heating_coeff"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": false,
+        "explicit_solution_preview": null,
+        "classification_hint": "implicit_or_explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "(F_drive - drag_coeff*v*(1 + drag_thermal_coeff*T_local) - quad_drag_coeff*v*Abs(v)) / (tracer_mass + added_mass_coeff*rho_fluid*volume_scale/(1 + shear_thin_scale*Abs(v)))",
+        "assignments": {
+          "F_drive": 1,
+          "drag_coeff": 1,
+          "tracer_mass": 1,
+          "quad_drag_coeff": 0.5,
+          "added_mass_coeff": 0.5,
+          "rho_fluid": 1,
+          "volume_scale": 1,
+          "shear_thin_scale": 0.5,
+          "drag_thermal_coeff": 1,
+          "v": 0.5,
+          "T_local": 0.2
+        },
+        "target_symbol": "v"
+      },
+      "result": {
+        "ok": true,
+        "value_real": 0.19642857142857145,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "visc_heating_coeff*drag_coeff*v*v - thermal_relax_rate*(1 + thermal_advect_coeff*Abs(v))*T_local - buoyant_convect_coeff*T_local*Abs(T_local)",
+        "assignments": {
+          "visc_heating_coeff": 2,
+          "drag_coeff": 1,
+          "thermal_relax_rate": 1,
+          "thermal_advect_coeff": 0.5,
+          "buoyant_convect_coeff": 3,
+          "v": 0.5,
+          "T_local": 0.2
+        },
+        "target_symbol": "T_local"
+      },
+      "result": {
+        "ok": true,
+        "value_real": 0.12999999999999995,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "F_drive": 1,
+          "added_mass_coeff": 0.5,
+          "buoyant_convect_coeff": 3,
+          "drag_coeff": 1,
+          "drag_thermal_coeff": 1,
+          "quad_drag_coeff": 0.5,
+          "rho_fluid": 1,
+          "shear_thin_scale": 0.5,
+          "thermal_advect_coeff": 0.5,
+          "thermal_relax_rate": 1,
+          "tracer_mass": 1,
+          "visc_heating_coeff": 2,
+          "volume_scale": 1
+        },
+        "indep": [
+          {
+            "symbol": "t",
+            "range": [
+              0,
+              12
+            ]
+          }
+        ],
+        "is_ode": true,
+        "sigma": 0.01
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "v",
+        "child_state_count": 2,
+        "parent_state_count": 2,
+        "n_time_points": 200,
+        "new_term_max_effect": 0.04931828337627586,
+        "new_term_sigma_multiple": 4.931828337627586,
+        "strongest_at": {
+          "t": 5.7286432160804015
+        },
+        "k": 5.0,
+        "passes": false,
+        "advice": "new mechanism peaks at only 4.93*sigma (need 5.0); extend the t range or adjust physically valid coefficients"
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "F_drive": 1,
+          "added_mass_coeff": 0.5,
+          "buoyant_convect_coeff": 5,
+          "drag_coeff": 1,
+          "drag_thermal_coeff": 1,
+          "quad_drag_coeff": 0.5,
+          "rho_fluid": 1,
+          "shear_thin_scale": 0.5,
+          "thermal_advect_coeff": 0.5,
+          "thermal_relax_rate": 1,
+          "tracer_mass": 1,
+          "visc_heating_coeff": 3,
+          "volume_scale": 1
+        },
+        "indep": [
+          {
+            "range": [
+              0,
+              12
+            ],
+            "symbol": "t"
+          }
+        ],
+        "is_ode": true,
+        "sigma": 0.01
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "v",
+        "child_state_count": 2,
+        "parent_state_count": 2,
+        "n_time_points": 200,
+        "new_term_max_effect": 0.08086699853047741,
+        "new_term_sigma_multiple": 8.08669985304774,
+        "strongest_at": {
+          "t": 5.125628140703517
+        },
+        "k": 5.0,
+        "passes": true,
+        "advice": "new mechanism is visible on the target trajectory"
+      }
+    }
+  ],
+  "_cost_usd": 0.5420555,
+  "_num_turns": 9,
+  "discipline": "physics",
+  "scenario_text": "In a viscous liquid metal, a suspended tracer moves under an applied driving force while experiencing frictional drag from the surrounding fluid. Its velocity evolves in time as inertia competes with the velocity-dependent drag. Starting from rest, the tracer accelerates and approaches a terminal drift. The objective is to evolve the tracer velocity over time.",
+  "record_id": "m2_condensed_matter_physics_0_008",
+  "generation": 5,
+  "_n_total": 5000
+}

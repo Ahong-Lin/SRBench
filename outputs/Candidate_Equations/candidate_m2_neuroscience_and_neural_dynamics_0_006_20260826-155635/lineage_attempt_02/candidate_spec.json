@@ -1,0 +1,230 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "x",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        600.0
+      ],
+      "n_points": 500,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "tau_x",
+      "value": 10.0
+    },
+    {
+      "symbol": "input_x",
+      "value": 1.0
+    },
+    {
+      "symbol": "beta",
+      "value": 1.0
+    },
+    {
+      "symbol": "g_adapt",
+      "value": 1.0
+    },
+    {
+      "symbol": "gain",
+      "value": 0.1
+    },
+    {
+      "symbol": "tau_y",
+      "value": 10.0
+    },
+    {
+      "symbol": "input_y",
+      "value": 1.0
+    },
+    {
+      "symbol": "tau_a",
+      "value": 100.0
+    },
+    {
+      "symbol": "tau_scale",
+      "value": 0.5
+    },
+    {
+      "symbol": "a_gain",
+      "value": 0.1
+    },
+    {
+      "symbol": "a_half",
+      "value": 0.5
+    },
+    {
+      "symbol": "gamma_shunt",
+      "value": 1.0
+    },
+    {
+      "symbol": "a_rise_scale",
+      "value": 1.0
+    },
+    {
+      "symbol": "a_fall_scale",
+      "value": 1.0
+    },
+    {
+      "symbol": "tau_s",
+      "value": 100.0
+    },
+    {
+      "symbol": "s_depth",
+      "value": 2.0
+    },
+    {
+      "symbol": "s_recovery",
+      "value": 1.0
+    }
+  ],
+  "benchmark_output": "dx_dt",
+  "benchmark_target_state": "x",
+  "observed_variables": [
+    "t",
+    "x",
+    "y",
+    "a",
+    "s"
+  ],
+  "rhs_for_integrator": "(-x + 1/(1 + exp(-(input_x - beta*(1 + gamma_shunt*a)*y - g_adapt*a)/gain))) / (tau_x*(1 + tau_scale*a))",
+  "state_variables": [
+    "x",
+    "y",
+    "a",
+    "s"
+  ],
+  "state_rhs": [
+    "(-x + 1/(1 + exp(-(input_x - beta*(1 + gamma_shunt*a)*y - g_adapt*a)/gain))) / (tau_x*(1 + tau_scale*a))",
+    "(-y + 1/(1 + exp(-(input_y - beta*x*s - g_adapt*a*0)/gain))) / tau_y",
+    "(-a + 1/(1 + exp(-(x - a_half)/a_gain))) / (tau_a * (1 + a_fall_scale*(1 - x)) / (1 + a_rise_scale*x))",
+    "(s_recovery*(1 - s) - s_depth*x*s) / tau_s"
+  ],
+  "initial_conditions": {
+    "x": 0.9,
+    "y": 0.1,
+    "a": 0.1,
+    "s": 1.0
+  },
+  "noise": 0.01,
+  "sanity_expectations": [
+    "x stays bounded in [0,1] (sigmoidal activation)",
+    "y, a, s all stay bounded in [0,1]",
+    "x and y show alternating dominance (anti-phase oscillation): when x is high, y is low and vice versa",
+    "activity is oscillatory rather than settling to a fixed point over 0-600, driven by slow adaptation a (tau_a=100)",
+    "s (synaptic resource) drops when pool-one activity x is high and recovers when x is low, lagging x"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "Full child-vs-parent system comparison on the x trajectory (is_ode=true), σ=0.01, k=5. The NEW mechanism (short-term synaptic depression state s entering dy/dt via beta*x*s, plus its own ds/dt) shifts x by up to 0.159 ≈ 15.9σ, strongest near t≈16.8, well above the 5σ bar (passes). All pre-existing terms are intrinsic drivers of the sigmoidal mutual-inhibition + adaptation dynamics (order-1 activities, x,y∈[0,1]) and remain active across the 0–600 window, which spans several adaptation-driven alternation cycles (τ_a=100).",
+  "role_corrections": [
+    "t: V->V (confirmed as sole time axis)",
+    "x: target state -> target state (confirmed; dependent variable / benchmark target)",
+    "y: dynamic state -> dynamic state (confirmed)",
+    "a: dynamic state -> dynamic state (confirmed)",
+    "s: dynamic state -> dynamic state (confirmed; the new short-term-depression state this generation added)",
+    "tau_x,input_x,beta,g_adapt,gain,tau_y,input_y,tau_a,tau_scale,a_gain,a_half,gamma_shunt,a_rise_scale,a_fall_scale,tau_s,s_depth,s_recovery: P->P (all confirmed as fixed parameters)"
+  ],
+  "rationale": "Typed ode_system contract inherited verbatim (states x,y,a,s; RHS, initial conditions, and target unchanged). Only data-design choices were made: a single time axis t on [0,600] with 500 points to capture several alternation cycles given tau_a=tau_s=100 and tau_x=tau_y=10; physically standard rivalry-model magnitudes (order-1 drives/inhibition, steep sigmoid gain=0.1, order-1 half-activations); suggested ranges for the new depression block honored (tau_s=100∈[20,400], s_depth=2∈[0.5,5], s_recovery=1∈[0.5,2], s∈[0,1] via IC=1.0). σ=0.01 is small vs the unit-scale activity yet the new depression mechanism reaches ~15.9σ on x, so it is clearly visible above noise.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "(-x + 1/(1 + exp(-(input_x - beta*(1 + gamma_shunt*a)*y - g_adapt*a)/gain))) / (tau_x*(1 + tau_scale*a))",
+        "target_symbol": "x"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "a",
+          "beta",
+          "g_adapt",
+          "gain",
+          "gamma_shunt",
+          "input_x",
+          "tau_scale",
+          "tau_x",
+          "x",
+          "y"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "1/(exp((a*beta*gamma_shunt*y + a*g_adapt + beta*y - input_x)/gain) + 1)"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "a_fall_scale": 1,
+          "a_gain": 0.1,
+          "a_half": 0.5,
+          "a_rise_scale": 1,
+          "beta": 1,
+          "g_adapt": 1,
+          "gain": 0.1,
+          "gamma_shunt": 1,
+          "input_x": 1,
+          "input_y": 1,
+          "s_depth": 2,
+          "s_recovery": 1,
+          "tau_a": 100,
+          "tau_s": 100,
+          "tau_scale": 0.5,
+          "tau_x": 10,
+          "tau_y": 10
+        },
+        "indep": [
+          {
+            "symbol": "t",
+            "range": [
+              0,
+              600
+            ],
+            "n_points": 500
+          }
+        ],
+        "is_ode": true,
+        "sigma": 0.01
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "x",
+        "child_state_count": 4,
+        "parent_state_count": 3,
+        "n_time_points": 500,
+        "new_term_max_effect": 0.1593266293525265,
+        "new_term_sigma_multiple": 15.932662935252651,
+        "strongest_at": {
+          "t": 16.83366733466934
+        },
+        "k": 5.0,
+        "passes": true,
+        "advice": "new mechanism is visible on the target trajectory"
+      }
+    }
+  ],
+  "_cost_usd": 0.39585399999999993,
+  "_num_turns": 6,
+  "discipline": "biology",
+  "scenario_text": "Two mutually inhibitory neural pools form a competition circuit that alternates dominance, as in perceptual rivalry. Each pool suppresses the other, and slow adaptation of the winning pool eventually lets the loser take over, producing alternating activity. We follow both pool activities plus an adaptation variable from initial conditions. The aim is to recover the activity rate law of one pool.",
+  "record_id": "m2_neuroscience_and_neural_dynamics_0_006",
+  "generation": 5,
+  "_n_total": 5000
+}

@@ -1,0 +1,240 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "v",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        3.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "B",
+      "value": 1.0
+    },
+    {
+      "symbol": "L",
+      "value": 1.0
+    },
+    {
+      "symbol": "m",
+      "value": 0.5
+    },
+    {
+      "symbol": "R_ref",
+      "value": 1.0
+    },
+    {
+      "symbol": "k_drag",
+      "value": 0.05
+    },
+    {
+      "symbol": "I_sat",
+      "value": 50.0
+    },
+    {
+      "symbol": "L_ind",
+      "value": 0.01
+    },
+    {
+      "symbol": "alpha_R",
+      "value": 0.004
+    },
+    {
+      "symbol": "C_th",
+      "value": 100.0
+    },
+    {
+      "symbol": "P_conv",
+      "value": 1.0
+    },
+    {
+      "symbol": "mu_fric",
+      "value": 0.2
+    },
+    {
+      "symbol": "g_grav",
+      "value": 9.81
+    },
+    {
+      "symbol": "v_eps",
+      "value": 0.05
+    }
+  ],
+  "benchmark_output": "dv_dt",
+  "benchmark_target_state": "v",
+  "observed_variables": [
+    "t",
+    "v",
+    "I",
+    "T_c"
+  ],
+  "rhs_for_integrator": "-(B * L / m) * I - (k_drag / m) * v**2 - (mu_fric * g_grav) * tanh(v / v_eps)",
+  "state_variables": [
+    "v",
+    "I",
+    "T_c"
+  ],
+  "state_rhs": [
+    "-(B * L / m) * I - (k_drag / m) * v**2 - (mu_fric * g_grav) * tanh(v / v_eps)",
+    "(B * L * v - R_ref * (1 + alpha_R * T_c) * (1 + (B * L * v / (R_ref * (1 + alpha_R * T_c) * I_sat))**2) * I) / L_ind",
+    "(R_ref * (1 + alpha_R * T_c) * I**2 - P_conv * T_c) / C_th"
+  ],
+  "initial_conditions": {
+    "v": 10.0,
+    "I": 0.0,
+    "T_c": 0.0
+  },
+  "noise": 0.1,
+  "sanity_expectations": [
+    "v starts at 10 and decreases monotonically toward ~0 (magnetic braking + quadratic drag + Coulomb friction all decelerate)",
+    "v is bounded in [0, 10] and does not go negative (tanh(v/v_eps) regularizes the friction sign as v->0)",
+    "I starts at 0, rises rapidly (L_ind small) to a quasi-steady value ~ B*L*v/R, then decays as v decays",
+    "T_c starts at 0 and rises (ohmic heating R*I^2) before leveling as v and I fall; alpha_R*T_c stays a small correction",
+    "dv_dt is negative throughout, largest in magnitude early, tending toward the near-constant friction level as v shrinks"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "Noise sigma=0.1 (absolute, on dv_dt). ODE-system excitation_check (full child-vs-parent systems on the v trajectory) gives the NEW Coulomb-friction term -(mu_fric*g_grav)*tanh(v/v_eps) a peak effect of 0.783 = 7.83*sigma, strongest at t~1.04 s (where the magnetic and quadratic-drag decelerations have decayed and the near-constant friction dominates). Parent (magnetic + v^2 drag) terms dominate early motion (dv_dt starts ~ -13 to -24), so both original terms are strongly excited across 0-3 s. New term passes the 5*sigma bar.",
+  "role_corrections": [
+    "t: V->V (confirmed as sole time axis)",
+    "v: dynamic state -> dynamic state (confirmed; target_state, benchmark from dv_dt)",
+    "I: dynamic state -> dynamic state (confirmed; governed by its own RHS)",
+    "T_c: dynamic state -> dynamic state (confirmed; governed by its own RHS)",
+    "B: P->P (confirmed, fixed 1.0 T)",
+    "L: P->P (confirmed, fixed 1.0 m)",
+    "m: P->P (confirmed, fixed 0.5 kg)",
+    "R_ref: P->P (confirmed, fixed 1.0 ohm)",
+    "k_drag: P->P (confirmed, fixed 0.05)",
+    "I_sat: P->P (confirmed, fixed 50 A)",
+    "L_ind: P->P (confirmed, fixed 0.01 H)",
+    "alpha_R: P->P (confirmed, fixed 0.004 /K)",
+    "C_th: P->P (confirmed, fixed 100 J/K)",
+    "P_conv: P->P (confirmed, fixed 1.0 W/K)",
+    "mu_fric: P->P (confirmed, fixed 0.2, within hint 0.001-0.3)",
+    "g_grav: P->P (confirmed, fixed 9.81, within hint 9.8-9.81)",
+    "v_eps: P->P (confirmed, fixed 0.05, within hint 0.001-0.1)"
+  ],
+  "rationale": "Typed ode_system contract inherited verbatim (states v, I, T_c; RHS and ICs unchanged). Chose t in [0,3] s so the full braking transient is captured: early motion is dominated by magnetic braking (~B^2 L^2/(mR)=2/s scale) and quadratic drag, while the tail (t~1 s onward) exposes the new near-constant Coulomb-friction term as v drops below the drag/magnetic scale. Parameters are physically sensible SI magnitudes; I_sat, L_ind, alpha_R, C_th, P_conv keep the current and thermal sub-dynamics mild but active. auto_balance is report-only for ODE systems, so balancing was done by range/parameter choice and confirmed with excitation_check (is_ode=true): new term at 7.83*sigma.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "-(B * L / m) * I - (k_drag / m) * v**2 - (mu_fric * g_grav) * tanh(v / v_eps)",
+        "target_symbol": "v"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "B",
+          "I",
+          "L",
+          "g_grav",
+          "k_drag",
+          "m",
+          "mu_fric",
+          "v",
+          "v_eps"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": false,
+        "explicit_solution_preview": null,
+        "classification_hint": "implicit_or_explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "-(B * L / m) * I - (k_drag / m) * v**2 - (mu_fric * g_grav) * tanh(v / v_eps)",
+        "assignments": {
+          "B": 1,
+          "L": 1,
+          "m": 0.5,
+          "k_drag": 0.05,
+          "I": 9.6,
+          "mu_fric": 0.2,
+          "g_grav": 9.81,
+          "v_eps": 0.05,
+          "v": 5
+        },
+        "target_symbol": "v"
+      },
+      "result": {
+        "ok": true,
+        "value_real": -23.662,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "B": 1,
+          "C_th": 100,
+          "I_sat": 50,
+          "L": 1,
+          "L_ind": 0.01,
+          "P_conv": 1,
+          "R_ref": 1,
+          "alpha_R": 0.004,
+          "g_grav": 9.81,
+          "k_drag": 0.05,
+          "m": 0.5,
+          "mu_fric": 0.2,
+          "v_eps": 0.05
+        },
+        "indep": [
+          {
+            "symbol": "t",
+            "range": [
+              0,
+              3
+            ]
+          }
+        ],
+        "is_ode": true,
+        "sigma": 0.1
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "v",
+        "child_state_count": 3,
+        "parent_state_count": 3,
+        "n_time_points": 200,
+        "new_term_max_effect": 0.7833375662520072,
+        "new_term_sigma_multiple": 7.833375662520072,
+        "strongest_at": {
+          "t": 1.0402010050251256
+        },
+        "k": 5.0,
+        "passes": true,
+        "advice": "new mechanism is visible on the target trajectory"
+      }
+    }
+  ],
+  "_cost_usd": 0.40045025,
+  "_num_turns": 6,
+  "discipline": "physics",
+  "scenario_text": "A conducting rod slides along parallel rails immersed in a fixed magnetic field, and the changing enclosed area drives a current through a resistive loop. The induced current produces a retarding force on the moving rod that opposes its motion. We follow the rod's velocity as it slows. The field strength, rod length, mass, and loop resistance set the braking behavior.",
+  "record_id": "m2_electromagnetism_0_004",
+  "generation": 5,
+  "_n_total": 5000
+}

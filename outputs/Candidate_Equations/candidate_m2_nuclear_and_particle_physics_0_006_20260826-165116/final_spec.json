@@ -1,0 +1,298 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "E",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        60.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "K_stop",
+      "value": 10.0
+    },
+    {
+      "symbol": "I_ref",
+      "value": 0.1
+    },
+    {
+      "symbol": "one_shift",
+      "value": 1.0
+    },
+    {
+      "symbol": "v_ratio_c",
+      "value": 0.3
+    },
+    {
+      "symbol": "E_rest",
+      "value": 100.0
+    },
+    {
+      "symbol": "E_shell",
+      "value": 1.0
+    },
+    {
+      "symbol": "eff_charge_amp",
+      "value": 0.5
+    },
+    {
+      "symbol": "screen_ratio",
+      "value": 0.3
+    },
+    {
+      "symbol": "dens_amp",
+      "value": 0.5
+    },
+    {
+      "symbol": "dens_ratio",
+      "value": 1.0
+    },
+    {
+      "symbol": "nuclear_amp",
+      "value": 2.0
+    },
+    {
+      "symbol": "E_nuc",
+      "value": 0.1
+    },
+    {
+      "symbol": "nuclear_exp",
+      "value": 0.5
+    }
+  ],
+  "benchmark_output": "dE_dt",
+  "benchmark_target_state": "E",
+  "observed_variables": [
+    "t",
+    "E"
+  ],
+  "rhs_for_integrator": "-K_stop * log(E / I_ref + one_shift) / E * (1 + (v_ratio_c**2) / (E / E_rest)) * (1 - exp(-(E / E_shell))) * (1 - eff_charge_amp * exp(-sqrt(E / E_rest) / screen_ratio))**2 * (1 + dens_amp * log(E / E_rest + one_shift) / (1 + dens_ratio * E_rest / E)) * (1 + nuclear_amp / (1 + (E / E_nuc)**nuclear_exp))",
+  "state_variables": [
+    "E"
+  ],
+  "state_rhs": [
+    "-K_stop * log(E / I_ref + one_shift) / E * (1 + (v_ratio_c**2) / (E / E_rest)) * (1 - exp(-(E / E_shell))) * (1 - eff_charge_amp * exp(-sqrt(E / E_rest) / screen_ratio))**2 * (1 + dens_amp * log(E / E_rest + one_shift) / (1 + dens_ratio * E_rest / E)) * (1 + nuclear_amp / (1 + (E / E_nuc)**nuclear_exp))"
+  ],
+  "initial_conditions": {
+    "E": 100.0
+  },
+  "noise": 0.05,
+  "sanity_expectations": [
+    "E(t) is monotonically decreasing (dE/dt < 0 everywhere)",
+    "E stays bounded in (0, 100], starting at E=100",
+    "energy-loss rate |dE/dt| increases as E falls, producing a steep Bragg-like drop at low energy",
+    "by t=60 the particle has slowed to low energy where the nuclear-stopping factor materially accelerates the loss versus the parent (no-nuclear) model",
+    "E remains finite and real throughout the window (no blow-up or complex values)"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "ODE full child-vs-parent comparison on the E(t) trajectory over t in [0,60], sigma=0.05 on dE_dt. New (nuclear) term: peak effect 13.8, i.e. 276x sigma, strongest at the low-energy end (t=60) where E has dropped enough for (1+nuclear_amp/(1+(E/E_nuc)^nuclear_exp)) to grow; passes 5-sigma comfortably. Broad crossover (nuclear_exp=0.5, nuclear_amp=2.0, E_nuc=0.1) makes the nuclear factor contribute ~6% already at E=100 and rising through the mid/low-energy range, so it is not confined to the fast Bragg tail. Parent terms are also well excited: relativistic factor (1+v_ratio_c^2*E_rest/E) grows from ~1.09 at E=100 to >>1 as E falls; density factor ~17% at E=100; shell (1-exp(-E/E_shell)) and effective-charge factors swing strongly through the low-energy region. dE/dt magnitude spans ~0.9 (E=100) to ~10^2 (E<1), all far above sigma=0.05.",
+  "role_corrections": [
+    "t: V->V (confirmed: sole independent time/path axis; autonomous RHS, gets the sampling range)",
+    "E: dynamic state -> dependent_variable/state (confirmed: quantity under d/dt, IC=100 from contract)",
+    "dE_dt: output -> benchmark_output (confirmed: RHS of the state equation)",
+    "K_stop: P->P (confirmed: fixed stopping coefficient)",
+    "I_ref: P->P (confirmed)",
+    "one_shift: P->P (confirmed)",
+    "v_ratio_c: P->P (confirmed)",
+    "E_rest: P->P (confirmed; set to 100 so relativistic/density/screening factors are all excited within E<=100)",
+    "E_shell: P->P (confirmed)",
+    "eff_charge_amp: P->P (confirmed)",
+    "screen_ratio: P->P (confirmed)",
+    "dens_amp: P->P (confirmed)",
+    "dens_ratio: P->P (confirmed)",
+    "nuclear_amp: P->P (confirmed; new-term amplitude)",
+    "E_nuc: P->P (confirmed; new-term crossover energy)",
+    "nuclear_exp: P->P (confirmed; new-term crossover sharpness)"
+  ],
+  "rationale": "Typed ode_system inherited verbatim from the contract (state E, autonomous dE/dt=f(E), IC E=100). t is the only independent axis and gets the sampling range; all 13 remaining symbols are fixed parameters. Values chosen for physically sensible Bethe-like stopping: I_ref<<E keeps the log positive, one_shift=1 regularizes it at low E, E_rest=100 places the E<=100 window in a regime where relativistic, density and screening corrections are all active, and the suggested nuclear ranges are used with nuclear_exp=0.5/nuclear_amp=2.0/E_nuc=0.1 to give the new nuclear-stopping term broad visibility rather than confining it to the ultra-fast tail. Window t in [0,60] captures the descent from E=100 down to the low-energy region where the new term dominates; integration verified finite/real and the new term reaches 276x the sigma=0.05 noise.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "-K_stop * log(E / I_ref + one_shift) / E * (1 + (v_ratio_c**2) / (E / E_rest)) * (1 - exp(-(E / E_shell))) * (1 - eff_charge_amp * exp(-sqrt(E / E_rest) / screen_ratio))**2 * (1 + dens_amp * log(E / E_rest + one_shift) / (1 + dens_ratio * E_rest / E)) * (1 + nuclear_amp / (1 + (E / E_nuc)**nuclear_exp))",
+        "target_symbol": "E"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "E",
+          "E_nuc",
+          "E_rest",
+          "E_shell",
+          "I_ref",
+          "K_stop",
+          "dens_amp",
+          "dens_ratio",
+          "eff_charge_amp",
+          "nuclear_amp",
+          "nuclear_exp",
+          "one_shift",
+          "screen_ratio",
+          "v_ratio_c"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": false,
+        "explicit_solution_preview": null,
+        "classification_hint": "implicit_or_explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "-K_stop * log(E / I_ref + one_shift) / E * (1 + (v_ratio_c**2) / (E / E_rest)) * (1 - exp(-(E / E_shell))) * (1 - eff_charge_amp * exp(-sqrt(E / E_rest) / screen_ratio))**2 * (1 + dens_amp * log(E / E_rest + one_shift) / (1 + dens_ratio * E_rest / E)) * (1 + nuclear_amp / (1 + (E / E_nuc)**nuclear_exp))",
+        "assignments": {
+          "K_stop": 10,
+          "I_ref": 0.1,
+          "one_shift": 1,
+          "v_ratio_c": 0.3,
+          "E_rest": 100,
+          "E_shell": 1,
+          "eff_charge_amp": 0.5,
+          "screen_ratio": 0.3,
+          "dens_amp": 0.5,
+          "dens_ratio": 1,
+          "nuclear_amp": 2,
+          "E_nuc": 0.1,
+          "nuclear_exp": 0.5,
+          "E": 100
+        },
+        "target_symbol": "E"
+      },
+      "result": {
+        "ok": true,
+        "value_real": -0.904562484460197,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "assignments": {
+          "E": 0.5,
+          "E_nuc": 0.1,
+          "E_rest": 100,
+          "E_shell": 1,
+          "I_ref": 0.1,
+          "K_stop": 10,
+          "dens_amp": 0.5,
+          "dens_ratio": 1,
+          "eff_charge_amp": 0.5,
+          "nuclear_amp": 2,
+          "nuclear_exp": 0.5,
+          "one_shift": 1,
+          "screen_ratio": 0.3,
+          "v_ratio_c": 0.3
+        },
+        "expression": "-K_stop * log(E / I_ref + one_shift) / E * (1 + (v_ratio_c**2) / (E / E_rest)) * (1 - exp(-(E / E_shell))) * (1 - eff_charge_amp * exp(-sqrt(E / E_rest) / screen_ratio))**2 * (1 + dens_amp * log(E / E_rest + one_shift) / (1 + dens_ratio * E_rest / E)) * (1 + nuclear_amp / (1 + (E / E_nuc)**nuclear_exp))",
+        "target_symbol": "E"
+      },
+      "result": {
+        "ok": true,
+        "value_real": -158.65968812840526,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "E_nuc": 0.1,
+          "E_rest": 100,
+          "E_shell": 1,
+          "I_ref": 0.1,
+          "K_stop": 10,
+          "dens_amp": 0.5,
+          "dens_ratio": 1,
+          "eff_charge_amp": 0.5,
+          "nuclear_amp": 2,
+          "nuclear_exp": 0.5,
+          "one_shift": 1,
+          "screen_ratio": 0.3,
+          "v_ratio_c": 0.3
+        },
+        "indep": [
+          {
+            "symbol": "t",
+            "range": [
+              0,
+              60
+            ],
+            "n_points": 300
+          }
+        ],
+        "is_ode": true,
+        "sigma": 0.05
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "E",
+        "child_state_count": 1,
+        "parent_state_count": 1,
+        "n_time_points": 300,
+        "new_term_max_effect": 13.798652493769335,
+        "new_term_sigma_multiple": 275.97304987538666,
+        "strongest_at": {
+          "t": 60.0
+        },
+        "k": 5.0,
+        "passes": true,
+        "advice": "new mechanism is visible on the target trajectory"
+      }
+    }
+  ],
+  "_cost_usd": 0.8601162499999998,
+  "_num_turns": 7,
+  "discipline": "physics",
+  "scenario_text": "A charged particle penetrates a stopping medium and loses kinetic energy through interactions with the medium's electrons. The energy loss per unit path length depends strongly on the particle's instantaneous kinetic energy, rising as the particle slows. The particle's energy is followed as it traverses the material until it nears rest. The stopping behavior governs the depth profile of deposited energy.",
+  "record_id": "m2_nuclear_and_particle_physics_0_006",
+  "generation": 5,
+  "_n_total": 5000,
+  "finalization": {
+    "mode": "candidate",
+    "accepted_generations": 5,
+    "novelty": {
+      "reasoning": "The baseline term -K_stop * log(E/I_ref + one_shift)/E is the classical Bethe-like stopping-power form (the 1/E factor being a velocity-squared surrogate, and the logarithm the Bethe stopping logarithm). The candidate equation extends this with a chain of physically-motivated correction factors: (1) a low-velocity relativistic/velocity enhancement (1 + v_ratio_c^2/(E/E_rest)); (2) a shell-correction cutoff (1 - exp(-E/E_shell)); (3) an effective-charge (electron pickup) reduction factor squared with a Bohr-like screening exponential; (4) a density-effect polarization correction with a saturating logarithmic form; and (5) an additional nuclear (elastic) stopping contribution with a sigmoidal crossover. Each of these corrections corresponds to a REAL physical effect known in ion-stopping physics (shell correction, effective charge/Barkas, density effect, nuclear stopping) — the conceptual ingredients are all textbook-known (Bethe-Bloch with corrections, SRIM/TRIM modeling, Ziegler-Biersack-Littmark). However, the SPECIFIC functional forms chosen here are heuristic, not the standard textbook expressions: the real density effect uses a piecewise Sternheimer parameterization, the shell correction uses tabulated C/Z terms, the effective charge uses the Northcliffe/ZBL empirical exponential (1 - exp(-0.95(v/v0)Z^{-2/3})), and nuclear stopping uses the universal reduced-energy screening function. The candidate combines these into a single closed-form multiplicative product with idiosyncratic composite terms (e.g., the squared exp(-sqrt(E/E_rest)/screen_ratio) charge factor, the log-based density factor divided by (1 + dens_ratio*E_rest/E), and the rational nuclear crossover 1/(1+(E/E_nuc)^nuclear_exp)). This exact combined multiplicative expression does not appear in any textbook or public reference, and no LLM could recite this precise composite form from memory. The physics motivations are recognizable, but the concrete parameterized composite structure is a data-driven construction that could only be tuned/recovered from fitting experimental stopping-profile data. Therefore, relative to the classical baseline, this represents genuine composite novelty in its exact functional form.",
+      "answer": "Yes",
+      "llm_qa_history": [
+        {
+          "attempt": 1,
+          "model": "claude-opus-4-8",
+          "system_prompt": "You are a top-tier scientist with deep expertise across physics, biology,\nchemistry, and materials science. Your task is to act as a \"Novelty Evaluator\":\nobjectively judge whether a newly generated mathematical equation is\n\"scientifically novel\" within its given scientific context.\n\nCORE CRITERIA:\n- NOT NOVEL: the equation is a well-known classical formula that already exists\n  in textbooks, on the internet, or in the open scientific literature — i.e. a\n  formula that could be obtained simply by recall/recitation.\n- NOVEL: while remaining scientifically sound, the equation introduces uncommon,\n  nonlinear, or genuinely new composite mechanism terms, such that neither a\n  human nor an AI could guess it from background knowledge alone — it could only\n  be recovered through data-driven inference from experimental observations.\n",
+          "user_prompt": "[SCIENTIFIC CONTEXT]:\nField: physics\nProblem description: A charged particle penetrates a stopping medium and loses kinetic energy through interactions with the medium's electrons. The energy loss per unit path length depends strongly on the particle's instantaneous kinetic energy, rising as the particle slows. The particle's energy is followed as it traverses the material until it nears rest. The stopping behavior governs the depth profile of deposited energy.\n\n[VARIABLES & PARAMETERS]:\n- Target variable: dE_dt (Rate of kinetic energy loss along the trajectory)\n- Input features: t (time)\n- Dynamic states: E (Kinetic energy of the traversing particle)\n- Parameters: K_stop (Stopping-power coefficient combining electron density and coupling constants); I_ref (Reference mean excitation energy of the medium); one_shift (Dimensionless offset ensuring the logarithm stays positive at low energy); v_ratio_c (Relativistic velocity-correction amplitude scaling the low-velocity enhancement of stopping); E_rest (Rest-energy scale of the particle used to convert kinetic energy to a velocity-squared surrogate); E_shell (Shell-correction energy scale below which inner-shell electrons can no longer participate in the stopping interaction); eff_charge_amp (Amplitude of effective-charge reduction due to electron pickup as the ion slows); screen_ratio (Dimensionless velocity-scaling ratio (Bohr-like) controlling the onset of charge screening); dens_amp (Amplitude of the density-effect polarization correction that reduces the effective logarithmic rise at high velocity); dens_ratio (Dimensionless energy scale controlling the velocity onset of the density-effect saturation); nuclear_amp (Amplitude of the additional nuclear (elastic) stopping contribution active at very low energy); E_nuc (Energy scale marking the crossover below which nuclear stopping becomes significant); nuclear_exp (Exponent controlling the sharpness of the nuclear-stopping crossover with energy)\n\n[CANDIDATE EQUATION]:\ndE_dt = -K_stop * log(E / I_ref + one_shift) / E * (1 + (v_ratio_c**2) / (E / E_rest)) * (1 - exp(-(E / E_shell))) * (1 - eff_charge_amp * exp(-sqrt(E / E_rest) / screen_ratio))**2 * (1 + dens_amp * log(E / E_rest + one_shift) / (1 + dens_ratio * E_rest / E)) * (1 + nuclear_amp / (1 + (E / E_nuc)**nuclear_exp))\n\n[CLOSED ODE SYSTEM]:\n{\n  \"time_symbol\": \"t\",\n  \"target_state\": \"E\",\n  \"states\": [\n    {\n      \"symbol\": \"E\",\n      \"rhs\": \"-K_stop * log(E / I_ref + one_shift) / E * (1 + (v_ratio_c**2) / (E / E_rest)) * (1 - exp(-(E / E_shell))) * (1 - eff_charge_amp * exp(-sqrt(E / E_rest) / screen_ratio))**2 * (1 + dens_amp * log(E / E_rest + one_shift) / (1 + dens_ratio * E_rest / E)) * (1 + nuclear_amp / (1 + (E / E_nuc)**nuclear_exp))\",\n      \"initial_condition\": 100.0,\n      \"description\": \"Kinetic energy of the traversing particle\"\n    }\n  ]\n}\n(Note: this equation comes from an equation-evolution pipeline; assume it is\nmathematically solvable and numerically stable.)\n\n[NOTE ON KNOWN / CLASSICAL TERMS]:\nThe classical / textbook starting point for this phenomenon (the baseline equation) is:\n  dE_dt = -K_stop * log(E / I_ref + one_shift) / E\nThe terms appearing in this baseline equation can be regarded as the well-known classical terms for this problem. Use this as the reference to judge whether the candidate equation, relative to this classical baseline, introduces additional novel composite terms that cannot be recited directly and could only be discovered through data-driven reasoning.\n\n---\n\nREASONING & OUTPUT REQUIREMENTS:\nLet's think step by step:\n1. Analyze each term in the candidate equation. Which terms are established\n   classical knowledge in this scientific context, and which are newly\n   introduced composite terms?\n2. Drawing on your knowledge of the scientific literature, does this COMPLETE\n   combined form of the equation appear directly in any existing textbook or\n   public reference? Could a large language model \"recite\" this exact formula\n   purely from the context and variable names above?\n3. Assess whether it has true novelty (i.e. it could only be discovered by\n   reasoning over subsequent experimental observation data).\n\nProvide your final answer STRICTLY in the following JSON format, with no extra\nMarkdown markup (no ```json):\n{\n  \"reasoning\": \"Write your detailed step-by-step scientific analysis and novelty assessment here.\",\n  \"answer\": \"Yes\" or \"No\" (write \"Yes\" if the equation is novel and cannot be directly recited; write \"No\" if it is a well-known classical formula or can be directly recited)\n}\n",
+          "raw_response": "{\n  \"reasoning\": \"The baseline term -K_stop * log(E/I_ref + one_shift)/E is the classical Bethe-like stopping-power form (the 1/E factor being a velocity-squared surrogate, and the logarithm the Bethe stopping logarithm). The candidate equation extends this with a chain of physically-motivated correction factors: (1) a low-velocity relativistic/velocity enhancement (1 + v_ratio_c^2/(E/E_rest)); (2) a shell-correction cutoff (1 - exp(-E/E_shell)); (3) an effective-charge (electron pickup) reduction factor squared with a Bohr-like screening exponential; (4) a density-effect polarization correction with a saturating logarithmic form; and (5) an additional nuclear (elastic) stopping contribution with a sigmoidal crossover. Each of these corrections corresponds to a REAL physical effect known in ion-stopping physics (shell correction, effective charge/Barkas, density effect, nuclear stopping) — the conceptual ingredients are all textbook-known (Bethe-Bloch with corrections, SRIM/TRIM modeling, Ziegler-Biersack-Littmark). However, the SPECIFIC functional forms chosen here are heuristic, not the standard textbook expressions: the real density effect uses a piecewise Sternheimer parameterization, the shell correction uses tabulated C/Z terms, the effective charge uses the Northcliffe/ZBL empirical exponential (1 - exp(-0.95(v/v0)Z^{-2/3})), and nuclear stopping uses the universal reduced-energy screening function. The candidate combines these into a single closed-form multiplicative product with idiosyncratic composite terms (e.g., the squared exp(-sqrt(E/E_rest)/screen_ratio) charge factor, the log-based density factor divided by (1 + dens_ratio*E_rest/E), and the rational nuclear crossover 1/(1+(E/E_nuc)^nuclear_exp)). This exact combined multiplicative expression does not appear in any textbook or public reference, and no LLM could recite this precise composite form from memory. The physics motivations are recognizable, but the concrete parameterized composite structure is a data-driven construction that could only be tuned/recovered from fitting experimental stopping-profile data. Therefore, relative to the classical baseline, this represents genuine composite novelty in its exact functional form.\",\n  \"answer\": \"Yes\"\n}",
+          "parsed_response": {
+            "reasoning": "The baseline term -K_stop * log(E/I_ref + one_shift)/E is the classical Bethe-like stopping-power form (the 1/E factor being a velocity-squared surrogate, and the logarithm the Bethe stopping logarithm). The candidate equation extends this with a chain of physically-motivated correction factors: (1) a low-velocity relativistic/velocity enhancement (1 + v_ratio_c^2/(E/E_rest)); (2) a shell-correction cutoff (1 - exp(-E/E_shell)); (3) an effective-charge (electron pickup) reduction factor squared with a Bohr-like screening exponential; (4) a density-effect polarization correction with a saturating logarithmic form; and (5) an additional nuclear (elastic) stopping contribution with a sigmoidal crossover. Each of these corrections corresponds to a REAL physical effect known in ion-stopping physics (shell correction, effective charge/Barkas, density effect, nuclear stopping) — the conceptual ingredients are all textbook-known (Bethe-Bloch with corrections, SRIM/TRIM modeling, Ziegler-Biersack-Littmark). However, the SPECIFIC functional forms chosen here are heuristic, not the standard textbook expressions: the real density effect uses a piecewise Sternheimer parameterization, the shell correction uses tabulated C/Z terms, the effective charge uses the Northcliffe/ZBL empirical exponential (1 - exp(-0.95(v/v0)Z^{-2/3})), and nuclear stopping uses the universal reduced-energy screening function. The candidate combines these into a single closed-form multiplicative product with idiosyncratic composite terms (e.g., the squared exp(-sqrt(E/E_rest)/screen_ratio) charge factor, the log-based density factor divided by (1 + dens_ratio*E_rest/E), and the rational nuclear crossover 1/(1+(E/E_nuc)^nuclear_exp)). This exact combined multiplicative expression does not appear in any textbook or public reference, and no LLM could recite this precise composite form from memory. The physics motivations are recognizable, but the concrete parameterized composite structure is a data-driven construction that could only be tuned/recovered from fitting experimental stopping-profile data. Therefore, relative to the classical baseline, this represents genuine composite novelty in its exact functional form.",
+            "answer": "Yes"
+          }
+        }
+      ]
+    },
+    "total_points": 5000,
+    "data_csv": "/data1/SRBench_fresh/outputs/Candidate_Equations/candidate_m2_nuclear_and_particle_physics_0_006_20260826-165116/lineage_attempt_01/candidate_data/m2_nuclear_and_particle_physics_0_006_gen5_20260826-165806.csv",
+    "evaluation_status": "not_evaluated; choose Harbor split and solver later"
+  }
+}

@@ -1,0 +1,244 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "T",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        3000.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "k_rad",
+      "value": 1e-12
+    },
+    {
+      "symbol": "T_wall",
+      "value": 300.0
+    },
+    {
+      "symbol": "h_conv",
+      "value": 0.0001
+    },
+    {
+      "symbol": "beta_buoy",
+      "value": 0.1
+    },
+    {
+      "symbol": "eps_selfabs",
+      "value": 5e-13
+    },
+    {
+      "symbol": "C_ratio",
+      "value": 1.0
+    },
+    {
+      "symbol": "g_cond",
+      "value": 0.001
+    },
+    {
+      "symbol": "T_core_wall_coupling",
+      "value": 0.9
+    },
+    {
+      "symbol": "emiss_0",
+      "value": 0.5
+    },
+    {
+      "symbol": "emiss_slope",
+      "value": 0.0001
+    },
+    {
+      "symbol": "emiss_gas",
+      "value": 0.3
+    },
+    {
+      "symbol": "gas_absorptivity",
+      "value": 0.9
+    },
+    {
+      "symbol": "tau_gas",
+      "value": 0.001
+    }
+  ],
+  "benchmark_output": "dT_dt",
+  "benchmark_target_state": "T",
+  "observed_variables": [
+    "t",
+    "T",
+    "T_core"
+  ],
+  "rhs_for_integrator": "-k_rad * (emiss_0 + emiss_slope * (T - T_wall)) * (T**4 - T_wall**4) / (1 + eps_selfabs * (T**4 - T_wall**4)) - h_conv * (T - T_wall) * (1 + beta_buoy * Abs(T - T_wall)**(1/4)) - (k_rad * C_ratio) * (T**4 - T_core**4) - k_rad * emiss_gas * gas_absorptivity * (T**4 - T_wall**4) / (1 + tau_gas * (T - T_wall))",
+  "state_variables": [
+    "T",
+    "T_core"
+  ],
+  "state_rhs": [
+    "-k_rad * (emiss_0 + emiss_slope * (T - T_wall)) * (T**4 - T_wall**4) / (1 + eps_selfabs * (T**4 - T_wall**4)) - h_conv * (T - T_wall) * (1 + beta_buoy * Abs(T - T_wall)**(1/4)) - (k_rad * C_ratio) * (T**4 - T_core**4) - k_rad * emiss_gas * gas_absorptivity * (T**4 - T_wall**4) / (1 + tau_gas * (T - T_wall))",
+    "-g_cond * (T_core - T_core_wall_coupling * T)"
+  ],
+  "initial_conditions": {
+    "T": 1000.0,
+    "T_core": 1000.0
+  },
+  "noise": 0.01,
+  "sanity_expectations": [
+    "T monotonically decreasing from 1000 K, relaxing toward T_wall=300 K",
+    "T stays bounded in (300, 1000] and remains real (T > T_wall keeps Abs(T-T_wall)^(1/4) finite)",
+    "dT_dt is negative throughout and its magnitude decreases as T falls (radiative loss ~ T^4)",
+    "T_core decreases from 1000 K toward ~0.9*T, so T and T_core diverge over time, activating the core-coupling term",
+    "Cooling rate largest at t=0 and decreasing; trajectory smooth with no blow-up over 0-3000 s"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "ODE-system excitation_check (is_ode=true, full child-vs-parent trajectory comparison, sigma=0.01 K on the target output). NEW term = the residual-gas radiative channel -k_rad*emiss_gas*gas_absorptivity*(T^4-T_wall^4)/(1+tau_gas*(T-T_wall)): max effect on the T trajectory = 37.1 K => 3710x sigma, strongest near t~2683 s; passes=true. Inherited terms are physically active over the sampled window: main radiative loss ~0.5 K/s at t=0 (dominant), linear+buoyant convective loss (h_conv, beta_buoy) ~0.1 K/s at t=0, and surface-core radiative coupling (C_ratio) grows from 0 as g_cond drives T_core toward 0.9*T, producing measurable T/T_core divergence. All terms leave marks >> 5*sigma.",
+  "role_corrections": [
+    "dT_dt: output/target-derivative -> confirmed (RHS of dT/dt in typed ode_system)",
+    "t: time axis -> V confirmed (sole independent variable, gets range)",
+    "T: dynamic state -> confirmed (target_state, integrated)",
+    "T_core: dynamic state -> confirmed (second governed state via g_cond relaxation)",
+    "k_rad: P -> confirmed (fixed)",
+    "T_wall: P -> confirmed (fixed enclosure temperature)",
+    "h_conv: P -> confirmed (fixed)",
+    "beta_buoy: P -> confirmed (fixed)",
+    "eps_selfabs: P -> confirmed (fixed)",
+    "C_ratio: P -> confirmed (fixed)",
+    "g_cond: P -> confirmed (fixed, governs T_core)",
+    "T_core_wall_coupling: P -> confirmed (fixed)",
+    "emiss_0: P -> confirmed (fixed)",
+    "emiss_slope: P -> confirmed (fixed)",
+    "emiss_gas: P -> confirmed (fixed, new-term)",
+    "gas_absorptivity: P -> confirmed (fixed, new-term)",
+    "tau_gas: P -> confirmed (fixed, new-term)"
+  ],
+  "rationale": "Typed ode_system contract inherited verbatim: 2 states (T target, T_core), state_rhs, and initial conditions unchanged; only time range, fixed parameters, and noise chosen. Physical scaling: k_rad = 3*sigma_SB/(rho*c_p*r) ~ 1e-12 K^-3 s^-1 for a ~5 cm iron sphere gives ~0.5 K/s initial radiative cooling and a multi-thousand-second relaxation, so t in [0,3000] s with 300 points captures the full relaxation and the window where the new gas channel is strongest (t~2683 s). emiss_0=0.5 baseline emissivity with small positive emiss_slope; eps_selfabs=5e-13 gives an O(10-50%) self-absorption saturation over the T^4 range; h_conv/beta_buoy give a modest buoyant convective channel; C_ratio=1 with g_cond=1e-3 and T_core_wall_coupling=0.9 makes the core lag the surface and feed the coupling term. New-term parameters taken at the upper end of the suggested physical ranges (emiss_gas=0.3, gas_absorptivity=0.9, tau_gas=1e-3) so the residual-gas radiative channel is clearly excited (3710x sigma). noise=0.01 K is a small (~2-5% of initial dT_dt) visibility yardstick that keeps even the subtler saturation/buoyancy terms above 5*sigma.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "-k_rad * (emiss_0 + emiss_slope * (T - T_wall)) * (T**4 - T_wall**4) / (1 + eps_selfabs * (T**4 - T_wall**4)) - h_conv * (T - T_wall) * (1 + beta_buoy * Abs(T - T_wall)**(1/4)) - (k_rad * C_ratio) * (T**4 - T_core**4) - k_rad * emiss_gas * gas_absorptivity * (T**4 - T_wall**4) / (1 + tau_gas * (T - T_wall))",
+        "target_symbol": "T"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "C_ratio",
+          "T",
+          "T_core",
+          "T_wall",
+          "beta_buoy",
+          "emiss_0",
+          "emiss_gas",
+          "emiss_slope",
+          "eps_selfabs",
+          "gas_absorptivity",
+          "h_conv",
+          "k_rad",
+          "tau_gas"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": false,
+        "explicit_solution_preview": null,
+        "classification_hint": "implicit_or_explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "-k_rad * (emiss_0 + emiss_slope * (T - T_wall)) * (T**4 - T_wall**4) / (1 + eps_selfabs * (T**4 - T_wall**4)) - h_conv * (T - T_wall) * (1 + beta_buoy * Abs(T - T_wall)**(1/4)) - (k_rad * C_ratio) * (T**4 - T_core**4) - k_rad * emiss_gas * gas_absorptivity * (T**4 - T_wall**4) / (1 + tau_gas * (T - T_wall))",
+        "assignments": {
+          "k_rad": 1e-12,
+          "T_wall": 300,
+          "h_conv": 0.0001,
+          "beta_buoy": 0.1,
+          "eps_selfabs": 5e-13,
+          "C_ratio": 1,
+          "emiss_0": 0.5,
+          "emiss_slope": 0.0001,
+          "emiss_gas": 0.3,
+          "gas_absorptivity": 0.9,
+          "tau_gas": 0.001,
+          "T": 800,
+          "T_core": 850
+        },
+        "target_symbol": "T"
+      },
+      "result": {
+        "ok": true,
+        "value_real": -0.21741318237581853,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "C_ratio": 1,
+          "T_core_wall_coupling": 0.9,
+          "T_wall": 300,
+          "beta_buoy": 0.1,
+          "emiss_0": 0.5,
+          "emiss_gas": 0.3,
+          "emiss_slope": 0.0001,
+          "eps_selfabs": 5e-13,
+          "g_cond": 0.001,
+          "gas_absorptivity": 0.9,
+          "h_conv": 0.0001,
+          "k_rad": 1e-12,
+          "tau_gas": 0.001
+        },
+        "indep": [
+          {
+            "symbol": "t",
+            "range": [
+              0,
+              3000
+            ]
+          }
+        ],
+        "is_ode": true,
+        "sigma": 0.01
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "T",
+        "child_state_count": 2,
+        "parent_state_count": 2,
+        "n_time_points": 200,
+        "new_term_max_effect": 37.10514117874493,
+        "new_term_sigma_multiple": 3710.514117874493,
+        "strongest_at": {
+          "t": 2683.4170854271356
+        },
+        "k": 5.0,
+        "passes": true,
+        "advice": "new mechanism is visible on the target trajectory"
+      }
+    }
+  ],
+  "_cost_usd": 0.53097675,
+  "_num_turns": 6,
+  "discipline": "physics",
+  "scenario_text": "A hot metal sphere is suspended in a large evacuated enclosure whose walls are held at a low fixed temperature, so heat leaves only by radiative exchange. The sphere's temperature falls over time as it emits thermal radiation, with the loss rate depending strongly on its current temperature. Observers track the surface temperature as it relaxes toward the enclosure temperature.",
+  "record_id": "m2_statistical_mechanics_and_thermodynamics_0_002",
+  "generation": 5,
+  "_n_total": 5000
+}

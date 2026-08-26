@@ -1,0 +1,232 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "v",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        10.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "g_eff",
+      "value": 5.0
+    },
+    {
+      "symbol": "drag_coeff",
+      "value": 0.01
+    },
+    {
+      "symbol": "sphere_mass",
+      "value": 0.01
+    },
+    {
+      "symbol": "quad_drag_coeff",
+      "value": 0.003
+    },
+    {
+      "symbol": "history_drag_coeff",
+      "value": 0.01
+    },
+    {
+      "symbol": "v_shear",
+      "value": 0.1
+    },
+    {
+      "symbol": "added_mass_coeff",
+      "value": 0.003
+    },
+    {
+      "symbol": "am_relax_rate",
+      "value": 5.0
+    },
+    {
+      "symbol": "thermal_thinning",
+      "value": 0.01
+    },
+    {
+      "symbol": "T_ref",
+      "value": 293.0
+    },
+    {
+      "symbol": "visc_heat_rate",
+      "value": 2.0
+    },
+    {
+      "symbol": "T_relax_rate",
+      "value": 0.5
+    },
+    {
+      "symbol": "T_ambient",
+      "value": 293.0
+    },
+    {
+      "symbol": "wall_drag_coeff",
+      "value": 0.01
+    },
+    {
+      "symbol": "wall_gap_scale",
+      "value": 1.0
+    }
+  ],
+  "benchmark_output": "dv_dt",
+  "benchmark_target_state": "v",
+  "observed_variables": [
+    "t",
+    "v",
+    "a_int",
+    "T_oil"
+  ],
+  "rhs_for_integrator": "g_eff - (drag_coeff / sphere_mass) * v * (1 + thermal_thinning * (T_oil - T_ref)) - (quad_drag_coeff / sphere_mass) * v**2 - (history_drag_coeff / sphere_mass) * v / (v_shear + Abs(v)) - (added_mass_coeff / sphere_mass) * a_int - (wall_drag_coeff / sphere_mass) * v / (1 + wall_gap_scale * v)",
+  "state_variables": [
+    "v",
+    "a_int",
+    "T_oil"
+  ],
+  "state_rhs": [
+    "g_eff - (drag_coeff / sphere_mass) * v * (1 + thermal_thinning * (T_oil - T_ref)) - (quad_drag_coeff / sphere_mass) * v**2 - (history_drag_coeff / sphere_mass) * v / (v_shear + Abs(v)) - (added_mass_coeff / sphere_mass) * a_int - (wall_drag_coeff / sphere_mass) * v / (1 + wall_gap_scale * v)",
+    "am_relax_rate * (g_eff - (drag_coeff / sphere_mass) * v * (1 + thermal_thinning * (T_oil - T_ref)) - (quad_drag_coeff / sphere_mass) * v**2 - (history_drag_coeff / sphere_mass) * v / (v_shear + Abs(v)) - a_int)",
+    "visc_heat_rate * (drag_coeff / sphere_mass) * v**2 - T_relax_rate * (T_oil - T_ambient)"
+  ],
+  "initial_conditions": {
+    "v": 0.0,
+    "a_int": 0.0,
+    "T_oil": 293.0
+  },
+  "noise": 0.05,
+  "sanity_expectations": [
+    "v starts at 0 and increases monotonically from rest",
+    "v approaches a finite terminal-velocity asymptote (dv_dt -> 0)",
+    "v stays bounded and positive over the whole window",
+    "T_oil rises above ambient 293 K due to viscous heating then plateaus at a finite temperature",
+    "a_int rises from 0 and relaxes toward the net acceleration, then settles",
+    "dv_dt decreases monotonically from g_eff=5 toward 0"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "Noise sigma=0.05 (abs std on dv_dt; ~1% of the peak dv_dt=g_eff=5 at t=0). New term = the wall-correction drag -(wall_drag_coeff/sphere_mass)*v/(1+wall_gap_scale*v) (E minus parent). excitation_check (ode_system, full child-vs-parent trajectory comparison) gives new_term peak effect 0.364 m/s^2 = 7.28*sigma at t=2.68 s, passes (k=5). The trajectory rises from rest, so the new term is strongest in the mid-transient just before terminal velocity, which lies inside the sampled window. Inherited terms (linear/quad/history drag, added-mass, thermal thinning via T_oil self-heating) were validated in the parent contract; with these values each contributes O(0.1-1.5) m/s^2 near terminal, all well above 5*sigma=0.25.",
+  "role_corrections": [
+    "t: V->V (confirmed: sole independent time axis, gets the sampling range)",
+    "v: dynamic-state->dependent/target state (confirmed: function under the governing derivative dv_dt)",
+    "a_int: dynamic-state->dynamic-state (confirmed: internal latent added-mass reaction, governed by its own RHS; not sampled, not fixed)",
+    "T_oil: dynamic-state->dynamic-state (confirmed: governed viscous-heating state)",
+    "g_eff: P->P (confirmed, fixed constant)",
+    "drag_coeff: P->P (confirmed)",
+    "sphere_mass: P->P (confirmed)",
+    "quad_drag_coeff: P->P (confirmed)",
+    "history_drag_coeff: P->P (confirmed)",
+    "v_shear: P->P (confirmed)",
+    "added_mass_coeff: P->P (confirmed)",
+    "am_relax_rate: P->P (confirmed)",
+    "thermal_thinning: P->P (confirmed)",
+    "T_ref: P->P (confirmed)",
+    "visc_heat_rate: P->P (confirmed)",
+    "T_relax_rate: P->P (confirmed)",
+    "T_ambient: P->P (confirmed)",
+    "wall_drag_coeff: P->P (confirmed: new-term coefficient, set within suggested 1e-3..1e0 kg/s)",
+    "wall_gap_scale: P->P (confirmed: new-term coefficient, set within suggested 1e-1..1e1 s/m)"
+  ],
+  "rationale": "Typed ode_system contract inherited verbatim (states [v, a_int, T_oil], their RHS, and ICs); only time range, fixed parameter values, noise, and expectations were chosen. Parameters set to physically modest magnitudes (m=10 g sphere, net g_eff=5 m/s^2, drag/wall coeffs O(1e-2) kg/s, v_shear=0.1 m/s) giving a terminal velocity ~1-2 m/s reached within a few seconds; t in [0,10] s at 300 points captures the full transient and plateau. Wall-drag (the new mechanism) confirmed visible at 7.28*sigma.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "g_eff - (drag_coeff / sphere_mass) * v * (1 + thermal_thinning * (T_oil - T_ref)) - (quad_drag_coeff / sphere_mass) * v**2 - (history_drag_coeff / sphere_mass) * v / (v_shear + Abs(v)) - (added_mass_coeff / sphere_mass) * a_int - (wall_drag_coeff / sphere_mass) * v / (1 + wall_gap_scale * v)",
+        "target_symbol": "v"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "T_oil",
+          "T_ref",
+          "a_int",
+          "added_mass_coeff",
+          "drag_coeff",
+          "g_eff",
+          "history_drag_coeff",
+          "quad_drag_coeff",
+          "sphere_mass",
+          "thermal_thinning",
+          "v",
+          "v_shear",
+          "wall_drag_coeff",
+          "wall_gap_scale"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": false,
+        "explicit_solution_preview": null,
+        "classification_hint": "implicit_or_explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "g_eff": 5,
+          "drag_coeff": 0.01,
+          "sphere_mass": 0.01,
+          "quad_drag_coeff": 0.003,
+          "history_drag_coeff": 0.01,
+          "v_shear": 0.1,
+          "added_mass_coeff": 0.003,
+          "am_relax_rate": 5,
+          "thermal_thinning": 0.01,
+          "T_ref": 293,
+          "visc_heat_rate": 2,
+          "T_relax_rate": 0.5,
+          "T_ambient": 293,
+          "wall_drag_coeff": 0.01,
+          "wall_gap_scale": 1
+        },
+        "indep": [
+          {
+            "symbol": "t",
+            "range": [
+              0,
+              10
+            ],
+            "n_points": 300
+          }
+        ],
+        "sigma": 0.05,
+        "is_ode": true
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "v",
+        "child_state_count": 3,
+        "parent_state_count": 3,
+        "n_time_points": 300,
+        "new_term_max_effect": 0.3639035139551068,
+        "new_term_sigma_multiple": 7.278070279102136,
+        "strongest_at": {
+          "t": 2.6755852842809364
+        },
+        "k": 5.0,
+        "passes": true,
+        "advice": "new mechanism is visible on the target trajectory"
+      }
+    }
+  ],
+  "_cost_usd": 0.75441325,
+  "_num_turns": 5,
+  "discipline": "physics",
+  "scenario_text": "A small solid sphere is released from rest into a tall column of viscous oil. As it falls, the drag force grows with speed until it balances the net gravitational pull, and the sphere approaches a steady descent velocity. We track how the vertical velocity evolves over time from the moment of release.",
+  "record_id": "m2_fluid_dynamics_0_000",
+  "generation": 5,
+  "_n_total": 5000
+}

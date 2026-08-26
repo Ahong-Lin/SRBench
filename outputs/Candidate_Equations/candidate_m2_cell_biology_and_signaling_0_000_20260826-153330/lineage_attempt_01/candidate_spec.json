@@ -1,0 +1,266 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "N",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        300.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "r",
+      "value": 0.05
+    },
+    {
+      "symbol": "K",
+      "value": 100000.0
+    },
+    {
+      "symbol": "d_max",
+      "value": 1000.0
+    },
+    {
+      "symbol": "N_h",
+      "value": 30000.0
+    },
+    {
+      "symbol": "m_max",
+      "value": 500.0
+    },
+    {
+      "symbol": "N_m",
+      "value": 10000.0
+    },
+    {
+      "symbol": "k_s",
+      "value": 0.01
+    },
+    {
+      "symbol": "delta_s",
+      "value": 0.1
+    },
+    {
+      "symbol": "S_h",
+      "value": 5000.0
+    },
+    {
+      "symbol": "lambda_A",
+      "value": 0.01
+    },
+    {
+      "symbol": "A_max",
+      "value": 100.0
+    },
+    {
+      "symbol": "beta_A",
+      "value": 0.0001
+    },
+    {
+      "symbol": "gamma_A",
+      "value": 0.1
+    },
+    {
+      "symbol": "d_toxin",
+      "value": 0.01
+    },
+    {
+      "symbol": "N_t",
+      "value": 50000.0
+    }
+  ],
+  "benchmark_output": "dN_dt",
+  "benchmark_target_state": "N",
+  "observed_variables": [
+    "t",
+    "N",
+    "S",
+    "A"
+  ],
+  "rhs_for_integrator": "r * N * (1 - N / K) - d_max * N**2 / (N_h**2 + N**2) + m_max * N * S / ((N + N_m) * (S + S_h)) - lambda_A * N * (A_max - A) / A_max - d_toxin * N * N / (N + N_t)",
+  "state_variables": [
+    "N",
+    "S",
+    "A"
+  ],
+  "state_rhs": [
+    "r * N * (1 - N / K) - d_max * N**2 / (N_h**2 + N**2) + m_max * N * S / ((N + N_m) * (S + S_h)) - lambda_A * N * (A_max - A) / A_max - d_toxin * N * N / (N + N_t)",
+    "k_s * N - delta_s * S",
+    "gamma_A * (A_max - A) - beta_A * N * A"
+  ],
+  "initial_conditions": {
+    "N": 1000.0,
+    "S": 0.0,
+    "A": 10.0
+  },
+  "noise": 30.0,
+  "sanity_expectations": [
+    "N starts at 1000 and increases over time (early free proliferation)",
+    "N is bounded above and stays well below K=100000 (contact inhibition plus crowding/toxin death cap growth)",
+    "N approaches a finite quasi-plateau (confluent density) rather than diverging",
+    "S starts at 0 and rises as cells secrete survival factor (k_s*N - delta_s*S), reaching a bounded level tracking N",
+    "A relaxes toward a bounded quasi-steady free-area level (0 < A <= A_max=100)",
+    "All states remain finite, real, and non-negative over t in [0,300]"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "Noise sigma = 30 (absolute std on N-target RHS dN_dt). ODE-system child-vs-parent comparison on the target N trajectory over t in [0,300]: the NEW term (-d_toxin*N^2/(N+N_t), waste-driven death) reaches a max effect of ~12534, i.e. ~417.8x sigma, strongest at t=300 (late/high-density regime where the culture is filling). passes=true at k=5. The inherited terms (logistic growth, crowding death, autocrine survival recruitment, area-scarcity anoikis) were carried from the validated parent system and remain active over the sampled window as N rises from 1000 toward its confluent plateau.",
+  "role_corrections": [
+    "dN_dt: output/target-derivative -> confirmed (RHS determines dN/dt; target_state N)",
+    "t: V->V (confirmed sole time axis; gets sampling range)",
+    "N: dynamic state -> confirmed (target state, under the derivative)",
+    "S: dynamic state -> confirmed (governed by k_s*N - delta_s*S)",
+    "A: dynamic state -> confirmed (governed by gamma_A*(A_max-A) - beta_A*N*A)",
+    "r: P->P (fixed)",
+    "K: P->P (fixed)",
+    "d_max: P->P (fixed)",
+    "N_h: P->P (fixed)",
+    "m_max: P->P (fixed)",
+    "N_m: P->P (fixed)",
+    "k_s: P->P (fixed)",
+    "delta_s: P->P (fixed)",
+    "S_h: P->P (fixed)",
+    "lambda_A: P->P (fixed)",
+    "A_max: P->P (fixed)",
+    "beta_A: P->P (fixed)",
+    "gamma_A: P->P (fixed)",
+    "d_toxin: P->P (fixed; NEW-term coefficient, within suggested 0.001-0.5)",
+    "N_t: P->P (fixed; within suggested 1000-500000)"
+  ],
+  "rationale": "Typed ODE-system contract inherited verbatim: 3 states (N,S,A), target N, RHS unchanged. analyze_expression confirmed the RHS has no derivatives/integrals/delays/ungoverned functions and references only governed states + fixed parameters, so integrate_system is correct (the 'explicit' hint merely reflects that this is the bare RHS). Parameters chosen for a realistic mammalian-culture scale: carrying capacity K=1e5 cells, sub-daily proliferation r=0.05, half-saturations (N_h, N_m, N_t) at 1e4-5e4 cells, autocrine dynamics (k_s, delta_s, S_h) and attachment-area dynamics (A_max, beta_A, gamma_A, lambda_A) keeping S and A bounded. d_toxin=0.01 and N_t=50000 lie inside the suggested ranges. check_substitution at a mid-trajectory point is finite/real. excitation_check (is_ode=true) confirms the new waste-death term is highly visible (~418x sigma), so a simpler ancestor could not fit the data; excitation_ok=true.\"",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "r * N * (1 - N / K) - d_max * N**2 / (N_h**2 + N**2) + m_max * N * S / ((N + N_m) * (S + S_h)) - lambda_A * N * (A_max - A) / A_max - d_toxin * N * N / (N + N_t)",
+        "target_symbol": "N"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "A",
+          "A_max",
+          "K",
+          "N",
+          "N_h",
+          "N_m",
+          "N_t",
+          "S",
+          "S_h",
+          "d_max",
+          "d_toxin",
+          "lambda_A",
+          "m_max",
+          "r"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "0"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "r * N * (1 - N / K) - d_max * N**2 / (N_h**2 + N**2) + m_max * N * S / ((N + N_m) * (S + S_h)) - lambda_A * N * (A_max - A) / A_max - d_toxin * N * N / (N + N_t)",
+        "assignments": {
+          "r": 0.05,
+          "K": 100000,
+          "d_max": 1000,
+          "N_h": 30000,
+          "m_max": 500,
+          "N_m": 10000,
+          "S_h": 5000,
+          "lambda_A": 0.01,
+          "A_max": 100,
+          "d_toxin": 0.01,
+          "N_t": 50000,
+          "N": 50000,
+          "S": 5000,
+          "A": 20
+        },
+        "target_symbol": "N"
+      },
+      "result": {
+        "ok": true,
+        "value_real": 73.03921568627447,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "A_max": 100,
+          "K": 100000,
+          "N_h": 30000,
+          "N_m": 10000,
+          "N_t": 50000,
+          "S_h": 5000,
+          "beta_A": 0.0001,
+          "d_max": 1000,
+          "d_toxin": 0.01,
+          "delta_s": 0.1,
+          "gamma_A": 0.1,
+          "k_s": 0.01,
+          "lambda_A": 0.01,
+          "m_max": 500,
+          "r": 0.05
+        },
+        "indep": [
+          {
+            "symbol": "t",
+            "range": [
+              0,
+              300
+            ]
+          }
+        ],
+        "is_ode": true,
+        "sigma": 30
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "N",
+        "child_state_count": 3,
+        "parent_state_count": 3,
+        "n_time_points": 200,
+        "new_term_max_effect": 12534.415003250957,
+        "new_term_sigma_multiple": 417.8138334416986,
+        "strongest_at": {
+          "t": 300.0
+        },
+        "k": 5.0,
+        "passes": true,
+        "advice": "new mechanism is visible on the target trajectory"
+      }
+    }
+  ],
+  "_cost_usd": 1.0873755,
+  "_num_turns": 6,
+  "discipline": "biology",
+  "scenario_text": "A population of mammalian cells grows in a nutrient-rich culture dish with limited surface area for attachment. Early on the cells proliferate freely, but as the dish fills, contact inhibition slows division until a maximum confluent density is reached. Researchers track the cell count over time to characterize how the growth rate depends on remaining available space.",
+  "record_id": "m2_cell_biology_and_signaling_0_000",
+  "generation": 5,
+  "_n_total": 5000
+}

@@ -1,0 +1,293 @@
+{
+  "equation_type": "explicit",
+  "integrator": "evaluate_explicit",
+  "dependent_variable": "VE",
+  "independent_variables": [
+    {
+      "symbol": "Pco2",
+      "range": [
+        20.0,
+        80.0
+      ],
+      "n_points": 200,
+      "scale": "linear"
+    },
+    {
+      "symbol": "Po2",
+      "range": [
+        40.0,
+        100.0
+      ],
+      "n_points": 200,
+      "scale": "linear"
+    },
+    {
+      "symbol": "pHa",
+      "range": [
+        7.2,
+        7.5
+      ],
+      "n_points": 100,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "VE0",
+      "value": 5.0
+    },
+    {
+      "symbol": "slope",
+      "value": 2.5
+    },
+    {
+      "symbol": "Pthreshold",
+      "value": 37.0
+    },
+    {
+      "symbol": "sharpness",
+      "value": 0.6
+    },
+    {
+      "symbol": "VEmax",
+      "value": 100.0
+    },
+    {
+      "symbol": "depression_frac",
+      "value": 0.5
+    },
+    {
+      "symbol": "depression_sharpness",
+      "value": 0.3
+    },
+    {
+      "symbol": "Pco2_depress",
+      "value": 80.0
+    },
+    {
+      "symbol": "Ahypoxia",
+      "value": 1.0
+    },
+    {
+      "symbol": "Po2_ref",
+      "value": 100.0
+    },
+    {
+      "symbol": "Bmetacid",
+      "value": 20.0
+    },
+    {
+      "symbol": "pH_ref",
+      "value": 7.4
+    },
+    {
+      "symbol": "Chypoxdrive",
+      "value": 2.0
+    },
+    {
+      "symbol": "hypox_sharpness",
+      "value": 0.2
+    },
+    {
+      "symbol": "Po2_thresh",
+      "value": 60.0
+    }
+  ],
+  "benchmark_output": null,
+  "benchmark_target_state": null,
+  "observed_variables": [
+    "Pco2",
+    "Po2",
+    "pHa"
+  ],
+  "rhs_for_integrator": "(VE0 + slope*(1 + Ahypoxia*(Po2_ref/Po2 - 1))*(Pco2 - (Pthreshold - Bmetacid*(pH_ref - pHa)))*(tanh(sharpness*(Pco2 - (Pthreshold - Bmetacid*(pH_ref - pHa)))) + 1)/2 * (VEmax / (VEmax + slope*(1 + Ahypoxia*(Po2_ref/Po2 - 1))*(Pco2 - (Pthreshold - Bmetacid*(pH_ref - pHa)))*(tanh(sharpness*(Pco2 - (Pthreshold - Bmetacid*(pH_ref - pHa)))) + 1)/2)) * (1 - depression_frac*(tanh(depression_sharpness*(Pco2 - Pco2_depress)) + 1)/2)) * (1 + Chypoxdrive*(Po2_ref/Po2 - 1)*(tanh(hypox_sharpness*(Po2_thresh - Po2)) + 1)/2)",
+  "state_variables": [],
+  "state_rhs": [],
+  "initial_conditions": {},
+  "noise": 1.0,
+  "sanity_expectations": [
+    "VE >= 0 everywhere",
+    "Below CO2 threshold (Pco2 well under Pthreshold), VE ~ VE0 (minimal drive)",
+    "Above threshold, VE rises approximately linearly with Pco2 before saturation",
+    "VE saturates toward the VEmax-limited ceiling at high CO2 drive",
+    "VE is reduced at very high Pco2 (>Pco2_depress) due to central depression",
+    "VE increases as Po2 falls below Po2_thresh (peripheral hypoxic drive) and as pHa falls (metabolic acidosis lowers threshold)",
+    "finite and real across the sampled region"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "sigma=1 L/min, k=5. Full ventilation response: rms ~88x sigma (dominant, always visible). NEW term (direct peripheral-chemoreceptor hypoxic drive, the multiplicative factor 1 + Chypoxdrive*(Po2_ref/Po2-1)*(tanh(hypox_sharpness*(Po2_thresh-Po2))+1)/2): peak effect ~211x sigma, strongest at Po2~41 mmHg (below Po2_thresh=60), Pco2~73 mmHg (well above threshold), pHa~7.41. No weak terms; extending Po2 down to 40 mmHg is essential to engage the new hypoxic drive.",
+  "role_corrections": [
+    "VE: O->O (confirmed: explicit LHS output, solvable for target)",
+    "Pco2: V->V (confirmed: primary CO2 stimulus sampling axis)",
+    "Po2: V->V (confirmed as sampling axis, NOT held constant: the new hypoxic-drive term depends on Po2 and requires it to fall below Po2_thresh to be excited, so Po2 must be varied despite the 'O2 held constant' framing)",
+    "pHa: V->V (confirmed: metabolic acid-base input shifting the CO2 threshold)",
+    "VE0/slope/Pthreshold/sharpness/VEmax/depression_frac/depression_sharpness/Pco2_depress/Ahypoxia/Po2_ref/Bmetacid/pH_ref/Chypoxdrive/hypox_sharpness/Po2_thresh: P->P (confirmed: fixed constants)"
+  ],
+  "rationale": "Static algebraic relation, explicitly solvable for VE with no derivatives or integrals -> explicit / evaluate_explicit. VE is the dependent variable; Pco2, Po2, pHa are the physiological input axes and receive sampling ranges; all other symbols are fixed physical parameters. Ranges: Pco2 20-80 mmHg spans sub-threshold, linear CO2 response, and the CO2-narcosis depression regime; Po2 40-100 mmHg spans normoxia down through the hypoxic-drive threshold (Po2_thresh=60) so the new term is excited; pHa 7.2-7.5 covers acidosis to mild alkalosis. Parameters use physiological magnitudes and the suggested ranges for the new hypoxic-drive terms (Chypoxdrive=2, hypox_sharpness=0.2, Po2_thresh=60). Excitation confirmed at sigma=1: dominant response ~88x, new hypoxic term ~211x.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "VE = (VE0 + slope*(1 + Ahypoxia*(Po2_ref/Po2 - 1))*(Pco2 - (Pthreshold - Bmetacid*(pH_ref - pHa)))*(tanh(sharpness*(Pco2 - (Pthreshold - Bmetacid*(pH_ref - pHa)))) + 1)/2 * (VEmax / (VEmax + slope*(1 + Ahypoxia*(Po2_ref/Po2 - 1))*(Pco2 - (Pthreshold - Bmetacid*(pH_ref - pHa)))*(tanh(sharpness*(Pco2 - (Pthreshold - Bmetacid*(pH_ref - pHa)))) + 1)/2)) * (1 - depression_frac*(tanh(depression_sharpness*(Pco2 - Pco2_depress)) + 1)/2)) * (1 + Chypoxdrive*(Po2_ref/Po2 - 1)*(tanh(hypox_sharpness*(Po2_thresh - Po2)) + 1)/2)",
+        "target_symbol": "VE"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "Ahypoxia",
+          "Bmetacid",
+          "Chypoxdrive",
+          "Pco2",
+          "Pco2_depress",
+          "Po2",
+          "Po2_ref",
+          "Po2_thresh",
+          "Pthreshold",
+          "VE0",
+          "VEmax",
+          "depression_frac",
+          "depression_sharpness",
+          "hypox_sharpness",
+          "pH_ref",
+          "pHa",
+          "sharpness",
+          "slope"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "(VE0 + slope*(Ahypoxia*(-1*1 + Po2_ref/Po2) + 1)*(Pco2 - (-Bmetacid*(pH_ref - pHa) + Pthreshold))*(tanh(sharpness*(Pco2 "
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "VE = (VE0 + slope*(1 + Ahypoxia*(Po2_ref/Po2 - 1))*(Pco2 - (Pthreshold - Bmetacid*(pH_ref - pHa)))*(tanh(sharpness*(Pco2 - (Pthreshold - Bmetacid*(pH_ref - pHa)))) + 1)/2 * (VEmax / (VEmax + slope*(1 + Ahypoxia*(Po2_ref/Po2 - 1))*(Pco2 - (Pthreshold - Bmetacid*(pH_ref - pHa)))*(tanh(sharpness*(Pco2 - (Pthreshold - Bmetacid*(pH_ref - pHa)))) + 1)/2)) * (1 - depression_frac*(tanh(depression_sharpness*(Pco2 - Pco2_depress)) + 1)/2)) * (1 + Chypoxdrive*(Po2_ref/Po2 - 1)*(tanh(hypox_sharpness*(Po2_thresh - Po2)) + 1)/2)",
+        "assignments": {
+          "VE0": 5,
+          "slope": 2.5,
+          "Pthreshold": 37,
+          "sharpness": 0.6,
+          "VEmax": 100,
+          "depression_frac": 0.5,
+          "depression_sharpness": 0.3,
+          "Pco2_depress": 80,
+          "Ahypoxia": 1,
+          "Po2_ref": 100,
+          "Bmetacid": 20,
+          "pH_ref": 7.4,
+          "Chypoxdrive": 2,
+          "hypox_sharpness": 0.2,
+          "Po2_thresh": 60,
+          "Pco2": 50,
+          "Po2": 70,
+          "pHa": 7.35
+        },
+        "target_symbol": "VE"
+      },
+      "result": {
+        "ok": true,
+        "value_real": 38.92430740477309,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "Ahypoxia": 1,
+          "Bmetacid": 20,
+          "Chypoxdrive": 2,
+          "Pco2_depress": 80,
+          "Po2_ref": 100,
+          "Po2_thresh": 60,
+          "Pthreshold": 37,
+          "VE0": 5,
+          "VEmax": 100,
+          "depression_frac": 0.5,
+          "depression_sharpness": 0.3,
+          "hypox_sharpness": 0.2,
+          "pH_ref": 7.4,
+          "sharpness": 0.6,
+          "slope": 2.5
+        },
+        "indep": [
+          {
+            "symbol": "Pco2",
+            "range": [
+              20,
+              80
+            ]
+          },
+          {
+            "symbol": "Po2",
+            "range": [
+              40,
+              100
+            ]
+          },
+          {
+            "symbol": "pHa",
+            "range": [
+              7.2,
+              7.5
+            ]
+          }
+        ],
+        "is_ode": false,
+        "sigma": 1
+      },
+      "result": {
+        "ok": true,
+        "mode": "explicit",
+        "k": 5.0,
+        "sigma": 1,
+        "sampling": {
+          "method": "sobol",
+          "n_samples": 512,
+          "n_dimensions": 3
+        },
+        "terms": [
+          {
+            "term": "(VE0 + slope*(Ahypoxia*(-1*1 + Po2_ref/Po2) + 1)*(Pco2 - (-Bmetacid*(pH_ref - pH",
+            "rms": 88.34427112556745,
+            "sigma_multiple": 88.34427112556745
+          }
+        ],
+        "weak_terms": [],
+        "new_term": {
+          "delta_expr": "evaluated numerically as current expression minus parent",
+          "max_effect": 211.37787369677167,
+          "sigma_multiple": 211.37787369677167,
+          "strongest_at": {
+            "Pco2": 72.55130277946591,
+            "Po2": 40.84424663335085,
+            "pHa": 7.409791779052466
+          },
+          "passes": true
+        },
+        "advice": "all terms visible"
+      }
+    }
+  ],
+  "_cost_usd": 0.5412855,
+  "_num_turns": 7,
+  "discipline": "biology",
+  "scenario_text": "A respiratory control study measures steady-state pulmonary ventilation as a function of arterial carbon dioxide level once chemoreceptor feedback has stabilized. Below a threshold the ventilatory drive is minimal, while above it ventilation rises approximately linearly with the stimulus. Oxygen level is held constant. We measure ventilation rate against arterial carbon dioxide partial pressure.",
+  "record_id": "m2_physiology_and_homeostasis_0_008",
+  "generation": 5,
+  "_n_total": 5000
+}

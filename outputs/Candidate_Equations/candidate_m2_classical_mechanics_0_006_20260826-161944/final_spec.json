@@ -1,0 +1,247 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "vx",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        10.0
+      ],
+      "n_points": 400,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "G",
+      "value": 1.0
+    },
+    {
+      "symbol": "M",
+      "value": 1.0
+    },
+    {
+      "symbol": "alpha_rel",
+      "value": 0.01
+    },
+    {
+      "symbol": "beta_drag",
+      "value": 0.005
+    },
+    {
+      "symbol": "Omega_atm",
+      "value": 0.3
+    },
+    {
+      "symbol": "r_ref",
+      "value": 1.0
+    },
+    {
+      "symbol": "H_scale",
+      "value": 0.5
+    },
+    {
+      "symbol": "J2_coeff",
+      "value": 0.05
+    }
+  ],
+  "benchmark_output": "dvx_dt",
+  "benchmark_target_state": "vx",
+  "observed_variables": [
+    "t",
+    "x",
+    "y",
+    "vx",
+    "vy"
+  ],
+  "rhs_for_integrator": "-G*M*x/(x**2 + y**2)**(3/2) - G*M*alpha_rel*x/(x**2 + y**2)**(5/2) - beta_drag*exp(-(sqrt(x**2 + y**2) - r_ref)/H_scale)*sqrt((vx + Omega_atm*y)**2 + (vy - Omega_atm*x)**2)*(vx + Omega_atm*y) - J2_coeff*G*M*x*(x**2 - 4*y**2)/(x**2 + y**2)**(7/2)",
+  "state_variables": [
+    "x",
+    "y",
+    "vx",
+    "vy"
+  ],
+  "state_rhs": [
+    "vx",
+    "vy",
+    "-G*M*x/(x**2 + y**2)**(3/2) - G*M*alpha_rel*x/(x**2 + y**2)**(5/2) - beta_drag*exp(-(sqrt(x**2 + y**2) - r_ref)/H_scale)*sqrt((vx + Omega_atm*y)**2 + (vy - Omega_atm*x)**2)*(vx + Omega_atm*y) - J2_coeff*G*M*x*(x**2 - 4*y**2)/(x**2 + y**2)**(7/2)",
+    "-G*M*y/(x**2 + y**2)**(3/2) - G*M*alpha_rel*y/(x**2 + y**2)**(5/2) - beta_drag*exp(-(sqrt(x**2 + y**2) - r_ref)/H_scale)*sqrt((vx + Omega_atm*y)**2 + (vy - Omega_atm*x)**2)*(vy - Omega_atm*x) - J2_coeff*G*M*y*(3*x**2 - 2*y**2)/(x**2 + y**2)**(7/2)"
+  ],
+  "initial_conditions": {
+    "x": 1.0,
+    "y": 0.0,
+    "vx": 0.0,
+    "vy": 0.8
+  },
+  "noise": 0.01,
+  "sanity_expectations": [
+    "r=sqrt(x^2+y^2) stays bounded in roughly [0.45, 1.0] over the window (bound eccentric orbit, no crash to r=0)",
+    "x and y are oscillatory/quasi-periodic with slow apsidal precession from the relativistic and J2 terms",
+    "orbital energy slowly decreases due to atmospheric drag (weak secular inward drift)",
+    "dvx_dt is largest in magnitude near perihelion (small r) and smallest near apoapsis",
+    "no NaN/Inf: all state trajectories remain finite and real"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "Noise sigma=0.01 on benchmark output dvx_dt. Dominant Newtonian term ~1-4 over the orbit. NEW term (J2 quadrupole, -J2_coeff*G*M*x*(x^2-4y^2)/r^(7/2)) is strongly visible: peak effect on the target trajectory = 2.11 = 210x sigma, strongest at t~8.44 (near perihelion, small r). Inherited terms are also excited by the eccentric orbit that dips to r_peri~0.47: the 1/r^5 relativistic term (~0.16 near perihelion, >15x sigma) and the exponential atmospheric drag term (amplified by exp((r_ref-r)/H_scale)~2.9 near perihelion, ~0.04-0.07, >5x sigma). All terms clear the 5*sigma visibility bar.",
+  "role_corrections": [
+    "dvx_dt: output/target-derivative -> benchmark_output (confirmed; RHS of dvx/dt in the system)",
+    "vx: target_state -> dependent_variable (confirmed)",
+    "t: time axis -> sole independent variable, sampled (confirmed)",
+    "x: dynamic state -> state_variable (confirmed; governed by dx/dt=vx)",
+    "y: dynamic state -> state_variable (confirmed; governed by dy/dt=vy)",
+    "vx: dynamic state -> state_variable (confirmed)",
+    "vy: dynamic state -> state_variable (confirmed)",
+    "G: parameter -> fixed parameter=1.0 (confirmed; normalized units)",
+    "M: parameter -> fixed parameter=1.0 (confirmed; normalized units)",
+    "alpha_rel: parameter -> fixed parameter=0.01 (confirmed)",
+    "beta_drag: parameter -> fixed parameter=0.005 (confirmed; reduced from initial guess to avoid drag-driven decay into the r=0 singularity)",
+    "Omega_atm: parameter -> fixed parameter=0.3 (confirmed)",
+    "r_ref: parameter -> fixed parameter=1.0 (confirmed)",
+    "H_scale: parameter -> fixed parameter=0.5 (confirmed)",
+    "J2_coeff: parameter -> fixed parameter=0.05 (confirmed; top of suggested 0-0.05 range for max visibility of the new term)"
+  ],
+  "rationale": "Typed ODE system inherited verbatim from the contract (equation_type=ode_system, integrator=integrate_system, target_state=vx, 4 states, IC fixed). Only data-design choices were made: normalized units (G=M=1) giving unit-scale gravity; IC (x=1,vy=0.8) yields a bound eccentric orbit (r_peri~0.47) that periodically visits small r where the higher-order 1/r^n corrections and the new J2 term become large. Time window t in [0,10] (~2.5 orbits) keeps integration stable while capturing precession; drag lowered to beta_drag=0.005 to prevent orbital decay into the singularity. excitation_check (is_ode=true) confirms the new J2 term reaches 210x the chosen sigma=0.01.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "-G*M*x/(x**2 + y**2)**(3/2) - G*M*alpha_rel*x/(x**2 + y**2)**(5/2) - beta_drag*exp(-(sqrt(x**2 + y**2) - r_ref)/H_scale)*sqrt((vx + Omega_atm*y)**2 + (vy - Omega_atm*x)**2)*(vx + Omega_atm*y) - J2_coeff*G*M*x*(x**2 - 4*y**2)/(x**2 + y**2)**(7/2)",
+        "target_symbol": "vx"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "G",
+          "H_scale",
+          "J2_coeff",
+          "M",
+          "Omega_atm",
+          "alpha_rel",
+          "beta_drag",
+          "r_ref",
+          "vx",
+          "vy",
+          "x",
+          "y"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": false,
+        "explicit_solution_preview": null,
+        "classification_hint": "implicit_or_explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "G": 1,
+          "H_scale": 0.5,
+          "J2_coeff": 0.05,
+          "M": 1,
+          "Omega_atm": 0.3,
+          "alpha_rel": 0.01,
+          "beta_drag": 0.02,
+          "r_ref": 1
+        },
+        "indep": [
+          {
+            "symbol": "t",
+            "range": [
+              0,
+              20
+            ]
+          }
+        ],
+        "is_ode": true,
+        "sigma": 0.01
+      },
+      "result": {
+        "ok": false,
+        "error": "ODE-system excitation failed: ValueError: integration failed: Required step size is less than spacing between numbers."
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "G": 1,
+          "H_scale": 0.5,
+          "J2_coeff": 0.05,
+          "M": 1,
+          "Omega_atm": 0.3,
+          "alpha_rel": 0.01,
+          "beta_drag": 0.005,
+          "r_ref": 1
+        },
+        "indep": [
+          {
+            "range": [
+              0,
+              10
+            ],
+            "symbol": "t"
+          }
+        ],
+        "is_ode": true,
+        "sigma": 0.01
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "vx",
+        "child_state_count": 4,
+        "parent_state_count": 4,
+        "n_time_points": 200,
+        "new_term_max_effect": 2.1086411082778094,
+        "new_term_sigma_multiple": 210.86411082778093,
+        "strongest_at": {
+          "t": 8.442211055276383
+        },
+        "k": 5.0,
+        "passes": true,
+        "advice": "new mechanism is visible on the target trajectory"
+      }
+    }
+  ],
+  "_cost_usd": 0.46120099999999997,
+  "_num_turns": 6,
+  "discipline": "physics",
+  "scenario_text": "A small body moves in a bound orbit around a much heavier central body under mutual gravitational attraction, tracked in a plane. The inward pull depends on the inverse square of separation and continuously bends the trajectory. Given an initial position and velocity, the body traces its orbital path over time. The dynamics depend on the central mass and the gravitational constant.",
+  "record_id": "m2_classical_mechanics_0_006",
+  "generation": 5,
+  "_n_total": 5000,
+  "finalization": {
+    "mode": "candidate",
+    "accepted_generations": 5,
+    "novelty": {
+      "reasoning": "Analyzing each term: (1) The first term -G*M*x/(x^2+y^2)^(3/2) is the classical Newtonian inverse-square gravity baseline — well-known. (2) The second term -G*M*alpha_rel*x/(x^2+y^2)^(5/2) is a 1/r^4 relativistic precession correction; a 1/r^3 force (i.e. 1/r^4 in acceleration components with the x factor) is a standard form used to model perihelion precession (the effective GR correction is often written as such). This is a recognizable, somewhat classical structural addition. (3) The J2 quadrupole term -J2_coeff*G*M*x*(x^2-4y^2)/(x^2+y^2)^(7/2) encodes oblateness. The standard J2 acceleration in the equatorial plane scales as 1/r^4, and the specific polynomial angular dependence (x^2-4y^2) here is an unusual planar projection — not the standard textbook 3D J2 formula but an adapted composite. (4) The drag term is the genuinely novel composite: it combines an exponentially decaying atmospheric density profile exp(-(r-r_ref)/H_scale), a co-rotating medium with angular velocity Omega_atm giving relative velocity components (vx+Omega_atm*y) and (vy-Omega_atm*x), and a velocity-squared quadratic drag law with the speed magnitude times the relative velocity component. This full combination — exponential scale-height density, co-rotating wind, and quadratic drag — is a non-trivial physically-motivated composite that does not appear as a single closed-form textbook equation. The COMPLETE combined form (Newtonian + 1/r^4 relativistic + planar J2 + co-rotating exponential quadratic drag) is not something recitable from any single reference; while each mechanism has physical precedent, their exact assembled functional form with these specific couplings could only be pinned down via data-driven inference. An LLM could recite the first term and roughly guess the others, but not the precise composite drag structure and coefficients. Therefore the equation as a whole introduces genuine novel composite mechanism terms.",
+      "answer": "Yes",
+      "llm_qa_history": [
+        {
+          "attempt": 1,
+          "model": "claude-opus-4-8",
+          "system_prompt": "You are a top-tier scientist with deep expertise across physics, biology,\nchemistry, and materials science. Your task is to act as a \"Novelty Evaluator\":\nobjectively judge whether a newly generated mathematical equation is\n\"scientifically novel\" within its given scientific context.\n\nCORE CRITERIA:\n- NOT NOVEL: the equation is a well-known classical formula that already exists\n  in textbooks, on the internet, or in the open scientific literature — i.e. a\n  formula that could be obtained simply by recall/recitation.\n- NOVEL: while remaining scientifically sound, the equation introduces uncommon,\n  nonlinear, or genuinely new composite mechanism terms, such that neither a\n  human nor an AI could guess it from background knowledge alone — it could only\n  be recovered through data-driven inference from experimental observations.\n",
+          "user_prompt": "[SCIENTIFIC CONTEXT]:\nField: physics\nProblem description: A small body moves in a bound orbit around a much heavier central body under mutual gravitational attraction, tracked in a plane. The inward pull depends on the inverse square of separation and continuously bends the trajectory. Given an initial position and velocity, the body traces its orbital path over time. The dynamics depend on the central mass and the gravitational constant.\n\n[VARIABLES & PARAMETERS]:\n- Target variable: dvx_dt (Rate of change of the orbiting body's velocity component along x)\n- Input features: t (time)\n- Dynamic states: x (Position coordinate along x relative to central body); y (Position coordinate along y relative to central body); vx (Velocity component along x); vy (Velocity component along y)\n- Parameters: G (Gravitational constant); M (Central body mass); alpha_rel (Relativistic precession coefficient (effective 1/r^4 correction strength)); beta_drag (Drag coefficient for velocity-squared resistance at the reference radius); Omega_atm (Angular rotation rate of the co-rotating residual medium around the central body); r_ref (Reference radius at which the ambient density equals the nominal drag scale); H_scale (Radial scale height over which the ambient medium density decays exponentially); J2_coeff (Quadrupole (oblateness J2) coefficient encoding the central body's equatorial bulge acceleration strength)\n\n[CANDIDATE EQUATION]:\ndvx_dt = -G*M*x/(x**2 + y**2)**(3/2) - G*M*alpha_rel*x/(x**2 + y**2)**(5/2) - beta_drag*exp(-(sqrt(x**2 + y**2) - r_ref)/H_scale)*sqrt((vx + Omega_atm*y)**2 + (vy - Omega_atm*x)**2)*(vx + Omega_atm*y) - J2_coeff*G*M*x*(x**2 - 4*y**2)/(x**2 + y**2)**(7/2)\n\n[CLOSED ODE SYSTEM]:\n{\n  \"time_symbol\": \"t\",\n  \"target_state\": \"vx\",\n  \"states\": [\n    {\n      \"symbol\": \"x\",\n      \"rhs\": \"vx\",\n      \"initial_condition\": 1.0,\n      \"description\": \"Position coordinate along x relative to central body\"\n    },\n    {\n      \"symbol\": \"y\",\n      \"rhs\": \"vy\",\n      \"initial_condition\": 0.0,\n      \"description\": \"Position coordinate along y relative to central body\"\n    },\n    {\n      \"symbol\": \"vx\",\n      \"rhs\": \"-G*M*x/(x**2 + y**2)**(3/2) - G*M*alpha_rel*x/(x**2 + y**2)**(5/2) - beta_drag*exp(-(sqrt(x**2 + y**2) - r_ref)/H_scale)*sqrt((vx + Omega_atm*y)**2 + (vy - Omega_atm*x)**2)*(vx + Omega_atm*y) - J2_coeff*G*M*x*(x**2 - 4*y**2)/(x**2 + y**2)**(7/2)\",\n      \"initial_condition\": 0.0,\n      \"description\": \"Velocity component along x\"\n    },\n    {\n      \"symbol\": \"vy\",\n      \"rhs\": \"-G*M*y/(x**2 + y**2)**(3/2) - G*M*alpha_rel*y/(x**2 + y**2)**(5/2) - beta_drag*exp(-(sqrt(x**2 + y**2) - r_ref)/H_scale)*sqrt((vx + Omega_atm*y)**2 + (vy - Omega_atm*x)**2)*(vy - Omega_atm*x) - J2_coeff*G*M*y*(3*x**2 - 2*y**2)/(x**2 + y**2)**(7/2)\",\n      \"initial_condition\": 0.8,\n      \"description\": \"Velocity component along y\"\n    }\n  ]\n}\n(Note: this equation comes from an equation-evolution pipeline; assume it is\nmathematically solvable and numerically stable.)\n\n[NOTE ON KNOWN / CLASSICAL TERMS]:\nThe classical / textbook starting point for this phenomenon (the baseline equation) is:\n  dvx_dt = -G*M*x/(x**2 + y**2)**(3/2)\nThe terms appearing in this baseline equation can be regarded as the well-known classical terms for this problem. Use this as the reference to judge whether the candidate equation, relative to this classical baseline, introduces additional novel composite terms that cannot be recited directly and could only be discovered through data-driven reasoning.\n\n---\n\nREASONING & OUTPUT REQUIREMENTS:\nLet's think step by step:\n1. Analyze each term in the candidate equation. Which terms are established\n   classical knowledge in this scientific context, and which are newly\n   introduced composite terms?\n2. Drawing on your knowledge of the scientific literature, does this COMPLETE\n   combined form of the equation appear directly in any existing textbook or\n   public reference? Could a large language model \"recite\" this exact formula\n   purely from the context and variable names above?\n3. Assess whether it has true novelty (i.e. it could only be discovered by\n   reasoning over subsequent experimental observation data).\n\nProvide your final answer STRICTLY in the following JSON format, with no extra\nMarkdown markup (no ```json):\n{\n  \"reasoning\": \"Write your detailed step-by-step scientific analysis and novelty assessment here.\",\n  \"answer\": \"Yes\" or \"No\" (write \"Yes\" if the equation is novel and cannot be directly recited; write \"No\" if it is a well-known classical formula or can be directly recited)\n}\n",
+          "raw_response": "{\n  \"reasoning\": \"Analyzing each term: (1) The first term -G*M*x/(x^2+y^2)^(3/2) is the classical Newtonian inverse-square gravity baseline — well-known. (2) The second term -G*M*alpha_rel*x/(x^2+y^2)^(5/2) is a 1/r^4 relativistic precession correction; a 1/r^3 force (i.e. 1/r^4 in acceleration components with the x factor) is a standard form used to model perihelion precession (the effective GR correction is often written as such). This is a recognizable, somewhat classical structural addition. (3) The J2 quadrupole term -J2_coeff*G*M*x*(x^2-4y^2)/(x^2+y^2)^(7/2) encodes oblateness. The standard J2 acceleration in the equatorial plane scales as 1/r^4, and the specific polynomial angular dependence (x^2-4y^2) here is an unusual planar projection — not the standard textbook 3D J2 formula but an adapted composite. (4) The drag term is the genuinely novel composite: it combines an exponentially decaying atmospheric density profile exp(-(r-r_ref)/H_scale), a co-rotating medium with angular velocity Omega_atm giving relative velocity components (vx+Omega_atm*y) and (vy-Omega_atm*x), and a velocity-squared quadratic drag law with the speed magnitude times the relative velocity component. This full combination — exponential scale-height density, co-rotating wind, and quadratic drag — is a non-trivial physically-motivated composite that does not appear as a single closed-form textbook equation. The COMPLETE combined form (Newtonian + 1/r^4 relativistic + planar J2 + co-rotating exponential quadratic drag) is not something recitable from any single reference; while each mechanism has physical precedent, their exact assembled functional form with these specific couplings could only be pinned down via data-driven inference. An LLM could recite the first term and roughly guess the others, but not the precise composite drag structure and coefficients. Therefore the equation as a whole introduces genuine novel composite mechanism terms.\",\n  \"answer\": \"Yes\"\n}",
+          "parsed_response": {
+            "reasoning": "Analyzing each term: (1) The first term -G*M*x/(x^2+y^2)^(3/2) is the classical Newtonian inverse-square gravity baseline — well-known. (2) The second term -G*M*alpha_rel*x/(x^2+y^2)^(5/2) is a 1/r^4 relativistic precession correction; a 1/r^3 force (i.e. 1/r^4 in acceleration components with the x factor) is a standard form used to model perihelion precession (the effective GR correction is often written as such). This is a recognizable, somewhat classical structural addition. (3) The J2 quadrupole term -J2_coeff*G*M*x*(x^2-4y^2)/(x^2+y^2)^(7/2) encodes oblateness. The standard J2 acceleration in the equatorial plane scales as 1/r^4, and the specific polynomial angular dependence (x^2-4y^2) here is an unusual planar projection — not the standard textbook 3D J2 formula but an adapted composite. (4) The drag term is the genuinely novel composite: it combines an exponentially decaying atmospheric density profile exp(-(r-r_ref)/H_scale), a co-rotating medium with angular velocity Omega_atm giving relative velocity components (vx+Omega_atm*y) and (vy-Omega_atm*x), and a velocity-squared quadratic drag law with the speed magnitude times the relative velocity component. This full combination — exponential scale-height density, co-rotating wind, and quadratic drag — is a non-trivial physically-motivated composite that does not appear as a single closed-form textbook equation. The COMPLETE combined form (Newtonian + 1/r^4 relativistic + planar J2 + co-rotating exponential quadratic drag) is not something recitable from any single reference; while each mechanism has physical precedent, their exact assembled functional form with these specific couplings could only be pinned down via data-driven inference. An LLM could recite the first term and roughly guess the others, but not the precise composite drag structure and coefficients. Therefore the equation as a whole introduces genuine novel composite mechanism terms.",
+            "answer": "Yes"
+          }
+        }
+      ]
+    },
+    "total_points": 5000,
+    "data_csv": "/data1/SRBench_fresh/outputs/Candidate_Equations/candidate_m2_classical_mechanics_0_006_20260826-161944/lineage_attempt_01/candidate_data/m2_classical_mechanics_0_006_gen5_20260826-162327.csv",
+    "evaluation_status": "not_evaluated; choose Harbor split and solver later"
+  }
+}

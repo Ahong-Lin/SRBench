@@ -1,0 +1,328 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "N",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        100.0
+      ],
+      "n_points": 400,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "r",
+      "value": 1.0
+    },
+    {
+      "symbol": "K",
+      "value": 100.0
+    },
+    {
+      "symbol": "A",
+      "value": 10.0
+    },
+    {
+      "symbol": "h",
+      "value": 2.0
+    },
+    {
+      "symbol": "S_h",
+      "value": 20.0
+    },
+    {
+      "symbol": "m",
+      "value": 0.5
+    },
+    {
+      "symbol": "N_ref",
+      "value": 10.0
+    },
+    {
+      "symbol": "beta_p",
+      "value": 0.5
+    },
+    {
+      "symbol": "gamma_p",
+      "value": 0.2
+    },
+    {
+      "symbol": "P_half",
+      "value": 30.0
+    },
+    {
+      "symbol": "s",
+      "value": 0.3
+    },
+    {
+      "symbol": "Q_half",
+      "value": 50.0
+    },
+    {
+      "symbol": "delta_q",
+      "value": 0.1
+    },
+    {
+      "symbol": "q_load",
+      "value": 0.05
+    },
+    {
+      "symbol": "c",
+      "value": 0.01
+    },
+    {
+      "symbol": "P_c",
+      "value": 10.0
+    }
+  ],
+  "benchmark_output": "dN_dt",
+  "benchmark_target_state": "N",
+  "observed_variables": [
+    "t",
+    "N",
+    "P_mate",
+    "Q_env"
+  ],
+  "rhs_for_integrator": "r * N * (1 - N / K) * (N / A - 1) - (h * N**2) / (S_h**2 + N**2) - m * N * exp(-N / N_ref) * (1 - P_mate / (P_mate + N)) - s * N * (Q_env / (Q_half + Q_env)) - c * N**2 * P_mate / (P_c + P_mate)",
+  "state_variables": [
+    "N",
+    "P_mate",
+    "Q_env"
+  ],
+  "state_rhs": [
+    "r * N * (1 - N / K) * (N / A - 1) - (h * N**2) / (S_h**2 + N**2) - m * N * exp(-N / N_ref) * (1 - P_mate / (P_mate + N)) - s * N * (Q_env / (Q_half + Q_env)) - c * N**2 * P_mate / (P_c + P_mate)",
+    "beta_p * N**2 / (P_half + N) - gamma_p * P_mate",
+    "q_load * N - delta_q * Q_env"
+  ],
+  "initial_conditions": {
+    "N": 20.0,
+    "P_mate": 0.0,
+    "Q_env": 0.0
+  },
+  "noise": 0.5,
+  "sanity_expectations": [
+    "N stays positive and bounded (0 < N < K=100) for all t",
+    "N increases from 20 (above Allee threshold A=10), escaping the low-density penalty, and approaches a finite quasi-equilibrium below K",
+    "P_mate starts at 0, rises monotonically, and saturates as N grows (driven by beta_p*N^2/(P_half+N) vs gamma_p decay)",
+    "Q_env starts at 0, rises, and approaches q_load*N/delta_q as N stabilizes",
+    "dN_dt is large and positive early in the transient, then relaxes toward ~0 as the system approaches equilibrium",
+    "the NEW competition loss becomes most influential late (t~94) where N and P_mate are largest"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "Full child-vs-parent system comparison on the N trajectory (t in [0,100], 400 pts, sigma=0.5). NEW term -c*N^2*P_mate/(P_c+P_mate): peak effect 10.82 on N = 21.6*sigma, strongest at t~94 where N is large and P_mate has saturated (well above the 5*sigma bar). Parameters chosen so the population escapes the Allee threshold (A=10 < N0=20) and grows to a high-N regime; there the paired-pool P_mate builds up (beta_p/gamma_p, P_half) and the competition loss becomes the dominant sub-dominant term, pulling the quasi-equilibrium below K. Predation (h), sparse-mortality (m,N_ref), and environmental-stress (s,Q_half) terms are all active during the transient and near equilibrium.",
+  "role_corrections": [
+    "dN_dt: output/target derivative -> confirmed (RHS of dN/dt, benchmark_output)",
+    "N: dynamic state -> confirmed (target_state, function under the derivative)",
+    "P_mate: dynamic state -> confirmed (own ODE beta_p*N^2/(P_half+N)-gamma_p*P_mate)",
+    "Q_env: dynamic state -> confirmed (own ODE q_load*N-delta_q*Q_env)",
+    "t: time axis -> V->V (confirmed, sole independent variable, gets a range)",
+    "r: parameter -> confirmed (fixed 1.0)",
+    "K: parameter -> confirmed (fixed 100.0)",
+    "A: parameter -> confirmed (Allee threshold, fixed 10.0)",
+    "h: parameter -> confirmed (fixed 2.0)",
+    "S_h: parameter -> confirmed (fixed 20.0)",
+    "m: parameter -> confirmed (fixed 0.5)",
+    "N_ref: parameter -> confirmed (fixed 10.0)",
+    "beta_p: parameter -> confirmed (fixed 0.5)",
+    "gamma_p: parameter -> confirmed (fixed 0.2)",
+    "P_half: parameter -> confirmed (fixed 30.0)",
+    "s: parameter -> confirmed (fixed 0.3)",
+    "Q_half: parameter -> confirmed (fixed 50.0)",
+    "delta_q: parameter -> confirmed (fixed 0.1)",
+    "q_load: parameter -> confirmed (fixed 0.05)",
+    "c: parameter -> confirmed (NEW-term strength, fixed 0.01, top of suggested 0-0.01)",
+    "P_c: parameter -> confirmed (NEW-term saturation, fixed 10.0, within suggested 1-30)"
+  ],
+  "rationale": "Typed ode_system contract inherited verbatim (states N, P_mate, Q_env; their RHS; ICs N=20, P_mate=0, Q_env=0). Only time range, parameters, noise, and expectations were chosen. analyze_expression confirmed the target RHS has no derivatives/integrals/ungoverned functions and its free symbols match the contract, so all labels are confirmed (no overrides). Initial parameter guess made dN/dt<0 at t=0 (population collapsed toward extinction before P_mate could build), leaving the new term at only 0.55*sigma. Rebalancing to a growth regime (r=1, A=10<N0, weaker predation/sparse mortality) lets N climb and P_mate saturate, so the c*N^2*P_mate/(P_c+P_mate) competition term reaches 21.6*sigma. c fixed at 0.01 and P_c at 10 per the suggested ranges. sigma=0.5 is small vs the transient dN/dt (~O(10)) yet is the visibility yardstick.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "r * N * (1 - N / K) * (N / A - 1) - (h * N**2) / (S_h**2 + N**2) - m * N * exp(-N / N_ref) * (1 - P_mate / (P_mate + N)) - s * N * (Q_env / (Q_half + Q_env)) - c * N**2 * P_mate / (P_c + P_mate)",
+        "target_symbol": "N"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "A",
+          "K",
+          "N",
+          "N_ref",
+          "P_c",
+          "P_mate",
+          "Q_env",
+          "Q_half",
+          "S_h",
+          "c",
+          "h",
+          "m",
+          "r",
+          "s"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": false,
+        "explicit_solution_preview": null,
+        "classification_hint": "implicit_or_explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "r * N * (1 - N / K) * (N / A - 1) - (h * N**2) / (S_h**2 + N**2) - m * N * exp(-N / N_ref) * (1 - P_mate / (P_mate + N)) - s * N * (Q_env / (Q_half + Q_env)) - c * N**2 * P_mate / (P_c + P_mate)",
+        "assignments": {
+          "r": 0.5,
+          "K": 100,
+          "A": 15,
+          "h": 5,
+          "S_h": 20,
+          "m": 2,
+          "N_ref": 10,
+          "beta_p": 0.5,
+          "gamma_p": 0.2,
+          "P_half": 30,
+          "s": 0.3,
+          "Q_half": 50,
+          "delta_q": 0.1,
+          "q_load": 0.05,
+          "c": 0.005,
+          "P_c": 10,
+          "N": 20,
+          "P_mate": 5,
+          "Q_env": 5
+        },
+        "target_symbol": "N"
+      },
+      "result": {
+        "ok": true,
+        "value_real": -5.376183609026153,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "A": 15,
+          "K": 100,
+          "N_ref": 10,
+          "P_c": 10,
+          "P_half": 30,
+          "Q_half": 50,
+          "S_h": 20,
+          "beta_p": 0.5,
+          "c": 0.005,
+          "delta_q": 0.1,
+          "gamma_p": 0.2,
+          "h": 5,
+          "m": 2,
+          "q_load": 0.05,
+          "r": 0.5,
+          "s": 0.3
+        },
+        "indep": [
+          {
+            "symbol": "t",
+            "range": [
+              0,
+              100
+            ],
+            "n_points": 400
+          }
+        ],
+        "is_ode": true,
+        "sigma": 0.5
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "N",
+        "child_state_count": 3,
+        "parent_state_count": 3,
+        "n_time_points": 400,
+        "new_term_max_effect": 0.2772357291950325,
+        "new_term_sigma_multiple": 0.554471458390065,
+        "strongest_at": {
+          "t": 1.5037593984962405
+        },
+        "k": 5.0,
+        "passes": false,
+        "advice": "new mechanism peaks at only 0.55*sigma (need 5.0); extend the t range or adjust physically valid coefficients"
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "A": 10,
+          "K": 100,
+          "N_ref": 10,
+          "P_c": 10,
+          "P_half": 30,
+          "Q_half": 50,
+          "S_h": 20,
+          "beta_p": 0.5,
+          "c": 0.01,
+          "delta_q": 0.1,
+          "gamma_p": 0.2,
+          "h": 2,
+          "m": 0.5,
+          "q_load": 0.05,
+          "r": 1,
+          "s": 0.3
+        },
+        "indep": [
+          {
+            "n_points": 400,
+            "range": [
+              0,
+              100
+            ],
+            "symbol": "t"
+          }
+        ],
+        "is_ode": true,
+        "sigma": 0.5
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "N",
+        "child_state_count": 3,
+        "parent_state_count": 3,
+        "n_time_points": 400,
+        "new_term_max_effect": 10.821667862075884,
+        "new_term_sigma_multiple": 21.64333572415177,
+        "strongest_at": {
+          "t": 94.23558897243107
+        },
+        "k": 5.0,
+        "passes": true,
+        "advice": "new mechanism is visible on the target trajectory"
+      }
+    }
+  ],
+  "_cost_usd": 0.53574525,
+  "_num_turns": 7,
+  "discipline": "biology",
+  "scenario_text": "A sparse sexually reproducing animal population suffers reduced per-capita growth when abundance is very low due to difficulty finding mates. Above a critical threshold density the population grows, but below it the population declines toward extinction. Managers track abundance from different starting sizes. The objective is to capture the low-density growth penalty that creates a tipping point.",
+  "record_id": "m2_population_ecology_0_005",
+  "generation": 5,
+  "_n_total": 5000
+}

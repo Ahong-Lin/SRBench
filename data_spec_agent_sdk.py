@@ -1286,7 +1286,10 @@ async def plan_data_generation_async(
     parent: dict | None = None,
     sampling_replan: dict | None = None,
     k_sigma: float = 5.0,
-    max_budget_usd: float | None = 2.5,
+    # A per-spec spend ceiling.  A few high-dimensional ODE lineages legitimately
+    # need more than the default before they emit, so allow raising it without
+    # editing the source.
+    max_budget_usd: float | None = float(os.environ.get("SRBENCH_SPEC_MAX_BUDGET_USD", "2.5")),
 ) -> dict:
     """Run the SDK tool-augmented agent and return a validated DataGenSpec dict.
 

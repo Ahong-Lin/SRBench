@@ -1,0 +1,338 @@
+{
+  "equation_type": "explicit",
+  "integrator": "evaluate_explicit",
+  "dependent_variable": "sigma",
+  "independent_variables": [
+    {
+      "symbol": "E",
+      "range": [
+        0.01,
+        2.0
+      ],
+      "n_points": 200,
+      "scale": "linear"
+    },
+    {
+      "symbol": "B",
+      "range": [
+        -1.0,
+        1.0
+      ],
+      "n_points": 60,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "a",
+      "value": 1.0
+    },
+    {
+      "symbol": "r",
+      "value": 0.5
+    },
+    {
+      "symbol": "shape",
+      "value": 0.1
+    },
+    {
+      "symbol": "p_wave",
+      "value": 0.3
+    },
+    {
+      "symbol": "r_p",
+      "value": 0.5
+    },
+    {
+      "symbol": "mu_mag",
+      "value": 0.7
+    },
+    {
+      "symbol": "B_res",
+      "value": 0.0
+    },
+    {
+      "symbol": "a_range_cut",
+      "value": 1.0
+    },
+    {
+      "symbol": "mass",
+      "value": 1.0
+    },
+    {
+      "symbol": "hbar",
+      "value": 1.0
+    }
+  ],
+  "benchmark_output": null,
+  "benchmark_target_state": null,
+  "observed_variables": [
+    "E",
+    "B",
+    "sigma"
+  ],
+  "rhs_for_integrator": "4*pi*a**2 / ((1 - a*r*mass*E/hbar**2 - a*shape*(mass*E/hbar**2)**2 - a*mu_mag*(B - B_res)*mass/hbar**2)**2 + a**2*2*mass*E/hbar**2) + 4*pi/(2*mass*E/hbar**2) * (a**2*p_wave*(2*mass*E/hbar**2)**2) / ((1 - p_wave*r_p*(mass*E/hbar**2))**2 + (a**2*p_wave*(2*mass*E/hbar**2)**2/(2*mass*E/hbar**2))) - 4*pi*a**3*mu_mag*(B - B_res) / (hbar**2/mass) / ((1 - a*r*mass*E/hbar**2 - a*shape*(mass*E/hbar**2)**2 - a*mu_mag*(B - B_res)*mass/hbar**2)**2 + a**2*2*mass*E/hbar**2)**2 * (a*r*mass*E/hbar**2) + 4*pi*a**2 * exp(-a**2*2*mass*E/hbar**2 / (a_range_cut*2*mass/hbar**2)) / ((1 - a*r*mass*E/hbar**2 - a*shape*(mass*E/hbar**2)**2 - a*mu_mag*(B - B_res)*mass/hbar**2)**2 + a**2*2*mass*E/hbar**2)",
+  "state_variables": [],
+  "state_rhs": [],
+  "initial_conditions": {},
+  "noise": 0.1,
+  "sanity_expectations": [
+    "sigma stays finite, real and positive across the whole (E,B) grid (no singularity since denominator = D_inner^2 + 2 a^2 k^2 > 0 for E>0)",
+    "as E->0 sigma saturates to a finite low-energy limit ~ 8*pi*a^2 (unitarity/threshold saturation)",
+    "sigma is enhanced (peaks) along the near-resonant locus where a*mu_mag*(B-B_res) ~ 1, i.e. D_inner -> 0",
+    "the new exp(-a^2 k^2/(2 a_range_cut ...)) form factor visibly suppresses the s-wave contribution at the high-E end (E~2) relative to E->0",
+    "p-wave contribution grows with E from threshold (vanishes as E->0)"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "sigma=0.1 (abs std on sigma, small vs the dominant s-wave term ~9-13). All four additive terms clear 5*sigma over E in [0.01,2], B in [-1,1] (hbar=mass=1 units): s-wave term1 92.0x, p-wave term2 58.9x, Feshbach-correction term3 7.4x (weakest; lifted from 4.0x by raising mu_mag 0.5->0.7), NEW exponential form-factor term4 72.3x standalone. The NEW term (child - parent = the exp(-a^2 k^2/(a_range_cut*...)) s-wave form-factor) reaches 701x sigma (max effect 70.2), strongest near E~0.027, B~0.915. auto_balance reported no private linear coefficient (a is shared across all terms) so coupling was resolved by a modest physical mu_mag bump rather than rescaling; excitation_check then shows weak_terms=[] (all visible).",
+  "role_corrections": [
+    "sigma: O->O (confirmed: LHS output, total cross section; not on RHS, explicitly solvable)",
+    "E: V->V (confirmed: incoming energy, primary sampling axis)",
+    "B: V->V (confirmed: Feshbach magnetic field = the 'potential strength' knob, second sampling axis)",
+    "a: V->P (overridden: scattering length is a fixed potential parameter, not an experimentally swept axis)",
+    "r: V->P (overridden: effective-range parameter is fixed, not swept)",
+    "shape: P->P (confirmed)",
+    "p_wave: P->P (confirmed)",
+    "r_p: P->P (confirmed)",
+    "mu_mag: P->P (confirmed; value set to 0.7 for excitation)",
+    "B_res: P->P (confirmed)",
+    "a_range_cut: P->P (confirmed: new-term finite-range cutoff)",
+    "mass: P->P (confirmed, fixed to 1)",
+    "hbar: P->P (confirmed, fixed to 1)",
+    "pi: P->constant (not a free symbol; sympy constant, not fixed as a parameter)"
+  ],
+  "rationale": "analyze_expression shows no derivatives, no integral kernels, sigma absent from the RHS, and explicitly_solvable_for_target=true -> a static EXPLICIT relation sigma = f(E,B; params), integrator evaluate_explicit. Roles: the phenomenon varies incoming energy and potential strength, so E (energy) and B (Feshbach field) are the two independent sampling axes; all other free symbols are fixed potential/constants parameters. The pipeline's labeling of a and r as inputs is overridden - they are intrinsic effective-range-theory parameters, not swept quantities. Units chosen hbar=mass=1 so k^2=2E; parameter magnitudes are O(1) and physically sensible, verified finite/real by check_substitution (sigma=13.8 at a representative point). Noise sigma=0.1 is small vs the dominant s-wave term and serves as the visibility yardstick. The new term is the exponential finite-range form factor gated by a_range_cut; with a_range_cut=1 and E up to 2 the exponent a^2 k^2/(2 a_range_cut) sweeps from ~0 to ~O(1), making a_range_cut identifiable, and excitation_check confirms it dominates the child-minus-parent difference at 701x sigma with all four terms visible.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "4*pi*a**2 / ((1 - a*r*mass*E/hbar**2 - a*shape*(mass*E/hbar**2)**2 - a*mu_mag*(B - B_res)*mass/hbar**2)**2 + a**2*2*mass*E/hbar**2) + 4*pi/(2*mass*E/hbar**2) * (a**2*p_wave*(2*mass*E/hbar**2)**2) / ((1 - p_wave*r_p*(mass*E/hbar**2))**2 + (a**2*p_wave*(2*mass*E/hbar**2)**2/(2*mass*E/hbar**2))) - 4*pi*a**3*mu_mag*(B - B_res) / (hbar**2/mass) / ((1 - a*r*mass*E/hbar**2 - a*shape*(mass*E/hbar**2)**2 - a*mu_mag*(B - B_res)*mass/hbar**2)**2 + a**2*2*mass*E/hbar**2)**2 * (a*r*mass*E/hbar**2) + 4*pi*a**2 * exp(-a**2*2*mass*E/hbar**2 / (a_range_cut*2*mass/hbar**2)) / ((1 - a*r*mass*E/hbar**2 - a*shape*(mass*E/hbar**2)**2 - a*mu_mag*(B - B_res)*mass/hbar**2)**2 + a**2*2*mass*E/hbar**2)",
+        "target_symbol": "sigma"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "B",
+          "B_res",
+          "E",
+          "a",
+          "a_range_cut",
+          "hbar",
+          "mass",
+          "mu_mag",
+          "p_wave",
+          "r",
+          "r_p",
+          "shape"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "-4*pi*E*a*a**3*mass*mu_mag*r*(B - B_res)/((hbar**2/mass)*(hbar**2)*((a**2*2*mass*E/hbar**2 + (-E*a*mass*r/(hbar**2) - a*"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "4*pi*a**2 / ((1 - a*r*mass*E/hbar**2 - a*shape*(mass*E/hbar**2)**2 - a*mu_mag*(B - B_res)*mass/hbar**2)**2 + a**2*2*mass*E/hbar**2) + 4*pi/(2*mass*E/hbar**2) * (a**2*p_wave*(2*mass*E/hbar**2)**2) / ((1 - p_wave*r_p*(mass*E/hbar**2))**2 + (a**2*p_wave*(2*mass*E/hbar**2)**2/(2*mass*E/hbar**2))) - 4*pi*a**3*mu_mag*(B - B_res) / (hbar**2/mass) / ((1 - a*r*mass*E/hbar**2 - a*shape*(mass*E/hbar**2)**2 - a*mu_mag*(B - B_res)*mass/hbar**2)**2 + a**2*2*mass*E/hbar**2)**2 * (a*r*mass*E/hbar**2) + 4*pi*a**2 * exp(-a**2*2*mass*E/hbar**2 / (a_range_cut*2*mass/hbar**2)) / ((1 - a*r*mass*E/hbar**2 - a*shape*(mass*E/hbar**2)**2 - a*mu_mag*(B - B_res)*mass/hbar**2)**2 + a**2*2*mass*E/hbar**2)",
+        "assignments": {
+          "E": 1,
+          "B": 0.5,
+          "a": 1,
+          "r": 0.5,
+          "shape": 0.1,
+          "p_wave": 0.3,
+          "r_p": 0.5,
+          "mu_mag": 0.5,
+          "B_res": 0,
+          "a_range_cut": 1,
+          "mass": 1,
+          "hbar": 1
+        },
+        "target_symbol": "sigma"
+      },
+      "result": {
+        "ok": true,
+        "value_real": 13.816204651448883,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "auto_balance",
+      "input": {
+        "assignments": {
+          "B_res": 0,
+          "a": 1,
+          "a_range_cut": 1,
+          "hbar": 1,
+          "mass": 1,
+          "mu_mag": 0.5,
+          "p_wave": 0.3,
+          "r": 0.5,
+          "r_p": 0.5,
+          "shape": 0.1
+        },
+        "indep": [
+          {
+            "symbol": "E",
+            "range": [
+              0.01,
+              2
+            ]
+          },
+          {
+            "symbol": "B",
+            "range": [
+              -1,
+              1
+            ]
+          }
+        ],
+        "is_ode": false,
+        "sigma": 0.1
+      },
+      "result": {
+        "ok": true,
+        "assignments": {
+          "B_res": 0,
+          "a": 1,
+          "a_range_cut": 1,
+          "hbar": 1,
+          "mass": 1,
+          "mu_mag": 0.5,
+          "p_wave": 0.3,
+          "r": 0.5,
+          "r_p": 0.5,
+          "shape": 0.1
+        },
+        "changed": {},
+        "converged": false,
+        "note": "some terms still weak — they may lack a private coefficient, be coupled, or need a range change / be genuinely negligible"
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "B_res": 0,
+          "a": 1,
+          "a_range_cut": 1,
+          "hbar": 1,
+          "mass": 1,
+          "mu_mag": 0.7,
+          "p_wave": 0.3,
+          "r": 0.5,
+          "r_p": 0.5,
+          "shape": 0.1
+        },
+        "indep": [
+          {
+            "range": [
+              0.01,
+              2
+            ],
+            "symbol": "E"
+          },
+          {
+            "range": [
+              -1,
+              1
+            ],
+            "symbol": "B"
+          }
+        ],
+        "is_ode": false,
+        "sigma": 0.1
+      },
+      "result": {
+        "ok": true,
+        "mode": "explicit",
+        "k": 5.0,
+        "sigma": 0.1,
+        "sampling": {
+          "method": "sobol",
+          "n_samples": 512,
+          "n_dimensions": 2
+        },
+        "terms": [
+          {
+            "term": "-4*pi*E*a*a**3*mass*mu_mag*r*(B - B_res)/((hbar**2/mass)*(hbar**2)*((a**2*2*mass",
+            "rms": 0.7364206834183946,
+            "sigma_multiple": 7.364206834183946
+          },
+          {
+            "term": "4*pi*a**2*p_wave*(2*E*mass/(hbar**2))**2/(((2*E*mass/(hbar**2)))*(a**2*p_wave*(2",
+            "rms": 5.888490060763456,
+            "sigma_multiple": 58.884900607634556
+          },
+          {
+            "term": "4*pi*a**2*exp(-a**2*2*mass*E/(hbar**2*(a_range_cut*2*mass/hbar**2)))/(a**2*2*mas",
+            "rms": 7.22539654309625,
+            "sigma_multiple": 72.2539654309625
+          },
+          {
+            "term": "4*pi*a**2/(a**2*2*mass*E/hbar**2 + (-E*a*mass*r/(hbar**2) - a*shape*(E*mass/(hba",
+            "rms": 9.200596825727889,
+            "sigma_multiple": 92.00596825727888
+          }
+        ],
+        "weak_terms": [],
+        "new_term": {
+          "delta_expr": "evaluated numerically as current expression minus parent",
+          "max_effect": 70.16359181371178,
+          "sigma_multiple": 701.6359181371178,
+          "strongest_at": {
+            "E": 0.027389209251850843,
+            "B": 0.915094556286931
+          },
+          "passes": true
+        },
+        "advice": "all terms visible"
+      }
+    }
+  ],
+  "_cost_usd": 0.7102995000000001,
+  "_num_turns": 7,
+  "discipline": "physics",
+  "scenario_text": "Particles scatter off a weak localized potential at low energy, and the total scattering cross section is measured. The experimenter varies the incoming particle energy and the strength of the potential. At low energies the response is dominated by a single isotropic channel. This probes how weak short-range scattering saturates with vanishing energy.",
+  "record_id": "m2_quantum_mechanics_0_005",
+  "generation": 5,
+  "_n_total": 5000,
+  "finalization": {
+    "mode": "candidate",
+    "accepted_generations": 5,
+    "novelty": {
+      "reasoning": "The baseline is the standard s-wave effective-range cross section: sigma = 4*pi*a^2 / ((1 - a*r*k^2/2)^2 + a^2*k^2), written with k^2 = 2*m*E/hbar^2. The candidate extends this substantially. (1) The s-wave denominator adds an effective-range expansion shape term (-a*shape*(mass*E/hbar^2)^2), which is a recognizable next-order effective-range correction, and a magnetic-field-dependent term (-a*mu_mag*(B-B_res)*mass/hbar^2) that Feshbach-tunes the scattering length in the denominator — this coupling of the field shift directly into the s-wave denominator in this specific composite form is non-standard. (2) A p-wave channel term is added with its own resonant denominator combining p_wave, r_p, and a peculiar mixing of a^2*p_wave into the p-wave width — the structure mixing s-wave scattering length 'a' into the p-wave amplitude width is physically unusual and not textbook. (3) A cross-term proportional to 4*pi*a^3*mu_mag*(B-B_res)/(hbar^2/mass) with the squared denominator and an extra factor (a*r*mass*E/hbar^2) — this is a derivative-like / mixed correction term that has no standard closed-form counterpart. (4) An exponential finite-range form-factor suppression exp(-...) multiplying an additional copy of the s-wave term — this exponential cutoff on the amplitude is a heuristic, not part of any standard analytic scattering formula. While individual ingredients (effective-range expansion, Feshbach tuning, p-wave resonance) are known physics concepts, the COMPLETE combined form — with the specific magnetic-field cross term, the mixed p-wave width, the additional exponential-suppressed s-wave copy, and the particular groupings — does not appear in any textbook or standard reference. No LLM could recite this exact composite expression from context; it bears the hallmarks of a data-driven, machine-generated construction with several ad hoc composite mechanism terms. Therefore it goes well beyond recitable classical knowledge.",
+      "answer": "Yes",
+      "llm_qa_history": [
+        {
+          "attempt": 1,
+          "model": "claude-opus-4-8",
+          "system_prompt": "You are a top-tier scientist with deep expertise across physics, biology,\nchemistry, and materials science. Your task is to act as a \"Novelty Evaluator\":\nobjectively judge whether a newly generated mathematical equation is\n\"scientifically novel\" within its given scientific context.\n\nCORE CRITERIA:\n- NOT NOVEL: the equation is a well-known classical formula that already exists\n  in textbooks, on the internet, or in the open scientific literature — i.e. a\n  formula that could be obtained simply by recall/recitation.\n- NOVEL: while remaining scientifically sound, the equation introduces uncommon,\n  nonlinear, or genuinely new composite mechanism terms, such that neither a\n  human nor an AI could guess it from background knowledge alone — it could only\n  be recovered through data-driven inference from experimental observations.\n",
+          "user_prompt": "[SCIENTIFIC CONTEXT]:\nField: physics\nProblem description: Particles scatter off a weak localized potential at low energy, and the total scattering cross section is measured. The experimenter varies the incoming particle energy and the strength of the potential. At low energies the response is dominated by a single isotropic channel. This probes how weak short-range scattering saturates with vanishing energy.\n\n[VARIABLES & PARAMETERS]:\n- Target variable: sigma (total scattering cross section)\n- Input features: E (incoming particle energy); a (effective scattering length); r (effective range parameter); B (external magnetic field controlling the Feshbach-tuned scattering length)\n- Dynamic states: (none)\n- Parameters: shape (shape parameter (next-order effective-range correction, dimensions of length cubed)); p_wave (p-wave scattering volume (dimensions of length cubed)); r_p (p-wave effective range parameter (dimensions of inverse length)); mu_mag (magnetic moment coupling converting field into an energy shift of the closed-channel resonance); B_res (resonance-center magnetic field at which the closed-channel bound state crosses the open-channel threshold); pi (pi constant); mass (particle mass); hbar (reduced Planck constant); a_range_cut (finite-range momentum cutoff energy scale controlling exponential form-factor suppression of the s-wave amplitude at higher energy)\n\n[CANDIDATE EQUATION]:\nsigma = 4*pi*a**2 / ((1 - a*r*mass*E/hbar**2 - a*shape*(mass*E/hbar**2)**2 - a*mu_mag*(B - B_res)*mass/hbar**2)**2 + a**2*2*mass*E/hbar**2) + 4*pi/(2*mass*E/hbar**2) * (a**2*p_wave*(2*mass*E/hbar**2)**2) / ((1 - p_wave*r_p*(mass*E/hbar**2))**2 + (a**2*p_wave*(2*mass*E/hbar**2)**2/(2*mass*E/hbar**2))) - 4*pi*a**3*mu_mag*(B - B_res) / (hbar**2/mass) / ((1 - a*r*mass*E/hbar**2 - a*shape*(mass*E/hbar**2)**2 - a*mu_mag*(B - B_res)*mass/hbar**2)**2 + a**2*2*mass*E/hbar**2)**2 * (a*r*mass*E/hbar**2) + 4*pi*a**2 * exp(-a**2*2*mass*E/hbar**2 / (a_range_cut*2*mass/hbar**2)) / ((1 - a*r*mass*E/hbar**2 - a*shape*(mass*E/hbar**2)**2 - a*mu_mag*(B - B_res)*mass/hbar**2)**2 + a**2*2*mass*E/hbar**2)\n\n(Note: this equation comes from an equation-evolution pipeline; assume it is\nmathematically solvable and numerically stable.)\n\n[NOTE ON KNOWN / CLASSICAL TERMS]:\nThe classical / textbook starting point for this phenomenon (the baseline equation) is:\n  sigma = 4*pi*a**2 / ((1 - a*r*mass*E/hbar**2)**2 + a**2*2*mass*E/hbar**2)\nThe terms appearing in this baseline equation can be regarded as the well-known classical terms for this problem. Use this as the reference to judge whether the candidate equation, relative to this classical baseline, introduces additional novel composite terms that cannot be recited directly and could only be discovered through data-driven reasoning.\n\n---\n\nREASONING & OUTPUT REQUIREMENTS:\nLet's think step by step:\n1. Analyze each term in the candidate equation. Which terms are established\n   classical knowledge in this scientific context, and which are newly\n   introduced composite terms?\n2. Drawing on your knowledge of the scientific literature, does this COMPLETE\n   combined form of the equation appear directly in any existing textbook or\n   public reference? Could a large language model \"recite\" this exact formula\n   purely from the context and variable names above?\n3. Assess whether it has true novelty (i.e. it could only be discovered by\n   reasoning over subsequent experimental observation data).\n\nProvide your final answer STRICTLY in the following JSON format, with no extra\nMarkdown markup (no ```json):\n{\n  \"reasoning\": \"Write your detailed step-by-step scientific analysis and novelty assessment here.\",\n  \"answer\": \"Yes\" or \"No\" (write \"Yes\" if the equation is novel and cannot be directly recited; write \"No\" if it is a well-known classical formula or can be directly recited)\n}\n",
+          "raw_response": "{\n  \"reasoning\": \"The baseline is the standard s-wave effective-range cross section: sigma = 4*pi*a^2 / ((1 - a*r*k^2/2)^2 + a^2*k^2), written with k^2 = 2*m*E/hbar^2. The candidate extends this substantially. (1) The s-wave denominator adds an effective-range expansion shape term (-a*shape*(mass*E/hbar^2)^2), which is a recognizable next-order effective-range correction, and a magnetic-field-dependent term (-a*mu_mag*(B-B_res)*mass/hbar^2) that Feshbach-tunes the scattering length in the denominator — this coupling of the field shift directly into the s-wave denominator in this specific composite form is non-standard. (2) A p-wave channel term is added with its own resonant denominator combining p_wave, r_p, and a peculiar mixing of a^2*p_wave into the p-wave width — the structure mixing s-wave scattering length 'a' into the p-wave amplitude width is physically unusual and not textbook. (3) A cross-term proportional to 4*pi*a^3*mu_mag*(B-B_res)/(hbar^2/mass) with the squared denominator and an extra factor (a*r*mass*E/hbar^2) — this is a derivative-like / mixed correction term that has no standard closed-form counterpart. (4) An exponential finite-range form-factor suppression exp(-...) multiplying an additional copy of the s-wave term — this exponential cutoff on the amplitude is a heuristic, not part of any standard analytic scattering formula. While individual ingredients (effective-range expansion, Feshbach tuning, p-wave resonance) are known physics concepts, the COMPLETE combined form — with the specific magnetic-field cross term, the mixed p-wave width, the additional exponential-suppressed s-wave copy, and the particular groupings — does not appear in any textbook or standard reference. No LLM could recite this exact composite expression from context; it bears the hallmarks of a data-driven, machine-generated construction with several ad hoc composite mechanism terms. Therefore it goes well beyond recitable classical knowledge.\",\n  \"answer\": \"Yes\"\n}",
+          "parsed_response": {
+            "reasoning": "The baseline is the standard s-wave effective-range cross section: sigma = 4*pi*a^2 / ((1 - a*r*k^2/2)^2 + a^2*k^2), written with k^2 = 2*m*E/hbar^2. The candidate extends this substantially. (1) The s-wave denominator adds an effective-range expansion shape term (-a*shape*(mass*E/hbar^2)^2), which is a recognizable next-order effective-range correction, and a magnetic-field-dependent term (-a*mu_mag*(B-B_res)*mass/hbar^2) that Feshbach-tunes the scattering length in the denominator — this coupling of the field shift directly into the s-wave denominator in this specific composite form is non-standard. (2) A p-wave channel term is added with its own resonant denominator combining p_wave, r_p, and a peculiar mixing of a^2*p_wave into the p-wave width — the structure mixing s-wave scattering length 'a' into the p-wave amplitude width is physically unusual and not textbook. (3) A cross-term proportional to 4*pi*a^3*mu_mag*(B-B_res)/(hbar^2/mass) with the squared denominator and an extra factor (a*r*mass*E/hbar^2) — this is a derivative-like / mixed correction term that has no standard closed-form counterpart. (4) An exponential finite-range form-factor suppression exp(-...) multiplying an additional copy of the s-wave term — this exponential cutoff on the amplitude is a heuristic, not part of any standard analytic scattering formula. While individual ingredients (effective-range expansion, Feshbach tuning, p-wave resonance) are known physics concepts, the COMPLETE combined form — with the specific magnetic-field cross term, the mixed p-wave width, the additional exponential-suppressed s-wave copy, and the particular groupings — does not appear in any textbook or standard reference. No LLM could recite this exact composite expression from context; it bears the hallmarks of a data-driven, machine-generated construction with several ad hoc composite mechanism terms. Therefore it goes well beyond recitable classical knowledge.",
+            "answer": "Yes"
+          }
+        }
+      ]
+    },
+    "total_points": 5000,
+    "data_csv": "/data1/SRBench_fresh/outputs/Candidate_Equations/candidate_m2_quantum_mechanics_0_005_20260826-155749/lineage_attempt_01/candidate_data/m2_quantum_mechanics_0_005_gen5_20260826-161034.csv",
+    "evaluation_status": "not_evaluated; choose Harbor split and solver later"
+  }
+}

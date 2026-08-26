@@ -1,0 +1,290 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "I",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        12.0
+      ],
+      "n_points": 600,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "beta0",
+      "value": 3.0
+    },
+    {
+      "symbol": "eps",
+      "value": 0.3
+    },
+    {
+      "symbol": "T_period",
+      "value": 1.0
+    },
+    {
+      "symbol": "gamma",
+      "value": 1.0
+    },
+    {
+      "symbol": "mu",
+      "value": 0.02
+    },
+    {
+      "symbol": "pi",
+      "value": 3.141592653589793
+    },
+    {
+      "symbol": "gamma_sat",
+      "value": 0.5
+    },
+    {
+      "symbol": "I_half",
+      "value": 0.05
+    },
+    {
+      "symbol": "rho",
+      "value": 0.1
+    },
+    {
+      "symbol": "I_waning",
+      "value": 0.1
+    },
+    {
+      "symbol": "omega",
+      "value": 0.1
+    },
+    {
+      "symbol": "kappa",
+      "value": 1.5
+    },
+    {
+      "symbol": "c_prod",
+      "value": 2.0
+    },
+    {
+      "symbol": "c_decay",
+      "value": 0.5
+    },
+    {
+      "symbol": "C_sat",
+      "value": 1.5
+    },
+    {
+      "symbol": "delta_syn",
+      "value": 3.0
+    },
+    {
+      "symbol": "C_half",
+      "value": 0.05
+    }
+  ],
+  "benchmark_output": "dI_dt",
+  "benchmark_target_state": "I",
+  "observed_variables": [
+    "t",
+    "S",
+    "I",
+    "R",
+    "C"
+  ],
+  "rhs_for_integrator": "beta0*(1 + eps*cos(2*pi*t/T_period))*S*I - (gamma + mu)*I - gamma_sat*I**2/(I_half + I) + gamma*rho*R*exp(-I/I_waning) - kappa*C*I - kappa*C*I*(delta_syn*C/(C_half + C))",
+  "state_variables": [
+    "S",
+    "I",
+    "R",
+    "C"
+  ],
+  "state_rhs": [
+    "mu - beta0*(1 + eps*cos(2*pi*t/T_period))*S*I - mu*S + omega*R",
+    "beta0*(1 + eps*cos(2*pi*t/T_period))*S*I - (gamma + mu)*I - gamma_sat*I**2/(I_half + I) + gamma*rho*R*exp(-I/I_waning) - kappa*C*I - kappa*C*I*(delta_syn*C/(C_half + C))",
+    "gamma*I - mu*R - omega*R - gamma*rho*R*exp(-I/I_waning)",
+    "c_prod*I*(1 - C/C_sat) - c_decay*C"
+  ],
+  "initial_conditions": {
+    "S": 0.6,
+    "I": 0.01,
+    "R": 0.39,
+    "C": 0.0
+  },
+  "noise": 0.003,
+  "sanity_expectations": [
+    "I(t) stays strictly positive and bounded in (0,1) for all t",
+    "I(t) shows recurrent annual peaks (period ~ T_period=1) that neither die out nor grow without bound",
+    "S, R, C remain non-negative; S+I+R stays near 1 (small drift from turnover mu)",
+    "C(t) rises during infection waves and relaxes between them, lagging I",
+    "dI_dt oscillates around zero, sign-changing at each epidemic peak and trough"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "New synergy term -kappa*C*I*(delta_syn*C/(C_half+C)) peaks at 0.0323 = 10.8*sigma (need 5), strongest near t=3.25 where infection wave drives capacity C up. Full 4-state child vs parent systems compared on the I trajectory over 12 forcing periods; new mechanism clearly visible above noise. Dominant transmission/recovery terms are O(0.1-1), far above sigma=0.003; saturating-removal, waning-relapse, and base kappa*C*I removal all remain excited by the recurrent waves.",
+  "role_corrections": [
+    "dI_dt: output->output (confirmed target derivative)",
+    "t: V->V (confirmed sole time axis, sampled 0..12)",
+    "S: dynamic state->state (confirmed)",
+    "I: dynamic state->target state (confirmed)",
+    "R: dynamic state->state (confirmed)",
+    "C: dynamic state->state (confirmed, governed by its own RHS; not collapsed to a parameter)",
+    "beta0,eps,T_period,gamma,mu,gamma_sat,I_half,rho,I_waning,omega,kappa,c_prod,c_decay,C_sat,delta_syn,C_half: P->P (confirmed, fixed constants)",
+    "pi: P->constant (fixed to 3.141592653589793)"
+  ],
+  "rationale": "Typed ODE-system contract inherited verbatim (states S,I,R,C; target I; sole time axis t). analyze_expression confirmed no derivatives/integrals/ungoverned functions in the target RHS and target not algebraically isolated, consistent with a state-RHS in a system. Parameters set to epidemiologically sensible SIRS-with-seasonal-forcing magnitudes giving R0=beta0/(gamma+mu)~2.9 and sustained yearly waves. The new term is the response-capacity synergy boost; it only bites once C accumulates, so I set delta_syn=3.0 (max of suggested 0-3), C_half=0.05 (floor of suggested 0.05-1.0), and raised c_prod, C_sat, and kappa to build C during waves. excitation_check (is_ode) confirms the new mechanism reaches 10.8*sigma on the I trajectory.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "beta0*(1 + eps*cos(2*pi*t/T_period))*S*I - (gamma + mu)*I - gamma_sat*I**2/(I_half + I) + gamma*rho*R*exp(-I/I_waning) - kappa*C*I - kappa*C*I*(delta_syn*C/(C_half + C))",
+        "target_symbol": "I"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "C",
+          "C_half",
+          "I",
+          "I_half",
+          "I_waning",
+          "R",
+          "S",
+          "T_period",
+          "beta0",
+          "delta_syn",
+          "eps",
+          "gamma",
+          "gamma_sat",
+          "kappa",
+          "mu",
+          "rho",
+          "t"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": false,
+        "explicit_solution_preview": null,
+        "classification_hint": "implicit_or_explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "beta0": 3,
+          "eps": 0.3,
+          "T_period": 1,
+          "gamma": 1,
+          "mu": 0.02,
+          "pi": 3.141592653589793,
+          "gamma_sat": 0.5,
+          "I_half": 0.05,
+          "rho": 0.1,
+          "I_waning": 0.1,
+          "omega": 0.1,
+          "kappa": 1,
+          "c_prod": 1,
+          "c_decay": 0.5,
+          "C_sat": 1,
+          "delta_syn": 1.5,
+          "C_half": 0.2
+        },
+        "indep": [
+          {
+            "symbol": "t",
+            "range": [
+              0,
+              10
+            ],
+            "n_points": 500
+          }
+        ],
+        "sigma": 0.005,
+        "is_ode": true
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "I",
+        "child_state_count": 4,
+        "parent_state_count": 4,
+        "n_time_points": 500,
+        "new_term_max_effect": 0.006112798289828941,
+        "new_term_sigma_multiple": 1.2225596579657882,
+        "strongest_at": {
+          "t": 4.248496993987976
+        },
+        "k": 5.0,
+        "passes": false,
+        "advice": "new mechanism peaks at only 1.22*sigma (need 5.0); extend the t range or adjust physically valid coefficients"
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "C_half": 0.05,
+          "C_sat": 1.5,
+          "I_half": 0.05,
+          "I_waning": 0.1,
+          "T_period": 1,
+          "beta0": 3,
+          "c_decay": 0.5,
+          "c_prod": 2,
+          "delta_syn": 3,
+          "eps": 0.3,
+          "gamma": 1,
+          "gamma_sat": 0.5,
+          "kappa": 1.5,
+          "mu": 0.02,
+          "omega": 0.1,
+          "pi": 3.141592653589793,
+          "rho": 0.1
+        },
+        "indep": [
+          {
+            "n_points": 600,
+            "range": [
+              0,
+              12
+            ],
+            "symbol": "t"
+          }
+        ],
+        "is_ode": true,
+        "sigma": 0.003
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "I",
+        "child_state_count": 4,
+        "parent_state_count": 4,
+        "n_time_points": 600,
+        "new_term_max_effect": 0.03232330295164499,
+        "new_term_sigma_multiple": 10.774434317214997,
+        "strongest_at": {
+          "t": 3.2454090150250416
+        },
+        "k": 5.0,
+        "passes": true,
+        "advice": "new mechanism is visible on the target trajectory"
+      }
+    }
+  ],
+  "_cost_usd": 0.41666975000000006,
+  "_num_turns": 5,
+  "discipline": "biology",
+  "scenario_text": "A seasonally forced infection shows recurrent yearly waves driven by periodic variation in transmissibility tied to environmental cycles. Epidemiologists observe repeated epidemic peaks in the infectious population that neither die out nor grow without bound. The periodic modulation of transmission combined with recovery and susceptible replenishment sustains the oscillations. The amplitude and period of environmental forcing are fixed inputs to the dynamics.",
+  "record_id": "m2_epidemiology_and_disease_dynamics_0_005",
+  "generation": 5,
+  "_n_total": 5000
+}

@@ -1,0 +1,403 @@
+{
+  "equation_type": "implicit",
+  "integrator": "root_solve_implicit",
+  "dependent_variable": "P_fix",
+  "independent_variables": [
+    {
+      "symbol": "s",
+      "range": [
+        0.5,
+        3.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "c",
+      "value": 0.5
+    },
+    {
+      "symbol": "m",
+      "value": 0.5
+    },
+    {
+      "symbol": "k",
+      "value": 0.5
+    },
+    {
+      "symbol": "b",
+      "value": 0.5
+    },
+    {
+      "symbol": "d",
+      "value": 1.0
+    },
+    {
+      "symbol": "h",
+      "value": 2.0
+    }
+  ],
+  "benchmark_output": null,
+  "benchmark_target_state": null,
+  "observed_variables": [
+    "s",
+    "P_fix"
+  ],
+  "rhs_for_integrator": "1 - 2*P_fix - exp(-(1 + s) * P_fix / (1 + c * P_fix)) * exp(-m * P_fix**2) * exp(-k * (1 + s) * P_fix * (1 - exp(-(1 + s) * P_fix))) * exp(-b * (1 + s) * P_fix**2 * (1 - exp(-(1 + s) * P_fix))) * exp(-d * (1 + s) * P_fix / (1 + h * (1 + s) * P_fix))",
+  "state_variables": [],
+  "state_rhs": [],
+  "initial_conditions": {},
+  "noise": 0.01,
+  "sanity_expectations": [
+    "P_fix monotonically increasing in s",
+    "P_fix bounded strictly within (0, 0.5)",
+    "P_fix -> 0.5 as s grows large (product factor -> 0, so 1-2*P_fix -> 0)",
+    "solver must return the NON-trivial establishment root; the extinction root P_fix=0 always satisfies the equation, so seed the implicit solver with a positive initial guess (~0.3) and/or bracket in (0.01, 0.499)"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "Noise sigma=0.01 (absolute, on P_fix). Signal P_fix ranges ~0.20 at s=0.5 to ~0.48 at s=3 (i.e. 20-48 sigma of signal span). NEW TERM (final factor exp(-d*(1+s)*P_fix/(1+h*(1+s)*P_fix)), introduced this step via d,h): root-solved comparison at s=1.5 gives child (d=1) P_fix~0.412 vs parent (d=0) P_fix~0.32, a shift of ~0.09 ~= 9*sigma => clearly visible. This factor contributes at leading (linear-in-P_fix) order in the exponent, comparable to the primary exp(-(1+s)P_fix/(1+cP_fix)) factor. Parent correction terms c,m,k,b enter at higher order (P_fix^2 / coupled with 1-e^{-(1+s)P_fix}); with P_fix~0.2-0.48 they each perturb the exponent by ~0.02-0.1, i.e. a few sigma across the range. NOTE: the automated excitation_check ran in 'explicit' mode and returned NaN for P_fix-dependent terms because it cannot root-solve an implicit target; term visibility was therefore established by direct residual root-bracketing with check_substitution.",
+  "role_corrections": [
+    "P_fix: output->output (confirmed: implicit target, appears on both sides and inside exponentials, not explicitly solvable)",
+    "s: input/time-axis->independent variable (confirmed: sole sampling axis, gets a range)",
+    "c: parameter->parameter (confirmed: fixed constant)",
+    "m: parameter->parameter (confirmed: fixed constant)",
+    "k: parameter->parameter (confirmed: fixed constant)",
+    "b: parameter->parameter (confirmed: fixed constant)",
+    "d: parameter->parameter (confirmed: fixed constant, drives the new term)",
+    "h: parameter->parameter (confirmed: fixed constant, half-saturation of the new term)"
+  ],
+  "rationale": "Structural analysis (analyze_expression) shows no derivatives and no integral kernels, and P_fix is not explicitly solvable for (it appears on both sides and inside multiple exponentials) => this is an IMPLICIT algebraic fixed-point equation, solved via root_solve_implicit, not an ODE/integro-diff. Dependent variable = P_fix (establishment probability); the single natural sampling axis is the selection coefficient s (selective advantage); c,m,k,b,d,h are fixed parameters. Rearranged residual g = 1 - 2*P_fix - (product of exp factors) = 0. Parameter magnitudes: c=m=k=b=0.5 (moderate O(1) correction strengths, no hints given), d=1.0 and h=2.0 taken within the suggested ranges (d:0-2, h:0-5) and chosen so the new environmental-stress factor is well excited while keeping the nontrivial root away from 0. With d=1, f'(0)=(1+d)(1+s)-2=2s>0 for all sampled s>0, guaranteeing a positive nontrivial root; sampling s in [0.5,3] yields P_fix in ~0.20-0.48, comfortably above the sigma=0.01 noise and below the 0.5 asymptote. IMPORTANT for data gen: the trivial extinction root P_fix=0 always solves g=0, so the solver must be seeded/bracketed for the positive establishment branch.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "1 - P_fix - exp(-(1 + s) * P_fix / (1 + c * P_fix)) * exp(-m * P_fix**2) * exp(-k * (1 + s) * P_fix * (1 - exp(-(1 + s) * P_fix))) * exp(-b * (1 + s) * P_fix**2 * (1 - exp(-(1 + s) * P_fix))) * exp(-d * (1 + s) * P_fix / (1 + h * (1 + s) * P_fix)) - P_fix",
+        "target_symbol": "P_fix"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "P_fix",
+          "b",
+          "c",
+          "d",
+          "h",
+          "k",
+          "m",
+          "s"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": false,
+        "explicit_solution_preview": null,
+        "classification_hint": "implicit_or_explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "1 - P_fix - exp(-(1 + s) * P_fix / (1 + c * P_fix)) * exp(-m * P_fix**2) * exp(-k * (1 + s) * P_fix * (1 - exp(-(1 + s) * P_fix))) * exp(-b * (1 + s) * P_fix**2 * (1 - exp(-(1 + s) * P_fix))) * exp(-d * (1 + s) * P_fix / (1 + h * (1 + s) * P_fix)) - P_fix",
+        "assignments": {
+          "P_fix": 0.3,
+          "s": 1,
+          "c": 0.5,
+          "m": 0.5,
+          "k": 0.5,
+          "b": 0.5,
+          "d": 1,
+          "h": 2
+        },
+        "target_symbol": "P_fix"
+      },
+      "result": {
+        "ok": true,
+        "value_real": 0.03775332084066685,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "b": 0.5,
+          "c": 0.5,
+          "d": 1,
+          "h": 2,
+          "k": 0.5,
+          "m": 0.5
+        },
+        "indep": [
+          {
+            "symbol": "s",
+            "range": [
+              0.5,
+              3
+            ]
+          }
+        ],
+        "is_ode": false,
+        "sigma": 0.01
+      },
+      "result": {
+        "ok": true,
+        "mode": "explicit",
+        "k": 5.0,
+        "sigma": 0.01,
+        "sampling": {
+          "method": "sobol",
+          "n_samples": 512,
+          "n_dimensions": 1
+        },
+        "terms": [
+          {
+            "term": "-P_fix",
+            "rms": NaN,
+            "sigma_multiple": null
+          },
+          {
+            "term": "-exp(P_fix**2*(-m))*exp(P_fix*(-s - 1)/(P_fix*c + 1))*exp(P_fix*(-d)*(s + 1)/(P_",
+            "rms": NaN,
+            "sigma_multiple": null
+          },
+          {
+            "term": "1",
+            "rms": 1.0,
+            "sigma_multiple": 100.0
+          }
+        ],
+        "weak_terms": [],
+        "new_term": {
+          "error": "could not form E-parent: TypeError: loop of ufunc does not support argument 0 of type Mul which has no callable exp method"
+        },
+        "advice": "all terms visible"
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "assignments": {
+          "P_fix": 0.3,
+          "b": 0.5,
+          "c": 0.5,
+          "d": 1,
+          "h": 2,
+          "k": 0.5,
+          "m": 0.5,
+          "s": 1.5
+        },
+        "expression": "1 - P_fix - exp(-(1 + s) * P_fix / (1 + c * P_fix)) * exp(-m * P_fix**2) * exp(-k * (1 + s) * P_fix * (1 - exp(-(1 + s) * P_fix))) * exp(-b * (1 + s) * P_fix**2 * (1 - exp(-(1 + s) * P_fix))) * exp(-d * (1 + s) * P_fix / (1 + h * (1 + s) * P_fix)) - P_fix",
+        "target_symbol": "P_fix"
+      },
+      "result": {
+        "ok": true,
+        "value_real": 0.11475169105462324,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "assignments": {
+          "P_fix": 0.42,
+          "b": 0.5,
+          "c": 0.5,
+          "d": 1,
+          "h": 2,
+          "k": 0.5,
+          "m": 0.5,
+          "s": 1.5
+        },
+        "expression": "1 - P_fix - exp(-(1 + s) * P_fix / (1 + c * P_fix)) * exp(-m * P_fix**2) * exp(-k * (1 + s) * P_fix * (1 - exp(-(1 + s) * P_fix))) * exp(-b * (1 + s) * P_fix**2 * (1 - exp(-(1 + s) * P_fix))) * exp(-d * (1 + s) * P_fix / (1 + h * (1 + s) * P_fix)) - P_fix",
+        "target_symbol": "P_fix"
+      },
+      "result": {
+        "ok": true,
+        "value_real": -0.008756289215582469,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "assignments": {
+          "P_fix": 0.3,
+          "b": 0.5,
+          "c": 0.5,
+          "d": 0,
+          "h": 2,
+          "k": 0.5,
+          "m": 0.5,
+          "s": 1.5
+        },
+        "expression": "1 - P_fix - exp(-(1 + s) * P_fix / (1 + c * P_fix)) * exp(-m * P_fix**2) * exp(-k * (1 + s) * P_fix * (1 - exp(-(1 + s) * P_fix))) * exp(-b * (1 + s) * P_fix**2 * (1 - exp(-(1 + s) * P_fix))) * exp(-d * (1 + s) * P_fix / (1 + h * (1 + s) * P_fix)) - P_fix",
+        "target_symbol": "P_fix"
+      },
+      "result": {
+        "ok": true,
+        "value_real": 0.014955057823922369,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "assignments": {
+          "P_fix": 0.42,
+          "b": 0.5,
+          "c": 0.5,
+          "d": 0,
+          "h": 2,
+          "k": 0.5,
+          "m": 0.5,
+          "s": 1.5
+        },
+        "expression": "1 - P_fix - exp(-(1 + s) * P_fix / (1 + c * P_fix)) * exp(-m * P_fix**2) * exp(-k * (1 + s) * P_fix * (1 - exp(-(1 + s) * P_fix))) * exp(-b * (1 + s) * P_fix**2 * (1 - exp(-(1 + s) * P_fix))) * exp(-d * (1 + s) * P_fix / (1 + h * (1 + s) * P_fix)) - P_fix",
+        "target_symbol": "P_fix"
+      },
+      "result": {
+        "ok": true,
+        "value_real": -0.07678801180460687,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "assignments": {
+          "P_fix": 0.1,
+          "b": 0.5,
+          "c": 0.5,
+          "d": 1,
+          "h": 2,
+          "k": 0.5,
+          "m": 0.5,
+          "s": 0.5
+        },
+        "expression": "1 - P_fix - exp(-(1 + s) * P_fix / (1 + c * P_fix)) * exp(-m * P_fix**2) * exp(-k * (1 + s) * P_fix * (1 - exp(-(1 + s) * P_fix))) * exp(-b * (1 + s) * P_fix**2 * (1 - exp(-(1 + s) * P_fix))) * exp(-d * (1 + s) * P_fix / (1 + h * (1 + s) * P_fix)) - P_fix",
+        "target_symbol": "P_fix"
+      },
+      "result": {
+        "ok": true,
+        "value_real": 0.04022531000418328,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "assignments": {
+          "P_fix": 0.25,
+          "b": 0.5,
+          "c": 0.5,
+          "d": 1,
+          "h": 2,
+          "k": 0.5,
+          "m": 0.5,
+          "s": 0.5
+        },
+        "expression": "1 - P_fix - exp(-(1 + s) * P_fix / (1 + c * P_fix)) * exp(-m * P_fix**2) * exp(-k * (1 + s) * P_fix * (1 - exp(-(1 + s) * P_fix))) * exp(-b * (1 + s) * P_fix**2 * (1 - exp(-(1 + s) * P_fix))) * exp(-d * (1 + s) * P_fix / (1 + h * (1 + s) * P_fix)) - P_fix",
+        "target_symbol": "P_fix"
+      },
+      "result": {
+        "ok": true,
+        "value_real": -0.02091905035340247,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "assignments": {
+          "P_fix": 0.42,
+          "b": 0.5,
+          "c": 0.5,
+          "d": 1,
+          "h": 2,
+          "k": 0.5,
+          "m": 0.5,
+          "s": 3
+        },
+        "expression": "1 - P_fix - exp(-(1 + s) * P_fix / (1 + c * P_fix)) * exp(-m * P_fix**2) * exp(-k * (1 + s) * P_fix * (1 - exp(-(1 + s) * P_fix))) * exp(-b * (1 + s) * P_fix**2 * (1 - exp(-(1 + s) * P_fix))) * exp(-d * (1 + s) * P_fix / (1 + h * (1 + s) * P_fix)) - P_fix",
+        "target_symbol": "P_fix"
+      },
+      "result": {
+        "ok": true,
+        "value_real": 0.10113119613333799,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "assignments": {
+          "P_fix": 0.48,
+          "b": 0.5,
+          "c": 0.5,
+          "d": 1,
+          "h": 2,
+          "k": 0.5,
+          "m": 0.5,
+          "s": 3
+        },
+        "expression": "1 - P_fix - exp(-(1 + s) * P_fix / (1 + c * P_fix)) * exp(-m * P_fix**2) * exp(-k * (1 + s) * P_fix * (1 - exp(-(1 + s) * P_fix))) * exp(-b * (1 + s) * P_fix**2 * (1 - exp(-(1 + s) * P_fix))) * exp(-d * (1 + s) * P_fix / (1 + h * (1 + s) * P_fix)) - P_fix",
+        "target_symbol": "P_fix"
+      },
+      "result": {
+        "ok": true,
+        "value_real": 0.002099165166052859,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    }
+  ],
+  "_cost_usd": 0.857048,
+  "_num_turns": 16,
+  "discipline": "biology",
+  "scenario_text": "A newly arisen beneficial mutation appears as a single copy in a large population and may either be lost by chance early on or survive to spread. The probability that such a mutation escapes initial stochastic loss depends on the selective advantage it confers. Researchers estimate this establishment probability across mutations with different selection coefficients. The population is large enough that later dynamics are effectively deterministic.",
+  "record_id": "m2_genetics_and_population_genetics_0_009",
+  "generation": 5,
+  "_n_total": 5000
+}

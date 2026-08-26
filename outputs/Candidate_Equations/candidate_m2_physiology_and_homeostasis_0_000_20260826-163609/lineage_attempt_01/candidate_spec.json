@@ -1,0 +1,232 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "P",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        60.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "k_baro",
+      "value": 0.1
+    },
+    {
+      "symbol": "P_half",
+      "value": 20.0
+    },
+    {
+      "symbol": "k_reset",
+      "value": 0.5
+    },
+    {
+      "symbol": "P_reset",
+      "value": 10.0
+    },
+    {
+      "symbol": "k_adapt",
+      "value": 0.02
+    },
+    {
+      "symbol": "alpha_reset",
+      "value": 0.1
+    },
+    {
+      "symbol": "g_symp",
+      "value": 0.5
+    },
+    {
+      "symbol": "tau_auto",
+      "value": 5.0
+    },
+    {
+      "symbol": "beta_auto",
+      "value": 0.05
+    },
+    {
+      "symbol": "k_vagal",
+      "value": 0.3
+    },
+    {
+      "symbol": "R_sat",
+      "value": 1.0
+    }
+  ],
+  "benchmark_output": "dP_dt",
+  "benchmark_target_state": "P",
+  "observed_variables": [
+    "t",
+    "P",
+    "S_set",
+    "R"
+  ],
+  "rhs_for_integrator": "-k_baro * (1 + g_symp * R) * P / (1 + (Abs(P) / P_half)) - k_reset * tanh((P - S_set) / P_reset) - k_vagal * R * P / (1 + (R / R_sat)**2)",
+  "state_variables": [
+    "P",
+    "S_set",
+    "R"
+  ],
+  "state_rhs": [
+    "-k_baro * (1 + g_symp * R) * P / (1 + (Abs(P) / P_half)) - k_reset * tanh((P - S_set) / P_reset) - k_vagal * R * P / (1 + (R / R_sat)**2)",
+    "k_adapt * (alpha_reset * P - S_set)",
+    "(beta_auto * P - R) / tau_auto"
+  ],
+  "initial_conditions": {
+    "P": 25.0,
+    "S_set": 0.0,
+    "R": 0.0
+  },
+  "noise": 0.2,
+  "sanity_expectations": [
+    "P starts at 25 and relaxes toward its regulated value near 0 (deviation decays)",
+    "P trajectory is bounded and does not diverge",
+    "R rises from 0 toward beta_auto*P then decays as P decays (single hump)",
+    "S_set drifts slowly toward alpha_reset*P and stays small in magnitude",
+    "recovery is monotone-ish decay of |P| with a fast baroreflex phase then slower settling"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "ODE-system child-vs-parent comparison on target state P over t in [0,60] s (300 pts), sigma=0.2 mmHg (5*sigma=1.0). New vagal term -k_vagal*R*P/(1+(R/R_sat)^2) reaches peak effect 7.31 mmHg on the P trajectory = 36.5x sigma, strongest at t~7.0 s (where R has risen and P is still large). Dominant baroreflex term and k_reset saturating term drive the primary relaxation from P0=25, far above sigma. All terms visible; new mechanism clearly excited.",
+  "role_corrections": [
+    "dP_dt: output->output (confirmed, target derivative of state P)",
+    "t: time-axis->independent variable (confirmed, only sampling axis)",
+    "P: dynamic state->dynamic state (confirmed, target state)",
+    "S_set: dynamic state->dynamic state (confirmed, governed by k_adapt*(alpha_reset*P - S_set))",
+    "R: dynamic state->dynamic state (confirmed, governed by (beta_auto*P - R)/tau_auto)",
+    "k_baro: parameter->parameter (confirmed)",
+    "P_half: parameter->parameter (confirmed)",
+    "k_reset: parameter->parameter (confirmed)",
+    "P_reset: parameter->parameter (confirmed)",
+    "k_adapt: parameter->parameter (confirmed)",
+    "alpha_reset: parameter->parameter (confirmed)",
+    "g_symp: parameter->parameter (confirmed)",
+    "tau_auto: parameter->parameter (confirmed)",
+    "beta_auto: parameter->parameter (confirmed)",
+    "k_vagal: parameter->parameter (confirmed, new-term coefficient)",
+    "R_sat: parameter->parameter (confirmed, new-term saturation scale)"
+  ],
+  "rationale": "Typed ODE-system contract inherited verbatim: 3 states (P, S_set, R), target state P, integrate_system. Time sampled 0-60 s (300 pts) covering the full baroreflex recovery (k_baro time-scale ~10 s, tau_auto=5 s, slow S_set adaptation via k_adapt=0.02). Parameters chosen in physiological magnitudes (mmHg, 1/s): k_vagal=0.3 and R_sat=1.0 within suggested ranges. sigma=0.2 mmHg is small vs the ~25 mmHg dominant relaxation but is the visibility yardstick; excitation_check confirms the new vagal term reaches 36.5x sigma, so the added mechanism leaves a clear mark.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "-k_baro * (1 + g_symp * R) * P / (1 + (Abs(P) / P_half)) - k_reset * tanh((P - S_set) / P_reset) - k_vagal * R * P / (1 + (R / R_sat)**2)",
+        "target_symbol": "P"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "P",
+          "P_half",
+          "P_reset",
+          "R",
+          "R_sat",
+          "S_set",
+          "g_symp",
+          "k_baro",
+          "k_reset",
+          "k_vagal"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": false,
+        "explicit_solution_preview": null,
+        "classification_hint": "implicit_or_explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "-k_baro * (1 + g_symp * R) * P / (1 + (Abs(P) / P_half)) - k_reset * tanh((P - S_set) / P_reset) - k_vagal * R * P / (1 + (R / R_sat)**2)",
+        "assignments": {
+          "P": 25,
+          "R": 0.6,
+          "S_set": 0,
+          "k_baro": 0.1,
+          "P_half": 20,
+          "k_reset": 0.5,
+          "P_reset": 10,
+          "g_symp": 0.5,
+          "k_vagal": 0.3,
+          "R_sat": 1
+        },
+        "target_symbol": "P"
+      },
+      "result": {
+        "ok": true,
+        "value_real": -5.246575122931924,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "P_half": 20,
+          "P_reset": 10,
+          "R_sat": 1,
+          "alpha_reset": 0.1,
+          "beta_auto": 0.05,
+          "g_symp": 0.5,
+          "k_adapt": 0.02,
+          "k_baro": 0.1,
+          "k_reset": 0.5,
+          "k_vagal": 0.3,
+          "tau_auto": 5
+        },
+        "indep": [
+          {
+            "symbol": "t",
+            "range": [
+              0,
+              60
+            ],
+            "n_points": 300
+          }
+        ],
+        "is_ode": true,
+        "sigma": 0.2
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "P",
+        "child_state_count": 3,
+        "parent_state_count": 3,
+        "n_time_points": 300,
+        "new_term_max_effect": 7.308858175625086,
+        "new_term_sigma_multiple": 36.54429087812543,
+        "strongest_at": {
+          "t": 7.023411371237458
+        },
+        "k": 5.0,
+        "passes": true,
+        "advice": "new mechanism is visible on the target trajectory"
+      }
+    }
+  ],
+  "_cost_usd": 0.6524459999999999,
+  "_num_turns": 6,
+  "discipline": "biology",
+  "scenario_text": "A researcher studies how arterial blood pressure recovers toward its baseline set point after a brief perturbation caused by a postural change. The baroreflex adjusts heart rate and vascular tone to drive pressure back to the regulated value. The recovery reflects a control system that senses deviation and reduces it over time. We track the deviation of mean arterial pressure from its set point as it relaxes.",
+  "record_id": "m2_physiology_and_homeostasis_0_000",
+  "generation": 5,
+  "_n_total": 5000
+}

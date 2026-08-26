@@ -1,0 +1,290 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "N",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        300.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "r",
+      "value": 0.05
+    },
+    {
+      "symbol": "K",
+      "value": 100000.0
+    },
+    {
+      "symbol": "d_max",
+      "value": 1000.0
+    },
+    {
+      "symbol": "N_h",
+      "value": 30000.0
+    },
+    {
+      "symbol": "m_max",
+      "value": 500.0
+    },
+    {
+      "symbol": "N_m",
+      "value": 10000.0
+    },
+    {
+      "symbol": "k_s",
+      "value": 0.01
+    },
+    {
+      "symbol": "delta_s",
+      "value": 0.1
+    },
+    {
+      "symbol": "S_h",
+      "value": 5000.0
+    },
+    {
+      "symbol": "lambda_A",
+      "value": 0.01
+    },
+    {
+      "symbol": "A_max",
+      "value": 100.0
+    },
+    {
+      "symbol": "beta_A",
+      "value": 0.0001
+    },
+    {
+      "symbol": "gamma_A",
+      "value": 0.1
+    },
+    {
+      "symbol": "d_toxin",
+      "value": 0.01
+    },
+    {
+      "symbol": "N_t",
+      "value": 50000.0
+    }
+  ],
+  "benchmark_output": "dN_dt",
+  "benchmark_target_state": "N",
+  "observed_variables": [
+    "t",
+    "N",
+    "S",
+    "A"
+  ],
+  "rhs_for_integrator": "r * N * (1 - N / K) - d_max * N**2 / (N_h**2 + N**2) + m_max * N * S / ((N + N_m) * (S + S_h)) - lambda_A * N * (A_max - A) / A_max - d_toxin * N * N / (N + N_t)",
+  "state_variables": [
+    "N",
+    "S",
+    "A"
+  ],
+  "state_rhs": [
+    "r * N * (1 - N / K) - d_max * N**2 / (N_h**2 + N**2) + m_max * N * S / ((N + N_m) * (S + S_h)) - lambda_A * N * (A_max - A) / A_max - d_toxin * N * N / (N + N_t)",
+    "k_s * N - delta_s * S",
+    "gamma_A * (A_max - A) - beta_A * N * A"
+  ],
+  "initial_conditions": {
+    "N": 1000.0,
+    "S": 0.0,
+    "A": 10.0
+  },
+  "noise": 30.0,
+  "sanity_expectations": [
+    "N starts at 1000 and increases over time (early free proliferation)",
+    "N is bounded above and stays well below K=100000 (contact inhibition plus crowding/toxin death cap growth)",
+    "N approaches a finite quasi-plateau (confluent density) rather than diverging",
+    "S starts at 0 and rises as cells secrete survival factor (k_s*N - delta_s*S), reaching a bounded level tracking N",
+    "A relaxes toward a bounded quasi-steady free-area level (0 < A <= A_max=100)",
+    "All states remain finite, real, and non-negative over t in [0,300]"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "Noise sigma = 30 (absolute std on N-target RHS dN_dt). ODE-system child-vs-parent comparison on the target N trajectory over t in [0,300]: the NEW term (-d_toxin*N^2/(N+N_t), waste-driven death) reaches a max effect of ~12534, i.e. ~417.8x sigma, strongest at t=300 (late/high-density regime where the culture is filling). passes=true at k=5. The inherited terms (logistic growth, crowding death, autocrine survival recruitment, area-scarcity anoikis) were carried from the validated parent system and remain active over the sampled window as N rises from 1000 toward its confluent plateau.",
+  "role_corrections": [
+    "dN_dt: output/target-derivative -> confirmed (RHS determines dN/dt; target_state N)",
+    "t: V->V (confirmed sole time axis; gets sampling range)",
+    "N: dynamic state -> confirmed (target state, under the derivative)",
+    "S: dynamic state -> confirmed (governed by k_s*N - delta_s*S)",
+    "A: dynamic state -> confirmed (governed by gamma_A*(A_max-A) - beta_A*N*A)",
+    "r: P->P (fixed)",
+    "K: P->P (fixed)",
+    "d_max: P->P (fixed)",
+    "N_h: P->P (fixed)",
+    "m_max: P->P (fixed)",
+    "N_m: P->P (fixed)",
+    "k_s: P->P (fixed)",
+    "delta_s: P->P (fixed)",
+    "S_h: P->P (fixed)",
+    "lambda_A: P->P (fixed)",
+    "A_max: P->P (fixed)",
+    "beta_A: P->P (fixed)",
+    "gamma_A: P->P (fixed)",
+    "d_toxin: P->P (fixed; NEW-term coefficient, within suggested 0.001-0.5)",
+    "N_t: P->P (fixed; within suggested 1000-500000)"
+  ],
+  "rationale": "Typed ODE-system contract inherited verbatim: 3 states (N,S,A), target N, RHS unchanged. analyze_expression confirmed the RHS has no derivatives/integrals/delays/ungoverned functions and references only governed states + fixed parameters, so integrate_system is correct (the 'explicit' hint merely reflects that this is the bare RHS). Parameters chosen for a realistic mammalian-culture scale: carrying capacity K=1e5 cells, sub-daily proliferation r=0.05, half-saturations (N_h, N_m, N_t) at 1e4-5e4 cells, autocrine dynamics (k_s, delta_s, S_h) and attachment-area dynamics (A_max, beta_A, gamma_A, lambda_A) keeping S and A bounded. d_toxin=0.01 and N_t=50000 lie inside the suggested ranges. check_substitution at a mid-trajectory point is finite/real. excitation_check (is_ode=true) confirms the new waste-death term is highly visible (~418x sigma), so a simpler ancestor could not fit the data; excitation_ok=true.\"",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "r * N * (1 - N / K) - d_max * N**2 / (N_h**2 + N**2) + m_max * N * S / ((N + N_m) * (S + S_h)) - lambda_A * N * (A_max - A) / A_max - d_toxin * N * N / (N + N_t)",
+        "target_symbol": "N"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "A",
+          "A_max",
+          "K",
+          "N",
+          "N_h",
+          "N_m",
+          "N_t",
+          "S",
+          "S_h",
+          "d_max",
+          "d_toxin",
+          "lambda_A",
+          "m_max",
+          "r"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "0"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "r * N * (1 - N / K) - d_max * N**2 / (N_h**2 + N**2) + m_max * N * S / ((N + N_m) * (S + S_h)) - lambda_A * N * (A_max - A) / A_max - d_toxin * N * N / (N + N_t)",
+        "assignments": {
+          "r": 0.05,
+          "K": 100000,
+          "d_max": 1000,
+          "N_h": 30000,
+          "m_max": 500,
+          "N_m": 10000,
+          "S_h": 5000,
+          "lambda_A": 0.01,
+          "A_max": 100,
+          "d_toxin": 0.01,
+          "N_t": 50000,
+          "N": 50000,
+          "S": 5000,
+          "A": 20
+        },
+        "target_symbol": "N"
+      },
+      "result": {
+        "ok": true,
+        "value_real": 73.03921568627447,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "A_max": 100,
+          "K": 100000,
+          "N_h": 30000,
+          "N_m": 10000,
+          "N_t": 50000,
+          "S_h": 5000,
+          "beta_A": 0.0001,
+          "d_max": 1000,
+          "d_toxin": 0.01,
+          "delta_s": 0.1,
+          "gamma_A": 0.1,
+          "k_s": 0.01,
+          "lambda_A": 0.01,
+          "m_max": 500,
+          "r": 0.05
+        },
+        "indep": [
+          {
+            "symbol": "t",
+            "range": [
+              0,
+              300
+            ]
+          }
+        ],
+        "is_ode": true,
+        "sigma": 30
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "N",
+        "child_state_count": 3,
+        "parent_state_count": 3,
+        "n_time_points": 200,
+        "new_term_max_effect": 12534.415003250957,
+        "new_term_sigma_multiple": 417.8138334416986,
+        "strongest_at": {
+          "t": 300.0
+        },
+        "k": 5.0,
+        "passes": true,
+        "advice": "new mechanism is visible on the target trajectory"
+      }
+    }
+  ],
+  "_cost_usd": 1.0873755,
+  "_num_turns": 6,
+  "discipline": "biology",
+  "scenario_text": "A population of mammalian cells grows in a nutrient-rich culture dish with limited surface area for attachment. Early on the cells proliferate freely, but as the dish fills, contact inhibition slows division until a maximum confluent density is reached. Researchers track the cell count over time to characterize how the growth rate depends on remaining available space.",
+  "record_id": "m2_cell_biology_and_signaling_0_000",
+  "generation": 5,
+  "_n_total": 5000,
+  "finalization": {
+    "mode": "candidate",
+    "accepted_generations": 5,
+    "novelty": {
+      "reasoning": "Step 1 - Term-by-term analysis: (a) 'r * N * (1 - N/K)' is the classical logistic growth term, well-known textbook material. (b) '-d_max * N^2/(N_h^2 + N^2)' is a Hill-type (n=2) crowding-induced death term — a sigmoidal saturation form, not part of the classical baseline. (c) '+m_max * N * S/((N + N_m)(S + S_h))' is a composite autocrine survival-factor recruitment term coupling cell number and survival factor concentration through a double saturation (Michaelis-Menten in both N and S) — this is a genuinely non-trivial coupled term. (d) '-lambda_A * N * (A_max - A)/A_max' is an anoikis/detachment term proportional to occupied area fraction. (e) '-d_toxin * N^2/(N + N_t)' is a Michaelis-Menten-type waste/toxin-driven death term. The system is closed with auxiliary ODEs for S (secretion/decay) and A (occupation/freeing dynamics).\n\nStep 2 - Recitation check: The baseline logistic term is standard. However, the complete combined equation, with its specific mixture of a Hill-2 crowding death term, a doubly-saturating autocrine recruitment coupling term, an area-fraction anoikis term coupled to a separate area ODE, and a Michaelis-Menten toxin death term, does not correspond to any standard textbook or published closed-form model. No LLM could reliably recite this exact composite structure from the variable names alone — the particular functional choices (e.g. squared Hill for crowding but linear Hill for toxin, product-of-saturation form for the S-N coupling) are specific and arbitrary enough that they could only be pinned down by fitting to data.\n\nStep 3 - Novelty assessment: While each individual mechanistic motif (logistic, Hill, Michaelis-Menten, anoikis) is drawn from known biological modeling vocabulary, their specific composite assembly here — especially the multiplicative double-saturation autocrine term and the coupling to two auxiliary state equations — constitutes a novel combined form. It is scientifically plausible but not a canonical equation, and its exact structure would need to be inferred from experimental observations rather than recalled.",
+      "answer": "Yes",
+      "llm_qa_history": [
+        {
+          "attempt": 1,
+          "model": "claude-opus-4-8",
+          "system_prompt": "You are a top-tier scientist with deep expertise across physics, biology,\nchemistry, and materials science. Your task is to act as a \"Novelty Evaluator\":\nobjectively judge whether a newly generated mathematical equation is\n\"scientifically novel\" within its given scientific context.\n\nCORE CRITERIA:\n- NOT NOVEL: the equation is a well-known classical formula that already exists\n  in textbooks, on the internet, or in the open scientific literature — i.e. a\n  formula that could be obtained simply by recall/recitation.\n- NOVEL: while remaining scientifically sound, the equation introduces uncommon,\n  nonlinear, or genuinely new composite mechanism terms, such that neither a\n  human nor an AI could guess it from background knowledge alone — it could only\n  be recovered through data-driven inference from experimental observations.\n",
+          "user_prompt": "[SCIENTIFIC CONTEXT]:\nField: biology\nProblem description: A population of mammalian cells grows in a nutrient-rich culture dish with limited surface area for attachment. Early on the cells proliferate freely, but as the dish fills, contact inhibition slows division until a maximum confluent density is reached. Researchers track the cell count over time to characterize how the growth rate depends on remaining available space.\n\n[VARIABLES & PARAMETERS]:\n- Target variable: dN_dt (Rate of change of the number of adherent cells in the culture)\n- Input features: t (time)\n- Dynamic states: N (Number of adherent cells in the culture dish); S (Concentration of accumulated autocrine survival factor in the medium); A (Available (unoccupied) attachment area on the dish surface)\n- Parameters: r (Intrinsic per-capita proliferation rate under abundant space); K (Maximum confluent carrying capacity of the dish); d_max (Maximum per-cell death rate from crowding-induced stress at high density); N_h (Cell number at which crowding-induced death reaches half its maximum per-capita rate); m_max (Maximum rate of successful attachment/survival recruitment enabled by autocrine survival factors); N_m (Cell number at which autocrine survival-factor support reaches half its maximum effect); k_s (Per-cell secretion rate of autocrine survival factor into the medium); delta_s (First-order degradation/decay rate of the autocrine survival factor); S_h (Survival-factor concentration at which recruitment support reaches half its maximum); lambda_A (Per-cell detachment/anoikis rate when attachment area is scarce); A_max (Total attachment area available on the dish surface); beta_A (Rate at which cells occupy free attachment area as they proliferate); gamma_A (Rate at which attachment area is freed by cell death/turnover); d_toxin (Maximum per-cell death rate from accumulated metabolic waste/acidification at high density); N_t (Cell number at which waste-driven death reaches half its maximum per-capita rate)\n\n[CANDIDATE EQUATION]:\ndN_dt = r * N * (1 - N / K) - d_max * N**2 / (N_h**2 + N**2) + m_max * N * S / ((N + N_m) * (S + S_h)) - lambda_A * N * (A_max - A) / A_max - d_toxin * N * N / (N + N_t)\n\n[CLOSED ODE SYSTEM]:\n{\n  \"time_symbol\": \"t\",\n  \"target_state\": \"N\",\n  \"states\": [\n    {\n      \"symbol\": \"N\",\n      \"rhs\": \"r * N * (1 - N / K) - d_max * N**2 / (N_h**2 + N**2) + m_max * N * S / ((N + N_m) * (S + S_h)) - lambda_A * N * (A_max - A) / A_max - d_toxin * N * N / (N + N_t)\",\n      \"initial_condition\": 1000.0,\n      \"description\": \"Number of adherent cells in the culture dish\"\n    },\n    {\n      \"symbol\": \"S\",\n      \"rhs\": \"k_s * N - delta_s * S\",\n      \"initial_condition\": 0.0,\n      \"description\": \"Concentration of accumulated autocrine survival factor in the medium\"\n    },\n    {\n      \"symbol\": \"A\",\n      \"rhs\": \"gamma_A * (A_max - A) - beta_A * N * A\",\n      \"initial_condition\": 10.0,\n      \"description\": \"Available (unoccupied) attachment area on the dish surface\"\n    }\n  ]\n}\n(Note: this equation comes from an equation-evolution pipeline; assume it is\nmathematically solvable and numerically stable.)\n\n[NOTE ON KNOWN / CLASSICAL TERMS]:\nThe classical / textbook starting point for this phenomenon (the baseline equation) is:\n  dN_dt = r * N * (1 - N / K)\nThe terms appearing in this baseline equation can be regarded as the well-known classical terms for this problem. Use this as the reference to judge whether the candidate equation, relative to this classical baseline, introduces additional novel composite terms that cannot be recited directly and could only be discovered through data-driven reasoning.\n\n---\n\nREASONING & OUTPUT REQUIREMENTS:\nLet's think step by step:\n1. Analyze each term in the candidate equation. Which terms are established\n   classical knowledge in this scientific context, and which are newly\n   introduced composite terms?\n2. Drawing on your knowledge of the scientific literature, does this COMPLETE\n   combined form of the equation appear directly in any existing textbook or\n   public reference? Could a large language model \"recite\" this exact formula\n   purely from the context and variable names above?\n3. Assess whether it has true novelty (i.e. it could only be discovered by\n   reasoning over subsequent experimental observation data).\n\nProvide your final answer STRICTLY in the following JSON format, with no extra\nMarkdown markup (no ```json):\n{\n  \"reasoning\": \"Write your detailed step-by-step scientific analysis and novelty assessment here.\",\n  \"answer\": \"Yes\" or \"No\" (write \"Yes\" if the equation is novel and cannot be directly recited; write \"No\" if it is a well-known classical formula or can be directly recited)\n}\n",
+          "raw_response": "{\n  \"reasoning\": \"Step 1 - Term-by-term analysis: (a) 'r * N * (1 - N/K)' is the classical logistic growth term, well-known textbook material. (b) '-d_max * N^2/(N_h^2 + N^2)' is a Hill-type (n=2) crowding-induced death term — a sigmoidal saturation form, not part of the classical baseline. (c) '+m_max * N * S/((N + N_m)(S + S_h))' is a composite autocrine survival-factor recruitment term coupling cell number and survival factor concentration through a double saturation (Michaelis-Menten in both N and S) — this is a genuinely non-trivial coupled term. (d) '-lambda_A * N * (A_max - A)/A_max' is an anoikis/detachment term proportional to occupied area fraction. (e) '-d_toxin * N^2/(N + N_t)' is a Michaelis-Menten-type waste/toxin-driven death term. The system is closed with auxiliary ODEs for S (secretion/decay) and A (occupation/freeing dynamics).\\n\\nStep 2 - Recitation check: The baseline logistic term is standard. However, the complete combined equation, with its specific mixture of a Hill-2 crowding death term, a doubly-saturating autocrine recruitment coupling term, an area-fraction anoikis term coupled to a separate area ODE, and a Michaelis-Menten toxin death term, does not correspond to any standard textbook or published closed-form model. No LLM could reliably recite this exact composite structure from the variable names alone — the particular functional choices (e.g. squared Hill for crowding but linear Hill for toxin, product-of-saturation form for the S-N coupling) are specific and arbitrary enough that they could only be pinned down by fitting to data.\\n\\nStep 3 - Novelty assessment: While each individual mechanistic motif (logistic, Hill, Michaelis-Menten, anoikis) is drawn from known biological modeling vocabulary, their specific composite assembly here — especially the multiplicative double-saturation autocrine term and the coupling to two auxiliary state equations — constitutes a novel combined form. It is scientifically plausible but not a canonical equation, and its exact structure would need to be inferred from experimental observations rather than recalled.\",\n  \"answer\": \"Yes\"\n}",
+          "parsed_response": {
+            "reasoning": "Step 1 - Term-by-term analysis: (a) 'r * N * (1 - N/K)' is the classical logistic growth term, well-known textbook material. (b) '-d_max * N^2/(N_h^2 + N^2)' is a Hill-type (n=2) crowding-induced death term — a sigmoidal saturation form, not part of the classical baseline. (c) '+m_max * N * S/((N + N_m)(S + S_h))' is a composite autocrine survival-factor recruitment term coupling cell number and survival factor concentration through a double saturation (Michaelis-Menten in both N and S) — this is a genuinely non-trivial coupled term. (d) '-lambda_A * N * (A_max - A)/A_max' is an anoikis/detachment term proportional to occupied area fraction. (e) '-d_toxin * N^2/(N + N_t)' is a Michaelis-Menten-type waste/toxin-driven death term. The system is closed with auxiliary ODEs for S (secretion/decay) and A (occupation/freeing dynamics).\n\nStep 2 - Recitation check: The baseline logistic term is standard. However, the complete combined equation, with its specific mixture of a Hill-2 crowding death term, a doubly-saturating autocrine recruitment coupling term, an area-fraction anoikis term coupled to a separate area ODE, and a Michaelis-Menten toxin death term, does not correspond to any standard textbook or published closed-form model. No LLM could reliably recite this exact composite structure from the variable names alone — the particular functional choices (e.g. squared Hill for crowding but linear Hill for toxin, product-of-saturation form for the S-N coupling) are specific and arbitrary enough that they could only be pinned down by fitting to data.\n\nStep 3 - Novelty assessment: While each individual mechanistic motif (logistic, Hill, Michaelis-Menten, anoikis) is drawn from known biological modeling vocabulary, their specific composite assembly here — especially the multiplicative double-saturation autocrine term and the coupling to two auxiliary state equations — constitutes a novel combined form. It is scientifically plausible but not a canonical equation, and its exact structure would need to be inferred from experimental observations rather than recalled.",
+            "answer": "Yes"
+          }
+        }
+      ]
+    },
+    "total_points": 5000,
+    "data_csv": "/data1/SRBench_fresh/outputs/Candidate_Equations/candidate_m2_cell_biology_and_signaling_0_000_20260826-153330/lineage_attempt_01/candidate_data/m2_cell_biology_and_signaling_0_000_gen5_20260826-154310.csv",
+    "evaluation_status": "not_evaluated; choose Harbor split and solver later"
+  }
+}

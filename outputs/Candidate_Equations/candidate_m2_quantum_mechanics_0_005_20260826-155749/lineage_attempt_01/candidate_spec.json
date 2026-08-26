@@ -1,0 +1,314 @@
+{
+  "equation_type": "explicit",
+  "integrator": "evaluate_explicit",
+  "dependent_variable": "sigma",
+  "independent_variables": [
+    {
+      "symbol": "E",
+      "range": [
+        0.01,
+        2.0
+      ],
+      "n_points": 200,
+      "scale": "linear"
+    },
+    {
+      "symbol": "B",
+      "range": [
+        -1.0,
+        1.0
+      ],
+      "n_points": 60,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "a",
+      "value": 1.0
+    },
+    {
+      "symbol": "r",
+      "value": 0.5
+    },
+    {
+      "symbol": "shape",
+      "value": 0.1
+    },
+    {
+      "symbol": "p_wave",
+      "value": 0.3
+    },
+    {
+      "symbol": "r_p",
+      "value": 0.5
+    },
+    {
+      "symbol": "mu_mag",
+      "value": 0.7
+    },
+    {
+      "symbol": "B_res",
+      "value": 0.0
+    },
+    {
+      "symbol": "a_range_cut",
+      "value": 1.0
+    },
+    {
+      "symbol": "mass",
+      "value": 1.0
+    },
+    {
+      "symbol": "hbar",
+      "value": 1.0
+    }
+  ],
+  "benchmark_output": null,
+  "benchmark_target_state": null,
+  "observed_variables": [
+    "E",
+    "B",
+    "sigma"
+  ],
+  "rhs_for_integrator": "4*pi*a**2 / ((1 - a*r*mass*E/hbar**2 - a*shape*(mass*E/hbar**2)**2 - a*mu_mag*(B - B_res)*mass/hbar**2)**2 + a**2*2*mass*E/hbar**2) + 4*pi/(2*mass*E/hbar**2) * (a**2*p_wave*(2*mass*E/hbar**2)**2) / ((1 - p_wave*r_p*(mass*E/hbar**2))**2 + (a**2*p_wave*(2*mass*E/hbar**2)**2/(2*mass*E/hbar**2))) - 4*pi*a**3*mu_mag*(B - B_res) / (hbar**2/mass) / ((1 - a*r*mass*E/hbar**2 - a*shape*(mass*E/hbar**2)**2 - a*mu_mag*(B - B_res)*mass/hbar**2)**2 + a**2*2*mass*E/hbar**2)**2 * (a*r*mass*E/hbar**2) + 4*pi*a**2 * exp(-a**2*2*mass*E/hbar**2 / (a_range_cut*2*mass/hbar**2)) / ((1 - a*r*mass*E/hbar**2 - a*shape*(mass*E/hbar**2)**2 - a*mu_mag*(B - B_res)*mass/hbar**2)**2 + a**2*2*mass*E/hbar**2)",
+  "state_variables": [],
+  "state_rhs": [],
+  "initial_conditions": {},
+  "noise": 0.1,
+  "sanity_expectations": [
+    "sigma stays finite, real and positive across the whole (E,B) grid (no singularity since denominator = D_inner^2 + 2 a^2 k^2 > 0 for E>0)",
+    "as E->0 sigma saturates to a finite low-energy limit ~ 8*pi*a^2 (unitarity/threshold saturation)",
+    "sigma is enhanced (peaks) along the near-resonant locus where a*mu_mag*(B-B_res) ~ 1, i.e. D_inner -> 0",
+    "the new exp(-a^2 k^2/(2 a_range_cut ...)) form factor visibly suppresses the s-wave contribution at the high-E end (E~2) relative to E->0",
+    "p-wave contribution grows with E from threshold (vanishes as E->0)"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "sigma=0.1 (abs std on sigma, small vs the dominant s-wave term ~9-13). All four additive terms clear 5*sigma over E in [0.01,2], B in [-1,1] (hbar=mass=1 units): s-wave term1 92.0x, p-wave term2 58.9x, Feshbach-correction term3 7.4x (weakest; lifted from 4.0x by raising mu_mag 0.5->0.7), NEW exponential form-factor term4 72.3x standalone. The NEW term (child - parent = the exp(-a^2 k^2/(a_range_cut*...)) s-wave form-factor) reaches 701x sigma (max effect 70.2), strongest near E~0.027, B~0.915. auto_balance reported no private linear coefficient (a is shared across all terms) so coupling was resolved by a modest physical mu_mag bump rather than rescaling; excitation_check then shows weak_terms=[] (all visible).",
+  "role_corrections": [
+    "sigma: O->O (confirmed: LHS output, total cross section; not on RHS, explicitly solvable)",
+    "E: V->V (confirmed: incoming energy, primary sampling axis)",
+    "B: V->V (confirmed: Feshbach magnetic field = the 'potential strength' knob, second sampling axis)",
+    "a: V->P (overridden: scattering length is a fixed potential parameter, not an experimentally swept axis)",
+    "r: V->P (overridden: effective-range parameter is fixed, not swept)",
+    "shape: P->P (confirmed)",
+    "p_wave: P->P (confirmed)",
+    "r_p: P->P (confirmed)",
+    "mu_mag: P->P (confirmed; value set to 0.7 for excitation)",
+    "B_res: P->P (confirmed)",
+    "a_range_cut: P->P (confirmed: new-term finite-range cutoff)",
+    "mass: P->P (confirmed, fixed to 1)",
+    "hbar: P->P (confirmed, fixed to 1)",
+    "pi: P->constant (not a free symbol; sympy constant, not fixed as a parameter)"
+  ],
+  "rationale": "analyze_expression shows no derivatives, no integral kernels, sigma absent from the RHS, and explicitly_solvable_for_target=true -> a static EXPLICIT relation sigma = f(E,B; params), integrator evaluate_explicit. Roles: the phenomenon varies incoming energy and potential strength, so E (energy) and B (Feshbach field) are the two independent sampling axes; all other free symbols are fixed potential/constants parameters. The pipeline's labeling of a and r as inputs is overridden - they are intrinsic effective-range-theory parameters, not swept quantities. Units chosen hbar=mass=1 so k^2=2E; parameter magnitudes are O(1) and physically sensible, verified finite/real by check_substitution (sigma=13.8 at a representative point). Noise sigma=0.1 is small vs the dominant s-wave term and serves as the visibility yardstick. The new term is the exponential finite-range form factor gated by a_range_cut; with a_range_cut=1 and E up to 2 the exponent a^2 k^2/(2 a_range_cut) sweeps from ~0 to ~O(1), making a_range_cut identifiable, and excitation_check confirms it dominates the child-minus-parent difference at 701x sigma with all four terms visible.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "4*pi*a**2 / ((1 - a*r*mass*E/hbar**2 - a*shape*(mass*E/hbar**2)**2 - a*mu_mag*(B - B_res)*mass/hbar**2)**2 + a**2*2*mass*E/hbar**2) + 4*pi/(2*mass*E/hbar**2) * (a**2*p_wave*(2*mass*E/hbar**2)**2) / ((1 - p_wave*r_p*(mass*E/hbar**2))**2 + (a**2*p_wave*(2*mass*E/hbar**2)**2/(2*mass*E/hbar**2))) - 4*pi*a**3*mu_mag*(B - B_res) / (hbar**2/mass) / ((1 - a*r*mass*E/hbar**2 - a*shape*(mass*E/hbar**2)**2 - a*mu_mag*(B - B_res)*mass/hbar**2)**2 + a**2*2*mass*E/hbar**2)**2 * (a*r*mass*E/hbar**2) + 4*pi*a**2 * exp(-a**2*2*mass*E/hbar**2 / (a_range_cut*2*mass/hbar**2)) / ((1 - a*r*mass*E/hbar**2 - a*shape*(mass*E/hbar**2)**2 - a*mu_mag*(B - B_res)*mass/hbar**2)**2 + a**2*2*mass*E/hbar**2)",
+        "target_symbol": "sigma"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "B",
+          "B_res",
+          "E",
+          "a",
+          "a_range_cut",
+          "hbar",
+          "mass",
+          "mu_mag",
+          "p_wave",
+          "r",
+          "r_p",
+          "shape"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "-4*pi*E*a*a**3*mass*mu_mag*r*(B - B_res)/((hbar**2/mass)*(hbar**2)*((a**2*2*mass*E/hbar**2 + (-E*a*mass*r/(hbar**2) - a*"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "4*pi*a**2 / ((1 - a*r*mass*E/hbar**2 - a*shape*(mass*E/hbar**2)**2 - a*mu_mag*(B - B_res)*mass/hbar**2)**2 + a**2*2*mass*E/hbar**2) + 4*pi/(2*mass*E/hbar**2) * (a**2*p_wave*(2*mass*E/hbar**2)**2) / ((1 - p_wave*r_p*(mass*E/hbar**2))**2 + (a**2*p_wave*(2*mass*E/hbar**2)**2/(2*mass*E/hbar**2))) - 4*pi*a**3*mu_mag*(B - B_res) / (hbar**2/mass) / ((1 - a*r*mass*E/hbar**2 - a*shape*(mass*E/hbar**2)**2 - a*mu_mag*(B - B_res)*mass/hbar**2)**2 + a**2*2*mass*E/hbar**2)**2 * (a*r*mass*E/hbar**2) + 4*pi*a**2 * exp(-a**2*2*mass*E/hbar**2 / (a_range_cut*2*mass/hbar**2)) / ((1 - a*r*mass*E/hbar**2 - a*shape*(mass*E/hbar**2)**2 - a*mu_mag*(B - B_res)*mass/hbar**2)**2 + a**2*2*mass*E/hbar**2)",
+        "assignments": {
+          "E": 1,
+          "B": 0.5,
+          "a": 1,
+          "r": 0.5,
+          "shape": 0.1,
+          "p_wave": 0.3,
+          "r_p": 0.5,
+          "mu_mag": 0.5,
+          "B_res": 0,
+          "a_range_cut": 1,
+          "mass": 1,
+          "hbar": 1
+        },
+        "target_symbol": "sigma"
+      },
+      "result": {
+        "ok": true,
+        "value_real": 13.816204651448883,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "auto_balance",
+      "input": {
+        "assignments": {
+          "B_res": 0,
+          "a": 1,
+          "a_range_cut": 1,
+          "hbar": 1,
+          "mass": 1,
+          "mu_mag": 0.5,
+          "p_wave": 0.3,
+          "r": 0.5,
+          "r_p": 0.5,
+          "shape": 0.1
+        },
+        "indep": [
+          {
+            "symbol": "E",
+            "range": [
+              0.01,
+              2
+            ]
+          },
+          {
+            "symbol": "B",
+            "range": [
+              -1,
+              1
+            ]
+          }
+        ],
+        "is_ode": false,
+        "sigma": 0.1
+      },
+      "result": {
+        "ok": true,
+        "assignments": {
+          "B_res": 0,
+          "a": 1,
+          "a_range_cut": 1,
+          "hbar": 1,
+          "mass": 1,
+          "mu_mag": 0.5,
+          "p_wave": 0.3,
+          "r": 0.5,
+          "r_p": 0.5,
+          "shape": 0.1
+        },
+        "changed": {},
+        "converged": false,
+        "note": "some terms still weak — they may lack a private coefficient, be coupled, or need a range change / be genuinely negligible"
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "B_res": 0,
+          "a": 1,
+          "a_range_cut": 1,
+          "hbar": 1,
+          "mass": 1,
+          "mu_mag": 0.7,
+          "p_wave": 0.3,
+          "r": 0.5,
+          "r_p": 0.5,
+          "shape": 0.1
+        },
+        "indep": [
+          {
+            "range": [
+              0.01,
+              2
+            ],
+            "symbol": "E"
+          },
+          {
+            "range": [
+              -1,
+              1
+            ],
+            "symbol": "B"
+          }
+        ],
+        "is_ode": false,
+        "sigma": 0.1
+      },
+      "result": {
+        "ok": true,
+        "mode": "explicit",
+        "k": 5.0,
+        "sigma": 0.1,
+        "sampling": {
+          "method": "sobol",
+          "n_samples": 512,
+          "n_dimensions": 2
+        },
+        "terms": [
+          {
+            "term": "-4*pi*E*a*a**3*mass*mu_mag*r*(B - B_res)/((hbar**2/mass)*(hbar**2)*((a**2*2*mass",
+            "rms": 0.7364206834183946,
+            "sigma_multiple": 7.364206834183946
+          },
+          {
+            "term": "4*pi*a**2*p_wave*(2*E*mass/(hbar**2))**2/(((2*E*mass/(hbar**2)))*(a**2*p_wave*(2",
+            "rms": 5.888490060763456,
+            "sigma_multiple": 58.884900607634556
+          },
+          {
+            "term": "4*pi*a**2*exp(-a**2*2*mass*E/(hbar**2*(a_range_cut*2*mass/hbar**2)))/(a**2*2*mas",
+            "rms": 7.22539654309625,
+            "sigma_multiple": 72.2539654309625
+          },
+          {
+            "term": "4*pi*a**2/(a**2*2*mass*E/hbar**2 + (-E*a*mass*r/(hbar**2) - a*shape*(E*mass/(hba",
+            "rms": 9.200596825727889,
+            "sigma_multiple": 92.00596825727888
+          }
+        ],
+        "weak_terms": [],
+        "new_term": {
+          "delta_expr": "evaluated numerically as current expression minus parent",
+          "max_effect": 70.16359181371178,
+          "sigma_multiple": 701.6359181371178,
+          "strongest_at": {
+            "E": 0.027389209251850843,
+            "B": 0.915094556286931
+          },
+          "passes": true
+        },
+        "advice": "all terms visible"
+      }
+    }
+  ],
+  "_cost_usd": 0.7102995000000001,
+  "_num_turns": 7,
+  "discipline": "physics",
+  "scenario_text": "Particles scatter off a weak localized potential at low energy, and the total scattering cross section is measured. The experimenter varies the incoming particle energy and the strength of the potential. At low energies the response is dominated by a single isotropic channel. This probes how weak short-range scattering saturates with vanishing energy.",
+  "record_id": "m2_quantum_mechanics_0_005",
+  "generation": 5,
+  "_n_total": 5000
+}

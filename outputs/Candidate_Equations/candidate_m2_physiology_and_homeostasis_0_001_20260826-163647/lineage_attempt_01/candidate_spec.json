@@ -1,0 +1,257 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "T",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        30.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "metabolic_heat_input",
+      "value": 0.05
+    },
+    {
+      "symbol": "dissipation_gain",
+      "value": 0.3
+    },
+    {
+      "symbol": "passive_loss_rate",
+      "value": 0.1
+    },
+    {
+      "symbol": "drive_gain",
+      "value": 0.5
+    },
+    {
+      "symbol": "drive_relaxation",
+      "value": 0.2
+    },
+    {
+      "symbol": "drive_saturation",
+      "value": 1.0
+    },
+    {
+      "symbol": "evaporative_capacity",
+      "value": 0.5
+    },
+    {
+      "symbol": "evaporative_saturation",
+      "value": 0.5
+    },
+    {
+      "symbol": "humidity_efficiency",
+      "value": 0.3
+    },
+    {
+      "symbol": "sweat_load_gain",
+      "value": 0.3
+    },
+    {
+      "symbol": "sweat_clearance_rate",
+      "value": 0.15
+    },
+    {
+      "symbol": "ambient_vapor_load",
+      "value": 0.5
+    },
+    {
+      "symbol": "vasomotor_convective_gain",
+      "value": 1.0
+    },
+    {
+      "symbol": "vasomotor_perfusion_ceiling",
+      "value": 2.0
+    }
+  ],
+  "benchmark_output": "dT_dt",
+  "benchmark_target_state": "T",
+  "observed_variables": [
+    "t",
+    "T",
+    "H",
+    "W"
+  ],
+  "rhs_for_integrator": "metabolic_heat_input - dissipation_gain * H * T - passive_loss_rate * T - evaporative_capacity * H * T / (evaporative_saturation + H) * (1 - humidity_efficiency * W) * exp(-ambient_vapor_load * W) - vasomotor_convective_gain * H * T / (vasomotor_perfusion_ceiling + T)",
+  "state_variables": [
+    "T",
+    "H",
+    "W"
+  ],
+  "state_rhs": [
+    "metabolic_heat_input - dissipation_gain * H * T - passive_loss_rate * T - evaporative_capacity * H * T / (evaporative_saturation + H) * (1 - humidity_efficiency * W) * exp(-ambient_vapor_load * W) - vasomotor_convective_gain * H * T / (vasomotor_perfusion_ceiling + T)",
+    "drive_gain * T / (drive_saturation + T) - drive_relaxation * H",
+    "sweat_load_gain * H / (evaporative_saturation + H) - sweat_clearance_rate * W"
+  ],
+  "initial_conditions": {
+    "T": 2.0,
+    "H": 0.2,
+    "W": 0.0
+  },
+  "noise": 0.02,
+  "sanity_expectations": [
+    "T starts at 2.0 and decays toward a small positive regulated value as heat loss exceeds steady metabolic input",
+    "T recovery is non-monotone: a small undershoot/overshoot appears because the dissipation drive H builds up with a lag (drive_relaxation < loss rates) before relaxing",
+    "H rises from 0.2 as T is elevated, peaks, then relaxes toward baseline",
+    "W rises from 0 as evaporative drive accumulates skin moisture, then clears toward dry baseline",
+    "All states remain finite, real, and bounded over t in [0,30]; T stays > 0"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "Typed ODE system: full child-vs-parent comparison on the T trajectory. The NEW vasomotor convective term (-vasomotor_convective_gain*H*T/(vasomotor_perfusion_ceiling+T)) reaches a peak effect of 0.213 on T = 10.66*sigma (sigma=0.02), strongest at t≈2.6 — the early recovery window where T and H are both large. Well above the 5*sigma floor; excitation_check passes=true. The parent terms (metabolic input, dissipation_gain*H*T, passive_loss_rate*T, and the saturating evaporative term) each drive the initial dT/dt of ~-0.63 at t=0, so all are strongly excited over [0,30].",
+  "role_corrections": [
+    "dT_dt: output/target-derivative -> confirmed (RHS defines d(T)/dt)",
+    "t: time axis -> V confirmed (sole independent sampling axis)",
+    "T: dynamic state -> confirmed (target_state, function under the highest derivative)",
+    "H: dynamic state -> confirmed (own governing eq drive_gain*T/(drive_saturation+T)-drive_relaxation*H)",
+    "W: dynamic state -> confirmed (own governing eq sweat_load_gain*H/(evaporative_saturation+H)-sweat_clearance_rate*W)",
+    "metabolic_heat_input: P -> P (fixed=0.05)",
+    "dissipation_gain: P -> P (fixed=0.3)",
+    "passive_loss_rate: P -> P (fixed=0.1)",
+    "drive_gain: P -> P (fixed=0.5)",
+    "drive_relaxation: P -> P (fixed=0.2)",
+    "drive_saturation: P -> P (fixed=1.0)",
+    "evaporative_capacity: P -> P (fixed=0.5)",
+    "evaporative_saturation: P -> P (fixed=0.5)",
+    "humidity_efficiency: P -> P (fixed=0.3)",
+    "sweat_load_gain: P -> P (fixed=0.3)",
+    "sweat_clearance_rate: P -> P (fixed=0.15)",
+    "ambient_vapor_load: P -> P (fixed=0.5)",
+    "vasomotor_convective_gain: P -> P (fixed=1.0, mid of suggested 0.1-2.0)",
+    "vasomotor_perfusion_ceiling: P -> P (fixed=2.0, mid of suggested 0.5-5.0)"
+  ],
+  "rationale": "Inherited the upstream-validated ode_system contract verbatim (states T,H,W; target T; integrate_system). analyze_expression confirmed no derivatives/integrals/ungoverned functions inside the T-RHS and that all non-state free symbols are constants, so only sampling range, parameter values, and noise were chosen. Parameters set to physiologically sensible magnitudes giving a decaying temperature excess with a small overshoot; loss/relaxation timescales (~5-7) mean t in [0,30] spans ~4-6 time constants so the system settles. Noise sigma=0.02 (~1% of the initial excess) is the visibility yardstick. The new vasomotor convective term is visible at 10.66*sigma, and parent terms dominate the early trajectory, so every mechanism leaves a mark.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "metabolic_heat_input - dissipation_gain * H * T - passive_loss_rate * T - evaporative_capacity * H * T / (evaporative_saturation + H) * (1 - humidity_efficiency * W) * exp(-ambient_vapor_load * W) - vasomotor_convective_gain * H * T / (vasomotor_perfusion_ceiling + T)",
+        "target_symbol": "T"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "H",
+          "T",
+          "W",
+          "ambient_vapor_load",
+          "dissipation_gain",
+          "evaporative_capacity",
+          "evaporative_saturation",
+          "humidity_efficiency",
+          "metabolic_heat_input",
+          "passive_loss_rate",
+          "vasomotor_convective_gain",
+          "vasomotor_perfusion_ceiling"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "(-H**2*dissipation_gain*vasomotor_perfusion_ceiling*exp(W*ambient_vapor_load) - H**2*vasomotor_convective_gain*exp(W*ambient_vapor_load) + H*W*evaporative_capacity*humidity_efficiency*vasomotor_perfusion_ceiling - H*dissipation_gain*evaporative_saturation*vasomotor_perfusion_ceiling*exp(W*ambient_vapor_load) - H*evaporative_capacity*vasomotor_perfusion_ceiling - H*evaporative_saturation*vasomotor_convective_gain*exp(W*ambient_vapor_load) + H*metabolic_heat_input*exp(W*ambient_vapor_load) - H*passive_loss_rate*vasomotor_perfusion_ceiling*exp(W*ambient_vapor_load) + evaporative_saturation*metabolic_heat_input*exp(W*ambient_vapor_load) - evaporative_saturation*passive_loss_rate*vasomotor_perfusion_ceiling*exp(W*ambient_vapor_load) - sqrt(H**4*dissipation_gain**2*vasomotor_perfusion_ceiling**2*exp(2*W*ambient_vapor_load) + 2*H**4*dissipation_gain*vasomotor_convective_gain*vasomotor_perfusion_ceiling*exp(2*W*ambient_vapor_load) + H**4*vasomotor_convective_gain**2*exp(2*W*ambient_vapor_load) - 2*H**3*W*dissipation_gain*evaporative_capacity*humidity_efficiency*vasomotor_perfusion_ceiling**2*exp(W*ambient_vapor_load) - 2*H**3*W*evaporative_capacity*humidity_efficiency*vasomotor_convective_gain*vasomotor_perfusion_ceiling*exp(W*ambient_vapor_load) + 2*H**3*dissipation_gain**2*evaporative_saturation*vasomotor_perfusion_ceiling**2*exp(2*W*ambient_vapor_load) + 2*H**3*dissipation_gain*evaporative_capacity*vasomotor_perfusion_ceiling**2*exp(W*ambient_vapor_load) + 4*H**3*dissipation_gain*evaporative_saturation*vasomotor_convective_gain*vasomotor_perfusion_ceiling*exp(2*W*ambient_vapor_load) + 2*H**3*dissipation_gain*metabolic_heat_input*vasomotor_perfusion_ceiling*exp(2*W*ambient_vapor_load) + 2*H**3*dissipation_gain*passive_loss_rate*vasomotor_perfusion_ceiling**2*exp(2*W*ambient_vapor_load) + 2*H**3*evaporative_capacity*vasomotor_convective_gain*vasomotor_perfusion_ceiling*exp(W*ambient_vapor_load) + 2*H**3*evaporative_saturation*vasomotor_convective_gain**2*exp(2*W*ambient_vapor_load) - 2*H**3*metabolic_heat_input*vasomotor_convective_gain*exp(2*W*ambient_vapor_load) + 2*H**3*passive_loss_rate*vasomotor_convective_gain*vasomotor_perfusion_ceiling*exp(2*W*ambient_vapor_load) + H**2*W**2*evaporative_capacity**2*humidity_efficiency**2*vasomotor_perfusion_ceiling**2 - 2*H**2*W*dissipation_gain*evaporative_capacity*evaporative_saturation*humidity_efficiency*vasomotor_perfusion_ceiling**2*exp(W*ambient_vapor_load) - 2*H**2*W*evaporative_capacity**2*humidity_efficiency*vasomotor_perfusion_ceiling**2 - 2*H**2*W*evaporative_capacity*evaporative_saturation*humidity_efficiency*vasomotor_convective_gain*vasomotor_perfusion_ceiling*exp(W*ambient_vapor_load) - 2*H**2*W*evaporative_capacity*humidity_efficiency*metabolic_heat_input*vasomotor_perfusion_ceiling*exp(W*ambient_vapor_load) - 2*H**2*W*evaporative_capacity*humidity_efficiency*passive_loss_rate*vasomotor_perfusion_ceiling**2*exp(W*ambient_vapor_load) + H**2*dissipation_gain**2*evaporative_saturation**2*vasomotor_perfusion_ceiling**2*exp(2*W*ambient_vapor_load) + 2*H**2*dissipation_gain*evaporative_capacity*evaporative_saturation*vasomotor_perfusion_ceiling**2*exp(W*ambient_vapor_load) + 2*H**2*dissipation_gain*evaporative_saturation**2*vasomotor_convective_gain*vasomotor_perfusion_ceiling*exp(2*W*ambient_vapor_load) + 4*H**2*dissipation_gain*evaporative_saturation*metabolic_heat_input*vasomotor_perfusion_ceiling*exp(2*W*ambient_vapor_load) + 4*H**2*dissipation_gain*evaporative_saturation*passive_loss_rate*vasomotor_perfusion_ceiling**2*exp(2*W*ambient_vapor_load) + H**2*evaporative_capacity**2*vasomotor_perfusion_ceiling**2 + 2*H**2*evaporative_capacity*evaporative_saturation*vasomotor_convective_gain*vasomotor_perfusion_ceiling*exp(W*ambient_vapor_load) + 2*H**2*evaporative_capacity*metabolic_heat_input*vasomotor_perfusion_ceiling*exp(W*ambient_vapor_load) + 2*H**2*evaporative_capacity*passive_loss_rate*vasomotor_perfusion_ceiling**2*exp(W*ambient_vapor_load) + H**2*evaporative_saturation**2*vasomotor_convective_gain**2*exp(2*W*ambient_vapor_load) - 4*H**2*evaporative_saturation*metabolic_heat_input*vasomotor_convective_gain*exp(2*W*ambient_vapor_load) + 4*H**2*evaporative_saturation*passive_loss_rate*vasomotor_convective_gain*vasomotor_perfusion_ceiling*exp(2*W*ambient_vapor_load) + H**2*metabolic_heat_input**2*exp(2*W*ambient_vapor_load) + 2*H**2*metabolic_heat_input*passive_loss_rate*vasomotor_perfusion_ceiling*exp(2*W*ambient_vapor_load) + H**2*passive_loss_rate**2*vasomotor_perfusion_ceiling**2*exp(2*W*ambient_vapor_load) - 2*H*W*evaporative_capacity*evaporative_saturation*humidity_efficiency*metabolic_heat_input*vasomotor_perfusion_ceiling*exp(W*ambient_vapor_load) - 2*H*W*evaporative_capacity*evaporative_saturation*humidity_efficiency*passive_loss_rate*vasomotor_perfusion_ceiling**2*exp(W*ambient_vapor_load) + 2*H*dissipation_gain*evaporative_saturation**2*metabolic_heat_input*vasomotor_perfusion_ceiling*exp(2*W*ambient_vapor_load) + 2*H*dissipation_gain*evaporative_saturation**2*passive_loss_rate*vasomotor_perfusion_ceiling**2*exp(2*W*ambient_vapor_load) + 2*H*evaporative_capacity*evaporative_saturation*metabolic_heat_input*vasomotor_perfusion_ceiling*exp(W*ambient_vapor_load) + 2*H*evaporative_capacity*evaporative_saturation*passive_loss_rate*vasomotor_perfusion_ceiling**2*exp(W*ambient_vapor_load) - 2*H*evaporative_saturation**2*metabolic_heat_input*vasomotor_convective_gain*exp(2*W*ambient_vapor_load) + 2*H*evaporative_saturation**2*passive_loss_rate*vasomotor_convective_gain*vasomotor_perfusion_ceiling*exp(2*W*ambient_vapor_load) + 2*H*evaporative_saturation*metabolic_heat_input**2*exp(2*W*ambient_vapor_load) + 4*H*evaporative_saturation*metabolic_heat_input*passive_loss_rate*vasomotor_perfusion_ceiling*exp(2*W*ambient_vapor_load) + 2*H*evaporative_saturation*passive_loss_rate**2*vasomotor_perfusion_ceiling**2*exp(2*W*ambient_vapor_load) + evaporative_saturation**2*metabolic_heat_input**2*exp(2*W*ambient_vapor_load) + 2*evaporative_saturation**2*metabolic_heat_input*passive_loss_rate*vasomotor_perfusion_ceiling*exp(2*W*ambient_vapor_load) + evaporative_saturation**2*passive_loss_rate**2*vasomotor_perfusion_ceiling**2*exp(2*W*ambient_vapor_load)))/(2*(H**2*dissipation_gain*exp(W*ambient_vapor_load) - H*W*evaporative_capacity*humidity_efficiency + H*dissipation_gain*evaporative_saturation*exp(W*ambient_vapor_load) + H*evaporative_capacity + H*passive_loss_rate*exp(W*ambient_vapor_load) + evaporative_saturation*passive_loss_rate*exp(W*ambient_vapor_load)))",
+          "(-H**2*dissipation_gain*vasomotor_perfusion_ceiling*exp(W*ambient_vapor_load) - H**2*vasomotor_convective_gain*exp(W*ambient_vapor_load) + H*W*evaporative_capacity*humidity_efficiency*vasomotor_perfusion_ceiling - H*dissipation_gain*evaporative_saturation*vasomotor_perfusion_ceiling*exp(W*ambient_vapor_load) - H*evaporative_capacity*vasomotor_perfusion_ceiling - H*evaporative_saturation*vasomotor_convective_gain*exp(W*ambient_vapor_load) + H*metabolic_heat_input*exp(W*ambient_vapor_load) - H*passive_loss_rate*vasomotor_perfusion_ceiling*exp(W*ambient_vapor_load) + evaporative_saturation*metabolic_heat_input*exp(W*ambient_vapor_load) - evaporative_saturation*passive_loss_rate*vasomotor_perfusion_ceiling*exp(W*ambient_vapor_load) + sqrt(H**4*dissipation_gain**2*vasomotor_perfusion_ceiling**2*exp(2*W*ambient_vapor_load) + 2*H**4*dissipation_gain*vasomotor_convective_gain*vasomotor_perfusion_ceiling*exp(2*W*ambient_vapor_load) + H**4*vasomotor_convective_gain**2*exp(2*W*ambient_vapor_load) - 2*H**3*W*dissipation_gain*evaporative_capacity*humidity_efficiency*vasomotor_perfusion_ceiling**2*exp(W*ambient_vapor_load) - 2*H**3*W*evaporative_capacity*humidity_efficiency*vasomotor_convective_gain*vasomotor_perfusion_ceiling*exp(W*ambient_vapor_load) + 2*H**3*dissipation_gain**2*evaporative_saturation*vasomotor_perfusion_ceiling**2*exp(2*W*ambient_vapor_load) + 2*H**3*dissipation_gain*evaporative_capacity*vasomotor_perfusion_ceiling**2*exp(W*ambient_vapor_load) + 4*H**3*dissipation_gain*evaporative_saturation*vasomotor_convective_gain*vasomotor_perfusion_ceiling*exp(2*W*ambient_vapor_load) + 2*H**3*dissipation_gain*metabolic_heat_input*vasomotor_perfusion_ceiling*exp(2*W*ambient_vapor_load) + 2*H**3*dissipation_gain*passive_loss_rate*vasomotor_perfusion_ceiling**2*exp(2*W*ambient_vapor_load) + 2*H**3*evaporative_capacity*vasomotor_convective_gain*vasomotor_perfusion_ceiling*exp(W*ambient_vapor_load) + 2*H**3*evaporative_saturation*vasomotor_convective_gain**2*exp(2*W*ambient_vapor_load) - 2*H**3*metabolic_heat_input*vasomotor_convective_gain*exp(2*W*ambient_vapor_load) + 2*H**3*passive_loss_rate*vasomotor_convective_gain*vasomotor_perfusion_ceiling*exp(2*W*ambient_vapor_load) + H**2*W**2*evaporative_capacity**2*humidity_efficiency**2*vasomotor_perfusion_ceiling**2 - 2*H**2*W*dissipation_gain*evaporative_capacity*evaporative_saturation*humidity_efficiency*vasomotor_perfusion_ceiling**2*exp(W*ambient_vapor_load) - 2*H**2*W*evaporative_capacity**2*humidity_efficiency*vasomotor_perfusion_ceiling**2 - 2*H**2*W*evaporative_capacity*evaporative_saturation*humidity_efficiency*vasomotor_convective_gain*vasomotor_perfusion_ceiling*exp(W*ambient_vapor_load) - 2*H**2*W*evaporative_capacity*humidity_efficiency*metabolic_heat_input*vasomotor_perfusion_ceiling*exp(W*ambient_vapor_load) - 2*H**2*W*evaporative_capacity*humidity_efficiency*passive_loss_rate*vasomotor_perfusion_ceiling**2*exp(W*ambient_vapor_load) + H**2*dissipation_gain**2*evaporative_saturation**2*vasomotor_perfusion_ceiling**2*exp(2*W*ambient_vapor_load) + 2*H**2*dissipation_gain*evaporative_capacity*evaporative_saturation*vasomotor_perfusion_ceiling**2*exp(W*ambient_vapor_load) + 2*H**2*dissipation_gain*evaporative_saturation**2*vasomotor_convective_gain*vasomotor_perfusion_ceiling*exp(2*W*ambient_vapor_load) + 4*H**2*dissipation_gain*evaporative_saturation*metabolic_heat_input*vasomotor_perfusion_ceiling*exp(2*W*ambient_vapor_load) + 4*H**2*dissipation_gain*evaporative_saturation*passive_loss_rate*vasomotor_perfusion_ceiling**2*exp(2*W*ambient_vapor_load) + H**2*evaporative_capacity**2*vasomotor_perfusion_ceiling**2 + 2*H**2*evaporative_capacity*evaporative_saturation*vasomotor_convective_gain*vasomotor_perfusion_ceiling*exp(W*ambient_vapor_load) + 2*H**2*evaporative_capacity*metabolic_heat_input*vasomotor_perfusion_ceiling*exp(W*ambient_vapor_load) + 2*H**2*evaporative_capacity*passive_loss_rate*vasomotor_perfusion_ceiling**2*exp(W*ambient_vapor_load) + H**2*evaporative_saturation**2*vasomotor_convective_gain**2*exp(2*W*ambient_vapor_load) - 4*H**2*evaporative_saturation*metabolic_heat_input*vasomotor_convective_gain*exp(2*W*ambient_vapor_load) + 4*H**2*evaporative_saturation*passive_loss_rate*vasomotor_convective_gain*vasomotor_perfusion_ceiling*exp(2*W*ambient_vapor_load) + H**2*metabolic_heat_input**2*exp(2*W*ambient_vapor_load) + 2*H**2*metabolic_heat_input*passive_loss_rate*vasomotor_perfusion_ceiling*exp(2*W*ambient_vapor_load) + H**2*passive_loss_rate**2*vasomotor_perfusion_ceiling**2*exp(2*W*ambient_vapor_load) - 2*H*W*evaporative_capacity*evaporative_saturation*humidity_efficiency*metabolic_heat_input*vasomotor_perfusion_ceiling*exp(W*ambient_vapor_load) - 2*H*W*evaporative_capacity*evaporative_saturation*humidity_efficiency*passive_loss_rate*vasomotor_perfusion_ceiling**2*exp(W*ambient_vapor_load) + 2*H*dissipation_gain*evaporative_saturation**2*metabolic_heat_input*vasomotor_perfusion_ceiling*exp(2*W*ambient_vapor_load) + 2*H*dissipation_gain*evaporative_saturation**2*passive_loss_rate*vasomotor_perfusion_ceiling**2*exp(2*W*ambient_vapor_load) + 2*H*evaporative_capacity*evaporative_saturation*metabolic_heat_input*vasomotor_perfusion_ceiling*exp(W*ambient_vapor_load) + 2*H*evaporative_capacity*evaporative_saturation*passive_loss_rate*vasomotor_perfusion_ceiling**2*exp(W*ambient_vapor_load) - 2*H*evaporative_saturation**2*metabolic_heat_input*vasomotor_convective_gain*exp(2*W*ambient_vapor_load) + 2*H*evaporative_saturation**2*passive_loss_rate*vasomotor_convective_gain*vasomotor_perfusion_ceiling*exp(2*W*ambient_vapor_load) + 2*H*evaporative_saturation*metabolic_heat_input**2*exp(2*W*ambient_vapor_load) + 4*H*evaporative_saturation*metabolic_heat_input*passive_loss_rate*vasomotor_perfusion_ceiling*exp(2*W*ambient_vapor_load) + 2*H*evaporative_saturation*passive_loss_rate**2*vasomotor_perfusion_ceiling**2*exp(2*W*ambient_vapor_load) + evaporative_saturation**2*metabolic_heat_input**2*exp(2*W*ambient_vapor_load) + 2*evaporative_saturation**2*metabolic_heat_input*passive_loss_rate*vasomotor_perfusion_ceiling*exp(2*W*ambient_vapor_load) + evaporative_saturation**2*passive_loss_rate**2*vasomotor_perfusion_ceiling**2*exp(2*W*ambient_vapor_load)))/(2*(H**2*dissipation_gain*exp(W*ambient_vapor_load) - H*W*evaporative_capacity*humidity_efficiency + H*dissipation_gain*evaporative_saturation*exp(W*ambient_vapor_load) + H*evaporative_capacity + H*passive_loss_rate*exp(W*ambient_vapor_load) + evaporative_saturation*passive_loss_rate*exp(W*ambient_vapor_load)))"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "metabolic_heat_input - dissipation_gain * H * T - passive_loss_rate * T - evaporative_capacity * H * T / (evaporative_saturation + H) * (1 - humidity_efficiency * W) * exp(-ambient_vapor_load * W) - vasomotor_convective_gain * H * T / (vasomotor_perfusion_ceiling + T)",
+        "assignments": {
+          "metabolic_heat_input": 0.05,
+          "dissipation_gain": 0.3,
+          "passive_loss_rate": 0.1,
+          "evaporative_capacity": 0.5,
+          "evaporative_saturation": 0.5,
+          "humidity_efficiency": 0.3,
+          "ambient_vapor_load": 0.5,
+          "vasomotor_convective_gain": 1,
+          "vasomotor_perfusion_ceiling": 2,
+          "T": 2,
+          "H": 0.2,
+          "W": 0.1
+        },
+        "target_symbol": "T"
+      },
+      "result": {
+        "ok": true,
+        "value_real": -0.6336264405044837,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "ambient_vapor_load": 0.5,
+          "dissipation_gain": 0.3,
+          "drive_gain": 0.5,
+          "drive_relaxation": 0.2,
+          "drive_saturation": 1,
+          "evaporative_capacity": 0.5,
+          "evaporative_saturation": 0.5,
+          "humidity_efficiency": 0.3,
+          "metabolic_heat_input": 0.05,
+          "passive_loss_rate": 0.1,
+          "sweat_clearance_rate": 0.15,
+          "sweat_load_gain": 0.3,
+          "vasomotor_convective_gain": 1,
+          "vasomotor_perfusion_ceiling": 2
+        },
+        "indep": [
+          {
+            "symbol": "t",
+            "range": [
+              0,
+              30
+            ],
+            "n_points": 300
+          }
+        ],
+        "is_ode": true,
+        "sigma": 0.02
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "T",
+        "child_state_count": 3,
+        "parent_state_count": 3,
+        "n_time_points": 300,
+        "new_term_max_effect": 0.21324378088927542,
+        "new_term_sigma_multiple": 10.662189044463771,
+        "strongest_at": {
+          "t": 2.608695652173913
+        },
+        "k": 5.0,
+        "passes": true,
+        "advice": "new mechanism is visible on the target trajectory"
+      }
+    }
+  ],
+  "_cost_usd": 1.061534,
+  "_num_turns": 6,
+  "discipline": "biology",
+  "scenario_text": "In a study of thermoregulation, a homeotherm's core body temperature is elevated by exercise and then returns toward its regulated value once activity stops. Heat loss through skin blood flow and evaporative cooling scales with the temperature excess, while metabolic heat input holds steady. The regulated recovery combines a decaying excess with a small overshoot before settling. We follow both the core temperature excess and the effective heat-dissipation state.",
+  "record_id": "m2_physiology_and_homeostasis_0_001",
+  "generation": 5,
+  "_n_total": 5000
+}

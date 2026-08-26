@@ -1,0 +1,251 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "v",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        10.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "g",
+      "value": 9.81
+    },
+    {
+      "symbol": "drag_coeff",
+      "value": 0.1
+    },
+    {
+      "symbol": "mass",
+      "value": 1.0
+    },
+    {
+      "symbol": "linear_drag_coeff",
+      "value": 0.2
+    },
+    {
+      "symbol": "added_mass_coeff",
+      "value": 0.1
+    },
+    {
+      "symbol": "velocity_scale",
+      "value": 2.0
+    },
+    {
+      "symbol": "history_coeff",
+      "value": 0.3
+    },
+    {
+      "symbol": "wake_relax_rate",
+      "value": 1.0
+    },
+    {
+      "symbol": "basset_coeff",
+      "value": 0.1
+    },
+    {
+      "symbol": "basset_relax_rate",
+      "value": 1.0
+    },
+    {
+      "symbol": "drag_reduction_amp",
+      "value": 0.5
+    },
+    {
+      "symbol": "drag_crisis_velocity",
+      "value": 5.0
+    },
+    {
+      "symbol": "drag_crisis_width",
+      "value": 1.0
+    }
+  ],
+  "benchmark_output": "dv_dt",
+  "benchmark_target_state": "v",
+  "observed_variables": [
+    "t",
+    "v",
+    "w",
+    "q"
+  ],
+  "rhs_for_integrator": "g - ((drag_coeff/mass)*(1 + history_coeff*w))*v**2 - (linear_drag_coeff/mass)*v - (added_mass_coeff/mass)*g*tanh(v/velocity_scale) - (basset_coeff/mass)*q - (drag_coeff/mass)*drag_reduction_amp*v**2*(1 - tanh((v - drag_crisis_velocity)/drag_crisis_width))/2",
+  "state_variables": [
+    "v",
+    "w",
+    "q"
+  ],
+  "state_rhs": [
+    "g - ((drag_coeff/mass)*(1 + history_coeff*w))*v**2 - (linear_drag_coeff/mass)*v - (added_mass_coeff/mass)*g*tanh(v/velocity_scale) - (basset_coeff/mass)*q - (drag_coeff/mass)*drag_reduction_amp*v**2*(1 - tanh((v - drag_crisis_velocity)/drag_crisis_width))/2",
+    "wake_relax_rate*((g - (drag_coeff/mass)*v**2 - (linear_drag_coeff/mass)*v - (added_mass_coeff/mass)*g*tanh(v/velocity_scale))/g - w)",
+    "basset_relax_rate*((g - ((drag_coeff/mass)*(1 + history_coeff*w))*v**2 - (linear_drag_coeff/mass)*v - (added_mass_coeff/mass)*g*tanh(v/velocity_scale)) - q)"
+  ],
+  "initial_conditions": {
+    "v": 0.0,
+    "w": 0.0,
+    "q": 0.0
+  },
+  "noise": 0.02,
+  "sanity_expectations": [
+    "v starts at 0 (from rest)",
+    "v is monotone increasing in time",
+    "v approaches a finite asymptote (terminal descent speed ~9-10 m/s)",
+    "dv_dt starts near g=9.81 and decays toward 0 as v saturates",
+    "v stays bounded and positive throughout"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "ODE-system mode compared full child vs parent trajectories for the target state v. The NEW subcritical drag-crisis term reaches 13.18x sigma (peak effect 0.264 m/s^2 at t~0.90 s), well above the 5x threshold — visible because the sphere accelerates from rest through the subcritical regime (v < drag_crisis_velocity=5) before saturating near a terminal speed ~9-10 m/s > 5, so it traverses the crisis transition. Dominant/other terms (gravity ~9.81, quadratic drag driving v to terminal, linear drag up to ~2, added-mass up to ~0.98, Basset via q) are all O(0.1-10) m/s^2, far above sigma=0.02.",
+  "role_corrections": [
+    "dv_dt: output/target derivative -> confirmed (RHS of dv/dt)",
+    "t: time axis -> V confirmed (sole independent variable, sampled 0-10 s)",
+    "v: dynamic state -> confirmed (target_state, integrated)",
+    "w: dynamic state -> confirmed (governed wake/history state)",
+    "q: dynamic state -> confirmed (governed Basset history state)",
+    "g: P confirmed (9.81)",
+    "drag_coeff: P confirmed",
+    "mass: P confirmed",
+    "linear_drag_coeff: P confirmed",
+    "added_mass_coeff: P confirmed",
+    "velocity_scale: P confirmed",
+    "history_coeff: P confirmed",
+    "wake_relax_rate: P confirmed",
+    "basset_coeff: P confirmed",
+    "basset_relax_rate: P confirmed",
+    "drag_reduction_amp: P confirmed (0.5, within suggested 0-1)",
+    "drag_crisis_velocity: P confirmed (5.0, within suggested 1-20)",
+    "drag_crisis_width: P confirmed (1.0, within suggested 0.1-5)"
+  ],
+  "rationale": "Typed ODE-system contract inherited verbatim (states v,w,q; RHS, ICs unchanged). Only time range, parameter values, and noise were chosen. Parameters give a terminal speed (~9-10 m/s) above drag_crisis_velocity=5 so the trajectory sweeps through the subcritical drag-crisis regime, making the new term dynamically active (13x sigma) rather than a constant offset. t in [0,10] s with 300 points captures the full rise-and-saturate transient. Suggested ranges for the new drag-crisis parameters were adopted.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "g - ((drag_coeff/mass)*(1 + history_coeff*w))*v**2 - (linear_drag_coeff/mass)*v - (added_mass_coeff/mass)*g*tanh(v/velocity_scale) - (basset_coeff/mass)*q - (drag_coeff/mass)*drag_reduction_amp*v**2*(1 - tanh((v - drag_crisis_velocity)/drag_crisis_width))/2",
+        "target_symbol": "v"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "added_mass_coeff",
+          "basset_coeff",
+          "drag_coeff",
+          "drag_crisis_velocity",
+          "drag_crisis_width",
+          "drag_reduction_amp",
+          "g",
+          "history_coeff",
+          "linear_drag_coeff",
+          "mass",
+          "q",
+          "v",
+          "velocity_scale",
+          "w"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": false,
+        "explicit_solution_preview": null,
+        "classification_hint": "implicit_or_explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "g - ((drag_coeff/mass)*(1 + history_coeff*w))*v**2 - (linear_drag_coeff/mass)*v - (added_mass_coeff/mass)*g*tanh(v/velocity_scale) - (basset_coeff/mass)*q - (drag_coeff/mass)*drag_reduction_amp*v**2*(1 - tanh((v - drag_crisis_velocity)/drag_crisis_width))/2",
+        "assignments": {
+          "g": 9.81,
+          "mass": 1,
+          "drag_coeff": 0.1,
+          "history_coeff": 0.3,
+          "linear_drag_coeff": 0.2,
+          "added_mass_coeff": 0.1,
+          "velocity_scale": 2,
+          "basset_coeff": 0.1,
+          "drag_reduction_amp": 0.5,
+          "drag_crisis_velocity": 5,
+          "drag_crisis_width": 1,
+          "v": 3,
+          "w": 0.5,
+          "q": 1
+        },
+        "target_symbol": "v"
+      },
+      "result": {
+        "ok": true,
+        "value_real": 6.745143357657328,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "added_mass_coeff": 0.1,
+          "basset_coeff": 0.1,
+          "basset_relax_rate": 1,
+          "drag_coeff": 0.1,
+          "drag_crisis_velocity": 5,
+          "drag_crisis_width": 1,
+          "drag_reduction_amp": 0.5,
+          "g": 9.81,
+          "history_coeff": 0.3,
+          "linear_drag_coeff": 0.2,
+          "mass": 1,
+          "velocity_scale": 2,
+          "wake_relax_rate": 1
+        },
+        "indep": [
+          {
+            "symbol": "t",
+            "range": [
+              0,
+              10
+            ]
+          }
+        ],
+        "is_ode": true,
+        "sigma": 0.02
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "v",
+        "child_state_count": 3,
+        "parent_state_count": 3,
+        "n_time_points": 200,
+        "new_term_max_effect": 0.2635777033891733,
+        "new_term_sigma_multiple": 13.178885169458665,
+        "strongest_at": {
+          "t": 0.9045226130653267
+        },
+        "k": 5.0,
+        "passes": true,
+        "advice": "new mechanism is visible on the target trajectory"
+      }
+    }
+  ],
+  "_cost_usd": 0.420296,
+  "_num_turns": 6,
+  "discipline": "physics",
+  "scenario_text": "A dense sphere falls through a thick fluid column and quickly reaches a steady descent speed where resistance balances gravity. The retarding force grows with speed until motion stabilizes. Starting from rest, the downward speed rises and levels off. The approach depends on the sphere's weight and the fluid's drag characteristics.",
+  "record_id": "m2_classical_mechanics_0_007",
+  "generation": 5,
+  "_n_total": 5000
+}

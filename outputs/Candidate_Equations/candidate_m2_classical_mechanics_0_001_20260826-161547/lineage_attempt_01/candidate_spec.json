@@ -1,0 +1,212 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "v",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        20.0
+      ],
+      "n_points": 400,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "k",
+      "value": 2.0
+    },
+    {
+      "symbol": "m",
+      "value": 1.0
+    },
+    {
+      "symbol": "c",
+      "value": 0.2
+    },
+    {
+      "symbol": "beta",
+      "value": 0.5
+    },
+    {
+      "symbol": "gamma",
+      "value": 0.2
+    },
+    {
+      "symbol": "c_q",
+      "value": 0.2
+    },
+    {
+      "symbol": "c_history",
+      "value": 0.2
+    },
+    {
+      "symbol": "tau_h",
+      "value": 1.0
+    },
+    {
+      "symbol": "F_h",
+      "value": 0.2
+    },
+    {
+      "symbol": "c_shear",
+      "value": 0.5
+    },
+    {
+      "symbol": "v_ref",
+      "value": 0.5
+    }
+  ],
+  "benchmark_output": "dv_dt",
+  "benchmark_target_state": "v",
+  "observed_variables": [
+    "t",
+    "x",
+    "v",
+    "z"
+  ],
+  "rhs_for_integrator": "-(k/m)*x - (c/m)*v - (beta/m)*x**3 - (gamma/m)*x**2*v - (c_q/m)*v*Abs(v) - (c/m)*(F_h/c)*(1 - exp(-t/tau_h)) - (c_history/m)*z - (c_shear/m)*v/(1 + (v/v_ref)**2)",
+  "state_variables": [
+    "x",
+    "v",
+    "z"
+  ],
+  "state_rhs": [
+    "v",
+    "-(k/m)*x - (c/m)*v - (beta/m)*x**3 - (gamma/m)*x**2*v - (c_q/m)*v*Abs(v) - (c/m)*(F_h/c)*(1 - exp(-t/tau_h)) - (c_history/m)*z - (c_shear/m)*v/(1 + (v/v_ref)**2)",
+    "-z/tau_h - v/tau_h"
+  ],
+  "initial_conditions": {
+    "x": 1.0,
+    "v": 0.0,
+    "z": 0.0
+  },
+  "noise": 0.01,
+  "sanity_expectations": [
+    "x starts at 1.0, oscillates, and its amplitude decays over time (damped nonlinear oscillator)",
+    "v starts at 0, oscillates, and decays toward ~0 as energy is removed",
+    "z (memory state) starts at 0, remains bounded, and relaxes toward 0",
+    "all states remain finite and bounded over t in [0,20]",
+    "x settles toward a small negative offset (~ -0.1) due to the constant wake-bias force F_h once the transient (1-exp(-t/tau_h)) saturates by t~5s"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "Noise sigma=0.01 (abs std on dv_dt), ~0.5% of the dominant restoring term (k/m)*x~2. Full child-vs-parent system comparison on the v trajectory: the NEW shear-thinning drag term -(c_shear/m)*v/(1+(v/v_ref)^2) reaches peak effect 0.282 = 28.2*sigma, strongest at t~10s. Chosen v_ref=0.5 sits below the velocity amplitude (~1.4 m/s early), so v/v_ref>2 across much of the trajectory and the saturating 1/(1+(v/v_ref)^2) factor makes the term strongly nonlinear (distinct from plain linear damping). All other terms use moderate coefficients (0.2-2.0) acting on O(1) states, each moving dv_dt by ~0.2 = 20*sigma or more; the new term is the weakest and still passes at 28*sigma.",
+  "role_corrections": [
+    "dv_dt: output->output (confirmed target derivative of state v)",
+    "t: V->V (confirmed sole time axis)",
+    "x: state->state (confirmed displacement state)",
+    "v: state->state (confirmed target_state)",
+    "z: state->state (confirmed history-drag memory state)",
+    "k: P->P (confirmed, fixed 2.0)",
+    "m: P->P (confirmed, fixed 1.0)",
+    "c: P->P (confirmed, fixed 0.2)",
+    "beta: P->P (confirmed, fixed 0.5)",
+    "gamma: P->P (confirmed, fixed 0.2)",
+    "c_q: P->P (confirmed, fixed 0.2)",
+    "c_history: P->P (confirmed, fixed 0.2)",
+    "tau_h: P->P (confirmed, fixed 1.0)",
+    "F_h: P->P (confirmed, fixed 0.2)",
+    "c_shear: P->P (confirmed, fixed 0.5, within suggested 0.01-3.0)",
+    "v_ref: P->P (confirmed, fixed 0.5, within suggested 0.1-5.0)"
+  ],
+  "rationale": "Typed ode_system contract inherited verbatim (states x,v,z; state_rhs; ICs; target v; benchmark dv_dt). Only data-design choices were made: t in [0,20]s at 400 points covers ~5 periods (omega0=sqrt(k/m)=1.41 rad/s, T~4.4s) plus full decay (2m/c=10s) and the F_h transient (tau_h=1s). Parameters chosen at moderate, physically sensible magnitudes with m=1 so every additive term is O(0.2) or larger against a dominant restoring term of O(2). v_ref=0.5 was set below the velocity amplitude so the new saturating shear-thinning drag is genuinely nonlinear and clearly visible (28*sigma), not degenerate with linear damping.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "-(k/m)*x - (c/m)*v - (beta/m)*x**3 - (gamma/m)*x**2*v - (c_q/m)*v*Abs(v) - (c/m)*(F_h/c)*(1 - exp(-t/tau_h)) - (c_history/m)*z - (c_shear/m)*v/(1 + (v/v_ref)**2)",
+        "target_symbol": "v"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "F_h",
+          "beta",
+          "c",
+          "c_history",
+          "c_q",
+          "c_shear",
+          "gamma",
+          "k",
+          "m",
+          "t",
+          "tau_h",
+          "v",
+          "v_ref",
+          "x",
+          "z"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": false,
+        "explicit_solution_preview": null,
+        "classification_hint": "implicit_or_explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "F_h": 0.2,
+          "beta": 0.5,
+          "c": 0.2,
+          "c_history": 0.2,
+          "c_q": 0.2,
+          "c_shear": 0.5,
+          "gamma": 0.2,
+          "k": 2,
+          "m": 1,
+          "tau_h": 1,
+          "v": 0,
+          "v_ref": 0.5,
+          "x": 1,
+          "z": 0
+        },
+        "indep": [
+          {
+            "symbol": "t",
+            "range": [
+              0,
+              20
+            ],
+            "n_points": 400
+          }
+        ],
+        "is_ode": true,
+        "sigma": 0.01
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "v",
+        "child_state_count": 3,
+        "parent_state_count": 3,
+        "n_time_points": 400,
+        "new_term_max_effect": 0.28191103113883786,
+        "new_term_sigma_multiple": 28.191103113883784,
+        "strongest_at": {
+          "t": 10.025062656641603
+        },
+        "k": 5.0,
+        "passes": true,
+        "advice": "new mechanism is visible on the target trajectory"
+      }
+    }
+  ],
+  "_cost_usd": 0.4020485,
+  "_num_turns": 5,
+  "discipline": "physics",
+  "scenario_text": "A small mass hangs from a spring and oscillates vertically while moving through a viscous surrounding medium that resists its motion. The medium provides a retarding force proportional to speed, gradually removing energy from the motion. Starting from an initial displacement and velocity, the position evolves over time. The behavior depends on the spring stiffness, the mass, and the damping strength.",
+  "record_id": "m2_classical_mechanics_0_001",
+  "generation": 5,
+  "_n_total": 5000
+}

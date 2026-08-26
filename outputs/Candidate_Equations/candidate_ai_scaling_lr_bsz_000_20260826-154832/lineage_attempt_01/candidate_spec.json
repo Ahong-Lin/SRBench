@@ -1,0 +1,534 @@
+{
+  "equation_type": "explicit",
+  "integrator": "evaluate_explicit",
+  "dependent_variable": "L",
+  "independent_variables": [
+    {
+      "symbol": "lr",
+      "range": [
+        0.0001,
+        0.01
+      ],
+      "n_points": 200,
+      "scale": "log"
+    },
+    {
+      "symbol": "bsz",
+      "range": [
+        50.0,
+        2000.0
+      ],
+      "n_points": 200,
+      "scale": "log"
+    },
+    {
+      "symbol": "D",
+      "range": [
+        1.0,
+        1000.0
+      ],
+      "n_points": 200,
+      "scale": "log"
+    },
+    {
+      "symbol": "N",
+      "range": [
+        0.05,
+        10.0
+      ],
+      "n_points": 200,
+      "scale": "log"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "A",
+      "value": 5.0
+    },
+    {
+      "symbol": "B",
+      "value": 5.0
+    },
+    {
+      "symbol": "C",
+      "value": 1.7
+    },
+    {
+      "symbol": "K_lr",
+      "value": 1000.0
+    },
+    {
+      "symbol": "E_bsz",
+      "value": 0.1
+    },
+    {
+      "symbol": "F",
+      "value": 0.0007
+    },
+    {
+      "symbol": "G",
+      "value": 1.0
+    },
+    {
+      "symbol": "alpha",
+      "value": 0.34
+    },
+    {
+      "symbol": "beta",
+      "value": 0.28
+    },
+    {
+      "symbol": "gamma",
+      "value": -0.7
+    },
+    {
+      "symbol": "zeta",
+      "value": 0.3
+    },
+    {
+      "symbol": "eta",
+      "value": 0.3
+    },
+    {
+      "symbol": "H_int",
+      "value": 2.076386865945722
+    },
+    {
+      "symbol": "theta",
+      "value": 0.2
+    },
+    {
+      "symbol": "J_noise",
+      "value": 1.0
+    },
+    {
+      "symbol": "phi",
+      "value": 0.5
+    },
+    {
+      "symbol": "M_sat",
+      "value": 10.0
+    },
+    {
+      "symbol": "K_asym",
+      "value": 100.0
+    },
+    {
+      "symbol": "K_bopt",
+      "value": 0.5
+    },
+    {
+      "symbol": "B_opt0",
+      "value": 20.0
+    },
+    {
+      "symbol": "mu",
+      "value": 0.1
+    },
+    {
+      "symbol": "nu",
+      "value": 0.5
+    },
+    {
+      "symbol": "P_joint",
+      "value": 10.0
+    },
+    {
+      "symbol": "omega",
+      "value": 0.5
+    },
+    {
+      "symbol": "psi",
+      "value": 0.5
+    },
+    {
+      "symbol": "D_ref",
+      "value": 10.0
+    }
+  ],
+  "benchmark_output": null,
+  "benchmark_target_state": null,
+  "observed_variables": [
+    "lr",
+    "bsz",
+    "D",
+    "N",
+    "L"
+  ],
+  "rhs_for_integrator": "A/D**alpha + B/N**beta + C + K_lr*(lr - F*N**gamma*D**zeta)**2*(1 + K_asym*Abs(lr - F*N**gamma*D**zeta)) + E_bsz*(log(bsz) + G*D**eta/bsz)*(1 + K_bopt*(log(bsz) - log(B_opt0*N**mu*D**nu))**2) + H_int*lr*log(bsz)/N**theta + J_noise*lr*bsz/(D**phi + M_sat) + P_joint*lr**2*bsz/(N**omega*(D**psi + D_ref))",
+  "state_variables": [],
+  "state_rhs": [],
+  "initial_conditions": {},
+  "noise": 0.003,
+  "sanity_expectations": [
+    "L is finite, real and positive over the whole sampled region",
+    "L decreases monotonically as D increases (A/D^alpha term) at fixed lr,bsz,N",
+    "L decreases monotonically as N increases (B/N^beta term) at fixed lr,bsz,D",
+    "L is minimized in lr near the scale-dependent optimum lr_opt = F*N^gamma*D^zeta and rises on both sides (steeper on the high-lr side due to K_asym)",
+    "L is bounded below by the floor C=1.7",
+    "the new joint instability term makes L increase with lr^2*bsz, most visibly at large lr and large bsz with small D and small N"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "sigma=0.003, k=5. Per-term RMS multiples of sigma: A/D^alpha=264, B/N^beta=1256, C=567, E_bsz batch penalty=415, K_lr lr penalty=85, J_noise noise term=82, H_int interaction=21.7, and the NEW joint term P_joint*lr^2*bsz/(N^omega*(D^psi+D_ref))=5.07 RMS with peak 61*sigma at lr=0.0094, bsz=1650, D=47, N=0.22. All terms >= 5*sigma; no weak terms. auto_balance first drove P_joint to 42.8 but that exceeds the hinted physical range (0-10); capping P_joint at 10 and lowering sigma to 0.003 keeps every parameter physical while the new term still clears the floor (peak 61*sigma).",
+  "role_corrections": [
+    "L: output->output (confirmed: LHS, explicitly solvable, appears nowhere on RHS)",
+    "lr: input->input (confirmed sampling axis)",
+    "bsz: input->input (confirmed sampling axis; enters via log(bsz), keep >0)",
+    "D: input->input (confirmed sampling axis)",
+    "N: input->input (confirmed sampling axis)",
+    "A,B,C,K_lr,E_bsz,F,G,alpha,beta,gamma,zeta,eta,H_int,theta,J_noise,phi,M_sat,K_asym,K_bopt,B_opt0,mu,nu,P_joint,omega,psi,D_ref: parameter->parameter (confirmed: all remaining free symbols fixed to constants)"
+  ],
+  "rationale": "Static algebraic scaling law for LM loss; analyze_expression confirms no derivatives/integrals and that L is explicitly solvable, so equation_type=explicit with evaluate_explicit. Four physical sampling axes (lr, bsz, D, N) span roughly 2-3 decades each, sampled on log scale to cover the scaling regimes; all other symbols are fixed constants. Parameter values follow Step-Law/Chinchilla-style magnitudes (Chinchilla exponents alpha=0.34, beta=0.28, floor C=1.7; optimal-lr scaling F*N^-0.7*D^0.3 landing lr_opt near 3e-3; critical batch B_opt0*N^0.1*D^0.5 near a few hundred kilo-tokens). auto_balance set the top-level amplitudes so every additive term is visible; P_joint was kept at the hint's upper bound (10) rather than the auto value (42.8) to stay physical, with sigma reduced to 0.003 so the new joint term still clears 5*sigma (RMS 5.07, peak 61). excitation_ok=true: all terms visible, new term included.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "A/D**alpha + B/N**beta + C + K_lr*(lr - F*N**gamma*D**zeta)**2*(1 + K_asym*Abs(lr - F*N**gamma*D**zeta)) + E_bsz*(log(bsz) + G*D**eta/bsz)*(1 + K_bopt*(log(bsz) - log(B_opt0*N**mu*D**nu))**2) + H_int*lr*log(bsz)/N**theta + J_noise*lr*bsz/(D**phi + M_sat) + P_joint*lr**2*bsz/(N**omega*(D**psi + D_ref))",
+        "target_symbol": "L"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "A",
+          "B",
+          "B_opt0",
+          "C",
+          "D",
+          "D_ref",
+          "E_bsz",
+          "F",
+          "G",
+          "H_int",
+          "J_noise",
+          "K_asym",
+          "K_bopt",
+          "K_lr",
+          "M_sat",
+          "N",
+          "P_joint",
+          "alpha",
+          "beta",
+          "bsz",
+          "eta",
+          "gamma",
+          "lr",
+          "mu",
+          "nu",
+          "omega",
+          "phi",
+          "psi",
+          "theta",
+          "zeta"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "A/(D**alpha) + B/(N**beta) + C + E_bsz*(K_bopt*(log(bsz) - log(B_opt0*D**nu*N**mu))**2 + 1)*(D**eta*G/bsz + log(bsz)) + "
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "A/D**alpha + B/N**beta + C + K_lr*(lr - F*N**gamma*D**zeta)**2*(1 + K_asym*Abs(lr - F*N**gamma*D**zeta)) + E_bsz*(log(bsz) + G*D**eta/bsz)*(1 + K_bopt*(log(bsz) - log(B_opt0*N**mu*D**nu))**2) + H_int*lr*log(bsz)/N**theta + J_noise*lr*bsz/(D**phi + M_sat) + P_joint*lr**2*bsz/(N**omega*(D**psi + D_ref))",
+        "assignments": {
+          "lr": 0.003,
+          "bsz": 300,
+          "D": 100,
+          "N": 1,
+          "A": 5,
+          "B": 5,
+          "C": 1.7,
+          "K_lr": 1000,
+          "E_bsz": 0.1,
+          "F": 0.0007,
+          "G": 1,
+          "alpha": 0.34,
+          "beta": 0.28,
+          "gamma": -0.7,
+          "zeta": 0.3,
+          "eta": 0.3,
+          "H_int": 1,
+          "theta": 0.2,
+          "J_noise": 1,
+          "phi": 0.5,
+          "M_sat": 10,
+          "K_asym": 100,
+          "K_bopt": 0.5,
+          "B_opt0": 20,
+          "mu": 0.1,
+          "nu": 0.5,
+          "P_joint": 1,
+          "omega": 0.5,
+          "psi": 0.5,
+          "D_ref": 10
+        },
+        "target_symbol": "L"
+      },
+      "result": {
+        "ok": true,
+        "value_real": 8.425640861293909,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "auto_balance",
+      "input": {
+        "assignments": {
+          "A": 5,
+          "B": 5,
+          "B_opt0": 20,
+          "C": 1.7,
+          "D_ref": 10,
+          "E_bsz": 0.1,
+          "F": 0.0007,
+          "G": 1,
+          "H_int": 1,
+          "J_noise": 1,
+          "K_asym": 100,
+          "K_bopt": 0.5,
+          "K_lr": 1000,
+          "M_sat": 10,
+          "P_joint": 1,
+          "alpha": 0.34,
+          "beta": 0.28,
+          "eta": 0.3,
+          "gamma": -0.7,
+          "mu": 0.1,
+          "nu": 0.5,
+          "omega": 0.5,
+          "phi": 0.5,
+          "psi": 0.5,
+          "theta": 0.2,
+          "zeta": 0.3
+        },
+        "indep": [
+          {
+            "symbol": "lr",
+            "range": [
+              0.0001,
+              0.01
+            ]
+          },
+          {
+            "symbol": "bsz",
+            "range": [
+              50,
+              2000
+            ]
+          },
+          {
+            "symbol": "D",
+            "range": [
+              1,
+              1000
+            ]
+          },
+          {
+            "symbol": "N",
+            "range": [
+              0.05,
+              10
+            ]
+          }
+        ],
+        "is_ode": false,
+        "sigma": 0.01
+      },
+      "result": {
+        "ok": true,
+        "assignments": {
+          "A": 5,
+          "B": 5,
+          "B_opt0": 20,
+          "C": 1.7,
+          "D_ref": 10,
+          "E_bsz": 0.1,
+          "F": 0.0007,
+          "G": 1,
+          "H_int": 2.076386865945722,
+          "J_noise": 1,
+          "K_asym": 100,
+          "K_bopt": 0.5,
+          "K_lr": 1000,
+          "M_sat": 10,
+          "P_joint": 42.76956534158576,
+          "alpha": 0.34,
+          "beta": 0.28,
+          "eta": 0.3,
+          "gamma": -0.7,
+          "mu": 0.1,
+          "nu": 0.5,
+          "omega": 0.5,
+          "phi": 0.5,
+          "psi": 0.5,
+          "theta": 0.2,
+          "zeta": 0.3
+        },
+        "changed": {
+          "H_int": [
+            1.0,
+            2.076386865945722
+          ],
+          "P_joint": [
+            1.0,
+            42.76956534158576
+          ]
+        },
+        "converged": true,
+        "note": "all terms reach k*sigma"
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "A": 5,
+          "B": 5,
+          "B_opt0": 20,
+          "C": 1.7,
+          "D_ref": 10,
+          "E_bsz": 0.1,
+          "F": 0.0007,
+          "G": 1,
+          "H_int": 2.076386865945722,
+          "J_noise": 1,
+          "K_asym": 100,
+          "K_bopt": 0.5,
+          "K_lr": 1000,
+          "M_sat": 10,
+          "P_joint": 10,
+          "alpha": 0.34,
+          "beta": 0.28,
+          "eta": 0.3,
+          "gamma": -0.7,
+          "mu": 0.1,
+          "nu": 0.5,
+          "omega": 0.5,
+          "phi": 0.5,
+          "psi": 0.5,
+          "theta": 0.2,
+          "zeta": 0.3
+        },
+        "indep": [
+          {
+            "range": [
+              0.0001,
+              0.01
+            ],
+            "symbol": "lr"
+          },
+          {
+            "range": [
+              50,
+              2000
+            ],
+            "symbol": "bsz"
+          },
+          {
+            "range": [
+              1,
+              1000
+            ],
+            "symbol": "D"
+          },
+          {
+            "range": [
+              0.05,
+              10
+            ],
+            "symbol": "N"
+          }
+        ],
+        "is_ode": false,
+        "sigma": 0.003
+      },
+      "result": {
+        "ok": true,
+        "mode": "explicit",
+        "k": 5.0,
+        "sigma": 0.003,
+        "sampling": {
+          "method": "sobol",
+          "n_samples": 512,
+          "n_dimensions": 4
+        },
+        "terms": [
+          {
+            "term": "A/(D**alpha)",
+            "rms": 0.7923474947443035,
+            "sigma_multiple": 264.1158315814345
+          },
+          {
+            "term": "B/(N**beta)",
+            "rms": 3.7681141106719895,
+            "sigma_multiple": 1256.038036890663
+          },
+          {
+            "term": "C",
+            "rms": 1.7,
+            "sigma_multiple": 566.6666666666666
+          },
+          {
+            "term": "E_bsz*(K_bopt*(log(bsz) - log(B_opt0*D**nu*N**mu))**2 + 1)*(D**eta*G/bsz + log(b",
+            "rms": 1.2449666225988794,
+            "sigma_multiple": 414.9888741996264
+          },
+          {
+            "term": "H_int*lr*log(bsz)/(N**theta)",
+            "rms": 0.06499999999999995,
+            "sigma_multiple": 21.66666666666665
+          },
+          {
+            "term": "J_noise*bsz*lr/(D**phi + M_sat)",
+            "rms": 0.24713033867445547,
+            "sigma_multiple": 82.37677955815182
+          },
+          {
+            "term": "K_lr*(K_asym*Abs(-D**zeta*F*N**gamma + lr) + 1)*(-D**zeta*F*N**gamma + lr)**2",
+            "rms": 0.25573224462374883,
+            "sigma_multiple": 85.24408154124961
+          },
+          {
+            "term": "P_joint*bsz*lr**2/((N**omega*(D**psi + D_ref)))",
+            "rms": 0.015197722838861569,
+            "sigma_multiple": 5.065907612953856
+          }
+        ],
+        "weak_terms": [],
+        "new_term": {
+          "delta_expr": "evaluated numerically as current expression minus parent",
+          "max_effect": 0.18330527023646503,
+          "sigma_multiple": 61.101756745488345,
+          "strongest_at": {
+            "lr": 0.009376058571040631,
+            "bsz": 1650.3283534199,
+            "D": 47.28344604931772,
+            "N": 0.21994687705300747
+          },
+          "passes": true
+        },
+        "advice": "all terms visible"
+      }
+    }
+  ],
+  "_cost_usd": 0.724651,
+  "_num_turns": 7,
+  "discipline": "AI",
+  "scenario_text": "A fixed dense language-model training stack is evaluated across learning rates and batch sizes while model size and token budget vary. lr is learning rate, bsz is batch size in thousands of tokens, D is effective training tokens in billions, N is non-embedding parameter count in billions, and L is held-out language-model loss. This is one concrete optimization regime. SLDBench treats this as an open discovery task and uses a human-derived baseline adapted from Step Law. During evolution, retain a scale-dependent optimal learning rate and a finite-batch penalty; refinements may concern optimizer noise, schedule mismatch, or compute interaction.",
+  "record_id": "ai_scaling_lr_bsz_000",
+  "generation": 5,
+  "_n_total": 5000
+}

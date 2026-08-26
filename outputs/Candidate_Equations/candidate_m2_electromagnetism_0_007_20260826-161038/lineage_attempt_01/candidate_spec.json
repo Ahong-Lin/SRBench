@@ -1,0 +1,277 @@
+{
+  "equation_type": "explicit",
+  "integrator": "evaluate_explicit",
+  "dependent_variable": "emf",
+  "independent_variables": [
+    {
+      "symbol": "dIdt",
+      "range": [
+        1000.0,
+        100000.0
+      ],
+      "n_points": 100,
+      "scale": "log"
+    },
+    {
+      "symbol": "T",
+      "range": [
+        273.0,
+        373.0
+      ],
+      "n_points": 5,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "mu0",
+      "value": 1.2566370614e-06
+    },
+    {
+      "symbol": "n",
+      "value": 5000.0
+    },
+    {
+      "symbol": "A",
+      "value": 0.002
+    },
+    {
+      "symbol": "emf_sat",
+      "value": 0.3
+    },
+    {
+      "symbol": "eddy_coeff",
+      "value": 0.5
+    },
+    {
+      "symbol": "emf_eddy",
+      "value": 0.3
+    },
+    {
+      "symbol": "eddy_temp_coeff",
+      "value": 0.002
+    },
+    {
+      "symbol": "T_ref",
+      "value": 293.0
+    },
+    {
+      "symbol": "skin_coeff",
+      "value": 0.02
+    },
+    {
+      "symbol": "f_drive",
+      "value": 50.0
+    },
+    {
+      "symbol": "sigma_skin",
+      "value": 0.5
+    },
+    {
+      "symbol": "skin_temp_coeff",
+      "value": 0.001
+    },
+    {
+      "symbol": "hyst_coeff",
+      "value": 0.3
+    },
+    {
+      "symbol": "emf_hyst",
+      "value": 0.01
+    }
+  ],
+  "benchmark_output": null,
+  "benchmark_target_state": null,
+  "observed_variables": [
+    "dIdt",
+    "T",
+    "emf"
+  ],
+  "rhs_for_integrator": "mu0 * n * A * dIdt / (1 + (mu0 * n * A * dIdt / emf_sat)**2) * (1 + eddy_coeff * mu0 * n * A * dIdt * tanh(mu0 * n * A * dIdt / emf_eddy)) * (1 + eddy_temp_coeff * (T - T_ref)) / (1 + skin_coeff * (f_drive * sqrt(1 + (mu0 * n * A * dIdt / emf_eddy)**2))**(sigma_skin) * (1 + skin_temp_coeff * (T - T_ref))) * (1 - hyst_coeff * exp(-emf_sat / (mu0 * n * A * Abs(dIdt) + emf_hyst)))",
+  "state_variables": [],
+  "state_rhs": [],
+  "initial_conditions": {},
+  "noise": 0.002,
+  "sanity_expectations": [
+    "emf is finite, real and positive over the whole sampled region",
+    "emf is non-monotonic in dIdt: rises to a peak near dIdt~2e4 (drive ~ emf_sat) then declines at high dIdt due to the 1/(1+(drive/emf_sat)^2) saturation factor",
+    "emf increases weakly and monotonically with temperature T (eddy_temp_coeff numerator gain outweighs skin_temp_coeff denominator loss)",
+    "the hysteresis factor reduces emf most at high drive (large dIdt), shaving up to ~hyst_coeff (~30%) off the parent value; negligible correction at low dIdt",
+    "at fixed T the response is smooth with no discontinuities"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "Noise yardstick sigma=0.002 (abs std on emf; ~1.5% of peak emf ~0.14). k=5. Single top-level product term: rms 0.101 = 50.5*sigma (dominant, visible). NEW term (hysteresis factor 1 - hyst_coeff*exp(-emf_sat/(mu0*n*A*|dIdt|+emf_hyst))): max_effect 0.0268 = 13.4*sigma, strongest at dIdt~4.95e4, T~371 (high-drive regime where exp arg -> 0 so the deficit saturates to ~hyst_coeff). All terms visible; no weak terms.",
+  "role_corrections": [
+    "emf: O->dependent variable (confirmed)",
+    "dIdt: V->independent variable, primary sampling axis (confirmed)",
+    "T: V->independent variable, second axis via eddy/skin temperature factors (confirmed)",
+    "n: V->P (overridden: enters ONLY through product mu0*n*A*dIdt, degenerate with dIdt; fixed as geometry constant)",
+    "A: V->P (overridden: same product degeneracy as n; fixed as geometry constant)",
+    "mu0: P->P (confirmed, fixed vacuum permeability)",
+    "emf_sat: P->P (confirmed)",
+    "eddy_coeff: P->P (confirmed)",
+    "emf_eddy: P->P (confirmed)",
+    "eddy_temp_coeff: P->P (confirmed)",
+    "T_ref: P->P (confirmed)",
+    "skin_coeff: P->P (confirmed)",
+    "f_drive: P->P (confirmed)",
+    "sigma_skin: P->P (confirmed)",
+    "skin_temp_coeff: P->P (confirmed)",
+    "hyst_coeff: P->P (confirmed)",
+    "emf_hyst: P->P (confirmed)"
+  ],
+  "rationale": "The expression is an explicit closed form for emf with no derivatives or integral kernels (analyze_expression: max_derivative_order=0, no integral_kernels, explicitly_solvable_for_target=true) -> equation_type=explicit, integrator=evaluate_explicit. Roles: emf is the LHS output; dIdt and T are the genuine sampling axes (dIdt is the physical variable recorded 'for different rates of current change'; T modulates via the eddy/skin temperature factors). n and A are demoted from the pipeline's 'input' label to fixed parameters because they appear exclusively inside the product mu0*n*A*dIdt and are structurally indistinguishable from dIdt, so sampling them would only add rank-deficient columns; they are fixed at physical solenoid values (n=5000 turns/m, A=2e-3 m^2). Parameter magnitudes chosen so the flux drive mu0*n*A*dIdt sweeps ~1.3e-3 to ~1.26 V across the dIdt range, straddling emf_sat=emf_eddy=0.3 so the saturation, eddy-reinforcement, skin and hysteresis factors are all exercised. Suggested hint ranges honored (hyst_coeff=0.3 in [0.01,0.5], emf_hyst=0.01 in [1e-4,1e-1]). check_substitution at a mid point gave emf=0.136 (finite, real). excitation_check confirms all terms and the new hysteresis term exceed 5*sigma, so excitation_ok=true.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "mu0 * n * A * dIdt / (1 + (mu0 * n * A * dIdt / emf_sat)**2) * (1 + eddy_coeff * mu0 * n * A * dIdt * tanh(mu0 * n * A * dIdt / emf_eddy)) * (1 + eddy_temp_coeff * (T - T_ref)) / (1 + skin_coeff * (f_drive * sqrt(1 + (mu0 * n * A * dIdt / emf_eddy)**2))**(sigma_skin) * (1 + skin_temp_coeff * (T - T_ref))) * (1 - hyst_coeff * exp(-emf_sat / (mu0 * n * A * Abs(dIdt) + emf_hyst)))",
+        "target_symbol": "emf"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "A",
+          "T",
+          "T_ref",
+          "dIdt",
+          "eddy_coeff",
+          "eddy_temp_coeff",
+          "emf_eddy",
+          "emf_hyst",
+          "emf_sat",
+          "f_drive",
+          "hyst_coeff",
+          "mu0",
+          "n",
+          "sigma_skin",
+          "skin_coeff",
+          "skin_temp_coeff"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "A*dIdt*mu0*n*(1 - hyst_coeff*exp((-emf_sat)/(A*mu0*n*Abs(dIdt) + emf_hyst)))*(eddy_temp_coeff*(T - T_ref) + 1)*(A*dIdt*e"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "mu0 * n * A * dIdt / (1 + (mu0 * n * A * dIdt / emf_sat)**2) * (1 + eddy_coeff * mu0 * n * A * dIdt * tanh(mu0 * n * A * dIdt / emf_eddy)) * (1 + eddy_temp_coeff * (T - T_ref)) / (1 + skin_coeff * (f_drive * sqrt(1 + (mu0 * n * A * dIdt / emf_eddy)**2))**(sigma_skin) * (1 + skin_temp_coeff * (T - T_ref))) * (1 - hyst_coeff * exp(-emf_sat / (mu0 * n * A * Abs(dIdt) + emf_hyst)))",
+        "assignments": {
+          "mu0": 1.2566370614e-06,
+          "n": 5000,
+          "A": 0.002,
+          "emf_sat": 0.3,
+          "eddy_coeff": 0.5,
+          "emf_eddy": 0.3,
+          "eddy_temp_coeff": 0.002,
+          "T_ref": 293,
+          "skin_coeff": 0.02,
+          "f_drive": 50,
+          "sigma_skin": 0.5,
+          "skin_temp_coeff": 0.001,
+          "hyst_coeff": 0.3,
+          "emf_hyst": 0.01,
+          "dIdt": 23874,
+          "T": 333
+        },
+        "target_symbol": "emf"
+      },
+      "result": {
+        "ok": true,
+        "value_real": 0.13612336990960328,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "A": 0.002,
+          "T_ref": 293,
+          "eddy_coeff": 0.5,
+          "eddy_temp_coeff": 0.002,
+          "emf_eddy": 0.3,
+          "emf_hyst": 0.01,
+          "emf_sat": 0.3,
+          "f_drive": 50,
+          "hyst_coeff": 0.3,
+          "mu0": 1.2566370614e-06,
+          "n": 5000,
+          "sigma_skin": 0.5,
+          "skin_coeff": 0.02,
+          "skin_temp_coeff": 0.001
+        },
+        "indep": [
+          {
+            "symbol": "dIdt",
+            "range": [
+              1000,
+              100000
+            ]
+          },
+          {
+            "symbol": "T",
+            "range": [
+              273,
+              373
+            ]
+          }
+        ],
+        "is_ode": false,
+        "sigma": 0.002
+      },
+      "result": {
+        "ok": true,
+        "mode": "explicit",
+        "k": 5.0,
+        "sigma": 0.002,
+        "sampling": {
+          "method": "sobol",
+          "n_samples": 512,
+          "n_dimensions": 2
+        },
+        "terms": [
+          {
+            "term": "A*dIdt*mu0*n*(1 - hyst_coeff*exp((-emf_sat)/(A*mu0*n*Abs(dIdt) + emf_hyst)))*(ed",
+            "rms": 0.10106909069410107,
+            "sigma_multiple": 50.53454534705053
+          }
+        ],
+        "weak_terms": [],
+        "new_term": {
+          "delta_expr": "evaluated numerically as current expression minus parent",
+          "max_effect": 0.026761677813406562,
+          "sigma_multiple": 13.38083890670328,
+          "strongest_at": {
+            "dIdt": 49542.7382690832,
+            "T": 370.9055623523891
+          },
+          "passes": true
+        },
+        "advice": "all terms visible"
+      }
+    }
+  ],
+  "_cost_usd": 0.6691655,
+  "_num_turns": 6,
+  "discipline": "physics",
+  "scenario_text": "A long solenoid carries a steadily increasing current, and the changing magnetic flux inside induces an electric field that opposes the flux growth. We record the magnitude of the induced electromotive force around a coaxial loop for different rates of current change. The number of turns and coil geometry set the coupling. Each configuration yields an instantaneous induced voltage.",
+  "record_id": "m2_electromagnetism_0_007",
+  "generation": 5,
+  "_n_total": 5000
+}
