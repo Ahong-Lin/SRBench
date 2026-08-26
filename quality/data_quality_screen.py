@@ -31,7 +31,9 @@ import numpy as np
 import sympy as sp
 
 
-ROOT = Path(__file__).resolve().parent
+# This module lives under ``quality/``; repository-relative default paths still
+# belong at the project root.
+ROOT = Path(__file__).resolve().parent.parent
 CSV_NAME_RE = re.compile(r"^(.*)_gen(\d+)_\d{8}-\d{6}\.csv$")
 IDENTIFIER_RE = re.compile(r"^[A-Za-z_]\w*$")
 MATH_NAMES = {

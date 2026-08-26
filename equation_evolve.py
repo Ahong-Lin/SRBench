@@ -9,9 +9,10 @@ and asks the LLM to do ONE of two things:
   (1) change_assumption — pick a variable/parameter, RELAX or CHANGE the
       physical assumption originally made about it, then RE-DERIVE the equation
       under the new assumption.
-  (2) add_term — ADD one new function term that introduces a fresh physical
-      effect (damping, forcing, coupling, nonlinearity, saturation, ...), making
-      the model background more complex.
+  (2) add_term — add one missing generative process.  A shared mechanism
+      framework plus a discipline-specific menu keeps Physics, Biology, and AI
+      Scaling Laws scientifically grounded without reducing evolution to a
+      generic high-order correction.
 
 The output of each step becomes the input to the next, so the formula keeps
 growing in complexity. Static relations remain static relations. ODE systems
@@ -119,6 +120,29 @@ class AssumptionAudit(BaseModel):
     parent_reduction: str = ""
 
 
+MechanismClass = Literal[
+    "nonlinear_response",
+    "interaction",
+    "capacity_constraint",
+    "heterogeneity_modulation",
+    "feedback_competition",
+    "regime_crossover",
+]
+
+
+class AddTermAudit(BaseModel):
+    """Scientific justification for one ``add_term`` transition.
+
+    This forces an added expression to name a missing *generative process*,
+    rather than merely describe a more complicated mathematical form.
+    """
+
+    mechanism_class: MechanismClass
+    mechanism_claim: str
+    parent_reduction: str
+    observable_signature: str
+
+
 class ODEStateEquation(BaseModel):
     symbol: str
     rhs: str
@@ -144,6 +168,7 @@ class EvolvedEquation(BaseModel):
     derivation_notes: str
     change_summary: str
     assumption_audit: Optional[AssumptionAudit] = None
+    add_term_audit: Optional[AddTermAudit] = None
     ode_system: Optional[ODESystem] = None
 
 
@@ -220,9 +245,10 @@ OUTPUT FORMAT — return a SINGLE JSON object, nothing else:
   "symbol_descriptions": ["<desc>", "<desc>", ...],
   "symbol_properties": ["O", "V" or "S", "P", ...],
   "new_symbol_range_suggestions": {{"<new_symbol>": "<suggested range>", ...}},
-  "derivation_notes": "<1-2 sentences on the physical mechanism>",
+  "derivation_notes": "<1-2 sentences on the scientific mechanism>",
   "change_summary": "<1-2 sentences on what changed and why>",
   "assumption_audit": {assumption_audit_schema},
+  "add_term_audit": {add_term_audit_schema},
   "ode_system": {ode_system_schema}
 }}
 The first character of your response must be `{{` and the last must be `}}`.
@@ -265,15 +291,31 @@ specific phenomenon.
 
 ADD_TERM_PROMPT = _HEADER + """
 YOUR TASK — ADD A FUNCTION TERM:
-First, REASON ABOUT THIS SPECIFIC SYSTEM. Looking at the phenomenon context and
-the current equation above, identify which real physical effect is currently
-MISSING from this model and would be the most natural, physically-motivated
-next complication to include FOR THIS PARTICULAR SYSTEM. The new term must arise
-from the actual mechanism of THIS phenomenon — not be a generic term bolted on.
+First, identify one missing GENERATIVE PROCESS: a real scientific process that
+the current model omits, but that plausibly produces an observable deviation in
+this specific system. ``add_term`` means adding that process to the governing
+law; it does NOT mean adding an arbitrary nonlinear mathematical decoration.
 
-Then ADD exactly ONE new function term that captures that effect. Keep the
-existing structure and incorporate the new term; do not simplify away what is
-already there. The successor equation must be richer and more complex.
+Choose exactly one mechanism class:
+  - nonlinear_response: saturation, threshold, or another non-proportional response;
+  - interaction: two already-present quantities jointly change the outcome;
+  - capacity_constraint: a finite resource, bottleneck, carrying capacity, or floor;
+  - heterogeneity_modulation: an existing coefficient varies across latent regimes;
+  - feedback_competition: a process reinforces, suppresses, or competes with itself;
+  - regime_crossover: a different existing-process balance dominates in another range.
+
+Then ADD exactly ONE function term that implements the selected process. Keep
+the existing structure and incorporate the new term; do not simplify away what
+is already there. The successor must be richer because the scientific process is
+new, not because a coefficient is tiny or an exponent is cosmetically changed.
+
+In add_term_audit, state: the selected mechanism_class; the causal
+mechanism_claim; how the added mechanism vanishes or becomes negligible to
+recover the parent (parent_reduction); and the qualitative, experimentally
+observable pattern that distinguishes child from parent (observable_signature).
+
+DOMAIN MECHANISM MENU:
+{domain_mechanisms}
 
 The new term may add fixed parameters, but it MUST NOT add a V input or S state,
 change the model family/type, alter the time axis, or alter initial conditions.
@@ -305,6 +347,35 @@ _SYMPY_CALLS = {
     "sign", "floor", "ceiling",
 }
 _SYMPY_NAMES = _SYMPY_CALLS | {"pi", "E", "I", "oo", "nan", "True", "False"}
+
+
+def _domain_mechanisms(discipline: str) -> str:
+    """Give concrete examples without replacing the shared mechanism framework."""
+    normalized = re.sub(r"[^a-z0-9]+", "", (discipline or "").lower())
+    if normalized in {"physics", "physicalscience"}:
+        return (
+            "Physics: use only a scenario-natural mechanism, such as nonlinear "
+            "constitutive response, finite capacity, dissipative/drive coupling, "
+            "field interaction, a barrier, or a scale crossover."
+        )
+    if normalized in {"biology", "biologicalscience", "lifescience"}:
+        return (
+            "Biology: use only a scenario-natural mechanism, such as resource or "
+            "carrying-capacity limitation, density dependence, enzyme/substrate "
+            "saturation, inhibition, competition, ecological interaction, "
+            "environmental stress, or regulated feedback."
+        )
+    if normalized in {"ai", "aiscalinglaws", "artificialintelligence", "machinelearning", "scalinglaws"}:
+        return (
+            "AI Scaling Laws: use only a training/data mechanism, such as an "
+            "irreducible loss floor, effective-data or data-quality limitation, "
+            "model-capacity bottleneck, compute/optimization limitation, "
+            "under-training, hyperparameter interaction, or scale crossover."
+        )
+    return (
+        "Use the terminology and causal mechanisms of the named discipline and "
+        "scenario. Select a process a domain expert could measure or manipulate."
+    )
 
 
 def _extract_expression_names(
@@ -612,6 +683,17 @@ def _normalize_and_validate_evolved(
     if operation == "add_term":
         if audit is not None:
             raise EvolvedEquationValidationError("add_term must set assumption_audit to null")
+        add_audit = out.get("add_term_audit")
+        if not isinstance(add_audit, dict):
+            raise EvolvedEquationValidationError("add_term requires a structured add_term_audit")
+        required_audit_text = ("mechanism_claim", "parent_reduction", "observable_signature")
+        missing_audit_text = [
+            key for key in required_audit_text if not str(add_audit.get(key) or "").strip()
+        ]
+        if missing_audit_text:
+            raise EvolvedEquationValidationError(
+                "add_term_audit needs non-empty " + ", ".join(missing_audit_text)
+            )
         removed = sorted(set(current.get("symbols", [])) - set(symbols))
         if removed:
             raise EvolvedEquationValidationError(
@@ -636,6 +718,8 @@ def _normalize_and_validate_evolved(
                         "add_term cannot change ODE initial conditions"
                     )
     else:
+        if out.get("add_term_audit") is not None:
+            raise EvolvedEquationValidationError("change_assumption must set add_term_audit to null")
         if not isinstance(audit, dict):
             raise EvolvedEquationValidationError(
                 "change_assumption requires a structured assumption_audit"
@@ -758,10 +842,16 @@ def _system_block(eq: dict) -> str:
 def _output_schema_values(
     current: dict,
     operation: str,
-) -> tuple[str, str]:
+) -> tuple[str, str, str]:
     """Return JSON snippets required by the operation and inherited model family."""
     if operation == "add_term":
         audit_schema = "null"
+        add_term_audit_schema = """{
+    "mechanism_class": "nonlinear_response | interaction | capacity_constraint | heterogeneity_modulation | feedback_competition | regime_crossover",
+    "mechanism_claim": "<specific causal process missing from the parent>",
+    "parent_reduction": "<limit in which the new process vanishes or is negligible>",
+    "observable_signature": "<qualitative data pattern distinguishing child from parent>"
+  }"""
     else:
         audit_schema = """{
     "released_assumption": "<specific prior simplifying assumption>",
@@ -772,9 +862,10 @@ def _output_schema_values(
     "reference_condition": {"<promoted input>": <finite reference value>},
     "parent_reduction": "<how the successor reduces to the parent; required for promotion/augmentation>"
   }"""
+        add_term_audit_schema = "null"
     if _model_family(current) == "static":
-        return audit_schema, "null"
-    return audit_schema, """{
+        return audit_schema, add_term_audit_schema, "null"
+    return audit_schema, add_term_audit_schema, """{
     "time_symbol": "<same inherited time symbol>",
     "target_state": "<same inherited target state>",
     "states": [
@@ -859,7 +950,7 @@ def evolve_once(
     )
     family = _model_family(current)
     structure_rules = _STATIC_RULES if family == "static" else _ODE_RULES
-    audit_schema, ode_schema = _output_schema_values(current, operation)
+    audit_schema, add_term_audit_schema, ode_schema = _output_schema_values(current, operation)
     template = task_prompt + _COMMON_RULES + structure_rules + _OUTPUT_SCHEMA
     assumption_mode_note = (
         "Only use law_refinement, parameter_refinement, boundary_change, or "
@@ -882,7 +973,9 @@ def evolve_once(
                 equation_type=current.get("equation_type"),
                 system_block=_system_block(current),
                 assumption_audit_schema=audit_schema,
+                add_term_audit_schema=add_term_audit_schema,
                 ode_system_schema=ode_schema,
+                domain_mechanisms=_domain_mechanisms(discipline),
             )
             if operation == "change_assumption":
                 prompt += "\nASSUMPTION MODE: " + assumption_mode_note + "\n"
@@ -953,6 +1046,7 @@ def _record(eq: dict, base_id: str, generation: int, operation: str,
         "derivation_notes": eq.get("derivation_notes", ""),
         "change_summary": eq.get("change_summary", ""),
         "assumption_audit": eq.get("assumption_audit"),
+        "add_term_audit": eq.get("add_term_audit"),
         "ode_system": eq.get("ode_system"),
         "scenario_text": scenario_text,
     }
@@ -1081,6 +1175,9 @@ def _build_lineage_xlsx(out_path: Path, lineage: list[dict]) -> None:
             "parameters": params,
             "assumption_audit": json.dumps(
                 rec.get("assumption_audit"), ensure_ascii=False
+            ),
+            "add_term_audit": json.dumps(
+                rec.get("add_term_audit"), ensure_ascii=False
             ),
             "ode_system": json.dumps(rec.get("ode_system"), ensure_ascii=False),
             "new_symbol_range_suggestions": json.dumps(

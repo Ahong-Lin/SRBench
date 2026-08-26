@@ -1,21 +1,17 @@
-"""Export generated SRBench data as a self-contained Harbor task directory.
+"""Build and run Harbor-format SRBench tasks.
 
-The exporter copies a user-supplied, already working Harbor task as its
-environment/template and replaces only the task-specific train/test data,
-instruction, and verifier feature/target configuration.  It does not expose
-the equation or parameters to the agent.
+Candidate generation deliberately lives outside this package.  These helpers
+are only used after a researcher has selected a train/test split.
 """
 
 from __future__ import annotations
 
-import argparse
 import json
 import re
 import shutil
+import subprocess
 from pathlib import Path
 from typing import Any
-
-import pandas as pd
 
 
 def _load_spec(path: Path) -> dict[str, Any]:
@@ -30,9 +26,9 @@ def _safe_name(value: str) -> str:
 
 
 def _replace_task_config(source: str, features: list[str], target: str) -> str:
-    source = re.sub(r"^FEATURE_NAMES\s*=.*$", f"FEATURE_NAMES = {features!r}", source,
+    source = re.sub(r"^FEATURE_NAMES\\s*=.*$", f"FEATURE_NAMES = {features!r}", source,
                     flags=re.MULTILINE)
-    source = re.sub(r"^TARGET_NAME\s*=.*$", f"TARGET_NAME = {target!r}", source,
+    source = re.sub(r"^TARGET_NAME\\s*=.*$", f"TARGET_NAME = {target!r}", source,
                     flags=re.MULTILINE)
     if "FEATURE_NAMES" not in source or "TARGET_NAME" not in source:
         raise ValueError("template verifier must define FEATURE_NAMES and TARGET_NAME")
@@ -42,7 +38,7 @@ def _replace_task_config(source: str, features: list[str], target: str) -> str:
 def _instruction(spec: dict[str, Any], features: list[str], target: str) -> str:
     discipline = str(spec.get("discipline") or "science")
     scenario = str(spec.get("scenario_text") or "an experimental system")
-    columns = "\n".join(f"- `{name}`: input variable" for name in features)
+    columns = "\\n".join(f"- `{name}`: input variable" for name in features)
     return f"""You have to analyze an experimental dataset to discover the underlying mathematical relationship that governs it.
 The training dataset is located at `/app/data/train_data.csv` and can be loaded using `pandas.read_csv()`.
 
@@ -72,6 +68,11 @@ Your submitted `law` function will be tested on a hidden, independently generate
 
 def build_task(template: Path, train_csv: Path, test_csv: Path, spec_path: Path,
                output_dir: Path, name: str | None = None) -> Path:
+    """Create a Harbor task from a researcher-provided train/test split."""
+    try:
+        import pandas as pd
+    except ImportError as exc:
+        raise RuntimeError("Building a Harbor task requires pandas.") from exc
     if not template.is_dir():
         raise ValueError(f"Harbor template directory does not exist: {template}")
     for required in ("environment/Dockerfile", "tests/test_outputs.py", "task.toml"):
@@ -83,11 +84,6 @@ def build_task(template: Path, train_csv: Path, test_csv: Path, spec_path: Path,
     target = str(spec.get("benchmark_output") or spec.get("dependent_variable") or "y")
     if target not in train.columns or target not in test.columns:
         raise ValueError(f"target '{target}' is absent from train or test CSV")
-    # Never infer features by taking "all non-target CSV columns": generators
-    # may include an optional ``<target>_noisy`` diagnostic column, which would
-    # leak the label to the solver.  The spec is authoritative.  For an ODE,
-    # state values plus time are legitimate observed covariates for the selected
-    # derivative/RHS target; for a static law only its independent axes are.
     features = [str(item["symbol"]) for item in spec.get("independent_variables", [])]
     if spec.get("integrator") == "integrate_system":
         for item in spec.get("state_variables", []):
@@ -106,28 +102,42 @@ def build_task(template: Path, train_csv: Path, test_csv: Path, spec_path: Path,
     (task_dir / "tests").mkdir(exist_ok=True)
     shutil.copy2(train_csv, task_dir / "environment" / "train_data.csv")
     shutil.copy2(test_csv, task_dir / "tests" / "test_data.csv")
-    verifier = (task_dir / "tests" / "test_outputs.py")
+    verifier = task_dir / "tests" / "test_outputs.py"
     verifier.write_text(_replace_task_config(verifier.read_text(encoding="utf-8"), features, target), encoding="utf-8")
     (task_dir / "instruction.md").write_text(_instruction(spec, features, target), encoding="utf-8")
     (task_dir / "srbench_manifest.json").write_text(json.dumps({
         "source_spec": str(spec_path.resolve()), "source_train_csv": str(train_csv.resolve()),
         "source_hidden_test_csv": str(test_csv.resolve()), "features": features, "target": target,
         "metric": "raw test R² = 1 - MSE / Var(y_test); reporting uses clip(raw, -1, 1)",
-    }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    }, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
     return task_dir
 
 
-def main() -> None:
-    p = argparse.ArgumentParser(description="Build a Harbor-format SR task from generated train/test CSVs.")
-    p.add_argument("--template", required=True, type=Path, help="a known-good Harbor task directory")
-    p.add_argument("--train", required=True, type=Path)
-    p.add_argument("--test", required=True, type=Path)
-    p.add_argument("--spec", required=True, type=Path)
-    p.add_argument("--output-dir", required=True, type=Path)
-    p.add_argument("--name", default=None)
-    args = p.parse_args()
-    print(build_task(args.template, args.train, args.test, args.spec, args.output_dir, args.name))
+def _latest_reward(jobs_dir: Path) -> Path:
+    rewards = sorted(jobs_dir.glob("**/verifier/reward.txt"), key=lambda path: path.stat().st_mtime)
+    if not rewards:
+        raise FileNotFoundError(f"Harbor produced no verifier reward.txt below {jobs_dir}")
+    return rewards[-1]
 
 
-if __name__ == "__main__":
-    main()
+def run_task(task: Path, *, harbor_bin: str = "harbor", agent: str = "claude-code",
+             model: str, environment: str = "daytona", job_name: str = "srbench_evaluation",
+             extra: list[str] | None = None) -> dict[str, Any]:
+    """Run one prepared Harbor task and return its raw hidden-test R²."""
+    task = task.resolve()
+    if not (task / "task.toml").exists():
+        raise ValueError(f"not a Harbor task: {task}")
+    jobs = task / "harbor_jobs"
+    command = [harbor_bin, "run", "-p", str(task), "-a", agent, "-m", model,
+               "--env", environment, "--job-name", job_name, "--jobs-dir", str(jobs), "--yes"]
+    command.extend(extra or [])
+    completed = subprocess.run(command, text=True, capture_output=True)
+    if completed.returncode:
+        raise RuntimeError(f"Harbor exited {completed.returncode}\\n{completed.stderr[-3000:]}")
+    reward = _latest_reward(jobs)
+    try:
+        raw = float(reward.read_text(encoding="utf-8").strip())
+    except ValueError as exc:
+        raise ValueError(f"invalid Harbor reward file {reward}") from exc
+    return {"raw_test_r2": raw, "harbor_task": str(task), "harbor_reward": str(reward),
+            "harbor_stdout": completed.stdout[-4000:]}

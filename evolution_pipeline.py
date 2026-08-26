@@ -1,10 +1,13 @@
-"""Final-difficulty-controlled SRBench evolution pipeline.
+"""SRBench equation-evolution pipeline.
 
-The selection unit is a complete lineage: gen0 -> ... -> genN -> novelty check
--> data/spec -> external SR solver.  Only the solver's clipped test R² on an
-independent hidden test CSV decides whether a final task is too easy.  The
-solver command receives {train}, {test}, {spec}, and {output}, and must print
-JSON containing raw_test_r2 (or test_r2).
+``candidate`` mode produces a scientifically screened, reproducible candidate:
+gen0 -> ... -> genN -> novelty check -> DataGenSpec -> one 5,000-point CSV.
+It deliberately does not create a train/test split, Harbor task, or solver
+score.  This lets a human choose a later evaluation protocol.
+
+``difficulty_gate`` mode retains the earlier automatic Harbor workflow.  It
+creates IID train/test CSVs from one spec and uses an external solver's clipped
+test R² to reject tasks that are too easy.
 """
 
 from __future__ import annotations
@@ -21,7 +24,7 @@ from pathlib import Path
 from typing import Any
 
 import equation_evolve as evolve
-from harbor_task_builder import build_task
+from harbor import build_task
 import novelty_check
 from data_generator.generate_from_spec import generate
 from data_spec_agent_sdk import _attach_ode_benchmark_metadata, plan_data_generation, validate_sampling_replan
@@ -150,20 +153,23 @@ def _lineage(base: dict, base_id: str, caller: Any, args: argparse.Namespace,
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description="Build gen0-to-genN lineages and reject final tasks that an SR solver solves too easily.")
+    p = argparse.ArgumentParser(description="Build a novelty-screened SRBench candidate, or optionally run the Harbor difficulty gate.")
     p.add_argument("--input", required=True)
     p.add_argument("--id", required=True)
     p.add_argument("--discipline", default=None)
+    p.add_argument("--mode", choices=["candidate", "difficulty_gate"], default="candidate",
+                   help="candidate: one 5,000-point candidate with no Harbor split; difficulty_gate: legacy automatic Harbor scoring")
     p.add_argument("--steps", type=int, default=5)
     p.add_argument("--max-steps", type=int, default=None,
                    help="novelty is checked from --steps onward; continue until Yes or this cap (default: steps + 10)")
     p.add_argument("--max-lineage-attempts", type=int, default=4)
     p.add_argument("--easy-r2", type=float, default=0.90)
-    p.add_argument("--solver-command", required=True, help="shell template with {train}, {test}, {spec}, {task}, {output}; must print JSON raw_test_r2")
+    p.add_argument("--solver-command", default=None,
+                   help="difficulty_gate only: shell template with {train}, {test}, {spec}, {task}, {output}; must print JSON raw_test_r2")
     p.add_argument("--harbor-template", type=Path, default=None,
                    help="known-good Harbor task directory; export each candidate as a Harbor task before scoring")
     p.add_argument("--n-total", type=int, default=5000,
-                   help="total points per candidate, split into visible train and hidden test")
+                   help="candidate mode: total candidate points; difficulty_gate mode: train plus hidden-test points")
     p.add_argument("--test-points", type=int, default=500,
                    help="points withheld from the Harbor agent and used only by its verifier")
     p.add_argument("--p-assumption", type=float, default=0.5)
@@ -184,11 +190,14 @@ def main() -> None:
     args = p.parse_args()
     if args.max_steps is None:
         args.max_steps = args.steps + 10
-    if (args.steps < 1 or args.max_steps < args.steps or args.max_lineage_attempts < 1
-            or args.n_total < 2 or args.test_points < 2 or args.test_points >= args.n_total):
-        raise SystemExit("need max_steps >= steps >= 1 and 2 <= test_points < n_total")
-    train_points = args.n_total - args.test_points
-    if not -1 <= args.easy_r2 <= 1:
+    if args.steps < 1 or args.max_steps < args.steps or args.max_lineage_attempts < 1 or args.n_total < 1:
+        raise SystemExit("need max_steps >= steps >= 1, max-lineage-attempts >= 1, and n-total >= 1")
+    if args.mode == "difficulty_gate" and (args.test_points < 2 or args.test_points >= args.n_total):
+        raise SystemExit("difficulty_gate needs 2 <= test-points < n-total")
+    if args.mode == "difficulty_gate" and not args.solver_command:
+        raise SystemExit("difficulty_gate requires --solver-command")
+    train_points = args.n_total - args.test_points if args.mode == "difficulty_gate" else None
+    if args.mode == "difficulty_gate" and not -1 <= args.easy_r2 <= 1:
         raise SystemExit("--easy-r2 must be in [-1, 1]")
 
     usable = evolve._load_usable_equations(Path(args.input))
@@ -196,15 +205,19 @@ def main() -> None:
     base_id = evolve._eq_id(base)
     args.discipline = args.discipline or base.get("discipline") or "science"
     caller = build_model_caller(args.provider, base_url=args.base_url, auth_source=args.auth_source)
-    root = Path(args.output_dir) if args.output_dir else Path(__file__).resolve().parent / "outputs" / "Final_Difficulty_Evolution"
-    out_dir = root / f"final_{base_id}_{datetime.now():%Y%m%d-%H%M%S}"
+    default_root = "Candidate_Equations" if args.mode == "candidate" else "Final_Difficulty_Evolution"
+    root = Path(args.output_dir) if args.output_dir else Path(__file__).resolve().parent / "outputs" / default_root
+    prefix = "candidate" if args.mode == "candidate" else "final"
+    out_dir = root / f"{prefix}_{base_id}_{datetime.now():%Y%m%d-%H%M%S}"
     out_dir.mkdir(parents=True, exist_ok=False)
     _write_json(out_dir / "manifest.json", {"base_id": base_id, "discipline": args.discipline,
-        "source_input": str(Path(args.input).resolve()), "selection": "final external solver clipped test R²",
-        "minimum_steps": args.steps, "max_steps": args.max_steps, "easy_r2": args.easy_r2,
-        "total_points": args.n_total, "train_points": train_points,
-        "hidden_test_points": args.test_points, "seed": args.seed,
-        "solver_command_template": args.solver_command})
+        "source_input": str(Path(args.input).resolve()), "mode": args.mode,
+        "selection": "novelty-screened candidate" if args.mode == "candidate" else "final external solver clipped test R²",
+        "minimum_steps": args.steps, "max_steps": args.max_steps,
+        "total_points": args.n_total, "seed": args.seed,
+        "train_points": train_points, "hidden_test_points": args.test_points if args.mode == "difficulty_gate" else None,
+        "easy_r2": args.easy_r2 if args.mode == "difficulty_gate" else None,
+        "solver_command_template": args.solver_command if args.mode == "difficulty_gate" else None})
     audit = out_dir / "lineage_attempts.jsonl"
     rng, feedback = random.Random(args.seed), None
 
@@ -227,6 +240,34 @@ def main() -> None:
             initial["discipline"] = args.discipline
             initial["scenario_text"] = base.get("scenario_text", "")
             final_generation = len(lineage) - 1
+            if args.mode == "candidate":
+                candidate_spec, candidate_csv = _generate(
+                    initial, base_id, final_generation, attempt_dir / "candidate_data",
+                    args.seed + attempt, args.n_total,
+                )
+                candidate_path = attempt_dir / "candidate_spec.json"
+                _write_json(candidate_path, candidate_spec)
+                record = {
+                    "attempt": attempt, "status": "candidate_generated", "novelty": novelty,
+                    "candidate": {"spec": str(candidate_path), "data_csv": str(candidate_csv),
+                                  "n_points": args.n_total},
+                }
+                _write_jsonl(audit, record)
+                evolve._build_lineage_xlsx(attempt_dir / "accepted_lineage.xlsx", lineage)
+                with (attempt_dir / "accepted_lineage.jsonl").open("w", encoding="utf-8") as f:
+                    for item in lineage:
+                        f.write(json.dumps(item, ensure_ascii=False) + "\n")
+                candidate_spec = dict(candidate_spec)
+                candidate_spec["finalization"] = {
+                    "mode": "candidate", "accepted_generations": final_generation,
+                    "novelty": novelty, "total_points": args.n_total,
+                    "data_csv": str(candidate_csv),
+                    "evaluation_status": "not_evaluated; choose Harbor split and solver later",
+                }
+                _write_json(out_dir / "final_spec.json", candidate_spec)
+                _write_json(out_dir / "final_result.json", record)
+                print(f"CANDIDATE: {args.n_total} points generated; {out_dir}", file=sys.stderr)
+                return
             initial, train = _generate(initial, base_id, final_generation, attempt_dir / "train_initial", args.seed + attempt, train_points)
             _, test = _generate(initial, base_id, final_generation, attempt_dir / "test_initial", args.seed + 10000 + attempt, args.test_points)
             initial_path = attempt_dir / "initial_spec.json"
