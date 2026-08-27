@@ -1,0 +1,147 @@
+---- LAW BEGIN ----
+import math
+
+
+# ---------------------------------------------------------------------------
+# Discovered law (Gompertz growth regulated by the delayed crowding density):
+#
+#     dN/dt = r * N * ln(K / crowding_load)
+#           = N * (A + B * ln(crowding_load))
+#
+# Fitted on /app/data/train_data.csv (least squares on dN/dt):
+#     A =  2.039104     B = -0.299738
+#     => r = -B = 0.299738 ,  K = exp(-A/B) = 900.50
+#
+# The companion (exactly recovered) equation for the crowding variable is
+#     d(crowding_load)/dt = 0.2 * (N - crowding_load)
+# i.e. crowding_load is a low-pass / delayed copy of N.  Together these two
+# equations produce the observed damped oscillation converging to N = C = K.
+# ---------------------------------------------------------------------------
+
+A = 2.039104
+B = -0.299738
+
+
+def law(input_data: list[dict[str, float]]) -> list[dict[str, float]]:
+    out = []
+    for row in input_data:
+        N = row["N"]
+        C = row["crowding_load"]
+        # guard against non-positive crowding (log domain)
+        c = C if C > 1e-9 else 1e-9
+        dN_dt = N * (A + B * math.log(c))
+        out.append({"dN_dt": dN_dt})
+    return out
+
+
+if __name__ == "__main__":
+    import pandas as pd
+    import numpy as np
+
+    df = pd.read_csv("/app/data/train_data.csv")
+    preds = law(df.to_dict("records"))
+    p = np.array([d["dN_dt"] for d in preds])
+    y = df["dN_dt"].values
+    r2 = 1 - np.sum((y - p) ** 2) / np.sum((y - y.mean()) ** 2)
+    print(f"train R2 = {r2:.5f}  rmse = {np.sqrt(np.mean((y-p)**2)):.4f}")
+---- LAW END ----
+---- EXPLAIN BEGIN ----
+# Discovered Law for `dN_dt`
+
+## Final formula
+
+```
+dN/dt = r * N * ln(K / crowding_load)
+      = N * (A + B * ln(crowding_load))
+```
+
+with parameters fitted (least squares on `dN_dt`) over the full training set:
+
+| parameter | value |
+|-----------|-------|
+| A         |  2.039104 |
+| B         | -0.299738 |
+| r = −B    |  0.299738 |
+| K = exp(−A/B) | 900.50 |
+
+This is a **Gompertz growth law** in which the *delayed crowding density*
+`crowding_load` plays the role of the regulating density, and the effective
+carrying capacity is `K ≈ 900`.
+
+Training fit: **R² = 0.949**, RMSE ≈ 19.2 (RMSE is dominated by the very
+large-amplitude early transient where |dN/dt| reaches ~300).
+
+## The full dynamical system
+
+Two facts uncovered during analysis characterize the experiment:
+
+1. **`crowding_load` is a low-pass / delayed copy of `N`.** A regression of its
+   numerical time-derivative gives, to 8 significant figures,
+
+   ```
+   d(crowding_load)/dt = 0.2 * (N - crowding_load)   (R² = 0.99999999)
+   ```
+
+   i.e. the crowding signal relaxes toward the current population with time
+   constant τ = 5.
+
+2. **`N` grows in Gompertz fashion against that delayed density:**
+
+   ```
+   dN/dt = r * N * ln(K / crowding_load)
+   ```
+
+Together these produce the behaviour seen in the data: `N` overshoots, the
+crowding term catches up with a lag, and the system executes a **damped
+oscillation that spirals in toward the equilibrium `N = crowding_load = K ≈ 900`**
+(the last training rows sit at N≈C≈891, dN/dt≈0). Because the regulator is
+delayed, growth stays positive while `crowding_load < K` even when `N` is already
+large, which is exactly what generates the oscillation.
+
+## Methodology
+
+1. **Data inspection.** Verified `dN_dt` equals the numerical derivative of `N`
+   to ~1e-4, so the data are a clean (noise-free) ODE integration; any residual
+   in a candidate law is model misspecification, not noise.
+
+2. **Per-capita analysis.** The per-capita rate `g = dN/dt / N` is governed
+   overwhelmingly by `crowding_load`. Testing candidate regulator shapes
+   (`g = a + b·C`, logistic; `g = a + b·C²`; `g = a + b·ln C`, Gompertz; ratio
+   and theta-logistic forms) showed the **logarithmic (Gompertz) form** describes
+   the density dependence best.
+
+3. **Extrapolation validation.** Because the hidden test set is a *later time
+   segment* — the trajectory continuing to spiral toward its centre — I selected
+   the law by **forward time-holdout**: fit on the left part of the series,
+   score on the right. Across cut points (train t < 38, 43, 46), the Gompertz
+   form `dN/dt = N·(A + B·ln C)` was consistently the **best and most stable
+   extrapolator** (holdout R² up to ~0.69), beating polynomial/logistic
+   alternatives that overfit the transient and diverged out-of-sample. Adding
+   phase terms such as `(N − crowding_load)` improved the in-sample fit but
+   *degraded* extrapolation, so they were rejected.
+
+4. **Autonomy.** The law uses only state variables (`N`, `crowding_load`), not
+   explicit `t`. Models using explicit time extrapolated catastrophically
+   (holdout R² strongly negative), whereas the state-based Gompertz law remains
+   valid beyond the observed window because it correctly encodes the approach to
+   the `N = C = K` equilibrium.
+
+## Caveats
+
+The underlying system carries a small amount of dynamical structure that is not
+a single-valued function of `(N, crowding_load)` alone (the inward spiral means
+nearby `(N, C)` states are revisited on successive loops with slightly different
+`dN/dt`). That residual (~a few units RMSE near equilibrium) is not recoverable
+from the two observed state variables without introducing time-dependent terms
+that do not extrapolate. The Gompertz law captures the dominant, physically
+meaningful and extrapolation-safe part of the dynamics.
+---- EXPLAIN END ----
+
+==================================================
+Evaluation Results:
+  NMSE: 0.933102
+  NMAE: 0.967606
+  R²:   0.066898
+==================================================
+
+[INFO] Reward written to /logs/verifier/reward.txt: 0.066898

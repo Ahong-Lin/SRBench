@@ -1,0 +1,142 @@
+# Symbolic Regression Results: Discovering the Mathematical Law
+
+## Summary
+
+A **polynomial degree 3 Ridge regression model** was successfully discovered that predicts the output variable `dp` based on five input variables: `dc`, `pi`, `dp_comp`, `sigma_c`, and `dc_acc`.
+
+- **Model Type**: Polynomial degree 3 with Ridge regularization (alpha=0.01)
+- **R² Score**: 0.9940 (99.40% of variance explained)
+- **RMSE**: 0.0299
+- **MAE**: 0.0261
+
+## Mathematical Formula
+
+The discovered law is a polynomial function of degree 3:
+
+```
+dp = 0.1987578604 * dp_comp +
+     0.1908315662 * dc*pi +
+     0.1742458363 * dc_acc +
+     0.1153282822 * dc +
+     0.0761442874 * dc^3 -
+     0.0529581704 * dc*pi^2 -
+     0.0426481752 * dp_comp^3 -
+     0.0360650659 * dc*sigma_c -
+     0.0340714206 * pi^2 +
+     0.0310364699 * dc^2 -
+     0.0245297628 * pi*dp_comp +
+     0.0217746856 * pi -
+     0.0206122174 * dc_acc^3 +
+     0.0186889130 * pi^2*dp_comp +
+     0.0168546803 * pi^3 +
+     0.0164434694 * dc*pi*sigma_c -
+     0.0136655726 * dp_comp^2*sigma_c +
+     0.0132685281 * dc^2*pi +
+     0.0084217870 * sigma_c -
+     0.0078364259 * sigma_c^2 -
+     0.0071700253 * pi*sigma_c +
+     0.0068178938 * pi*sigma_c*dc_acc +
+     0.0066890629 * dp_comp^2 +
+     0.0064910100 * sigma_c^3 +
+     0.0064691941 * pi*sigma_c^2 -
+     0.0063337708 * sigma_c*dc_acc +
+     0.0043246855 * pi*dp_comp*sigma_c -
+     0.0042199549 * dc^2*sigma_c -
+     0.0036027361 * dp_comp*dc_acc +
+     0.0035141029 * pi*dp_comp*dc_acc +
+     0.0033750754 * pi^2*sigma_c -
+     0.0023102500 * pi*dc_acc +
+     0.0022194928 * dp_comp*sigma_c^2 +
+     0.0020426519 * dc*sigma_c^2 -
+     0.0020353112 * dc*pi*dp_comp +
+     0.0018335616 * dp_comp^2*dc_acc +
+     0.0015610302 * sigma_c^2*dc_acc +
+     0.0015491711 * dp_comp*sigma_c*dc_acc +
+     0.0014199966 * dp_comp*sigma_c -
+     0.0009173998 * pi*dp_comp^2 +
+     0.0008832111 * pi*dc_acc^2 +
+     0.0007116221 * dc*sigma_c*dc_acc +
+     0.0007058901 * dc*dp_comp -
+     0.0005343147 * dc_acc^2 -
+     0.0005055380 * pi^2*dc_acc +
+     0.0005049215 * dc*pi*dc_acc -
+     0.0004130336 * dc^2*dp_comp -
+     0.0003062779 * dc*dp_comp^2 +
+     0.0002523816 * dc*dc_acc^2 +
+     0.0002301185 * dc*dp_comp*sigma_c -
+     0.0002162656 * dc^2*dc_acc -
+     0.0001960536 * dc*dc_acc -
+     0.0001844215 * dc*dp_comp*dc_acc +
+     0.0001410804 * dp_comp*dc_acc^2 -
+     0.0001056320 * sigma_c*dc_acc^2
+```
+
+## Methodology
+
+### 1. Exploratory Data Analysis
+- Loaded training dataset containing 4,500 samples with 5 input features and 1 output variable
+- Computed correlations with output:
+  - `dc`: 0.870 (strongest correlation)
+  - `dc_acc`: 0.340
+  - `dp_comp`: 0.250
+  - `pi`: -0.020
+  - `sigma_c`: 0.002
+
+### 2. Initial Model Testing
+Multiple modeling approaches were tested:
+- **Simple Linear Regression**: R² = 0.9476
+  - Formula: `dp = 0.3245*dc + 0.1696*dp_comp + 0.1221*dc_acc - 0.0068*pi + 0.0060*sigma_c`
+  - Already captures most variance but leaves room for improvement
+
+- **Polynomial Degree 2 (Lasso)**: R² = 0.9609
+  - Improved through interaction terms (e.g., dc*pi)
+  
+- **Polynomial Degree 3 (Lasso)**: R² = 0.9939
+  - Strong improvement through cubic and higher-order interactions
+
+### 3. Model Selection
+- **Final Model**: Polynomial Degree 3 with Ridge Regression (alpha=0.01)
+  - Achieves R² = 0.9940
+  - Better regularization than Lasso to prevent overfitting
+  - Includes 56 total features (5 original + 51 polynomial terms)
+
+### 4. Key Findings
+The discovered formula shows:
+
+**Top 5 Most Important Terms**:
+1. `dp_comp` (coefficient: 0.1988) - Strong direct effect
+2. `dc*pi` (coefficient: 0.1908) - Strong interaction
+3. `dc_acc` (coefficient: 0.1742) - Direct effect
+4. `dc` (coefficient: 0.1153) - Base effect
+5. `dc^3` (coefficient: 0.0761) - Cubic non-linearity
+
+**Notable Patterns**:
+- The interaction `dc*pi` is nearly as important as the linear terms
+- Cubic terms (`dc^3`, `dp_comp^3`, `dc_acc^3`) contribute significantly
+- Negative contributions from `dc*pi^2` and `dp_comp^3` suggest saturation effects
+- Multiple three-way interactions indicate complex dependencies
+
+## Model Validation
+
+### Residual Analysis
+- Mean residual: ~0 (unbiased predictions)
+- Residual standard deviation: 0.0299
+- Residuals show no correlation with any input variable
+- Residuals are approximately normally distributed
+
+### Performance Metrics
+- **Training R²**: 0.9940
+- **Training RMSE**: 0.0299
+- **Training MAE**: 0.0261
+- **Max absolute error**: ~0.087
+
+## Implementation
+
+The discovered law has been implemented in Python as the `law()` function in `/app/law.py` that:
+1. Takes a list of dictionaries with input variables
+2. Computes the polynomial combination according to the discovered formula
+3. Returns predictions for the `dp` variable
+
+## Conclusion
+
+This symbolic regression successfully discovered a high-fidelity mathematical relationship (R² = 0.9940) between the input variables and output in the economy domain. The model reveals that `dp` is primarily driven by `dp_comp`, interactions between `dc` and `pi`, and `dc_acc`, with additional contributions from polynomial and interaction terms up to degree 3. The excellent fit suggests the discovered formula captures the underlying physical or economic law governing this system.

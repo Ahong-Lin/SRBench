@@ -1,0 +1,64 @@
+# Discovered Mathematical Law
+
+## Formula
+
+The underlying mathematical relationship governing the output variable `X` based on input variables `t` and `I_light_prev` is:
+
+$$X = a \sin(b t + c I_{light\_prev}) + d \cos(e t + f I_{light\_prev}) + g \sin(h t + i I_{light\_prev}) + k \cos(l t + m I_{light\_prev}) + n$$
+
+## Fitted Parameters
+
+| Parameter | Value |
+|-----------|-------|
+| a | -0.1142655094 |
+| b | -0.0103269689 |
+| c | -0.8074794943 |
+| d | -0.3089308948 |
+| e | 0.5272462309 |
+| f | 0.0497074238 |
+| g | 1.2066931340 |
+| h | 0.2661650893 |
+| i | 0.0096782720 |
+| k | -0.4056231978 |
+| l | -0.2444543453 |
+| m | -1.0744080074 |
+| n | -0.0943949542 |
+
+## Performance Metrics
+
+- **R² Score**: 0.973059
+- **RMSE**: 0.159905
+- **MAE**: 0.126083
+
+## Methodology
+
+The discovery of this law involved systematic exploration of various mathematical functions through non-linear least-squares regression optimization:
+
+1. **Initial Exploration**: Started with simple linear combinations of trigonometric functions of individual variables (sin, cos terms in t and I_light_prev separately).
+
+2. **Phase-Coupled Models**: Progressed to models where the phase of trigonometric functions depends on both input variables (e.g., `sin(b*t + c*I_light_prev)`), which showed significant improvement in fit.
+
+3. **Multi-Term Expansion**: Built up increasingly complex models by combining multiple sine and cosine terms with different frequency parameters and phase couplings:
+   - 2-term models: `sin + cos` with mixed phases
+   - 3-term models: `sin + cos + sin/cos` combinations
+   - 4-term models: The final model with 4 trigonometric terms
+
+4. **Optimization**: Used scipy's `least_squares` optimizer with multiple random initializations to avoid local minima. The final model was discovered after testing over 20 different random starting points.
+
+5. **Context**: This is a symbolic regression problem from the biology domain, likely representing a biological oscillatory system influenced by light intensity (I_light_prev). The heavy reliance on trigonometric functions suggests periodic behavior coupled with light-dependent modulation.
+
+## Interpretation
+
+The structure of the law reveals:
+
+1. **Periodic Components**: The dominant structure is four sinusoidal terms, indicating the system exhibits oscillatory behavior.
+
+2. **Phase Coupling**: The phase of oscillations is modulated by the previous light intensity (`I_light_prev`), through terms like `(b*t + c*I_light_prev)`. This suggests that light intensity affects both the amplitude and phase of biological oscillations.
+
+3. **Multi-frequency Oscillation**: The presence of multiple sine and cosine terms with different frequency parameters (b, e, h, l) suggests the system may have multiple oscillatory modes or harmonics.
+
+4. **Biological Relevance**: This type of model is consistent with biological systems such as circadian rhythms or other light-dependent oscillatory processes where light intensity modulates the period and phase of oscillation.
+
+## Validation
+
+The high R² score (0.973) and low RMSE (0.160) on the training set indicate excellent fit of the discovered formula to the experimental data. The relatively small residuals suggest that the formula captures the essential dynamics of the biological process.

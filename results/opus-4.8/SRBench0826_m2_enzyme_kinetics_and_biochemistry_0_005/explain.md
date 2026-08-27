@@ -1,0 +1,83 @@
+# Law for the rate of active-enzyme loss during thermal inactivation
+
+## Result
+
+```
+dE/dt = -k_u · E  +  k_f · A  -  k_agg · E²
+```
+
+with fitted constants
+
+| constant | value | meaning |
+|----------|-------|---------|
+| `k_u`   | 0.11910 | effective first-order loss of active enzyme |
+| `k_f`   | 0.34569 | refolding recovery from the inactive pool `A` |
+| `k_agg` | 0.00787 | second-order irreversible aggregation of native enzyme |
+
+Fit quality on the full training set: **R² = 0.99990, RMSE = 0.00387, max abs error = 0.022** (the signal ranges over ≈ [−2.0, +0.36]).
+
+## Biological picture
+
+The experiment tracks an enzyme incubated at a fixed elevated temperature. Three
+observable pools evolve in time:
+
+- `E` — active, natively folded enzyme (its concentration is what the activity assay reports, since substrate is in excess),
+- `A` — a reversibly *unfolded / inactive* intermediate,
+- `G` — irreversibly *aggregated* protein that keeps accumulating.
+
+The trajectory is not a simple exponential decay: `E` first drops quickly
+(10 → 8.1), then **rebounds above its starting value** (up to ≈ 10.1) and finally
+decays slowly, while `A` rises then falls and `G` grows monotonically to ≈ 18.4.
+This non-monotonic behaviour is the fingerprint of a **reversible unfolding step
+feeding an irreversible sink**, i.e. a Lumry–Eyring-type scheme:
+
+```
+        k_u
+   E  <------>  A   --->  G      (+ native aggregation  2E --> aggregate)
+        k_f
+```
+
+- Native enzyme `E` unfolds to the inactive form `A` (rate ∝ `E`).
+- `A` can refold back to active `E` (rate ∝ `A`) — this refolding flux is what pushes `E` back up in the middle of the run.
+- Native enzyme is also lost by a slow **second-order aggregation** (`2E → aggregate`, rate ∝ `E²`); this is the term that finally drives `E` down for good.
+
+Only these three fluxes touch the *active* pool, giving the compact law above.
+
+## How the law was discovered
+
+1. **Loaded and inspected** `train_data.csv` (4500 rows, uniform grid `dt ≈ 0.006`,
+   very smooth — 2nd differences ~10⁻⁵, so essentially noise-free / analytic).
+
+2. **Sparse polynomial regression** of `dE_dt` against a monomial library in
+   `{E, A, G}`. A pure first-order reversible model `dE/dt = -k_u E + k_f A`
+   only reached R² ≈ 0.96 and left a smooth, structured residual. Adding a single
+   `E²` term jumped the fit to **R² = 0.99990** and the residual collapsed to ~0.02.
+
+3. **Cross-checked the mechanism** by numerically differentiating the other pools:
+   - `dG/dt = 0.02·A − 0.05·G + 0.05·A·G` (R² = 1.000) — nucleation, dissolution and autocatalytic growth of aggregate.
+   - `d(E+A)/dt = 0.2·E − 0.02·A − 0.05·A·G − 0.01·E²` (R² = 1.000) — the reversible `E⇄A` exchange cancels here, exposing exactly the source/sink terms, and independently confirms the `E²` aggregation term.
+
+   These independent, clean fits corroborate that the reversible unfolding plus a
+   second-order native aggregation govern the active pool, and that `G` does **not**
+   enter `dE/dt` (its coefficient is statistically ≈ 0).
+
+4. **Extrapolation test.** Because the hidden test set is the later-time segment of
+   the same run, I trained on the first 80 % and predicted the last 20 %. The
+   `{E, A, E²}` law extrapolated with RMSE ≈ 0.0027 and beat richer variants that
+   added `E·A` (RMSE 0.008, clear overfitting). Adding `A·G` gave a marginal gain
+   (RMSE 0.0021) but with a coefficient ≈ 0.0002 — kept out of the final law to
+   avoid extrapolating a spurious term into the region where `G` grows beyond the
+   training range.
+
+## Why `G` is excluded
+
+`G` reaches large values (≈ 18) and keeps growing into the test region, but every
+regression assigns it a coefficient consistent with zero for `dE_dt`. Aggregated
+protein is a terminal product that does not react back into the active pool, so it
+does not appear in the rate of active-enzyme change. Omitting it makes the law both
+physically correct and safe to extrapolate.
+
+## Implementation
+
+`law.py` implements `law(input_data)` returning `dE_dt = -0.11910·E + 0.34569·A − 0.00787·E²`
+for each input row.

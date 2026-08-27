@@ -1,0 +1,69 @@
+# Discovered Law
+
+## Result
+
+$$\frac{dP}{dt} = 0.4\,(C - P) \;-\; 0.3\,P^{2}$$
+
+Equivalently, with explicit coefficients:
+
+$$\frac{dP}{dt} = 0.4\,C \;-\; 0.4\,P \;-\; 0.3\,P^{2}$$
+
+This reproduces the training target `dP_dt` **exactly** — the maximum
+absolute residual over all 4500 training rows is ≈ 1.5 × 10⁻¹⁶, i.e. at
+the floating-point rounding floor, with R² = 1.0.
+
+Only two of the five candidate inputs are needed: the current excited-state
+population `P` and the coupling/coherence term `C`. The inputs `W` and `N`
+carry no additional information for the rate and are dropped.
+
+## How it was found
+
+1. **Loaded and profiled the data.** The trajectories show damped
+   oscillations that relax to a steady state (`P → ~0.19`, `N → ~-0.24`),
+   consistent with a driven two-level system with dissipation rather than a
+   purely undamped Rabi cycle.
+
+2. **Linear screening.** A plain linear fit of `dP_dt` on `{P, C, W, N}`
+   already reached R² ≈ 0.9987, flagging `P` and `C` as the dominant terms
+   (coefficients ≈ -0.53 and +0.43) with `W`, `N`, and the intercept small.
+
+3. **Degree-2 polynomial regression.** Extending the feature set to all
+   pairwise products drove R² to exactly 1.0. Least squares selected only
+   three non-negligible terms and returned strikingly round coefficients:
+
+   | term | fitted coefficient |
+   |------|--------------------|
+   | `P`   | -0.400000 |
+   | `C`   | +0.400000 |
+   | `P²`  | -0.300000 |
+   | const |  ~0 (≈ -5e-17) |
+
+4. **Confirmation.** Refitting with just `{P, C, P², 1}` gave coefficients
+   `[-0.4, 0.4, -0.3, 0]` to full double precision and a maximum residual of
+   2.2 × 10⁻¹⁶. The hand-written closed form `0.4*(C - P) - 0.3*P**2`
+   matches the target to 1.5 × 10⁻¹⁶.
+
+## Physical reading
+
+The structure is a **driven–relaxation equation** for the excited-state
+population:
+
+- `0.4 * (C - P)` is a linear coherent-drive / restoring term: the coupling
+  quantity `C` pushes the population, while `-0.4 P` pulls it back toward the
+  instantaneous drive — the reversible exchange of probability amplitude in
+  the coupled pair of states.
+- `-0.3 * P²` is a quadratic saturation term that grows with population and
+  bends the response, producing the damped approach to a steady state seen
+  in the data (the level where `0.4(C - P) = 0.3 P²`).
+
+Because the law depends only on the *current* state variables `P` and `C`
+(not explicitly on `t`), it is autonomous and extrapolates naturally to the
+held-out right-hand time segment of the same experiment: the test rows
+supply their own `P` and `C`, and the same rate expression applies.
+
+## Generalization note
+
+The law is a closed-form algebraic function of observed state variables with
+no explicit time dependence, so it transfers directly to the later-time test
+segment. No fitted constants beyond the three exact rational-looking
+coefficients (2/5, 2/5, 3/10) are involved, minimizing overfitting risk.
