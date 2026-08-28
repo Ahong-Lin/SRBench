@@ -1,0 +1,147 @@
+---- LAW BEGIN ----
+import math
+
+# Discovered law for the Brier vs. log-compute scaling relationship.
+#
+#   Brier(logC) = baseline(logC) + sum_i  G_i * exp(-((logC - mu_i)^2) / (2*s_i^2))
+#
+# where the smooth compute-scaling baseline is
+#
+#   baseline(logC) = c + A * exp(k * logC) + B * logC
+#
+# This is a gentle, slightly-super-linear "valley" in compute (a shallow,
+# roughly-linear improvement on the low-compute side that turns into an
+# accelerating exp-like increase on the high-compute side) on top of which sit
+# a few *localized* Gaussian effects:
+#   * a large calibration bump centred near logC = -1,
+#   * two smaller localized features on the high-compute side (~1.75, ~2.29),
+#   * a tiny broad correction near logC = -1.2.
+#
+# Parameters were obtained by non-linear least squares (scipy.curve_fit) on the
+# full training set. Fit quality on training data: RMSE ~5.6e-5, max abs err ~3.5e-4.
+
+# baseline params: c, A, k, B
+_C = 0.07403
+_A = 0.07420
+_K = 0.68496
+_B = -0.05971
+
+# Gaussian bumps: (amplitude, center, sigma)
+_GAUSSIANS = [
+    (0.20027, -1.00028, 0.35376),
+    (0.03193, 1.75338, 0.36930),
+    (0.04693, 2.28638, 0.59103),
+    (-0.00519, -1.20909, 0.77997),
+]
+
+
+def _predict(logc: float) -> float:
+    val = _C + _A * math.exp(_K * logc) + _B * logc
+    for amp, mu, sigma in _GAUSSIANS:
+        val += amp * math.exp(-((logc - mu) ** 2) / (2.0 * sigma * sigma))
+    return val
+
+
+def law(input_data: list[dict[str, float]]) -> list[dict[str, float]]:
+    """Return one `{"Brier": value}` prediction for every input row."""
+    return [{"Brier": _predict(float(row["logC"]))} for row in input_data]
+
+
+if __name__ == "__main__":
+    import pandas as pd
+
+    df = pd.read_csv("/app/data/train_data.csv")
+    preds = law(df.to_dict("records"))
+    p = [d["Brier"] for d in preds]
+    err = [pi - yi for pi, yi in zip(p, df["Brier"].tolist())]
+    rmse = (sum(e * e for e in err) / len(err)) ** 0.5
+    print("RMSE", rmse, "max", max(abs(e) for e in err))
+---- LAW END ----
+---- EXPLAIN BEGIN ----
+# Discovered law: Brier score vs. log-compute
+
+## Summary
+
+The data (`logC` ∈ [−3, 3], `Brier` ∈ [0.147, 0.496]) is essentially **noise-free**
+(median second difference ≈ 3×10⁻⁷). The relationship is non-monotonic:
+
+- a shallow, roughly-linear decrease from `logC = −3` down to a local minimum near `logC ≈ −1.9`,
+- a large, sharp **bump** peaking at `logC ≈ −1.0` (Brier ≈ 0.37),
+- a drop to the **global minimum** near `logC ≈ 0.25` (Brier ≈ 0.147),
+- an accelerating rise on the high-compute side up to Brier ≈ 0.50 at `logC = 3`, carrying
+  smaller localized features around `logC ≈ 1.75` and `≈ 2.3`.
+
+## Functional form
+
+I decompose the curve into a **smooth compute-scaling baseline** plus a small number of
+**localized Gaussian effects** (matching the problem hint: "smooth transitions or localized effects"):
+
+```
+Brier(logC) = c + A·exp(k·logC) + B·logC
+              + Σ_i  G_i · exp( −(logC − μ_i)² / (2·σ_i²) )
+```
+
+**Why this form.** After isolating the dominant peak (by fitting a smoothing-spline
+baseline through the data *outside* the peak window and subtracting it), the residual was a
+clean symmetric Gaussian centred at `logC ≈ −1.0` with amplitude ≈ 0.199 and σ ≈ 0.353
+(≈ 1/(2√2), i.e. `≈ 0.20·exp(−4·(logC+1)²)`). The remaining smooth part is a valley that is
+nearly **linear** on the low-compute side (slope ≈ −0.053, constant over [−3, −2]) but
+**accelerates like an exponential** on the high-compute side — captured by
+`c + A·exp(k·logC) + B·logC`. Two further small, localized Gaussian bumps on the
+high-compute side (plus one tiny broad correction) account for the mild oscillation left in
+the residuals.
+
+Pure polynomials fit poorly (degree-10 RMSE ≈ 0.015) precisely because of the sharp
+localized peak — confirming the "baseline + Gaussian bump" decomposition rather than a
+global polynomial.
+
+## Fitting method
+
+- Loaded with `pandas.read_csv`, sorted by `logC`.
+- Fit by non-linear least squares (`scipy.optimize.curve_fit`) on the full training set.
+  Initial guesses were built up progressively: the main Gaussian from the spline-residual
+  analysis, the exp+linear baseline from the bump-subtracted data, and the small
+  high-compute Gaussians from the remaining residual structure.
+- Validated with a 70/30 random train/test split: held-out RMSE (≈5.6×10⁻⁵) matches the
+  training RMSE, so the model generalizes across the range rather than overfitting.
+
+## Fitted parameters
+
+Baseline:
+
+| param | value |
+|-------|-------|
+| c | 0.07403 |
+| A | 0.07420 |
+| k | 0.68496 |
+| B | −0.05971 |
+
+Localized Gaussian effects `(amplitude G, center μ, width σ)`:
+
+| # | G | μ | σ | interpretation |
+|---|-----|------|------|----------------|
+| 1 | 0.20027 | −1.00028 | 0.35376 | main calibration bump (σ ≈ 1/(2√2)) |
+| 2 | 0.03193 | 1.75338 | 0.36930 | high-compute localized feature |
+| 3 | 0.04693 | 2.28638 | 0.59103 | high-compute localized feature |
+| 4 | −0.00519 | −1.20909 | 0.77997 | small broad correction |
+
+## Fit quality (training data)
+
+- **RMSE ≈ 5.6 × 10⁻⁵**
+- **Max absolute error ≈ 3.5 × 10⁻⁴**
+
+## Notes / uncertainty
+
+- The main peak (component 1) and the exp+linear baseline are robust and well-determined
+  across many fitting restarts and the train/test split.
+- The smaller high-compute components (2–4) are the least uniquely identified part of the
+  model: adding one more Gaussian drives training RMSE to ~5×10⁻⁶ but with degenerate
+  parameters, indicating diminishing returns / mild non-identifiability rather than new
+  structure. The reported 4-Gaussian model was chosen as the best trade-off between
+  accuracy and parameter stability; since the evaluation points lie within the observed
+  `logC` range, it should predict them to well within 10⁻³.
+---- EXPLAIN END ----
+NMSE: 0.000000
+NMAE: 0.000561
+R²:   1.000000
+[INFO] Reward written to /logs/verifier/reward.txt: 1.000000
