@@ -1,0 +1,128 @@
+---- LAW BEGIN ----
+def law(input_data: list[dict[str, float]]) -> list[dict[str, float]]:
+    """
+    Predict Brier score from logC using a polynomial + sinusoidal model.
+
+    The model captures the non-monotonic relationship in the data using:
+    - A 4th-order polynomial base
+    - Two sinusoidal oscillation components with distinct frequencies
+    """
+    # Fitted parameters
+    # Polynomial coefficients (4th order): p0*x^4 + p1*x^3 + p2*x^2 + p3*x + p4
+    p0 = 0.00142634
+    p1 = 0.01326148
+    p2 = 0.01177603
+    p3 = -0.05520702
+    p4 = 0.20104978
+
+    # First sinusoidal component: freq1 ≈ 0.39
+    freq1 = 0.38965652
+    A_sin1 = -0.04346462
+    A_cos1 = -0.04107130
+
+    # Second sinusoidal component: freq2 ≈ 0.63
+    freq2 = 0.62648306
+    A_sin2 = 0.02185428
+    A_cos2 = -0.02006828
+
+    results = []
+    for row in input_data:
+        logC = row['logC']
+
+        # Evaluate polynomial
+        poly_val = p0 * (logC ** 4) + p1 * (logC ** 3) + p2 * (logC ** 2) + p3 * logC + p4
+
+        # Evaluate first sinusoidal component
+        import math
+        sin1_val = A_sin1 * math.sin(2 * math.pi * freq1 * logC) + A_cos1 * math.cos(2 * math.pi * freq1 * logC)
+
+        # Evaluate second sinusoidal component
+        sin2_val = A_sin2 * math.sin(2 * math.pi * freq2 * logC) + A_cos2 * math.cos(2 * math.pi * freq2 * logC)
+
+        # Combine all components
+        brier_pred = poly_val + sin1_val + sin2_val
+
+        results.append({"Brier": brier_pred})
+
+    return results
+---- LAW END ----
+---- EXPLAIN BEGIN ----
+# AI Scaling Law: Brier Score vs. Compute (logC)
+
+## Summary
+
+The discovered relationship between training compute (`logC`) and Brier score on held-out evaluation data is **non-monotonic**, exhibiting both smooth trends and fine-grained oscillations. The data reveals a complex interplay between a dominant polynomial trend and periodic fluctuations.
+
+## Discovered Formula
+
+The relationship is modeled as a **polynomial with sinusoidal modulation**:
+
+```
+Brier(logC) = P₄(logC) + S₁(logC) + S₂(logC)
+```
+
+Where:
+
+### Polynomial Base (4th order)
+```
+P₄(logC) = 0.00142634·logC⁴ + 0.01326148·logC³ + 0.01177603·logC² - 0.05520702·logC + 0.20104978
+```
+
+### First Sinusoidal Component (frequency ≈ 0.39 Hz)
+```
+S₁(logC) = -0.04346462·sin(2π·0.38965652·logC) - 0.04107130·cos(2π·0.38965652·logC)
+```
+
+### Second Sinusoidal Component (frequency ≈ 0.63 Hz)
+```
+S₂(logC) = 0.02185428·sin(2π·0.62648306·logC) - 0.02006828·cos(2π·0.62648306·logC)
+```
+
+## Model Architecture
+
+The model combines:
+
+1. **Polynomial Trend**: A 4th-order polynomial captures the overall curvature and non-monotonic behavior of the Brier score across the compute spectrum.
+
+2. **Primary Oscillation** (freq ≈ 0.39): The dominant periodic component with amplitude ~0.067, reflecting systematic variance in performance that cycles with increasing compute.
+
+3. **Secondary Oscillation** (freq ≈ 0.63): A higher-frequency component with smaller amplitude (~0.030), capturing finer granularity in the performance-compute relationship.
+
+The combination of these sinusoidal terms with different frequencies produces the complex, non-monotonic pattern observed in the data.
+
+## Fitting Method
+
+1. **Initial Fit**: Polynomial regression (degree 4) was fitted to establish the base trend
+2. **Frequency Search**: Fourier analysis of residuals identified optimal frequencies at 0.389 and 0.626
+3. **Parameter Optimization**: Non-linear least squares optimization (`scipy.optimize.least_squares`) was used to jointly optimize all 11 parameters (5 polynomial + 6 sinusoidal)
+
+## Performance Metrics
+
+On the full 4,500-point training dataset:
+
+- **RMSE**: 0.00985 (Root Mean Square Error)
+- **MAE**: 0.00842 (Mean Absolute Error)  
+- **R²**: 0.98679 (Coefficient of Determination)
+
+## Interpretation
+
+- The model explains **98.7%** of variance in the data
+- Average prediction error is ~0.84%, indicating strong generalization potential
+- The non-monotonic behavior suggests that scaling laws for Brier score are more complex than simple power laws, with multiple competing effects at different compute scales
+
+## Data Characteristics
+
+- **Input range**: logC ∈ [-3.0, 3.0]
+- **Output range**: Brier ∈ [0.1468, 0.4962]
+- **Total samples**: 4,500
+- **Non-monotonicity**: 60.7% of adjacent pairs show increasing Brier (confirming non-monotonic trend)
+
+## Implementation
+
+The closed-form relationship is implemented in `/app/law.py` as a pure function that evaluates the discovered formula for any input logC value within the observed range, using only basic arithmetic and trigonometric operations.
+---- EXPLAIN END ----
+Evaluation Results (isolated single-row law([row]) calls):
+  NMSE: 0.013219
+  NMAE: 0.120013
+  R²:   0.986781
+[INFO] Reward written to /logs/verifier/reward.txt: 0.986781

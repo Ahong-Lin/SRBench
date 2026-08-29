@@ -1,0 +1,156 @@
+---- LAW BEGIN ----
+"""
+Discovered law for dvx_dt of a small body orbiting a heavy central body.
+
+The dynamics are NOT a pure Kepler inverse-square field.  The acceleration is a
+static, position-only, conservative field derived from the potential
+
+        Phi(x, y) = -GM/r  +  A/r^3  +  B*(x^2 - y^2)/r^5            (r = sqrt(x^2+y^2))
+
+i.e. a monopole (Newtonian gravity) plus a small axisymmetric 1/r^3 correction
+(A term) plus a fixed quadrupole aligned with the x-axis (B term, = B*cos(2*theta)/r^3).
+
+The x-acceleration is  dvx_dt = -dPhi/dx :
+
+    dvx_dt = -GM*x/r^3  +  3*A*x/r^5  -  B*(2*x/r^5 - 5*(x^2 - y^2)*x/r^7)
+
+Fitted constants (from the training trajectory):
+    GM = 0.9936862677229467
+    A  = 0.004362365100161962
+    B  = -0.02494062746642001
+
+Fit quality on the training set: R^2 = 0.99998, RMS residual ~= 0.0098.
+The relation is a pointwise function of the observed positions (x, y) only.
+"""
+
+GM = 0.9936862677229467
+A = 0.004362365100161962
+B = -0.02494062746642001
+
+
+def _dvx_dt(x: float, y: float) -> float:
+    r2 = x * x + y * y
+    r = r2 ** 0.5
+    inv_r3 = 1.0 / (r2 * r)      # 1/r^3
+    inv_r5 = inv_r3 / r2         # 1/r^5
+    inv_r7 = inv_r5 / r2         # 1/r^7
+    # -dPhi/dx
+    monopole = -GM * x * inv_r3
+    iso_corr = 3.0 * A * x * inv_r5
+    quad = -B * (2.0 * x * inv_r5 - 5.0 * (x * x - y * y) * x * inv_r7)
+    return monopole + iso_corr + quad
+
+
+def law(input_data):
+    """Map each input row independently to a dvx_dt prediction.
+
+    Parameters
+    ----------
+    input_data : list[dict[str, float]]
+        Each dict has keys t, x, y, vx, vy.  Only x and y are used.
+
+    Returns
+    -------
+    list[dict[str, float]]
+        One dict per input row with key 'dvx_dt'.
+    """
+    out = []
+    for row in input_data:
+        x = row["x"]
+        y = row["y"]
+        out.append({"dvx_dt": _dvx_dt(x, y)})
+    return out
+---- LAW END ----
+---- EXPLAIN BEGIN ----
+# Discovering the law for `dvx_dt`
+
+## Summary
+
+The data is a planar orbit of a light body around a heavy central body, but the
+acceleration is **not** a pure Kepler inverse-square field. It is a *static,
+position-only, conservative* field with a small **quadrupole** (non-axisymmetric)
+perturbation on top of Newtonian gravity. The discovered right-hand side is
+
+```
+dvx_dt = -GM·x/r³ + 3A·x/r⁵ - B·(2·x/r⁵ - 5·(x²-y²)·x/r⁷) ,      r = √(x²+y²)
+```
+
+with
+
+| constant | value        | meaning                                            |
+|----------|--------------|----------------------------------------------------|
+| `GM`     | 0.9936862677 | gravitational parameter (G·M) of the central body  |
+| `A`      | 0.0043623651 | small axisymmetric 1/r³ potential correction        |
+| `B`      | -0.0249406275| fixed quadrupole strength (aligned with the x-axis) |
+
+This is `-∂Φ/∂x` of the potential
+
+```
+Φ(x, y) = -GM/r + A/r³ + B·(x²-y²)/r⁵      ( = -GM/r + A/r³ + B·cos(2θ)/r³ )
+```
+
+**Fit quality (full training set):** R² = 0.99998, RMS residual ≈ 0.0098,
+max abs error ≈ 0.029. A hold-out test (fit on first 80 % of time, predict the
+last 20 %) gives RMS ≈ 0.014 — versus ≈ 0.71 for a pure inverse-square law — so
+the form generalises to the later time segment used for grading.
+
+## How the law was found
+
+### 1. The reference is a genuine acceleration
+`dvx_dt` matches the time-derivative of the `vx` column to ~1e-5 (cubic-spline
+check), and `vx = dx/dt`, `vy = dy/dt` to ~1e-6. The rows are a self-consistent
+ODE trajectory, and `dvx_dt` is its exact x-acceleration.
+
+### 2. Pure Kepler is ruled out
+- Fitting `dvx_dt = -GM·x/r³` gives RMS ≈ 0.48 (vs. signal std ≈ 1.96) — poor.
+- The angular momentum `L = x·vy − y·vx` is **not conserved** (it oscillates
+  between ≈ 0.69 and ≈ 0.82). A purely central force would conserve `L` exactly.
+- On the x-axis (`y≈0`, where the x-acceleration is purely radial and unaffected
+  by any tangential force), the effective `-dvx_dt·r³/x` rises from 1.06 at r=1 to
+  1.27 near periapsis — the pull is *stronger than inverse-square* at small r.
+
+So there is a real, sizeable (~several-percent) perturbation, far too large to be
+relativistic.
+
+### 3. The perturbation is a fixed quadrupole
+- `dvx_dt` was shown to depend on **(x, y) only**, not on velocity: at points the
+  precessing orbit revisits with very different velocities, `dvx_dt` is unchanged.
+  Hence the field is conservative, `a = -∇Φ(x, y)`.
+- The exact torque `dL/dt` (from a spline of `L`) is proportional to
+  `sin(2θ)/r³` with R² = 0.998 and a fitted power of **exactly −3.00**. This is
+  the unmistakable signature of a quadrupole potential term `B·cos(2θ)/r³`, whose
+  tangential force is `2B·sin(2θ)/r⁴` (torque `= r·a_t = 2B·sin(2θ)/r³`).
+- The radial part decomposes cleanly as `a_r = -GM/r² + (monopole 1/r⁴) +
+  3B·cos(2θ)/r⁴`, consistent with the same quadrupole plus a tiny axisymmetric
+  `A/r³` term.
+
+Assembling monopole + `A/r³` + quadrupole and fitting `GM, A, B` jointly gives the
+constants above. The quadrupole `B` is extremely robust (identical from the
+independent torque analysis, `B = ½·(sin2θ/r³ coefficient)`); `A` is small and only
+weakly constrained but improves the fit (RMS 0.033 → 0.0098).
+
+### 4. Cartesian force used in `law.py`
+From `Φ = -GM/r + A/r³ + B(x²-y²)/r⁵`:
+
+```
+dvx_dt = -∂Φ/∂x
+       = -GM·x/r³ + 3A·x/r⁵ - B·(2·x/r⁵ - 5·(x²-y²)·x/r⁷)
+```
+
+Only `x` and `y` enter; `t`, `vx`, `vy` are not needed (the field is static and
+conservative). Each row is mapped independently, satisfying the pointwise
+requirement.
+
+## Residual
+The remaining RMS (~0.01) grows mildly toward periapsis (small r) and does not
+correlate with velocity or with any single additional low-order multipole/power
+that was tried; adding such terms did not improve out-of-sample error. It is
+consistent with a very small higher-multipole component or integration-level
+detail in the generated data and is left out to keep the law simple and
+interpretable.
+---- EXPLAIN END ----
+Evaluation Results (isolated single-row law([row]) calls):
+  NMSE: 0.000102
+  NMAE: 0.012005
+  R²:   0.999898
+[INFO] Reward written to /logs/verifier/reward.txt: 0.999898

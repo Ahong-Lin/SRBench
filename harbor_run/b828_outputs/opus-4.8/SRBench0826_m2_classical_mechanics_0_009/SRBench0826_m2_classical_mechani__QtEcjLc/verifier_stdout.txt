@@ -1,0 +1,172 @@
+---- LAW BEGIN ----
+"""
+Discovered law for the instantaneous right-hand side dv/dt of a hardening
+(cubic) spring oscillator that is weakly coupled to an auxiliary reservoir.
+
+The relationship was identified by symbolic regression on the training data.
+It is an explicit, pointwise function of the observed variables and carries no
+state between calls, no data reads, and no trajectory processing.
+
+    dv/dt = -x - 0.5*x**3          # Duffing restoring force (linear + cubic hardening)
+            - z                     # coupling force to the auxiliary variable z
+            - 2.0*x*v**2            # velocity-dependent (position-modulated) term
+            - (0.11998*v + 0.12513*v**3 - 0.05495*v**5 + 0.01117*v**7)   # nonlinear damping in v
+
+Only the declared variables (t, x, v, z, e) may be used.  Here dv/dt depends on
+x, v and z; t and e are not needed (e is redundant: it satisfies de/dt = v*z and
+its inclusion only degrades extrapolation).
+"""
+
+# Restoring / coupling coefficients (identified as exact, round values).
+A_X   = -1.0     # linear stiffness (k/m)
+A_X3  = -0.5     # cubic hardening (beta/m)
+A_Z   = -1.0     # coupling to auxiliary variable z
+A_XV2 = -2.0     # position * velocity^2 term
+
+# Nonlinear (odd) damping series in v, fitted on the training data.
+D1 = -0.11998
+D3 = -0.12513
+D5 =  0.05495
+D7 = -0.01117
+
+
+def _dv_dt(x: float, v: float, z: float) -> float:
+    v2 = v * v
+    restoring = A_X * x + A_X3 * x * x * x
+    coupling = A_Z * z
+    kinematic = A_XV2 * x * v2
+    damping = D1 * v + D3 * v * v2 + D5 * v * v2 * v2 + D7 * v * v2 * v2 * v2
+    return restoring + coupling + kinematic + damping
+
+
+def law(input_data: list[dict[str, float]]) -> list[dict[str, float]]:
+    """Map each input row independently to one dv_dt prediction.
+
+    The verifier calls this with exactly one row at a time; we handle any
+    number of rows for convenience but treat every row independently.
+    """
+    out = []
+    for row in input_data:
+        x = float(row["x"])
+        v = float(row["v"])
+        z = float(row["z"])
+        out.append({"dv_dt": _dv_dt(x, v, z)})
+    return out
+
+
+if __name__ == "__main__":
+    # quick self-check against the training data if available
+    try:
+        import pandas as pd
+        df = pd.read_csv("/app/data/train_data.csv")
+        preds = law(df.to_dict("records"))
+        p = [d["dv_dt"] for d in preds]
+        err = (df["dv_dt"] - p).abs()
+        print("max abs err:", err.max(), "rmse:", (err**2).mean() ** 0.5)
+    except Exception as exc:  # pragma: no cover
+        print("self-check skipped:", exc)
+---- LAW END ----
+---- EXPLAIN BEGIN ----
+# Discovering the law for `dv_dt`
+
+## Summary
+
+The measured acceleration is reproduced (max abs error ≈ **0.0026**, RMSE ≈ **8.5e-4**
+over the full 4500-point training trajectory, whose `dv_dt` spans roughly
+[-1.84, 2.0]) by the explicit pointwise relation
+
+```
+dv_dt = -x - 0.5·x³            (Duffing restoring force: linear + cubic hardening)
+        - z                     (coupling force to the auxiliary variable z)
+        - 2·x·v²                (position-modulated velocity term)
+        - (0.11998·v + 0.12513·v³ - 0.05495·v⁵ + 0.01117·v⁷)   (odd nonlinear damping in v)
+```
+
+It uses only `x`, `v`, `z`. The variables `t` and `e` are **not** needed (see below).
+
+## How the variables relate
+
+Before fitting `dv_dt` I established what the columns are, using accurate
+finite differences of the trajectory:
+
+- `dx/dt = v` to ~3e-7  → `x` is position, `v` is its velocity.
+- `dv/dt` equals the `dv_dt` column to ~5e-6 → the target is the acceleration of `x`.
+- `de/dt = v·z` **exactly** (to ~1e-6) → `e` is the running integral ∫ v·z dt
+  (an accumulated "work/energy" bookkeeping variable). Because `e` is a pure
+  time-integral of the other variables, it carries no independent instantaneous
+  information for `dv_dt`; including it in a fit only adds ill-conditioned,
+  high-magnitude terms that **hurt** out-of-sample extrapolation. It is dropped.
+
+The trajectory is a single decaying oscillation (amplitude 1.0 → 0.62 → 0.43 →
+0.29 → 0.20 over ~4.5 cycles): energy leaks steadily from the (x, v) oscillator
+into `e`, i.e. the motion is effectively damped even though the idealized story
+calls it "frictionless."
+
+## Why it is not a plain function of `x`
+
+A pure Duffing `dv/dt = f(x)` is impossible here: at `x ≈ +0.07` the data shows
+`dv_dt ≈ +0.59` (anti-restoring), and at fixed `x ≈ 0.1` the target ranges from
+-0.67 to +0.59. So the force genuinely depends on more than position. The extra
+dependence turned out to be `z` and `v`.
+
+## Identification procedure
+
+1. **Turning points (v ≈ 0).** Restricting to the 28 rows with |v| < 0.005
+   removes every velocity-dependent term. A 3-term fit there is essentially
+   exact (max err 4.6e-4):
+   `dv_dt = -1.0002·x - 0.4997·x³ - 0.9999·z`.
+   This fixes the conservative + coupling part as `-x - 0.5·x³ - z` with clean,
+   round coefficients.
+
+2. **Velocity-dependent remainder.** The residual `r = dv_dt - (-x - 0.5x³ - z)`
+   vanishes at `v = 0` and is almost a pure function of `v`. Its dominant piece
+   is `r ≈ -2·x·v²` (the `x·v²` feature correlates with `r` at -0.95, coefficient
+   fits to -2.000). Removing it leaves a small, odd-in-`v` damping term.
+
+3. **Nonlinear damping.** The final residual is well described by an odd series
+   in `v`: `-0.11998·v - 0.12513·v³ + 0.05495·v⁵ - 0.01117·v⁷`. This drives the
+   max error down to 0.0026.
+
+Fitting all coefficients **freely** returns
+`x:-0.9994, x³:-0.5009, z:-1.0005, x·v²:-1.9999` — confirming the round core
+values `-1, -0.5, -1, -2` are not imposed but are what the data contains.
+
+## Robustness / extrapolation check
+
+The hidden test set is the right-hand (later-time) continuation of the same
+experiment, i.e. smaller-amplitude cycles that lie in the interior of the
+explored (x, v, z) region. I validated by training on the first 60/70/80 % and
+predicting the held-out tail:
+
+| model | tail max-err (80/20) | coefficient stability |
+|---|---|---|
+| this model (x,x³,z,x·v²,v,v³,v⁵) | ~0.0012 | core coeffs constant to 3 dp across splits |
+| generic deg-3 poly in (x,v,z), 20 terms | ~0.0017 | ok |
+| any fit that includes `e` (deg ≥ 4) | 0.005–0.011 | unstable, over-fits |
+
+The chosen model has the smallest, most stable extrapolation error and an
+interpretable physical form, so it is the submitted law.
+
+## Physical reading
+
+- `-x - 0.5·x³`: the hardening spring — linear stiffness plus a cubic term that
+  stiffens the restoring force at large stretch (the "cubic hardening" in the
+  prompt), with k/m = 1 and β/m = 0.5.
+- `-z`: a coupling/feedback force to the auxiliary degree of freedom `z`; the
+  power it exchanges is exactly what accumulates in `e` (`de/dt = v·z`).
+- `-2·x·v²`: a position-modulated, velocity-squared term (the kind produced by a
+  position-dependent effective inertia).
+- the odd `v`-series: weak nonlinear damping responsible for the observed decay.
+
+## Implementation notes
+
+`/app/law.py` implements `law(input_data)` mapping each row independently to a
+single `{"dv_dt": ...}` prediction. It reads only `x`, `v`, `z` from each row,
+uses fixed constants inferred above, keeps no state between calls, and performs
+no interpolation, table lookup, differentiation, or data access.
+---- EXPLAIN END ----
+Evaluation Results (isolated single-row law([row]) calls):
+  NMSE: 0.000114
+  NMAE: 0.012044
+  R²:   0.999886
+[INFO] Reward written to /logs/verifier/reward.txt: 0.999886

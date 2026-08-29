@@ -1,0 +1,55 @@
+# Discovered Mathematical Relationship
+
+## Formula
+
+$$X = e^{-\lambda t} \cdot A \cdot \cos(\omega t) + c + \beta \cdot I_{\text{light\_prev}}$$
+
+Where:
+- **X**: the target output variable to predict
+- **t**: time variable
+- **I_light_prev**: previous light intensity input variable
+- **e**: Euler's number (approximately 2.71828)
+
+## Fitted Parameters
+
+| Parameter | Symbol | Value | Interpretation |
+|-----------|--------|-------|-----------------|
+| Amplitude | A | 2.31399635 | Maximum oscillation amplitude at t=0 |
+| Angular frequency | ω | 0.22656357 | Radians per unit time for the oscillation |
+| Baseline offset | c | 0.0832444 | Constant term when all other terms are zero |
+| Light sensitivity | β | 0.02510373 | Linear contribution from I_light_prev |
+| Decay rate | λ | 0.04064513 | Exponential decay rate (per unit time) |
+
+## Model Explanation
+
+The discovered relationship is an **exponentially damped harmonic oscillator** with an additional linear dependence on light intensity:
+
+1. **Oscillatory Component**: The cosine term `A·cos(ωt)` produces a periodic oscillation with period T = 2π/ω ≈ 27.7 time units.
+
+2. **Exponential Damping**: The factor `e^(-λt)` causes the oscillation to decay exponentially over time. At t=0, the oscillation is at full amplitude A. As t increases, the amplitude decreases by approximately 4% per unit time.
+
+3. **Linear Light Term**: The term `β·I_light_prev` represents a direct linear contribution from the previous light intensity to X, indicating that higher light intensity slightly increases X.
+
+4. **Baseline**: The constant offset `c` represents the long-term behavior as both damping and oscillation vanish (as t→∞, X approaches c + β·I_light_prev).
+
+## Model Performance
+
+- **RMSE**: 0.3082 (root mean squared error on training data)
+- **MAE**: 0.2415 (mean absolute error)
+- **Correlation**: 0.8388 (Pearson correlation between predictions and actuals)
+
+## Physical Interpretation
+
+This model is characteristic of systems with:
+- A natural oscillatory frequency (the cosine component)
+- Energy or amplitude dissipation over time (the exponential decay)
+- A weak external driving force or perturbation (the light intensity term)
+
+Examples of such systems include:
+- Damped mechanical oscillators (springs with friction)
+- Electrical RLC circuits
+- Biological or chemical systems with oscillatory and dissipative dynamics
+
+## Implementation Note
+
+The implementation uses only basic mathematical operations (exponential, cosine) applied pointwise to each input row, requiring no state or sequence processing.

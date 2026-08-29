@@ -1,0 +1,59 @@
+# Discovered Law: Coherent Tunneling in a Double Well
+
+## Result
+
+$$\boxed{\dfrac{dPr}{dt} = K\,N \;+\; \gamma\,(Pr_{\mathrm{eq}} - Pr)}$$
+
+with the two fitted constants
+
+| constant | value | meaning |
+|----------|-------|---------|
+| $\gamma$ | `0.1` | relaxation (decoherence) rate |
+| $Pr_{\mathrm{eq}}$ | `0.5` | equilibrium population (equal sharing between the two wells) |
+
+The relation reproduces every training row to machine precision
+(maximum absolute residual ≈ `1.7e-16`, R² = 1.0).
+
+## How it was found
+
+1. **Correlation scan.** `dPr_dt` correlates almost perfectly with `K`
+   (Pearson ≈ 0.99). Its ratio to `K` then correlated with `N`, hinting at a
+   product `K·N`.
+2. **Boundary clue.** At `t=0` the state is `Pr=0, J=0, K=0, N=1` yet
+   `dPr_dt = 0.05` — nonzero even though the coherent drive `K·N` vanishes.
+   This pointed to an additive term that is finite when `Pr=0`.
+3. **Linear regression** over a degree-2 polynomial basis of
+   `{t, Pr, J, K, N}` collapsed onto exactly three nonzero terms:
+   `K·N` (coeff `1.0`), `Pr` (coeff `-0.1`), and a constant (`+0.05`).
+4. Rewriting `-0.1·Pr + 0.05 = 0.1·(0.5 − Pr)` gives the interpretable
+   relaxation form above. A clean refit returned coefficients
+   `[1.0, -0.1, 0.05]` with residuals at the floating-point floor.
+
+## Physical interpretation
+
+- **Coherent term $K\,N$.** In a two-well (two-level) system the rate of
+  population transfer is set by the off-diagonal coherence. Here `K` plays the
+  role of that coherence-like observable and `N` the slowly decaying
+  amplitude/normalisation factor (it drops monotonically from `1` toward
+  `≈0.60` across the run). Their product drives the back-and-forth
+  oscillation of `Pr` about `0.5`, exactly the "slow back-and-forth transfer
+  set by the tunneling coupling" described in the setup.
+- **Relaxation term $\gamma(0.5 - Pr)$.** The observed oscillations are
+  *damped*: their amplitude shrinks with time while the mean sits at `0.5`.
+  A linear relaxation toward the equal-population state `Pr = 0.5` at rate
+  `γ = 0.1` captures this decoherence. When `Pr < 0.5` it pushes probability
+  in; when `Pr > 0.5` it pulls it out.
+
+At `t=0`: `K·N = 0` and `Pr = 0`, so `dPr_dt = 0.1·(0.5−0) = 0.05`, matching
+the data. As the oscillation dies out, `Pr → 0.5` and `K → 0`, driving
+`dPr_dt → 0`, i.e. a stationary equally-shared state.
+
+## Notes
+
+- The variables `t` and `J` do **not** appear in the closed form: their
+  influence on `dPr_dt` is fully mediated through the state variables
+  `Pr`, `K`, and `N` at each instant, which is exactly what an instantaneous
+  right-hand side should be.
+- The law is a pointwise function of a single row — no differentiation,
+  interpolation, ordering, or state between calls — so it generalises directly
+  to the held-out right-hand time segment.

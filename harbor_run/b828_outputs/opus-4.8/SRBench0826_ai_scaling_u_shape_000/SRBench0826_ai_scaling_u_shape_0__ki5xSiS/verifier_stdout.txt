@@ -1,0 +1,117 @@
+---- LAW BEGIN ----
+"""Discovered scaling law for Brier score vs. log-compute.
+
+Model:  Brier(logC) = a*logC^2 + b*logC + c
+                       + A1*exp(-(logC-m1)^2 / (2*s1^2))   # primary bump near logC=-1
+                       + A2*exp(-(logC-m2)^2 / (2*s2^2))   # broad right-side correction
+                       + A3*exp(-(logC-m3)^2 / (2*s3^2))   # narrow right-side correction
+
+Parameters were fit with non-linear least squares on /app/data/train_data.csv.
+Fit quality: RMSE = 4.8e-4, max abs error = 1.9e-3 over the full logC range.
+"""
+
+import math
+
+# Quadratic trend
+A_QUAD = 0.021269307349341574
+B_LIN = 0.07313878455505843
+C_CONST = 0.30001053900439967
+
+# Gaussian components: (amplitude, center, sigma)
+GAUSSIANS = (
+    (0.19475481077207343, -0.9991367455894591, 0.34775168413876273),
+    (-0.2574484372375788, 1.9010168192587336, 1.8585191840181898),
+    (0.04307129568971827, 1.8497248045721983, 0.40719157786033244),
+)
+
+
+def _brier(logC: float) -> float:
+    val = A_QUAD * logC * logC + B_LIN * logC + C_CONST
+    for amp, mu, sigma in GAUSSIANS:
+        val += amp * math.exp(-((logC - mu) ** 2) / (2.0 * sigma * sigma))
+    return val
+
+
+def law(input_data: list[dict[str, float]]) -> list[dict[str, float]]:
+    """Return one {"Brier": value} prediction for every input row."""
+    return [{"Brier": _brier(float(row["logC"]))} for row in input_data]
+---- LAW END ----
+---- EXPLAIN BEGIN ----
+# Discovered Law: Brier score vs. log-compute
+
+## Summary
+
+The Brier score is a **non-monotonic** function of `logC`. After exploring the
+data I decomposed it into a **smooth quadratic trend** plus **three localized
+Gaussian effects**:
+
+```
+Brier(logC) = a·logC² + b·logC + c
+            + A₁·exp(−(logC−m₁)² / (2·s₁²))
+            + A₂·exp(−(logC−m₂)² / (2·s₂²))
+            + A₃·exp(−(logC−m₃)² / (2·s₃²))
+```
+
+## How the shape was identified
+
+Sampling the curve across the range shows:
+
+| logC | Brier | feature |
+|------|-------|---------|
+| −3.0 | 0.262 | high, descending |
+| −2.0 | 0.213 | local shoulder/min |
+| −1.0 | 0.366 | **prominent bump (peak)** |
+|  0.2 | 0.147 | global minimum |
+|  3.0 | 0.496 | steep convex rise |
+
+Removing a single Gaussian centered at `logC ≈ −1` collapses the data onto a
+smooth, monotone-then-rising baseline, confirming that the dominant localized
+effect is a Gaussian bump near `logC = −1`. Residual analysis after that
+removal exposed two further, broader corrections on the right-hand side
+(`logC ≈ 1–2`), which a wide + narrow Gaussian pair capture. A quadratic
+supplies the overall convex U-trend (shallow decline on the left, steep convex
+rise on the right).
+
+Model selection was done by cross-validation (20% held-out rows): the
+`quadratic + 3 Gaussian` model reaches a held-out RMSE of ~5e-4 with no sign of
+overfitting (train and test RMSE agree), while simpler variants (1–2 Gaussians)
+leave clear structured residuals.
+
+## Fitting method
+
+Non-linear least squares (`scipy.optimize.curve_fit`) on all 4500 training
+rows, with multi-start initialization to escape local minima. The reported
+solution is stable and reproducible from feature-informed initial guesses.
+
+## Fitted parameters
+
+Quadratic trend:
+- a = 0.0212693
+- b = 0.0731388
+- c = 0.3000105
+
+Gaussian components `(amplitude A, center m, width s)`:
+1. A₁ = 0.1947548, m₁ = −0.9991367, s₁ = 0.3477517  — primary bump near logC = −1
+2. A₂ = −0.2574484, m₂ = 1.9010168, s₂ = 1.8585192  — broad right-side correction (dip)
+3. A₃ = 0.0430713, m₃ = 1.8497248, s₃ = 0.4071916  — narrow right-side correction
+
+## Fit quality
+
+- RMSE = 4.8 × 10⁻⁴
+- Max absolute error = 1.9 × 10⁻³
+
+over the full observed range `logC ∈ [−3, 3]`.
+
+## Notes
+
+The three Gaussians are the interpretable "localized effects" in the data; the
+second and third (both on the right) partly overlap and jointly reshape the
+`logC ≈ 1–2` region on top of the quadratic trend. Each prediction is a pure
+pointwise function of `logC` with fixed constants — no state, ordering, or
+data access is used.
+---- EXPLAIN END ----
+Evaluation Results (isolated single-row law([row]) calls):
+  NMSE: 0.000031
+  NMAE: 0.005714
+  R²:   0.999969
+[INFO] Reward written to /logs/verifier/reward.txt: 0.999969

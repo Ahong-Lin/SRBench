@@ -1,0 +1,151 @@
+---- LAW BEGIN ----
+"""
+Discovered law for the observed dynamical system.
+
+The instantaneous right-hand side dN/dt is a linear function of the two
+population variables (N = total abundance, R = reproductive-adult abundance)
+whose coefficients vary periodically in time with a fundamental period of
+exactly 1 time unit (seasonal forcing, angular frequency w = 2*pi):
+
+    dN/dt = A(t) + B(t) * N + C(t) * R
+
+where A, B, C are truncated Fourier series (6 harmonics) of the season phase.
+
+Interpretation:
+    C(t) * R  -> seasonally modulated recruitment produced by reproductive adults
+    B(t) * N  -> seasonally modulated per-capita loss/growth of the whole stock
+    A(t)      -> seasonal baseline flux
+
+All parameters were fit by linear least squares on the training trajectory.
+The model reproduces the training data with R^2 = 0.99987 and extrapolates to
+the held-out right-hand time segment with R^2 ~ 0.999.
+"""
+
+import math
+
+W = 2.0 * math.pi            # fundamental angular frequency (period = 1.0)
+K = 6                        # number of harmonics
+
+# Fourier coefficients for A(t), B(t), C(t).
+# Each list is [a0, a1_sin, a1_cos, a2_sin, a2_cos, ..., aK_sin, aK_cos].
+A = [62.73074860411469, 33.04882929824181, 11.324601890331872,
+     7.047809810086923, -9.50803704681518, -7.170037611360663,
+     0.0020243818374748868, 0.282204873727377, 3.904061080190914,
+     1.775076836585267, 0.42089752890771204, -0.026260879652034406,
+     -0.4279037081319671]
+B = [-0.8475597305055005, -0.3093340236848531, -0.11348910982704588,
+     -0.1258501756600195, 0.04584611944852231, -0.010889376900475888,
+     -0.011760873200405753, -0.04054089080140022, -0.05579145664722951,
+     -0.039866330284347384, -0.035098573424464874, 0.040092678992282416,
+     -0.049599514824864854]
+C = [0.8467674661926139, 0.6899658386421099, 0.29615774797235694,
+     0.23070765042748098, -0.1444145469343745, -0.056688271728760675,
+     0.014641832713962799, 0.05445134616944003, 0.1113207511902985,
+     0.06963396652305853, 0.04480804626196977, -0.05757635013952278,
+     0.06418179967508664]
+
+
+def _series(coeffs, t):
+    """Evaluate a0 + sum_k [a_sin*sin(k w t) + a_cos*cos(k w t)]."""
+    val = coeffs[0]
+    for k in range(1, K + 1):
+        ang = k * W * t
+        val += coeffs[2 * k - 1] * math.sin(ang) + coeffs[2 * k] * math.cos(ang)
+    return val
+
+
+def law(input_data):
+    """Map each input row independently to one {'dN_dt': prediction} dict."""
+    out = []
+    for row in input_data:
+        t = row["t"]
+        N = row["N"]
+        R = row["reproductive_adult_abundance"]
+        dN_dt = _series(A, t) + _series(B, t) * N + _series(C, t) * R
+        out.append({"dN_dt": dN_dt})
+    return out
+---- LAW END ----
+---- EXPLAIN BEGIN ----
+# Discovered Law for `dN_dt`
+
+## Summary
+
+The instantaneous right-hand side is a **linear demographic model in the two
+population variables with seasonally (period‑1) varying coefficients**:
+
+$$\frac{dN}{dt} = A(t) + B(t)\,N + C(t)\,R$$
+
+where
+
+- `N` = total abundance,
+- `R` = `reproductive_adult_abundance`,
+- `A(t)`, `B(t)`, `C(t)` are periodic functions of time with **fundamental period = 1.0** (angular frequency `w = 2π`), represented as truncated Fourier series (6 harmonics each).
+
+This reproduces the training trajectory with **R² = 0.99987 (RMSE ≈ 0.60)** and,
+under a right-hand time hold-out that mimics the hidden test, extrapolates with
+**R² ≈ 0.999 (RMSE ≈ 1.5)**.
+
+## Methodology
+
+1. **Verified the target.** A finite-difference `dN/dt` of the `N` column matches
+   the `dN_dt` column to 6+ digits, confirming the target is the true state derivative.
+
+2. **Ruled out an autonomous 2‑variable law.** `dN_dt` is *not* a single-valued
+   function of `(N, R)`: many pairs of rows share nearly identical `(N, R)` (within
+   0.5) yet have derivatives of opposite sign (e.g. `-20` vs `+64`). A degree‑6
+   polynomial in `(N, R)` only reaches R² ≈ 0.28. A hidden oscillatory degree of
+   freedom is present, so time must enter explicitly.
+
+3. **Identified the oscillation.** Zero-crossings of `dN_dt` and a frequency scan
+   both point to a period very close to 1.0. Fitting on the left 80 % of the time
+   axis and predicting the right 20 % (the same extrapolation geometry as the real
+   test) selected `w = 6.268 ≈ 2π`, i.e. an **exact seasonal period of 1.0**. The
+   small apparent frequency drift seen with a single global sinusoid was a transient
+   artifact of the growing mean, not a real change in period.
+
+4. **Found the functional form.** With `w = 2π`, the model
+   `dN/dt = A(t) + B(t)N + C(t)R` (linear in the populations, periodic coefficients)
+   is both accurate and interpretable. Adding polynomial terms in `N, R` did not
+   improve hold-out accuracy; keeping the model linear in the populations did.
+   Six harmonics per coefficient were chosen by hold-out validation (more harmonics
+   gave no further test-set gain).
+
+## Interpretation
+
+- **`C(t)·R`** — recruitment: reproductive adults produce offspring at a
+  seasonally modulated rate. `C(t)` is strongly positive with a pronounced annual
+  pulse (dominant harmonic amplitude ≈ 0.7 on a mean ≈ 0.85).
+- **`B(t)·N`** — loss/self-limitation of the total stock; `B(t)` is negative on
+  average (net mortality ≈ 0.85/unit time) with a modest seasonal component.
+- **`A(t)`** — seasonal baseline flux.
+
+The combination of seasonal recruitment and near-constant mortality produces the
+observed oscillation of period 1 superimposed on a logistic-like approach of the
+mean toward carrying capacity.
+
+## Fitted parameters
+
+Angular frequency `w = 2π`, `K = 6` harmonics. Each coefficient function is
+`f(t) = a₀ + Σₖ [aₖˢ·sin(k·w·t) + aₖᶜ·cos(k·w·t)]`.
+
+| term | a₀ | (k=1 sin, cos) | (k=2) | (k=3) | (k=4) | (k=5) | (k=6) |
+|------|-----|----------------|-------|-------|-------|-------|-------|
+| A(t) | 62.731 | 33.049, 11.325 | 7.048, −9.508 | −7.170, 0.002 | 0.282, 3.904 | 1.775, 0.421 | −0.026, −0.428 |
+| B(t) | −0.8476 | −0.3093, −0.1135 | −0.1259, 0.0458 | −0.0109, −0.0118 | −0.0405, −0.0558 | −0.0399, −0.0351 | 0.0401, −0.0496 |
+| C(t) | 0.8468 | 0.6900, 0.2962 | 0.2307, −0.1444 | −0.0567, 0.0146 | 0.0545, 0.1113 | 0.0696, 0.0448 | −0.0576, 0.0642 |
+
+(The exact double-precision values are embedded in `law.py`.)
+
+## Notes on validity / extrapolation
+
+Because the coefficients are bounded periodic functions and the law is linear in
+`N` and `R`, predictions remain stable as `t` advances beyond the training window
+and as `N, R` drift to slightly larger values on the continuing trajectory. The
+right-edge hold-out residuals stay small (max |error| ≈ 3.5 against a target range
+of ≈ 200), supporting use on the hidden right-hand time segment.
+---- EXPLAIN END ----
+Evaluation Results (isolated single-row law([row]) calls):
+  NMSE: 0.000359
+  NMAE: 0.020881
+  R²:   0.999641
+[INFO] Reward written to /logs/verifier/reward.txt: 0.999641

@@ -1,0 +1,90 @@
+# Discovered Law: Coherent Tunneling Oscillation with Relaxation
+
+## Result
+
+The instantaneous right-hand side for the occupation probability of the
+initially-unoccupied well is, to machine precision,
+
+$$
+\boxed{\;\frac{dP_r}{dt} \;=\; N\,K \;-\; \tfrac{\gamma}{2}\,(2P_r - 1)\;}
+\qquad \frac{\gamma}{2} = 0.05
+$$
+
+i.e.
+
+$$
+\frac{dP_r}{dt} = N\,K \;-\; 0.05\,(2P_r - 1) \;=\; N\,K \;-\; 0.1\,P_r \;+\; 0.05 .
+$$
+
+Only the pointwise variables `Pr`, `K`, and `N` enter; `t` and `J` are **not**
+needed (they carry no independent information for this target). The single
+fitted constant is `0.05`.
+
+## Fit quality
+
+Fitting `dPr_dt` linearly against the features `{N·K, (2·Pr−1), 1}` on the full
+training set (4500 rows) yields:
+
+| feature      | coefficient        |
+|--------------|--------------------|
+| `N·K`        | `1.0000000000`     |
+| `(2·Pr − 1)` | `-0.0500000000`    |
+| constant     | `7e-19` (≈ 0)      |
+
+- **R² = 1.000000**
+- **max abs error ≈ 1.7×10⁻¹⁶** (floating-point round-off)
+- On the late-time tail (`t > 27`, i.e. the test-like right-hand segment) the
+  max abs error is also ≈ 1.5×10⁻¹⁶, so the relation extrapolates exactly.
+
+The constant term is zero, and the boundary point `t=0` (`Pr=0, K=0, N=1`)
+reproduces the observed `dPr_dt = 0.05` exactly, confirming the intercept
+belongs entirely to the `-0.05·(2Pr−1)` relaxation term.
+
+## How it was found
+
+1. `dPr_dt` correlates with `K` at 0.988, so `K` dominates the current.
+   A pure `dPr_dt = a·K` fit gives R² ≈ 0.977.
+2. The residual correlated strongly with `Pr` (−0.66) and with time / `N`,
+   pointing to a relaxation term in the imbalance `z = 2Pr−1` and a decaying
+   envelope multiplying `K`.
+3. Replacing `K` by the product `N·K` (the envelope-modulated coherence) and
+   adding `z` produced an **exact** fit: coefficients `1.0` and `−0.05`.
+4. Numerical differentiation of the `Pr` column reproduces the provided
+   `dPr_dt` column (corr = 0.99999995), confirming `dPr_dt` is the true time
+   derivative of `Pr`.
+
+## Physical interpretation
+
+The system is a two-well (two-level) tunneling problem, written in terms of a
+Bloch-like description of the double well:
+
+- `z = 2·Pr − 1` is the **population imbalance** between the two wells
+  (`z = −1` when the particle starts fully in the source well, `z=0` at equal
+  occupation).
+- `K` is the **inter-well coherence / tunneling current** — the component that
+  transfers probability coherently back and forth.
+- `N` is a **slowly-varying envelope / number factor** (monotonically decaying
+  from 1 toward ≈ 0.6) that modulates the coherent transfer amplitude.
+
+The two terms of the law are:
+
+1. **Coherent tunneling current** `+N·K`: the slow, back-and-forth coherent
+   transfer set by the tunneling coupling. This is the source of the
+   oscillation of `Pr` about ½.
+2. **Relaxation / decoherence** `−0.05·(2Pr−1) = −(γ/2)·z`: a linear damping
+   term that drives the imbalance toward equilibrium (`Pr → ½`) at rate
+   `γ = 0.1`. This is what makes the observed oscillation amplitude of `Pr`
+   decay over time, so the trajectory spirals into `Pr ≈ ½`.
+
+Together they describe **damped coherent tunneling oscillation** between the two
+wells: a coherent current `N·K` competing with incoherent relaxation of the
+population imbalance.
+
+## Constraints honored
+
+- Pure pointwise function of the declared variables `Pr, K, N` (subset of
+  `t, Pr, J, K, N`).
+- One fixed constant (`0.05`) inferred from the training data.
+- No ML model, lookup table, interpolation, numerical differentiation,
+  file access, ordering dependence, or cross-call state. Each row maps
+  independently to one `dPr_dt`.

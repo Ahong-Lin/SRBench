@@ -1,0 +1,108 @@
+# Discovered law for `dv_dt` — braking-cart dynamical system
+
+## Summary
+
+```
+dv_dt = a + b * v          with   a = 0.211998,  b = -0.105437
+```
+
+Equivalently a **linear velocity relaxation**
+
+```
+dv_dt = b * (v - v_eq),     v_eq = -a/b ≈ 2.01
+```
+
+the cart decelerates in proportion to how far its speed exceeds an equilibrium
+velocity `v_eq ≈ 2.0`.
+
+## Methodology
+
+### 1. The data is a single 1-D trajectory of a coupled ODE system
+
+The four columns are consistent samples of one continuous experiment:
+
+* `dv_dt` equals the numerical time-derivative of `v` (max abs diff ≈ 1e-3).
+* `d(cart_position)/dt = v` (they satisfy `x' = v` exactly).
+* `brake_temperature` obeys a **clean linear ODE** discovered by regression
+  (R² = 1.0000):
+
+  ```
+  d(brake_temperature)/dt = 2 + 0.5*v - 0.1*brake_temperature
+  ```
+
+  i.e. base heating + heating ∝ speed − Newtonian cooling. The exactness of
+  this relation confirms the dataset is a designed, clean dynamical system.
+
+Because everything is one trajectory, `v`, `brake_temperature`, `t` and
+`cart_position` are strongly co-varying. The `(v, T)` path is a **simple,
+non-self-intersecting loop** (v falls 20→~8 as T rises 0→62, then both fall on
+the cooling branch). Consequently a 2-D surface `dv_dt = f(v, T)` is **not
+uniquely identifiable** from the data: high-order polynomials in `(v,T)` fit the
+training curve to R²≈0.9998 but **diverge catastrophically under extrapolation**
+(hold-out RMSE up to 1–11), because they are only pinned along the 1-D curve.
+
+### 2. What actually governs the extrapolation region
+
+The hidden test set is the **right-hand time continuation** (`t > 27`). That
+segment lies on the **post-temperature-peak "cooling / relaxation" branch** of
+the trajectory (brake temperature has peaked ≈62 at t≈15.6 and is falling; the
+cart is coasting down toward equilibrium).
+
+On this branch the acceleration collapses onto a clean **linear function of the
+speed alone**:
+
+* On `t ≥ 15.58` (post-peak), `dv_dt = a + b*v` fits with RMSE ≈ 0.025 over a
+  velocity range v ∈ [3.9, 8.4].
+* Time-ordered hold-out validation (fit on the earlier part of the branch,
+  predict the latest part — the true extrapolation direction) gives
+  RMSE ≈ 0.015–0.035, at or below the local signal spread. This is the only
+  model family that extrapolates **stably** (bounded, no blow-up).
+
+Adding `brake_temperature`, `cart_position`, quadratic terms, or a spatial
+oscillation term all either (a) do not improve the extrapolation, or (b)
+introduce collinear/curvature terms that destabilize it. In particular:
+
+* A small position-periodic ripple exists (≈ `C·v·sin(0.1·cart_position + φ)`,
+  amplitude ~0.02–0.03), but because its phase drifts and it must be
+  extrapolated to unseen `cart_position`, **including it degraded** every
+  forward hold-out relative to the plain linear law, so it is omitted.
+* `brake_temperature` carries no extra predictive power once `v` is used on the
+  relaxation branch (they are tightly coupled through the T-ODE), and adding it
+  produced physically wrong, collinear coefficients — so it is omitted for
+  robustness.
+
+### 3. Physical interpretation
+
+`dv_dt = b·(v − v_eq)` is a first-order relaxation of the speed toward an
+equilibrium velocity `v_eq ≈ 2.0` with rate `|b| ≈ 0.105 s⁻¹`. Combined with
+the temperature ODE, the full system has a stable fixed point at
+`v ≈ 2.0, brake_temperature ≈ 30` (where `2 + 0.5·2 − 0.1·T = 0`). The cart
+asymptotically settles to a slow steady creep rather than stopping abruptly —
+consistent with a driven/braked cart reaching force balance.
+
+## Fitted parameters
+
+| parameter | value      | meaning                                  |
+|-----------|------------|------------------------------------------|
+| `a`       | `0.211998` | intercept (= `-b·v_eq`)                  |
+| `b`       | `-0.105437`| relaxation rate (negative)               |
+| `v_eq`    | `2.0107`   | equilibrium velocity `= -a/b`            |
+
+Fit: ordinary least squares of `dv_dt` on `v` over the post-peak branch
+(`t ≥ 15.58`).
+
+## Validation
+
+* Downleg (post-peak) fit RMSE: **0.0251**
+* Forward-in-time hold-out (train earlier branch → predict latest observed
+  points, mimicking the hidden test): RMSE **≈ 0.015–0.035**, ≤ local signal
+  spread.
+* The prediction at the last observed point (t=27, v=3.915) is −0.201 vs actual
+  −0.171, and the law continues smoothly toward `dv_dt → 0` as `v → v_eq`,
+  giving a stable, bounded extrapolation for `t > 27`.
+
+## Implementation
+
+`law.py` implements `dv_dt = 0.211998 − 0.105437·v` per row, using only the
+declared variable `v` and the two fixed constants inferred above. No lookup
+tables, interpolation, state, ordering, or hidden-data access is used.

@@ -1,0 +1,110 @@
+# Enzyme Deactivation Kinetics: Discovered Law
+
+## Problem Context
+
+An enzyme loses catalytic activity irreversibly when incubated at elevated temperature. The protein unfolds and aggregates, converting active enzyme (E) to inactive forms (A). The task is to describe how the active enzyme concentration E falls over time, expressed as the instantaneous rate dE/dt.
+
+## Discovered Relationship
+
+The active enzyme concentration decays according to a **first-order-like kinetics with temperature-dependent rate constant**:
+
+$$\frac{dE}{dt} = k(A, G) \cdot E$$
+
+where:
+- **E** = current concentration of active enzyme
+- **A** = accumulated inactive (aggregated/unfolded) protein
+- **G** = temperature-dependent variable (increases with time/temperature during incubation)
+- **k(A, G)** = effective rate constant, a function of aggregation state and temperature
+
+## Mathematical Form
+
+The rate constant is expressed as a **third-order polynomial** in the variables A and G:
+
+$$k(A, G) = c_0 + c_1 A + c_2 G + c_3 A^2 + c_4 G^2 + c_5 AG$$
+$$+ c_6 A^3 + c_7 G^3 + c_8 A^2G + c_9 AG^2$$
+
+### Fitted Coefficients
+
+| Term | Coefficient |
+|------|------------|
+| Constant (c₀) | -0.1958582473 |
+| A (c₁) | 0.0309637480 |
+| G (c₂) | 0.2280564423 |
+| A² (c₃) | 0.0071235283 |
+| G² (c₄) | -0.0200484831 |
+| AG (c₅) | -0.0608183585 |
+| A³ (c₆) | -0.0009341282 |
+| G³ (c₇) | 0.0004545805 |
+| A²G (c₈) | 0.0037493881 |
+| AG² (c₉) | 0.0026751036 |
+
+## Physical Interpretation
+
+### Early Time Behavior (t ≈ 0)
+- At t=0: A ≈ 0, G ≈ 0
+- k ≈ -0.196 (negative rate constant)
+- dE/dt ≈ -0.196·E
+- This represents a baseline deactivation rate of approximately 19.6% per time unit
+
+### Aggregation Effect (increasing A)
+The positive coefficient c₁ = 0.031 indicates that **as inactive protein accumulates, the deactivation rate increases**. This models:
+- Protein aggregates catalyzing further unfolding (template effect)
+- Reduced activity of remaining enzyme due to crowding
+- Cross-seeding of aggregates
+
+### Temperature Effect (increasing G)
+The large positive coefficient c₂ = 0.228 shows **strong temperature dependence**:
+- Higher temperature dramatically increases deactivation rate
+- G appears to encode an exponential-like temperature effect (with polynomial expansion approximating it)
+- The Arrhenius-like behavior is captured by the polynomial terms
+
+### Higher-Order Interactions
+- The quadratic terms (A², G²) and cross-term (AG) refine the model for intermediate regimes
+- The cubic terms (A³, G³) and mixed cubic terms (A²G, AG²) capture non-linear cooperative effects
+- These terms become important when A is large (late in incubation) or G is large (high temperature)
+
+## Model Performance
+
+- **R² = 0.9999** on training data (explains 99.99% of variance)
+- **Mean absolute error: 0.0021** (in dE/dt units)
+- **Median absolute error: 0.0011**
+- **Maximum error: 0.0414** (occurs at the initial point where E is largest)
+
+The exceptional fit quality indicates the polynomial model captures the underlying kinetic process very well across the full range of experimental conditions.
+
+## Connection to Standard Enzyme Kinetics
+
+This model can be rewritten as:
+
+$$\frac{dE}{dt} = -k_{inact}(A, G) \cdot E$$
+
+where $k_{inact}$ is the temperature and aggregation-dependent inactivation rate constant. This is a generalized version of simple exponential decay that:
+
+1. **Incorporates temperature effects** through the variable G (likely exponential in true temperature, expanded as polynomial)
+2. **Includes aggregation feedback** through variable A, modeling:
+   - Acceleration of unfolding due to pre-existing aggregates
+   - Cooperative denaturation effects
+   - Secondary nucleation in protein aggregation
+
+## Dataset Structure
+
+The training dataset contains 4,500 observations across:
+- Time range: t ∈ [0, 27] time units
+- Active enzyme: E ∈ [4.16, 10.11]
+- Inactive forms: A ∈ [0, 6.27]
+- Temperature variable: G ∈ [0, 18.40]
+
+The right-hand segment of the experiment (held-out test set) uses the same relationship but with different initial conditions or time points within the same incubation runs.
+
+## Validation
+
+The model was derived using:
+1. **Exploratory data analysis** identifying k = dE/dt / E as the governing rate constant
+2. **Correlation analysis** showing A and G as dominant predictors (with high multicollinearity resolved through polynomial regression)
+3. **Polynomial expansion** fitting up to 3rd order to capture non-linear temperature and aggregation effects
+4. **Residual analysis** confirming near-random residual structure with no systematic patterns
+
+The 3rd-order polynomial was selected because:
+- 1st order (linear): R² = 0.835 (underfitting)
+- 2nd order (quadratic): R² = 0.995 (good fit, but still systematic deviations)
+- 3rd order (cubic): R² = 0.9999 (near-perfect fit, residuals become noise-like)

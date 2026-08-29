@@ -1,0 +1,161 @@
+---- LAW BEGIN ----
+"""
+Discovered growth law for contact-inhibited mammalian cell culture.
+
+Target (instantaneous right-hand side of the cell-count ODE):
+
+    dN/dt = r * N * (A - b*N) / (A + h)
+
+Interpretation (resource/space-limited proliferation with crowding):
+  - Cells proliferate at a per-capita rate that is Monod-saturated in the
+    locally available attachment resource A:  A / (A + h).
+  - That available resource is discounted by a crowding term (b*N): as the
+    population grows, the effective space/resource per usable site falls, and
+    net division stops (dN/dt -> 0) once A = b*N, i.e. at confluence.
+
+Fitted constants (from /app/data/train_data.csv, full trajectory):
+    r = 5.34492e-02      intrinsic proliferation scale  [1/time]
+    b = 4.03871e-05      crowding / space-consumption coefficient
+    h = 8.25512          half-saturation constant for resource A
+
+The relationship is pointwise: it maps a single (t, N, S, A) observation to
+one dN/dt value using only the declared variables N and A plus fixed
+constants.  (t and S are accepted but not needed - see explain.md.)
+"""
+
+# --- fixed constants inferred from the training data ---
+R = 5.34492e-02
+B = 4.03871e-05
+H = 8.25512
+
+
+def _dN_dt(N: float, A: float) -> float:
+    """Instantaneous growth rate for one state (N, A)."""
+    return R * N * (A - B * N) / (A + H)
+
+
+def law(input_data: list[dict[str, float]]) -> list[dict[str, float]]:
+    """Map each input row independently to a dN_dt prediction.
+
+    Parameters
+    ----------
+    input_data : list of dict
+        Each dict has keys 't', 'N', 'S', 'A' (floats).  The verifier calls
+        this with exactly one row at a time, in arbitrary order.
+
+    Returns
+    -------
+    list of dict
+        One dict per input row, each with a single key 'dN_dt'.
+    """
+    out = []
+    for row in input_data:
+        N = float(row["N"])
+        A = float(row["A"])
+        out.append({"dN_dt": _dN_dt(N, A)})
+    return out
+---- LAW END ----
+---- EXPLAIN BEGIN ----
+# Discovered law for `dN_dt`
+
+## Result
+
+$$\boxed{\;\dfrac{dN}{dt} \;=\; r\,N\,\dfrac{A - b\,N}{A + h}\;}$$
+
+with constants fitted from the training trajectory:
+
+| constant | value | meaning |
+|----------|-------|---------|
+| `r` | `5.34492e-02` | intrinsic proliferation scale (1/time) |
+| `b` | `4.03871e-05` | crowding / space-consumption coefficient |
+| `h` | `8.25512` | half-saturation constant for the available resource `A` |
+
+Equivalently, the **per-capita** growth rate is
+
+$$\frac{1}{N}\frac{dN}{dt} = r\,\frac{A - bN}{A+h},$$
+
+i.e. proliferation saturates in the available attachment resource `A`
+(a Monod / Michaelis–Menten term `A/(A+h)`) and is progressively shut off by
+crowding (`-bN`). Net division stops when `A = bN`, which is exactly the
+confluence condition.
+
+Only `N` and `A` are needed; `t` and `S` are accepted by the function but do
+not enter the law (justified below).
+
+## How the dataset was understood
+
+The data is a single dense time series (`t = 0 … 270`, `Δt ≈ 0.06`) of a
+coupled dynamical system. `dN_dt` in the file matches the numerical derivative
+of `N` to 7 significant figures, confirming it is the true `dN/dt`.
+
+**The auxiliary variables have clean, exactly-recoverable dynamics.** By finite
+differencing the trajectory and regressing, the two side variables obey
+
+- `dS/dt = 0.01 N − 0.1 S`  (R² = 1.000000) — `S` is a low-pass–filtered copy
+  of the population (time constant 10); at steady state `S = 0.1 N`. It is a
+  *lagged crowding signal*, not an independent driver.
+- `dA/dt = 10 − 0.1 A − 1e-4 · N·A`  (R² = 0.999999) — `A` is a **resource /
+  free attachment capacity**: supplied at a constant rate (10), decaying on its
+  own (`0.1 A`), and consumed by cells (`1e-4 · N·A`).
+
+Because `A` relaxes quickly, it sits near its quasi-steady state
+`A ≈ 100/(1 + 0.001 N)`: it rises early (few cells, resource accumulates: `10 →
+~39`) and then falls as the dish fills (`→ ~2.05`). This non-monotonic shape is
+why simple logistic-in-`N` models fail and why the resource term is essential.
+
+## Why this functional form
+
+- **`A` must enter through a saturating (Monod) term.** Pure polynomial fits
+  (`N·A`, `N²`, …) reach R² ≈ 1 *in-sample* but extrapolate catastrophically
+  (negative held-out R²), because the training data lies on a 1-D trajectory and
+  polynomials diverge off it. Introducing the saturation `A/(A+h)` fixes the
+  extrapolation.
+- **Crowding must appear as `−bN` inside the same available-resource term.**
+  Growth has to vanish at confluence. Writing the shutdown as `(A − bN)` (space
+  available after crowding) gave the most *stable* and best-extrapolating fit.
+- The equilibrium implied by the fit — combining `A − bN = 0` with the
+  quasi-steady `A` — gives `N_eq ≈ 4.93e4`, consistent with the observed plateau
+  of `N` (max observed ≈ 4.79e4, still slowly rising).
+
+## Model selection and validation
+
+Candidate laws were ranked not by in-sample fit (all reach R² ≈ 0.999, a
+symptom of the 1-D trajectory) but by **forward extrapolation**, since the
+hidden test set is the right-hand (late-time) segment. Fitting on the first
+65 / 75 / 85 / 90 % and predicting the remaining tail:
+
+| model | test R² (65/75/85/90 %) |
+|-------|--------------------------|
+| logistic `rN(1−N/K)` | diverges (< 0) |
+| Gompertz `rN·ln(K/N)` | ≈ 0.07 |
+| Richards `rN(1−(N/K)^ν)` | 0.86 / 0.96 / 0.99 / — |
+| Monod × `(1−S/Sm)` | 0.95 / 0.90 / 0.78 / — |
+| **`rN(A−bN)/(A+h)`** | **0.92 / 0.98 / 0.99 / 0.99** |
+
+The chosen form is the most robust and the most interpretable. On the full data
+it gives **R² = 0.99913 (RMSE ≈ 2.98)**; on the last 10 % of the trajectory
+(closest analogue to the hidden tail) **R² = 0.9967, mean relative error
+≈ 0.8 %**, and it reproduces the final points almost exactly (e.g. at `t = 270`:
+predicted 27.59 vs. true 27.69).
+
+### Known limitation
+At the very start (`t ≈ 0`) the model under-predicts by ~25 % because the
+resource `A` begins far from its quasi-steady state (a fast start-up transient).
+This affects only the extreme left edge of the training window; the entire
+right-hand region — the region the test set covers — is captured to well under
+1 % error.
+
+## Compliance with the required solution style
+
+- `law()` maps each row independently to one `{'dN_dt': …}` using only the
+  declared variables (`N`, `A`) and fixed constants.
+- No machine-learning black box, lookup table, interpolation, numerical
+  differentiation, file reads, hidden-data access, input ordering, or
+  cross-call state. Verified that shuffling the input order leaves predictions
+  unchanged.
+---- EXPLAIN END ----
+Evaluation Results (isolated single-row law([row]) calls):
+  NMSE: 0.001268
+  NMAE: 0.034414
+  R²:   0.998732
+[INFO] Reward written to /logs/verifier/reward.txt: 0.998732

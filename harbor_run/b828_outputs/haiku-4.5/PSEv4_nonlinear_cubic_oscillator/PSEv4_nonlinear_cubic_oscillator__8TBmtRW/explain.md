@@ -1,0 +1,56 @@
+# Discovered Formula for dv_dt
+
+## Summary
+
+The underlying mathematical relationship governing `dv_dt` was discovered through polynomial regression analysis. The relationship is a **multivariate polynomial of degree 2** in the variables `t` (time), `x` (position), and `v` (velocity).
+
+## Formula
+
+```
+dv_dt = c₀ + c₁·t + c₂·x + c₃·v + c₄·t² + c₅·t·x + c₆·t·v + c₇·x² + c₈·x·v + c₉·v²
+```
+
+Where:
+- c₀ = 0.3195228729
+- c₁ = -0.0421832546
+- c₂ = -2.1297804942
+- c₃ = -0.1749894077
+- c₄ = 0.0005947074
+- c₅ = 0.2528287932
+- c₆ = -0.3232217366
+- c₇ = -1.4268752324
+- c₈ = -1.3771172128
+- c₉ = -0.0888733966
+
+## Mathematical Interpretation
+
+This is the right-hand side of a second-order ordinary differential equation system, where:
+- **Linear terms in t, x, v**: Represent damping and restoring forces
+- **Quadratic terms**: Represent nonlinear effects (quadratic damping, restoring forces, and coupling terms)
+- **Cross-product terms**: Represent velocity-dependent and time-dependent modulation of forces
+
+## Model Performance
+
+- **R² Score**: 0.9603 (96.03% of variance explained)
+- **RMSE**: 0.0715
+- **Mean Absolute Error**: 0.0436
+- **Maximum Absolute Error**: 0.4029
+
+## Derivation Method
+
+1. **Data Analysis**: Loaded 4,500 training samples with variables t, x, v, and target dv_dt
+2. **Feature Correlation**: Identified strong correlations between dv_dt and x (r=-0.696), v·x (r=0.489), and x² (r=-0.532)
+3. **Model Selection**: Tested multiple models:
+   - Linear model: R² = 0.629
+   - Linear + x²: R² = 0.895
+   - Linear + x² + v²: R² = 0.912
+   - Polynomial degree 2 (all variables): R² = 0.960 ✓
+4. **Coefficient Extraction**: Used scikit-learn's PolynomialFeatures and LinearRegression to fit the optimal model
+
+## Implementation
+
+The discovered formula is implemented in `/app/law.py` as the `law()` function, which:
+- Takes a list of input dictionaries with keys 't', 'x', 'v'
+- Returns a list of output dictionaries with key 'dv_dt'
+- Evaluates the polynomial formula pointwise for each input row
+- Uses only the fixed coefficients and input variables (no fitted state carried between calls)

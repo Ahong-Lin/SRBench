@@ -1,0 +1,74 @@
+# Discovered Law for `dv_dt`
+
+## Result
+
+The instantaneous right-hand side of the velocity ODE is, **exactly**:
+
+```
+dv_dt = -x - 0.5*x^3 - z - 2*x*v^2 - 0.1*v - 0.1*v*|v|
+```
+
+Fitting these six terms to the 4500 training rows recovers the
+coefficients as exactly `[-1, -0.5, -1, -2, -0.1, -0.1]` with a maximum
+absolute residual of **~1.3e-15** (i.e. machine round-off). The law is a
+pure pointwise function of the state variables `x`, `v`, `z`; it uses no
+history, no `t`, and no `e`.
+
+## Physical interpretation
+
+The variables form the state of a hardening (Duffing-type) oscillator
+with a coupled internal force and nonlinear damping:
+
+| term | meaning |
+|------|---------|
+| `-x`            | linear spring, stiffness `k/m = 1` |
+| `-0.5*x^3`      | cubic **hardening** term, `beta/m = 0.5` (restoring force stiffens at large stretch, as described) |
+| `-z`            | an internal force variable coupled to the mass; it carries its own dynamics (relaxation/coupling), which is why `dv_dt` at a turning point is exactly `-x - 0.5*x^3 - z` |
+| `-2*x*v^2`      | a geometric / position-dependent-inertia coupling: the effective restoring contribution grows with the square of the speed and is proportional to displacement |
+| `-0.1*v`        | **linear (viscous) damping**, `c1/m = 0.1` |
+| `-0.1*v*|v|`    | **quadratic (drag) damping**, `c2/m = 0.1`; sign always opposes motion |
+
+The two damping terms remove mechanical energy, so the oscillation
+amplitude decays over time (observed maxima 1.00 → 0.65 → 0.44 → 0.30 → …),
+and the cubic term makes the period amplitude-dependent, matching the
+"shape and period shift with amplitude" description.
+
+## How the law was found
+
+1. **Ruled out `dv_dt = f(x)`.** At fixed `x` (e.g. `x ≈ 0.4`), `dv_dt`
+   spans `-0.71 … -1.27`, so the acceleration is not a function of
+   position alone — there is genuine extra state.
+
+2. **Identified the auxiliary variables.** High-order numerical
+   differentiation of the columns showed two exact relations:
+   `dx/dt = v` and `de/dt = z*v`. Thus `e` is accumulated work
+   (`e = ∫ z v dt`) and is redundant for predicting `dv_dt`; the minimal
+   sufficient variable set is `(x, v, z)`.
+
+3. **Turning-point anchor.** At velocity zero (amplitude peaks), a
+   3-term fit gave `dv_dt = -1.000*x - 0.500*x^3 - 1.000*z` (residual
+   ~1e-4), fixing the spring, hardening and internal-force coefficients.
+
+4. **Velocity-dependent remainder.** The residual
+   `G = dv_dt - (-x - 0.5x^3 - z)` vanishes at `v = 0`. Orthogonal
+   matching pursuit on `G` selected `x*v^2` first with coefficient
+   `≈ -2`, then a pure-velocity remainder.
+
+5. **Damping term.** After subtracting `-2*x*v^2`, the remaining
+   residual is an odd function of `v`. Fitting `a*v + b*v*|v|` returned
+   `a = b = -0.1` with **zero** residual, closing the model exactly.
+
+6. **Verification.** The six-term law reproduces every training row to
+   machine precision, and a time-split check (train on the first 80 %,
+   predict the last 20 % — the same geometry as the hidden test set)
+   gives max error ~0 for the exact form, confirming it extrapolates to
+   the future segment rather than merely interpolating.
+
+## Implementation notes
+
+- `/app/law.py` implements the closed form and maps each input row
+  independently to one `dv_dt` prediction.
+- Only the declared variables `x`, `v`, `z` are used; `t` and `e` are
+  ignored (they are not needed and `e` is a derived integral).
+- No data reads, no state between calls, no ordering assumptions, no
+  interpolation or lookup tables.

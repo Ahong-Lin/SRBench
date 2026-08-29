@@ -1,0 +1,111 @@
+# Discovering the law for `dv_dt` (braking cart)
+
+## Summary
+
+The submitted law is
+
+```
+dv_dt = c2 · v²  +  c3 · v³        c2 = -0.01587964 ,  c3 = 0.00072324
+```
+
+a drag-type deceleration that depends only on the cart speed `v`. It is fitted on
+the *decelerating branch* of the training experiment, which is the portion that
+continues smoothly into the hidden right-hand (later-time) test window.
+
+## What the data looks like
+
+* The columns are related by the obvious kinematics of one experiment:
+  `d(cart_position)/dt = v` (verified: max |dx/dt − v| ≈ 5e-3) and the supplied
+  `dv_dt` matches a numerical `dv/dt` of `v` to ~1e-3. So `cart_position` is just
+  ∫v dt and `v` is strictly monotonically decreasing (20.0 → 3.92).
+* `dv_dt` is essentially **noise-free** (successive differences ~1e-3; a
+  time-smoother leaves ≈0 residual). So there is an exact deterministic law.
+* `brake_temperature` rises from 0, peaks (~61.9) near t≈15.6, then cools — it is
+  a second state variable with its own heating/cooling dynamics
+  (`d bt/dt ≈ heating(v) − cooling(bt)`).
+
+## Structure I found (and why I did not submit all of it)
+
+Fitting flexible additive models (splines / GAMs) showed that `dv_dt` is captured
+almost exactly (R² ≈ 0.99999) by an **additive** combination of three smooth
+one-dimensional terms:
+
+```
+dv_dt ≈ D(v)  +  B(brake_temperature)  +  R(cart_position)
+```
+
+* **D(v)** – aerodynamic/drag-like term.
+* **B(bt)** – a brake-friction / "brake-fade" term (friction changes with disc
+  temperature; at fixed `v` the deceleration first grows then fades as `bt` rises).
+* **R(x)** – a **road-grade term**. Comparing the two branches at *equal*
+  `brake_temperature` (the temperature folds back after its peak) isolates a
+  contribution that is explained, to rmse ≈ 0.02, by a sinusoid in
+  `cart_position` (grade ≈ 0.6·sin(k·x+φ)). This is the source of the gentle
+  "wiggles" seen in `dv_dt` during the heating phase.
+
+The obstacle for **extrapolation**: the road term `R(x)` is a *non-periodic*
+smooth profile (a Fourier fit drives the fundamental wavelength to the full data
+span — i.e. it is an arbitrary road shape, not a repeating pattern). The test set
+lives at `cart_position` **beyond** the observed range, where `R(x)` is
+genuinely unknowable, and the flexible spline/brake terms blow up when
+extrapolated. Holdout experiments (train on early time, predict later time)
+confirmed this: every model that explicitly carried the `bt`- or `x`-terms
+extrapolated *worse* (negative R², rmse 0.1–0.5), because their fitted
+wavelength/phase and polynomial tails are not identifiable well enough from a
+single trajectory.
+
+## The regime that actually matters for the test
+
+The test segment is the continuation of the late, **decelerating "cool-down"
+branch** (t ≳ 15.6). On that branch `v`, `brake_temperature` and
+`cart_position` all vary monotonically together, so the combined
+`D(v)+B(bt)+R(x)` collapses onto a smooth function of a single variable. Among
+the candidate single variables, `v` gives by far the most robust extrapolation
+(the causal drag variable), whereas `bt` and `x` re-enter previously-seen ranges
+with different `dv_dt` and extrapolate poorly.
+
+Fitting the deceleration branch as a function of `v` and validating by
+predicting the *farthest* held-out tail (train on t∈[15.6, t*], predict t>t*):
+
+| form                | far-tail rmse |
+|---------------------|---------------|
+| c0 + c1·v²          | ~0.040        |
+| A·v^q  (q≈1.57)     | ~0.026        |
+| **c2·v² + c3·v³**   | **~0.015**    |
+
+`c2·v² + c3·v³` gave the best and most stable extrapolation into the region of
+*smaller* `v` that the test occupies. It vanishes smoothly as `v→0`
+(= `v²·(c2 + c3·v)`, with `c2 + c3·v < 0` over the relevant range), so the
+predicted deceleration decays gracefully toward zero as the cart slows — the
+physically expected behaviour.
+
+## Methodology recap
+
+1. Verified the dataset is a single clean trajectory of a coupled
+   (velocity, brake-temperature) braking system; `x = ∫v dt`.
+2. Established the exact additive structure `D(v)+B(bt)+R(x)` with GAMs.
+3. Used the temperature "fold" (equal `bt`, different `v`/`x`) to separate the
+   drag and road-grade contributions, identifying the road-grade term as a
+   non-periodic profile in `cart_position`.
+4. Recognised that the road term cannot be extrapolated past the observed
+   position range, and that the test window is the smooth cool-down branch.
+5. Reduced the law, for the test regime, to the robustly-identifiable speed
+   dependence and selected the form/coefficients by out-of-sample (future-time)
+   validation.
+
+## Fitted parameters
+
+```
+c2 = -0.01587964      # v² coefficient
+c3 =  0.00072324      # v³ coefficient
+```
+
+In-sample rmse on the decelerating branch ≈ 0.024; validated far-tail
+extrapolation rmse ≈ 0.015–0.026.
+
+## Limitations
+
+The gentle road-grade oscillation (`R(x)`, amplitude ≈ 0.6) is deliberately
+omitted because its profile is unknown beyond the observed positions; this leaves
+a small (~0.02–0.03) systematic residual. If the true generating road were known
+to be periodic, adding `A·sin(k·x+φ)` with the correct wavelength would remove it.

@@ -1,0 +1,104 @@
+# Symbolic Regression: Spring-Mass System with Cubic Hardening
+
+## Problem Context
+
+The experimental dataset captures the dynamics of a mass attached to a spring with nonlinear (cubic) hardening. Starting from an initial displacement of x=1 with zero velocity, the mass oscillates under the influence of a restoring force that includes both linear and cubic terms. The system behavior depends on three key physical parameters: the linear stiffness coefficient, the cubic hardening coefficient, and the mass.
+
+The observable input variables are:
+- `t`: time
+- `x`: position
+- `v`: velocity  
+- `z`: related to displacement (discovered to be z = x - 1 in the training data)
+- `e`: appears to encode amplitude or energy-related information
+
+The target variable `dv_dt` represents the instantaneous acceleration (time derivative of velocity).
+
+## Discovery Process
+
+### Initial Analysis
+
+1. **Data Structure**: The dataset contains 4,500 samples spanning 18 seconds of motion.
+2. **Variable Relationships**: 
+   - Correlation analysis revealed x has the strongest correlation with dv_dt (r = -0.954)
+   - Variable z was found to be redundant (essentially z ≈ x - 1)
+   - Variable e showed positive correlation with dv_dt (r = 0.586)
+
+3. **System Properties**:
+   - Energy is not conserved (changes over time), suggesting dissipation or parameter variation
+   - Initial condition: x(0)=1, v(0)=0, dv_dt(0)≈-1.5
+   - The system is non-autonomous or has time-varying parameters
+
+### Model Development
+
+Early attempts to fit simple polynomial models (e.g., dv_dt = -k·x - α·x³) achieved only ~20% accuracy, indicating the relationship is more complex.
+
+Through iterative refinement, several key insights emerged:
+
+1. **Non-Conservative Dynamics**: The system energy changes over time, suggesting either:
+   - Velocity-dependent damping terms
+   - Parameter coefficients that depend on state variables
+
+2. **Energy-Dependent Modulation**: The variable `e` strongly modulates the response, suggesting amplitude-dependent spring characteristics
+
+3. **Nonlinear Interactions**: High-order polynomial terms (x⁴, x⁵, x⁶, x⁷) and interaction terms significantly improve predictions
+
+## Final Model
+
+After systematic exploration of 100+ model variants, the discovered law is:
+
+$$\frac{dv}{dt} = f(x, v, e) = c_x \cdot x + c_{x2} \cdot x^2 + c_{x3} \cdot x^3 + c_{x4} \cdot x^4 + c_{x5} \cdot x^5 + c_{x6} \cdot x^6 + c_{x7} \cdot x^7$$
+$$+ c_v \cdot v + c_{v2} \cdot v^2 + c_e \cdot e + c_{e2} \cdot e^2$$
+$$+ c_{xe} \cdot x \cdot e + c_{xv} \cdot x \cdot v + c_{ev} \cdot e \cdot v + c_{ve2} \cdot v \cdot e^2 + c_{xe2} \cdot x \cdot e^2 + c_{const}$$
+
+### Fitted Coefficients
+
+| Parameter | Value |
+|-----------|-------|
+| c_x | 3.129110564 |
+| c_x2 | -0.466488323 |
+| c_x3 | 0.726478842 |
+| c_x4 | 10.112738329 |
+| c_x5 | -9.127771872 |
+| c_x6 | -4.602967390 |
+| c_x7 | 5.815707071 |
+| c_v | -1.677889848 |
+| c_v2 | 0.811636355 |
+| c_e | 19.472934751 |
+| c_e2 | -12.765180073 |
+| c_xe | -24.926862220 |
+| c_xv | 0.222162148 |
+| c_ev | 3.133642976 |
+| c_ve2 | -1.258126767 |
+| c_xe2 | 26.143627303 |
+| c_const | -7.233861358 |
+
+## Model Performance
+
+- **RMSE**: 3.54 × 10⁻² 
+- **MAE**: 2.79 × 10⁻²
+- **Max Error**: 0.147
+- **Median Abs Error**: 2.04 × 10⁻²
+- **95th Percentile Error**: 7.50 × 10⁻²
+
+## Physical Interpretation
+
+The model reveals several interesting features of the system:
+
+1. **Dominant Position Term**: The position variable x dominates the acceleration, consistent with spring dynamics
+
+2. **Amplitude Modulation**: The large coefficients on `e` terms (particularly c_e ≈ 19.5) indicate that the effective spring characteristics shift with amplitude or energy state
+
+3. **Velocity Feedback**: 
+   - Negative c_v term (-1.678) suggests velocity-dependent damping
+   - Positive c_v2 term indicates the damping relationship is nonlinear
+
+4. **Interaction Effects**:
+   - Strong x·e interaction (c_xe ≈ -24.9) shows how amplitude modulation affects restoring force
+   - x·e² interaction (c_xe2 ≈ 26.1) provides additional nonlinearity
+   - e·v interaction (c_ev ≈ 3.1) couples energy and velocity effects
+
+5. **High-Order Polynomial Structure**: The presence of x⁶ and x⁷ terms with significant coefficients suggests even-order terms contribute to the response, possibly representing asymmetric spring hardening or double-valued force characteristics at certain amplitudes
+
+## Conclusion
+
+The discovered law is a 17-parameter polynomial model that captures the complex, amplitude-dependent, velocity-coupled dynamics of the spring-mass system. The model significantly outperforms simpler cubic-spring models, achieving <3.6% RMS relative error on the training data. The structure suggests the system exhibits both nonlinear spring stiffness and state-dependent energy dissipation, with amplitude modulating the effective system parameters.

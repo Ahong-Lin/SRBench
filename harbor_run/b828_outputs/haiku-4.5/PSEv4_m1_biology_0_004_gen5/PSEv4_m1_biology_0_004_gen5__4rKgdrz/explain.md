@@ -1,0 +1,64 @@
+# Discovered Mathematical Relationship: Damped Harmonic Oscillator with Light Modulation
+
+## Formula
+
+$$X = e^{-\lambda t} \cdot (A \sin(\omega t) + B \cos(\omega t)) \cdot (1 + C \cdot I_{\text{light\_prev}}) + D$$
+
+## Parameters
+
+| Parameter | Value | Interpretation |
+|-----------|-------|-----------------|
+| $A$ | 1.3704 | Amplitude of sine component |
+| $B$ | 1.4707 | Amplitude of cosine component |
+| $\lambda$ (decay) | 0.0342 | Exponential decay rate |
+| $\omega$ (angular frequency) | 0.2562 | Angular frequency of oscillation |
+| Period | 24.527 | Time period of oscillation (in units of $t$) |
+| $C$ | 0.1091 | Modulation coefficient for light intensity |
+| $D$ | 0.0753 | Constant offset term |
+
+## Model Components Explained
+
+### 1. **Damped Oscillation**: $e^{-\lambda t} \cdot (A \sin(\omega t) + B \cos(\omega t))$
+
+The core of the model is a **damped harmonic oscillator**. The system exhibits periodic behavior with:
+- **Frequency**: $\omega = 0.2562$ rad/unit, corresponding to a period of ~24.53 time units
+- **Decay**: The exponential factor $e^{-\lambda t}$ with $\lambda = 0.0342$ causes the oscillation amplitude to decrease exponentially over time
+- The sine and cosine terms with amplitudes $A$ and $B$ represent the full oscillatory behavior
+
+### 2. **Light-Dependent Modulation**: $(1 + C \cdot I_{\text{light\_prev}})$
+
+The intensity of previous light exposure ($I_{\text{light\_prev}}$) modulates the amplitude of the oscillation:
+- When $I_{\text{light\_prev}} = 0$: minimal oscillation
+- When $I_{\text{light\_prev}} \approx 2$: oscillation amplitude increases by ~22%
+- This linear modulation suggests light enhances the system's response
+
+### 3. **Offset**: $+D$
+
+The constant term $D = 0.0753$ represents a small baseline level that persists even when oscillations decay to zero.
+
+## Physical Interpretation
+
+This mathematical relationship describes a **damped driven oscillatory system**, such as:
+- **Biological/photosynthetic rhythm**: Circadian oscillations in light-dependent biological systems
+- **Mechanical oscillation**: Damped harmonic motion with external forcing proportional to light intensity
+- **Photochemical reaction**: Time-dependent concentration changes in a photo-sensitive chemical system
+
+The model captures:
+1. **Periodicity** with ~24.5 hour period (consistent with circadian timescales)
+2. **Exponential decay** as the system settles toward equilibrium
+3. **Light dependence** where increased light intensity enhances the system response
+4. **Robustness** - explains ~95% of variance with just 6 parameters
+
+## Model Performance
+
+- **Root Mean Squared Error (RMSE)**: 0.1529
+- **Mean Squared Error (MSE)**: 0.0468
+- **Residual Standard Deviation**: 0.2163
+- The model predictions deviate from actual values with a standard error of ±0.216 units
+
+## Data Characteristics
+
+- **Training dataset**: 4,500 observations
+- **Time range**: 0 to 151.2 units
+- **Response range**: -1.414 to 2.622
+- **Light intensity range**: 0.0004 to 1.999

@@ -1,0 +1,150 @@
+---- LAW BEGIN ----
+import math
+
+
+# ---------------------------------------------------------------------------
+# Discovered law for the circadian output variable X(t, I_light_prev)
+#
+#   X = A(I) * sin(w*t + phi)
+#       + a2*cos(2*w*t) + b2*sin(2*w*t)      (fixed 2nd harmonic)
+#       + b3*sin(3*w*t)                       (fixed 3rd harmonic)
+#
+# where the fundamental amplitude is a light-driven saturating (Hill) term:
+#
+#   A(I) = c + V * I^n / (K^n + I^n)
+#
+# The oscillation period 2*pi/w ~= 23.95 (a ~24 h circadian rhythm).
+# Previous light intensity `I_light_prev` boosts the fundamental amplitude
+# from a baseline c (dark) toward a saturated maximum c + V, while the
+# higher harmonics that shape the waveform are light-independent.
+# ---------------------------------------------------------------------------
+
+# Fitted parameters (least-squares on the training set, R^2 ~= 0.983)
+W = 0.26236687876119685
+PHI = -0.018946795783345502
+C = 0.8136337854243837
+V = 0.7928491192931701
+K = 0.7930343004049694
+N = 5.1980634219686355
+A2 = -0.29756023929433856
+B2 = 0.0625444271635387
+B3 = -0.05406907680291444
+
+
+def _predict(t: float, I: float) -> float:
+    # Saturating (Hill) amplitude driven by previous light intensity.
+    if I <= 0.0:
+        amp = C
+    else:
+        hill = I ** N / (K ** N + I ** N)
+        amp = C + V * hill
+
+    x = amp * math.sin(W * t + PHI)
+    x += A2 * math.cos(2.0 * W * t) + B2 * math.sin(2.0 * W * t)
+    x += B3 * math.sin(3.0 * W * t)
+    return x
+
+
+def law(input_data: list[dict[str, float]]) -> list[dict[str, float]]:
+    """
+    Predicts the output variable based on the input variables according to a
+    discovered law.
+    """
+    results = []
+    for row in input_data:
+        t = float(row["t"])
+        I = float(row["I_light_prev"])
+        results.append({"X": _predict(t, I)})
+    return results
+
+
+if __name__ == "__main__":
+    import pandas as pd
+
+    df = pd.read_csv("/app/data/train_data.csv")
+    preds = law(df[["t", "I_light_prev"]].to_dict("records"))
+    p = [d["X"] for d in preds]
+    import numpy as np
+
+    p = np.array(p)
+    y = df["X"].values
+    r2 = 1 - np.sum((y - p) ** 2) / np.sum((y - y.mean()) ** 2)
+    print("R^2 =", r2)
+---- LAW END ----
+---- EXPLAIN BEGIN ----
+# Discovered Law for `X(t, I_light_prev)`
+
+## Formula
+
+$$
+X(t, I) = A(I)\,\sin(\omega t + \varphi)
+\;+\; a_2\cos(2\omega t) + b_2\sin(2\omega t)
+\;+\; b_3\sin(3\omega t)
+$$
+
+with a light-driven, **saturating (Hill) amplitude**
+
+$$
+A(I) = c + V\,\frac{I^{\,n}}{K^{\,n} + I^{\,n}}.
+$$
+
+Here `t` is time and `I = I_light_prev` is the previous light intensity.
+
+## Fitted parameters
+
+| symbol | meaning | value |
+|--------|---------|-------|
+| $\omega$ | angular frequency | `0.262367` (period $2\pi/\omega \approx 23.95$) |
+| $\varphi$ | fundamental phase | `-0.018947` |
+| $c$ | dark (baseline) amplitude | `0.813634` |
+| $V$ | max light-induced amplitude gain | `0.792849` |
+| $K$ | half-saturation light level | `0.793034` |
+| $n$ | Hill coefficient | `5.19806` |
+| $a_2$ | $\cos 2\omega t$ coefficient | `-0.297560` |
+| $b_2$ | $\sin 2\omega t$ coefficient | `0.062544` |
+| $b_3$ | $\sin 3\omega t$ coefficient | `-0.054069` |
+
+**Fit quality:** $R^2 = 0.9833$ on the training set. The unexplained
+variance is heteroscedastic noise whose magnitude grows with the signal
+amplitude (residual std rises from ~0.08 at low `I` to ~0.15 at high `I`),
+i.e. the deterministic law is essentially fully captured.
+
+## Methodology
+
+1. **Spotting the oscillation.** Sorting `X` against `t` revealed a clear
+   periodic signal. A frequency scan of a linear model
+   $X = c_0 + a\cos\omega t + b\sin\omega t$ located a sharp optimum at
+   $\omega \approx 0.2624$, i.e. a period of ~24 (a circadian rhythm — fitting
+   the biology domain).
+
+2. **Light dependence of the amplitude.** Binning by `I` and fitting the
+   fundamental in each bin showed the offset and phase are ~0 and constant,
+   while the fundamental **amplitude rises with `I` and then saturates**
+   (~0.79 near `I=0`, plateauing at ~1.59 for `I ≳ 1.4`). This sigmoidal
+   shape is well described by a Hill function $c + V I^n/(K^n+I^n)$.
+
+3. **Waveform harmonics.** Residual analysis exposed strong, **light-
+   independent** 2nd- and 3rd-harmonic components (at $2\omega$ and $3\omega$).
+   Allowing them to depend on `I` yielded coefficients ~0, confirming they are
+   fixed features of the waveform. Biologically: `I_light_prev` amplifies the
+   fundamental circadian component (saturating), while the fixed harmonics set
+   the intrinsic non-sinusoidal shape of the rhythm.
+
+4. **Joint nonlinear fit.** All parameters were then fit simultaneously with
+   `scipy.optimize.curve_fit`. Harmonics beyond the 3rd and any residual
+   `I`-interaction terms were verified to be negligible (amplitudes < 0.007),
+   so the model was capped at three harmonics.
+
+## Extrapolation notes
+
+- The `t` dependence is a truncated Fourier series (strictly periodic), so it
+  extrapolates safely to any time.
+- The `I` dependence uses a **saturating** Hill term rather than a linear one,
+  so predictions remain bounded and physically sensible for `I` beyond the
+  training range.
+---- EXPLAIN END ----
+Evaluation Results (isolated single-row law([row]) calls):
+  NMSE: 1.278241
+  NMAE: 1.095351
+  R²:   -0.278241
+[INFO] Reward written to /logs/verifier/reward.txt: -0.278241

@@ -1,0 +1,121 @@
+---- LAW BEGIN ----
+"""Discovered acceleration law for the observed dynamical system.
+
+dv/dt = c0 + c1*x + c3*x^3 + cv*v + cv3*v^3 + cFh*Fh + cFh2*Fh2
+
+This is a driven Duffing-type oscillator: a linear + cubic restoring force
+in the position x, plus a (mostly linear with a small cubic) velocity damping,
+plus two externally supplied force channels Fh and Fh2 entering linearly.
+Parameters were fit by linear least squares on the training data.
+"""
+
+# Fitted parameters (least squares on /app/data/train_data.csv)
+C0   =  4.31503106e-05   # constant offset (~0)
+C1   = -9.97628219e-01   # linear restoring (x)  ~ -1
+C3   = -5.32921667e-02   # cubic restoring (x^3)
+CV   = -2.73917997e-02   # linear damping (v)
+CV3  = -1.34229897e-02   # cubic damping (v^3)
+CFH  = -1.03226824e-01   # external force channel Fh
+CFH2 = -5.04725920e-02   # external force channel Fh2
+
+
+def law(input_data: list[dict[str, float]]) -> list[dict[str, float]]:
+    out = []
+    for row in input_data:
+        x = row["x"]
+        v = row["v"]
+        Fh = row["Fh"]
+        Fh2 = row["Fh2"]
+        dv_dt = (
+            C0
+            + C1 * x
+            + C3 * x ** 3
+            + CV * v
+            + CV3 * v ** 3
+            + CFH * Fh
+            + CFH2 * Fh2
+        )
+        out.append({"dv_dt": dv_dt})
+    return out
+
+
+if __name__ == "__main__":
+    import pandas as pd
+    import numpy as np
+
+    df = pd.read_csv("/app/data/train_data.csv")
+    preds = [d["dv_dt"] for d in law(df.to_dict("records"))]
+    err = np.array(preds) - df["dv_dt"].values
+    print("RMSE", np.sqrt(np.mean(err ** 2)), "max", np.max(np.abs(err)))
+---- LAW END ----
+---- EXPLAIN BEGIN ----
+# Discovered acceleration law
+
+## Result
+
+The instantaneous acceleration is an explicit pointwise function of the state
+`(x, v)` and the two supplied force channels `(Fh, Fh2)`:
+
+```
+dv_dt = c0 + c1*x + c3*x^3 + cv*v + cv3*v^3 + cFh*Fh + cFh2*Fh2
+```
+
+with fitted constants
+
+| term        | symbol | value            |
+|-------------|--------|------------------|
+| constant    | c0     |  4.315e-05  (≈0) |
+| x           | c1     | -0.997628        |
+| x^3         | c3     | -0.053292        |
+| v           | cv     | -0.027392        |
+| v^3         | cv3    | -0.013423        |
+| Fh          | cFh    | -0.103227        |
+| Fh2         | cFh2   | -0.050473        |
+
+Fit quality on the full training set: **RMSE = 6.2e-4**, max abs error = 1.5e-3.
+
+## Physical interpretation
+
+This is a **driven Duffing-type oscillator**:
+
+- `c1*x + c3*x^3` — a linear plus (softening) cubic **restoring force**. The
+  linear stiffness is essentially 1 (c1 ≈ -1), so the natural frequency is ~1
+  rad/s, consistent with the ~6.3 s oscillation period seen in the data.
+- `cv*v + cv3*v^3` — **damping** that is mostly linear with a small cubic
+  correction.
+- `cFh*Fh + cFh2*Fh2` — two externally supplied **force channels** that enter
+  linearly. (`Fh`/`Fh2` are independent inputs; they are not well explained by
+  `x`/`v`, so they carry genuine forcing information. Their coefficient ratio is
+  close to 2:1.) The net forcing pumps energy in, which is why the oscillation
+  amplitude slowly grows over the observed window.
+
+## Methodology
+
+1. Loaded `/app/data/train_data.csv` (4500 rows, t ∈ [0, 18]). Confirmed
+   `v = dx/dt` numerically (correlation ≈ 1.0), i.e. this is a second-order
+   mechanical system and the target `dv_dt` is the acceleration.
+2. Baseline linear regression on `{x, v, Fh, Fh2}` gave RMSE ≈ 0.013. The
+   residual correlated strongly with `x^3`.
+3. Adding `x^3` dropped RMSE to ≈ 0.0035; adding `v^3` dropped it to ≈ 6e-4.
+   Additional candidate terms (`x^5`, `x*v`, `x^2*v`, `x*v^2`, `Fh*x`, `Fh^2`,
+   `sin x`, `t`) gave no meaningful improvement and were discarded to avoid
+   overfitting.
+4. **Extrapolation check** (the hidden test is the right-hand time segment):
+   trained on the first 70% of the time series and evaluated on the last 30%.
+   The 6-term model gave train RMSE 5e-4 / test RMSE 1e-3, confirming the law
+   generalizes beyond the observed window (the linear-only model degraded to
+   0.016 on the held-out segment). Adding `x^5` did not improve extrapolation.
+5. Final coefficients fit by ordinary least squares on the full dataset.
+
+## Implementation
+
+`/app/law.py` implements the formula above, mapping each input row
+independently to one `{"dv_dt": ...}` prediction using only the declared
+variables `x, v, Fh, Fh2` and the fixed fitted constants. No ML black box,
+lookup, interpolation, differentiation, or cross-row state is used.
+---- EXPLAIN END ----
+Evaluation Results (isolated single-row law([row]) calls):
+  NMSE: 0.000004
+  NMAE: 0.001897
+  R²:   0.999996
+[INFO] Reward written to /logs/verifier/reward.txt: 0.999996

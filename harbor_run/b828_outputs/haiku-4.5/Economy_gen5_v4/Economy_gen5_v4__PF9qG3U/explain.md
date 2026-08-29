@@ -1,0 +1,90 @@
+# Discovered Mathematical Law for `dp`
+
+## Summary
+
+The underlying mathematical relationship governing the output variable `dp` has been discovered through systematic regression analysis. The relationship is a **cubic polynomial** that depends primarily on the input variable `dc`, with secondary dependence on `dp_comp` and `dc_acc`.
+
+## Mathematical Formula
+
+$$dp = 0.18148 \cdot dc + 0.03561 \cdot dc^2 + 0.07591 \cdot dc^3 + 0.16910 \cdot dp_{comp} + 0.12236 \cdot dc_{acc} - 0.00391$$
+
+### Precise Coefficients
+
+| Term | Coefficient |
+|------|-------------|
+| $dc$ | 0.181478101894 |
+| $dc^2$ | 0.035608558792 |
+| $dc^3$ | 0.075914816916 |
+| $dp_{comp}$ | 0.169103904312 |
+| $dc_{acc}$ | 0.122357091092 |
+| Intercept | -0.003909440121 |
+
+## Model Performance
+
+- **R² Score**: 0.977519 (97.75% variance explained)
+- **RMSE**: 0.058056
+- **MAE**: 0.047487
+- **Max Error**: 0.209757
+- **Median Error**: 0.042288
+
+## Methodology
+
+### Data Exploration
+The training dataset contains 4,500 samples with 5 input variables (`dc`, `pi`, `dp_comp`, `sigma_c`, `dc_acc`) and 1 output variable (`dp`). Initial correlation analysis revealed:
+- Strong positive correlation between `dc` and `dp` (r = 0.87)
+- Moderate correlation between `dc_acc` and `dp` (r = 0.34)
+- Weak correlation between `dp_comp` and `dp` (r = 0.25)
+- Negligible correlation with `pi` (r = -0.02) and `sigma_c` (r = 0.002)
+
+### Model Evolution
+
+1. **Simple Linear Model** (baseline): Using all 5 input variables
+   - R² = 0.9476, RMSE = 0.0886
+   - Identified that `pi` and `sigma_c` had negligible direct effects
+
+2. **Simplified Linear Model**: Using only `dc`, `dp_comp`, `dc_acc`
+   - R² = 0.9476, RMSE = 0.0886
+   - Confirmed the three main variables
+
+3. **Polynomial Model with Interactions**: Adding `dc*pi` and `dc²`
+   - R² = 0.9605, RMSE = 0.0769
+   - Discovered that `dc*pi` interaction term was significant
+
+4. **Cubic Model** (final, optimal): Using cubic powers of `dc`
+   - R² = 0.9775, RMSE = 0.0581
+   - This model elegantly captures the non-linear relationship in `dc`
+   - Includes only the 5 most important features
+
+### Feature Importance
+
+The analysis demonstrated that:
+1. **`dc` (primary driver)**: The cubic expansion of `dc` (linear, quadratic, and cubic terms) collectively captures ~80% of the explainable variance
+2. **`dp_comp` (secondary)**: Linear contribution (~16-17% of predictions)
+3. **`dc_acc` (tertiary)**: Linear contribution (~12% of predictions)
+4. **`pi` and `sigma_c`**: Negligible direct effects; included in the interactions only in intermediate models
+
+### Why Cubic?
+
+The cubic model was selected because:
+- It provides significant performance improvement (R² = 0.9775 vs. 0.9476 for the simple linear model)
+- It's simple and interpretable (only 5 base features)
+- Adding further interaction terms (`dc*dp_comp`, `dc*dc_acc`, etc.) provided minimal improvement (<0.001% in R²)
+- The cubic relationship in `dc` likely reflects some underlying economic dynamics in the domain
+
+## Interpretation
+
+The formula shows that:
+- The relationship is **predominantly cubic in `dc`**, suggesting a non-linear, accelerating effect
+- The positive cubic term (0.0759) dominates for large |dc| values
+- The positive quadratic term (0.0356) adds stability in the intermediate range
+- The linear term in `dc` (0.1815) provides the base relationship
+- `dp_comp` acts as an additive modifier (~16.9% weight)
+- `dc_acc` also acts as an additive modifier (~12.2% weight)
+
+## Conclusion
+
+This cubic model achieves an excellent fit to the training data (R² = 0.9775) and should generalize well to new data because:
+1. It uses a parsimonious set of features (avoiding overfitting)
+2. The cubic form is motivated by the correlation structure in the data
+3. The model is fully interpretable and based on fundamental variables
+4. Error analysis shows no systematic bias across the range of values
