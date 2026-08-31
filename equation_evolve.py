@@ -54,6 +54,12 @@ from typing import Literal, Optional
 from pydantic import BaseModel, Field
 
 from model_provider import ModelCaller, ModelRequestError, build_model_caller
+from mechanism_ontology import (
+    fallback_contract,
+    load_taxonomy_profile,
+    mechanism_menu,
+    validate_contract_fields,
+)
 
 
 # novelty_check.py lives next to this file.
@@ -143,6 +149,24 @@ class AddTermAudit(BaseModel):
     observable_signature: str
 
 
+class EvolutionContract(BaseModel):
+    """Machine-readable record of the scientific parent -> child change."""
+
+    operation: Literal["add_term", "change_assumption"]
+    scope_kind: str
+    scope_symbols: list[str] = Field(min_length=1)
+    structural_role: str
+    domain_mechanism_id: str = ""
+    domain_mechanism: str
+    assumption_before: str
+    assumption_after: str
+    before_fragment: str
+    after_fragment: str
+    parent_reduction: str
+    observable_signature: str
+    shortcut_blocked: str
+
+
 class ODEStateEquation(BaseModel):
     symbol: str
     rhs: str
@@ -169,6 +193,7 @@ class EvolvedEquation(BaseModel):
     change_summary: str
     assumption_audit: Optional[AssumptionAudit] = None
     add_term_audit: Optional[AddTermAudit] = None
+    evolution_contract: Optional[EvolutionContract] = None
     ode_system: Optional[ODESystem] = None
 
 
@@ -249,6 +274,7 @@ OUTPUT FORMAT — return a SINGLE JSON object, nothing else:
   "change_summary": "<1-2 sentences on what changed and why>",
   "assumption_audit": {assumption_audit_schema},
   "add_term_audit": {add_term_audit_schema},
+  "evolution_contract": {evolution_contract_schema},
   "ode_system": {ode_system_schema}
 }}
 The first character of your response must be `{{` and the last must be `}}`.
@@ -287,6 +313,11 @@ Do not use condition_promotion or state_augmentation merely to make the equation
 higher-dimensional. The successor must be a natural next refinement for this
 specific phenomenon.
 
+In evolution_contract, record the precise parent assumption, changed expression
+fragment, recovery limit, observable signature, and why a shortcut that ignores
+the changed mechanism is structurally inadequate. Choose a scope and structural
+role from the supplied mechanism profile.
+
 """
 
 ADD_TERM_PROMPT = _HEADER + """
@@ -322,6 +353,11 @@ change the model family/type, alter the time axis, or alter initial conditions.
 For an ODE system, preserve the full state set and add the mechanism to the
 appropriate existing state RHS expression. Set assumption_audit to null.
 
+In evolution_contract, name the affected declared symbols, the exact old/new
+fragments, the parent-recovery limit, and why the parent cannot reproduce the
+new observable signature just by retuning existing coefficients. Choose a scope
+and structural role from the supplied mechanism profile.
+
 """
 
 
@@ -349,8 +385,12 @@ _SYMPY_CALLS = {
 _SYMPY_NAMES = _SYMPY_CALLS | {"pi", "E", "I", "oo", "nan", "True", "False"}
 
 
-def _domain_mechanisms(discipline: str) -> str:
-    """Give concrete examples without replacing the shared mechanism framework."""
+def _domain_mechanisms(discipline: str, subfield: str | None = None) -> str:
+    """Render taxonomy-aware mechanisms, with a conservative legacy fallback."""
+    try:
+        return mechanism_menu(load_taxonomy_profile(discipline, subfield))
+    except (OSError, ValueError, json.JSONDecodeError):
+        pass
     normalized = re.sub(r"[^a-z0-9]+", "", (discipline or "").lower())
     if normalized in {"physics", "physicalscience"}:
         return (
@@ -572,9 +612,16 @@ def _normalize_and_validate_evolved(
     assumption_mode: AssumptionMode,
     max_static_inputs: int,
     max_ode_states: int,
+    mechanism_profile: dict | None = None,
+    dimension_track: str | None = None,
 ) -> tuple[dict, list[str]]:
     """Validate type, closure, dimensions, and operation-specific invariants."""
     current = _normalize_base_equation(current)
+    dimension_track = dimension_track or current.get("dimension_track") or current.get("dimension_class") or "fixed_univariate"
+    if dimension_track not in {"fixed_univariate", "promotable_multivariate", "multiway"}:
+        raise EvolvedEquationValidationError(
+            f"unknown dimension_track '{dimension_track}'"
+        )
     out = dict(candidate)
     target_symbol = current.get("target_symbol", "")
 
@@ -679,6 +726,34 @@ def _normalize_and_validate_evolved(
     if operation not in {"change_assumption", "add_term"}:
         raise EvolvedEquationValidationError(f"unsupported evolution operation '{operation}'")
 
+    contract = out.get("evolution_contract")
+    if not isinstance(contract, dict):
+        raise EvolvedEquationValidationError(
+            "every evolved equation must include an evolution_contract"
+        )
+    try:
+        validate_contract_fields(
+            contract,
+            mechanism_profile or load_taxonomy_profile("science", None),
+            set(symbols) | {target_symbol},
+        )
+    except (ValueError, OSError, json.JSONDecodeError) as exc:
+        raise EvolvedEquationValidationError(str(exc)) from exc
+    if contract.get("operation") != operation:
+        raise EvolvedEquationValidationError(
+            "evolution_contract.operation must match the requested operation"
+        )
+    compact_parent = re.sub(r"\s+", "", str(current.get("expression", "")))
+    compact_child = re.sub(r"\s+", "", expression)
+    if re.sub(r"\s+", "", str(contract.get("before_fragment", ""))) not in compact_parent:
+        raise EvolvedEquationValidationError(
+            "evolution_contract.before_fragment must occur in the parent expression"
+        )
+    if re.sub(r"\s+", "", str(contract.get("after_fragment", ""))) not in compact_child:
+        raise EvolvedEquationValidationError(
+            "evolution_contract.after_fragment must occur in the child expression"
+        )
+
     audit = out.get("assumption_audit")
     if operation == "add_term":
         if audit is not None:
@@ -738,6 +813,10 @@ def _normalize_and_validate_evolved(
         quantity = audit.get("quantity")
         parent_reduction = str(audit.get("parent_reduction") or "").strip()
         if outcome == "condition_promotion":
+            if dimension_track == "fixed_univariate":
+                raise EvolvedEquationValidationError(
+                    "fixed_univariate dimension_track forbids condition_promotion"
+                )
             if family != "static":
                 raise EvolvedEquationValidationError("condition_promotion is static-only")
             added = v_symbols - current_v_symbols
@@ -842,7 +921,7 @@ def _system_block(eq: dict) -> str:
 def _output_schema_values(
     current: dict,
     operation: str,
-) -> tuple[str, str, str]:
+) -> tuple[str, str, str, str]:
     """Return JSON snippets required by the operation and inherited model family."""
     if operation == "add_term":
         audit_schema = "null"
@@ -863,9 +942,24 @@ def _output_schema_values(
     "parent_reduction": "<how the successor reduces to the parent; required for promotion/augmentation>"
   }"""
         add_term_audit_schema = "null"
+    evolution_contract_schema = """{{
+    "operation": "__OPERATION__",
+    "scope_kind": "unary | pairwise | multiway | state_coupling | time_forcing | memory",
+    "scope_symbols": ["<declared symbol>"],
+    "structural_role": "contribution | response_law | modulation | interaction | constraint | transition | feedback | heterogeneity | timescale | transport_balance",
+    "domain_mechanism_id": "<id from the mechanism menu>",
+    "domain_mechanism": "<specific scientific process>",
+    "assumption_before": "<parent assumption>",
+    "assumption_after": "<child mechanism or relaxed assumption>",
+    "before_fragment": "<exact parent fragment>",
+    "after_fragment": "<exact child fragment>",
+    "parent_reduction": "<limit recovering parent>",
+    "observable_signature": "<distinguishing pattern>",
+    "shortcut_blocked": "<why coefficient retuning or trajectory fitting is insufficient>"
+  }}""".replace("__OPERATION__", operation)
     if _model_family(current) == "static":
-        return audit_schema, add_term_audit_schema, "null"
-    return audit_schema, add_term_audit_schema, """{
+        return audit_schema, add_term_audit_schema, evolution_contract_schema, "null"
+    return audit_schema, add_term_audit_schema, evolution_contract_schema, """{
     "time_symbol": "<same inherited time symbol>",
     "target_state": "<same inherited target state>",
     "states": [
@@ -939,10 +1033,16 @@ def evolve_once(
     assumption_mode: AssumptionMode,
     max_static_inputs: int,
     max_ode_states: int,
+    dimension_track: str | None = None,
+    mechanism_profile: dict | None = None,
     max_retries: int = 3,
     difficulty_feedback: str | None = None,
 ) -> dict:
     current = _normalize_base_equation(current)
+    dimension_track = dimension_track or current.get("dimension_track") or current.get("dimension_class") or "fixed_univariate"
+    mechanism_profile = mechanism_profile or load_taxonomy_profile(
+        discipline, current.get("subfield")
+    )
     task_prompt = (
         CHANGE_ASSUMPTION_PROMPT
         if operation == "change_assumption"
@@ -950,7 +1050,7 @@ def evolve_once(
     )
     family = _model_family(current)
     structure_rules = _STATIC_RULES if family == "static" else _ODE_RULES
-    audit_schema, add_term_audit_schema, ode_schema = _output_schema_values(current, operation)
+    audit_schema, add_term_audit_schema, evolution_contract_schema, ode_schema = _output_schema_values(current, operation)
     template = task_prompt + _COMMON_RULES + structure_rules + _OUTPUT_SCHEMA
     assumption_mode_note = (
         "Only use law_refinement, parameter_refinement, boundary_change, or "
@@ -974,8 +1074,15 @@ def evolve_once(
                 system_block=_system_block(current),
                 assumption_audit_schema=audit_schema,
                 add_term_audit_schema=add_term_audit_schema,
+                evolution_contract_schema=evolution_contract_schema,
                 ode_system_schema=ode_schema,
-                domain_mechanisms=_domain_mechanisms(discipline),
+                domain_mechanisms=mechanism_menu(mechanism_profile),
+            )
+            prompt += (
+                "\nDIMENSION TRACK: " + dimension_track + "\n"
+                "fixed_univariate: never add a V input; promotable_multivariate: "
+                "only change_assumption may promote one scientifically fixed condition; "
+                "multiway: retain the declared multi-variable scientific structure.\n"
             )
             if operation == "change_assumption":
                 prompt += "\nASSUMPTION MODE: " + assumption_mode_note + "\n"
@@ -1008,7 +1115,18 @@ def evolve_once(
                 assumption_mode=assumption_mode,
                 max_static_inputs=max_static_inputs,
                 max_ode_states=max_ode_states,
+                mechanism_profile=mechanism_profile,
+                dimension_track=dimension_track,
             )
+            if dimension_track == "fixed_univariate":
+                current_v = {s for s, role in _symbol_roles(current).items() if role == "V"}
+                child_v = {s for s, role in _symbol_roles(normalized).items() if role == "V"}
+                if child_v != current_v:
+                    raise EvolvedEquationValidationError(
+                        "fixed_univariate dimension_track forbids V-input promotion"
+                    )
+            normalized["dimension_track"] = dimension_track
+            normalized["mechanism_profile"] = mechanism_profile
             if changes:
                 print("      normalized symbol roles: " + "; ".join(changes),
                       file=sys.stderr, flush=True)
@@ -1047,6 +1165,13 @@ def _record(eq: dict, base_id: str, generation: int, operation: str,
         "change_summary": eq.get("change_summary", ""),
         "assumption_audit": eq.get("assumption_audit"),
         "add_term_audit": eq.get("add_term_audit"),
+        "evolution_contract": (
+            eq.get("evolution_contract")
+            if operation != "base"
+            else None
+        ) or (fallback_contract(eq, operation) if operation != "base" else None),
+        "dimension_track": eq.get("dimension_track", eq.get("dimension_class", "fixed_univariate")),
+        "mechanism_profile": eq.get("mechanism_profile", {}),
         "ode_system": eq.get("ode_system"),
         "scenario_text": scenario_text,
     }
@@ -1180,6 +1305,9 @@ def _build_lineage_xlsx(out_path: Path, lineage: list[dict]) -> None:
                 rec.get("add_term_audit"), ensure_ascii=False
             ),
             "ode_system": json.dumps(rec.get("ode_system"), ensure_ascii=False),
+            "dimension_track": rec.get("dimension_track", ""),
+            "evolution_contract": json.dumps(rec.get("evolution_contract"), ensure_ascii=False),
+            "mechanism_profile": json.dumps(rec.get("mechanism_profile"), ensure_ascii=False),
             "new_symbol_range_suggestions": json.dumps(
                 rec.get("new_symbol_range_suggestions", {}),
                 ensure_ascii=False,

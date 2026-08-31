@@ -29,6 +29,7 @@ import novelty_check
 from data_generator.generate_from_spec import generate
 from data_spec_agent_sdk import _attach_ode_benchmark_metadata, plan_data_generation, validate_sampling_replan
 from model_provider import build_model_caller
+from quality.observable_gate import assess_observable_variation
 
 
 def _write_json(path: Path, value: dict[str, Any]) -> None:
@@ -114,13 +115,31 @@ def _range_only_replan(final: dict, parent: dict, baseline: dict, report: dict,
     return out
 
 
-def _feedback(score: dict, threshold: float) -> str:
+def _feedback(score: dict, threshold: float, *, one_shot: bool = False) -> str:
+    restart = (
+        "Discard this gen0 candidate; the batch will continue with a new gen0."
+        if one_shot else "Restart from gen0."
+    )
     return (
         f"The preceding complete lineage produced a task the designated solver solved too easily "
-        f"(clipped test R²={score['clipped_test_r2']:.6g} > {threshold:.6g}). Restart from gen0. "
+        f"(clipped test R²={score['clipped_test_r2']:.6g} > {threshold:.6g}). {restart} "
         "Every child must be a scientifically consequential successor of its immediate parent: "
         "do not use coefficient-only perturbations, reparameterization, or cosmetic algebra. "
         "Introduce an observable mechanism, coupling, saturation, threshold, regime, or justified state/condition refinement."
+    )
+
+
+def _observable_gate(
+    spec: dict,
+    csv_paths: list[Path],
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    """Screen generated target variation before expensive Harbor/solver work."""
+    return assess_observable_variation(
+        spec,
+        csv_paths,
+        terminal_window_fraction=args.observable_terminal_window_fraction,
+        terminal_flatness_ratio=args.observable_terminal_flatness_ratio,
     )
 
 
@@ -138,6 +157,8 @@ def _lineage(base: dict, base_id: str, caller: Any, args: argparse.Namespace,
             scenario_text=scenario, model=args.model, strip_fence=evolve._strip_code_fence,
             assumption_mode=args.assumption_mode, max_static_inputs=args.max_static_input_dim,
             max_ode_states=args.max_ode_state_dim, difficulty_feedback=feedback,
+            dimension_track=base.get("dimension_track") or base.get("dimension_class"),
+            mechanism_profile=base.get("mechanism_profile") or None,
         )
         lineage.append(evolve._record(child, base_id, generation, operation, scenario))
         current = child
@@ -164,6 +185,9 @@ def main() -> None:
                    help="novelty is checked from --steps onward; continue until Yes or this cap (default: steps + 10)")
     p.add_argument("--max-lineage-attempts", type=int, default=4)
     p.add_argument("--easy-r2", type=float, default=0.90)
+    p.add_argument("--difficulty-policy", choices=["replan_once", "one_shot"], default="replan_once",
+                   help="difficulty_gate high-R² policy: replan_once retries sampling once; "
+                        "one_shot rejects immediately and leaves replacement to the batch scheduler")
     p.add_argument("--solver-command", default=None,
                    help="difficulty_gate only: shell template with {train}, {test}, {spec}, {task}, {output}; must print JSON raw_test_r2")
     p.add_argument("--harbor-template", type=Path, default=None,
@@ -186,6 +210,10 @@ def main() -> None:
     p.add_argument("--novelty-model", default=None)
     p.add_argument("--cli-path", default=None)
     p.add_argument("--spec-max-turns", type=int, default=18)
+    p.add_argument("--observable-terminal-window-fraction", type=float, default=0.20,
+                   help="fraction used for each of the last two ODE trajectory windows")
+    p.add_argument("--observable-terminal-flatness-ratio", type=float, default=0.02,
+                   help="reject an ODE when both terminal flatness ratios are below this value")
     p.add_argument("--output-dir", default=None)
     args = p.parse_args()
     if args.max_steps is None:
@@ -196,6 +224,10 @@ def main() -> None:
         raise SystemExit("difficulty_gate needs 2 <= test-points < n-total")
     if args.mode == "difficulty_gate" and not args.solver_command:
         raise SystemExit("difficulty_gate requires --solver-command")
+    if not (0.0 < args.observable_terminal_window_fraction < 0.5):
+        raise SystemExit("--observable-terminal-window-fraction must be between 0 and 0.5")
+    if args.observable_terminal_flatness_ratio < 0:
+        raise SystemExit("--observable-terminal-flatness-ratio must be non-negative")
     train_points = args.n_total - args.test_points if args.mode == "difficulty_gate" else None
     if args.mode == "difficulty_gate" and not -1 <= args.easy_r2 <= 1:
         raise SystemExit("--easy-r2 must be in [-1, 1]")
@@ -217,6 +249,11 @@ def main() -> None:
         "total_points": args.n_total, "seed": args.seed,
         "train_points": train_points, "hidden_test_points": args.test_points if args.mode == "difficulty_gate" else None,
         "easy_r2": args.easy_r2 if args.mode == "difficulty_gate" else None,
+        "difficulty_policy": args.difficulty_policy if args.mode == "difficulty_gate" else None,
+        "observable_gate": {
+            "terminal_window_fraction": args.observable_terminal_window_fraction,
+            "terminal_flatness_ratio": args.observable_terminal_flatness_ratio,
+        },
         "solver_command_template": args.solver_command if args.mode == "difficulty_gate" else None})
     audit = out_dir / "lineage_attempts.jsonl"
     rng, feedback = random.Random(args.seed), None
@@ -245,10 +282,27 @@ def main() -> None:
                     initial, base_id, final_generation, attempt_dir / "candidate_data",
                     args.seed + attempt, args.n_total,
                 )
+                observable = _observable_gate(candidate_spec, [candidate_csv], args)
+                _write_json(attempt_dir / "observable_gate.json", observable)
+                if not observable["accepted"]:
+                    record = {
+                        "attempt": attempt,
+                        "status": "reject_low_observable_variation",
+                        "novelty": novelty,
+                        "observable_gate": observable,
+                    }
+                    _write_jsonl(audit, record)
+                    feedback = (
+                        "The prior lineage generated a target with insufficient observable variation "
+                        f"({', '.join(observable.get('reasons', []))}). Preserve the scientific mechanism "
+                        "but avoid an ODE trajectory that numerically converges to a terminal value inside the sampled window."
+                    )
+                    continue
                 candidate_path = attempt_dir / "candidate_spec.json"
                 _write_json(candidate_path, candidate_spec)
                 record = {
                     "attempt": attempt, "status": "candidate_generated", "novelty": novelty,
+                    "observable_gate": observable,
                     "candidate": {"spec": str(candidate_path), "data_csv": str(candidate_csv),
                                   "n_points": args.n_total},
                 }
@@ -258,6 +312,15 @@ def main() -> None:
                     for item in lineage:
                         f.write(json.dumps(item, ensure_ascii=False) + "\n")
                 candidate_spec = dict(candidate_spec)
+                candidate_spec["evolution_provenance"] = {
+                    "dimension_track": final.get("dimension_track", final.get("dimension_class", "fixed_univariate")),
+                    "mechanism_profile": final.get("mechanism_profile", {}),
+                    "baseline_mechanisms": base.get("baseline_mechanisms", []),
+                    "refinement_agenda": base.get("refinement_agenda", []),
+                    "evolution_contracts": [
+                        item.get("evolution_contract") for item in lineage[1:]
+                    ],
+                }
                 candidate_spec["finalization"] = {
                     "mode": "candidate", "accepted_generations": final_generation,
                     "novelty": novelty, "total_points": args.n_total,
@@ -270,6 +333,19 @@ def main() -> None:
                 return
             initial, train = _generate(initial, base_id, final_generation, attempt_dir / "train_initial", args.seed + attempt, train_points)
             _, test = _generate(initial, base_id, final_generation, attempt_dir / "test_initial", args.seed + 10000 + attempt, args.test_points)
+            observable = _observable_gate(initial, [train, test], args)
+            _write_json(attempt_dir / "observable_gate.json", observable)
+            if not observable["accepted"]:
+                record = {
+                    "attempt": attempt, "status": "reject_low_observable_variation",
+                    "novelty": novelty, "observable_gate": observable,
+                }
+                _write_jsonl(audit, record)
+                feedback = (
+                    "The prior lineage generated a target with insufficient observable variation "
+                    f"({', '.join(observable.get('reasons', []))}). Avoid trajectories that numerically converge inside the sampled window."
+                )
+                continue
             initial_path = attempt_dir / "initial_spec.json"
             _write_json(initial_path, initial)
             initial_task = _export_harbor(args.harbor_template, train, test, initial_path,
@@ -278,29 +354,50 @@ def main() -> None:
                            attempt_dir / "solver_initial.json", initial_task)
             _write_json(attempt_dir / "solver_initial.json", score)
             record: dict[str, Any] = {"attempt": attempt, "novelty": novelty,
+                "observable_gate": observable,
                 "initial": {"spec": str(initial_path), "train_csv": str(train), "test_csv": str(test), "solver": score}}
             if initial_task is not None:
                 record["initial"]["harbor_task"] = str(initial_task)
             chosen_spec, chosen_train, chosen_test, chosen_score = initial, train, test, score
-            if score["clipped_test_r2"] > args.easy_r2:
+            if score["clipped_test_r2"] > args.easy_r2 and args.difficulty_policy == "replan_once":
                 replan = _range_only_replan(final, lineage[-2], initial, score, args)
                 replan, replan_train = _generate(replan, base_id, final_generation, attempt_dir / "train_replanned", args.seed + 1000 + attempt, train_points)
                 _, replan_test = _generate(replan, base_id, final_generation, attempt_dir / "test_replanned", args.seed + 11000 + attempt, args.test_points)
+                replan_observable = _observable_gate(replan, [replan_train, replan_test], args)
                 replan_path = attempt_dir / "replanned_spec.json"
                 _write_json(replan_path, replan)
+                if not replan_observable["accepted"]:
+                    record["sampling_replan"] = {
+                        "spec": str(replan_path), "train_csv": str(replan_train),
+                        "test_csv": str(replan_test), "observable_gate": replan_observable,
+                    }
+                    record["status"] = "reject_low_observable_variation_after_replan"
+                    _write_jsonl(audit, record)
+                    feedback = (
+                        "The replanned lineage still has insufficient target variation "
+                        f"({', '.join(replan_observable.get('reasons', []))}). Avoid trajectories that numerically converge inside the sampled window."
+                    )
+                    continue
                 replan_task = _export_harbor(args.harbor_template, replan_train, replan_test, replan_path,
                                               attempt_dir / "harbor_tasks", f"{base_id}_attempt{attempt}_replanned")
                 replan_score = _score(args.solver_command, replan_train, replan_test, replan_path,
                                       attempt_dir / "solver_replanned.json", replan_task)
                 _write_json(attempt_dir / "solver_replanned.json", replan_score)
-                record["sampling_replan"] = {"spec": str(replan_path), "train_csv": str(replan_train), "test_csv": str(replan_test), "solver": replan_score}
+                record["sampling_replan"] = {"spec": str(replan_path), "train_csv": str(replan_train), "test_csv": str(replan_test), "solver": replan_score, "observable_gate": replan_observable}
                 if replan_task is not None:
                     record["sampling_replan"]["harbor_task"] = str(replan_task)
                 chosen_spec, chosen_train, chosen_test, chosen_score = replan, replan_train, replan_test, replan_score
             if chosen_score["clipped_test_r2"] > args.easy_r2:
-                record["status"] = "reject_too_easy_after_replan"
+                record["status"] = (
+                    "reject_too_easy_one_shot"
+                    if args.difficulty_policy == "one_shot"
+                    else "reject_too_easy_after_replan"
+                )
                 _write_jsonl(audit, record)
-                feedback = _feedback(chosen_score, args.easy_r2)
+                feedback = _feedback(
+                    chosen_score, args.easy_r2,
+                    one_shot=args.difficulty_policy == "one_shot",
+                )
                 continue
             record["status"] = "accept"
             _write_jsonl(audit, record)
@@ -309,6 +406,15 @@ def main() -> None:
                 for item in lineage:
                     f.write(json.dumps(item, ensure_ascii=False) + "\n")
             chosen_spec = dict(chosen_spec)
+            chosen_spec["evolution_provenance"] = {
+                "dimension_track": final.get("dimension_track", final.get("dimension_class", "fixed_univariate")),
+                "mechanism_profile": final.get("mechanism_profile", {}),
+                "baseline_mechanisms": base.get("baseline_mechanisms", []),
+                "refinement_agenda": base.get("refinement_agenda", []),
+                "evolution_contracts": [
+                    item.get("evolution_contract") for item in lineage[1:]
+                ],
+            }
             chosen_spec["finalization"] = {"accepted_generations": len(lineage) - 1, "novelty": novelty,
                 "solver_score": chosen_score, "selection_threshold": args.easy_r2,
                 "total_points": args.n_total, "train_points": train_points,

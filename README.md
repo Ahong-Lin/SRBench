@@ -34,9 +34,24 @@ gen0 -> gen1 -> ... -> gen5
 
 ## 演化机制
 
-每一代在 `change_assumption` 与 `add_term` 之间选择。前者可在科学上合理时把原先固定的外部条件提升为一个可观测输入（静态模型），或把省略的内部量提升为 ODE state；后者不允许增加输入或 state，只能加入一个缺失的生成机制。
+每一代在 `change_assumption` 与 `add_term` 之间选择。前者可在科学上合理时把原先固定的外部条件提升为一个可观测输入（静态模型），或把省略的内部量提升为 ODE state；后者不允许增加输入或 state，只能加入一个缺失的生成机制。场景还会声明 `dimension_track`：`fixed_univariate` 永不提升输入维度，`promotable_multivariate` 只允许有科学依据的条件/状态 promotion，`multiway` 用于本质上需要多量耦合的机制。
 
-`add_term` 统一从六类机制中选择：非线性响应、相互作用、容量约束、异质性调制、反馈/竞争、regime crossover。随后按学科注入具体菜单：Physics 的本构/耦合机制、Biology 的资源/调控机制，或 AI Scaling Laws 的有效数据、容量、计算和优化机制。每个 add-term child 都保存 `add_term_audit`：机制类别、因果主张、回到 parent 的极限，以及可观测的数据特征。
+`add_term` 统一从跨学科 ontology 的结构角色中选择：`contribution`、`response_law`、`modulation`、`interaction`、`constraint`、`transition`、`feedback`、`heterogeneity`、`timescale`、`transport_balance`。`taxonomy/subfield_taxonomy_v1.json` 再为每个子领域提供具体机制菜单。每个 child 都保存 `evolution_contract`：操作、作用范围（unary/pairwise/multiway/state_coupling/time_forcing/memory）、结构角色、领域机制、前后片段、parent reduction、可观测 signature，以及为什么简单系数重拟合或轨迹拟合不能替代该机制。旧记录仍可读取，但新演化记录必须满足该契约。
+
+`mechanism_ontology.py` 负责加载和校验跨学科 ontology；taxonomy 只负责领域语义。这样“加一项/改变假设”是统一演化主线，而不会把某一个领域概念（例如饱和）误套到所有学科。
+
+## 可观测变化门（Observable Variation Gate）
+
+生成数据后，`quality/observable_gate.py` 会在题目进入 Harbor 或 solver 前检查 ODE 目标是否已经在采样窗口内数值收敛到终值。它直接检查完整生成的 5,000 点候选数据；在 difficulty gate 模式则检查完整的 train/hidden 数据。静态函数不会被这个 gate 因为“饱和”而拒绝。该门只使用实际生成的 CSV，不修改方程或采样范围，并把 `observable_gate.json` 保存到每个 lineage attempt。难度门控的 sampling replan 后会再次检查。
+
+判断采用一个直观的末段平台规则。令完整、有序 ODE 曲线的最后 `20%` 为 \(W_2\)，它前面的 `20%` 为 \(W_1\)，整段范围为 \(R=\max y-\min y\)：
+
+\[
+r_1=\frac{\operatorname{range}(W_2)}{R},\qquad
+r_2=\frac{|\operatorname{median}(W_2)-\operatorname{median}(W_1)|}{R}.
+\]
+
+当 `r1 < 0.02` 且 `r2 < 0.02` 时，目标在可见采样窗内已近似水平，整条谱系会被拒绝并从 gen0 重新演化。整段为常数也会拒绝。它不使用 `(max-min)/max(|y|)`，不是函数复杂度分数；静态函数不因饱和而被这个 gate 删除。可用 `--observable-terminal-window-fraction` 与 `--observable-terminal-flatness-ratio` 调整阈值。
 
 ## 后续 Harbor 评测
 
@@ -57,9 +72,15 @@ clipped_test_R2 = max(-1, min(raw_test_R2, 1))
 决策逻辑：
 
 ```text
+默认 `replan_once` policy：
+
+```text
 clipped test R2 <= 0.90  -> accept
 clipped test R2 >  0.90  -> same equation, replan sampling range once
 仍然 > 0.90              -> discard lineage and restart from gen0
+```
+
+`--difficulty-policy one_shot` 则不重规划：第一次 hidden R² 超过 `0.90` 就直接拒绝该 candidate。全 taxonomy 批处理默认使用此策略，随后继续下一个新 gen0，而不在同一题上反复尝试。
 ```
 
 该 legacy 自动门控使用同一 spec 的独立随机抽样，因而是 IID 插值评测，不应被解释为外推评测。采样重规划只能修改已有独立变量的范围，不能修改方程、参数、噪声、初值或状态结构。
@@ -86,10 +107,11 @@ AI 固定 seed 和普通 Stage-3 方程最终都输出为相同的 `equations.js
 
 - `environment/train_data.csv`：4500 个模型可见的训练点；
 - `tests/test_data.csv`：500 个只由 verifier 读取的 hidden test 点；
-- 根据当前 spec 更新后的变量名、目标名和 instruction；
+- 根据当前 spec 更新后的变量名、目标名和严格的逐点 instruction；
+- verifier 随机顺序逐点调用 `law([row])`，每一行在新 fork 的子进程内执行，并在评分期间暂存 hidden CSV；
 - verifier 使用 hidden test 计算 raw test R2。
 
-模板本身不需要携带训练数据、测试数据或参考 solution。模型在 Harbor 运行时负责生成自己的 `law.py` 和解释文件。
+模板本身不需要携带训练数据、测试数据或参考 solution。模型在 Harbor 运行时负责生成自己的 `law.py` 和解释文件；builder 也不再额外写入 `srbench_manifest.json`。
 
 ## 核心模块
 
@@ -141,6 +163,31 @@ python evolution_pipeline.py \
 ```
 
 这会生成一份未评测的候选题，不会创建 4,500/500 split、Harbor task 或 solver 分数。模型通过 `--model`、`--spec-model` 和 `--novelty-model` 指定，不在代码中写死。
+
+### 全 taxonomy 批量实验
+
+`scripts/run_full_taxonomy_pipeline.py` 是可恢复的正式批调度器。它固定运行 Biology、Chemistry、Physics、Materials 的全部 14 个子领域、每个子领域 10 个 scenario，另加 AI 的唯一 `scaling_laws` 子领域 10 个新生成 scenario：合计 **570 个 gen0**。AI 的 reviewed seed 目前只有 7 条；批处理显式使用 `--equation-mode generate` 在同一冻结子领域下生成 10 条新 scenario，而不是重复 seed。
+
+先只打印计划：
+
+```bash
+python scripts/run_full_taxonomy_pipeline.py \
+  --run-name full_taxonomy_v1 \
+  --dry-run
+```
+
+批量生成候选题（每个 gen0 进入完整 evolve、novelty、DataSpec、5000 点生成和 Observable Gate）：
+
+```bash
+python scripts/run_full_taxonomy_pipeline.py \
+  --run-name full_taxonomy_v1 \
+  --mode candidate \
+  --provider anthropic \
+  --model <model> \
+  --continue-on-error
+```
+
+需要真实 Harbor 难度门时，把 `--mode` 改为 `difficulty_gate`，再提供 `--solver-command`、`--harbor-template Harbor_example`。全 taxonomy batch 默认每个 gen0 只跑一条 lineage、只做一次 4500/500 single-row-isolated Harbor R² 评测；若 R² 超过 `0.90`，它直接拒绝该 gen0 并进入下一个，不做 sampling replan 或同题重演化。中断后用同一个 `--run-name --resume` 继续。每个 subject 的 gen0 checkpoint、每题 evolve 输出和 append-only `batch_ledger.jsonl` 都位于 `outputs/Full_Taxonomy/<run-name>/`。
 
 ## 输出
 

@@ -15,20 +15,10 @@ This file must contain a single function named `law` with the following signatur
 
 ```python
 def law(input_data: list[dict[str, float]]) -> list[dict[str, float]]:
-    """
-    Predicts the output variable based on the input variables according to a discovered law.
-
-    Args:
-        input_data: A list of dictionaries, where each dictionary is a single data
-                    point containing the input variable names ('t', 'I_light_prev')
-                    as keys and their corresponding values.
-
-    Returns:
-        A list of dictionaries, corresponding to the input_data list, with each
-        dictionary containing the predicted output variable, e.g. {"X": value}.
-    """
-    # Your implementation here
-    pass
+    # The verifier supplies exactly one row in input_data per call.
+    row = input_data[0]
+    # Compute one explicit prediction from that row only.
+    return [{"X": prediction}]
 ```
 
 2. A detailed explanation in `/app/explain.md`
@@ -37,6 +27,9 @@ This Markdown file should explain:
     * Your reasoning and the methodology used to find the law.
     * The fitted values of the parameters/coefficients.
 
-Your submitted `law` function will be tested on a hidden dataset to evaluate its ability to extrapolate to new, unseen data points.
+The hidden verifier calls `law([row])` one row at a time, in random order, in
+fresh processes. It checks each returned value against the hidden reference and
+then aggregates the pointwise errors into R². Do not assume that multiple rows
+are available in a call.
 
 **IMPORTANT — save early and often:** Write a runnable `/app/law.py` as soon as you have any working formula, even a rough first version, and then keep refining it in place. Do NOT wait until you have found the perfect formula before writing the file. At all times, `/app/law.py` should contain your current best working version, so that a valid answer exists even if you run out of time.

@@ -54,6 +54,7 @@ from typing import Literal, Optional
 import anthropic
 import httpx
 from pydantic import AliasChoices, BaseModel, Field
+from mechanism_ontology import load_taxonomy_profile, mechanism_menu
 
 try:
     import pandas as pd
@@ -129,6 +130,10 @@ class Scenario(BaseModel):
     scenario_text: str
     mechanism_tag: str
     functional_family: str
+    dimension_track: Literal["fixed_univariate", "promotable_multivariate", "multiway"] = "fixed_univariate"
+    baseline_mechanisms: list[str] = Field(default_factory=list)
+    refinement_agenda: list[str] = Field(default_factory=list)
+    mechanism_profile: dict = Field(default_factory=dict)
     spec: Spec
 
 
@@ -157,6 +162,8 @@ class EquationOutput(BaseModel):
     symbol_descriptions: list[str]
     symbol_properties: list[str]
     derivation_notes: str
+    dimension_class: Literal["fixed_univariate", "promotable_multivariate", "multiway"] = "fixed_univariate"
+    mechanism_manifest: dict = Field(default_factory=dict)
     ode_system: Optional[ODESystem] = None
 
 
@@ -249,6 +256,12 @@ HARD CONSTRAINTS:
     or relaxation. The states must be jointly evolved from initial conditions.
 - For "ode", do not list dynamic states as input_symbols. They are dependent
   quantities on one time trajectory, not independently sampled coordinates.
+- Choose a dimension_track: "fixed_univariate" when the phenomenon should remain
+  one-input/one-output; "promotable_multivariate" when a realistic omitted
+  condition may later become an observed input or ODE state; "multiway" only
+  when the mechanism intrinsically requires three or more quantities.
+- Also provide baseline_mechanisms (already present in gen0) and a
+  refinement_agenda (plausible later add_term/change_assumption mechanisms).
 
 For each scenario output:
 - scenario_text: 3-5 sentences of natural language.
@@ -272,6 +285,7 @@ For each scenario output:
   "dv_dt".
 - spec.expected_behaviors
 - spec.forbidden_behaviors
+- dimension_track, baseline_mechanisms, refinement_agenda
 
 OUTPUT FORMAT:
 Return a SINGLE JSON object of the exact form:
@@ -292,6 +306,9 @@ SCENARIO:
 
 TARGET VARIABLE: {target_symbol} — {target_description}
 INPUT VARIABLES: {input_descriptions}
+
+EVOLUTION CONTEXT:
+{evolution_context}
 
 YOUR TASK:
 Write one static relation that governs {target_symbol} as a function of the
@@ -324,9 +341,11 @@ OUTPUT FORMAT — return a SINGLE JSON object:
   "equation_type": "static_explicit" or "static_implicit",
   "target_symbol": "{target_symbol}",
   "expression": "<sympy expression string for the RHS>",
-  "symbols": ["<target>", "<input1>", "<input2>", ...],
+"symbols": ["<target>", "<input1>", "<input2>", ...],
   "symbol_descriptions": ["<desc of target>", "<desc of input1>", ...],
   "symbol_properties": ["O", "V", "V", ...],
+  "dimension_class": "{dimension_track}",
+  "mechanism_manifest": {{"baseline_mechanisms": ["..."], "active_mechanisms": ["..."]}},
   "derivation_notes": "<1-2 sentences explaining which physical law/model this comes from>",
   "ode_system": null
 }}
@@ -351,6 +370,9 @@ TIME AXIS: {time_symbol} over {time_range}
 TARGET DERIVATIVE: {target_symbol} — {target_description}
 TARGET STATE: {target_state}
 REQUIRED DYNAMIC STATES: {state_descriptions}
+
+EVOLUTION CONTEXT:
+{evolution_context}
 
 YOUR TASK:
 Write a concrete first-order ODE system for the internal states. The system must
@@ -380,6 +402,8 @@ OUTPUT FORMAT — return a SINGLE JSON object:
   "symbols": ["{target_symbol}", "{time_symbol}", "<state1>", "<parameter1>", ...],
   "symbol_descriptions": ["<desc of target derivative>", "time", "<state desc>", "<parameter desc>", ...],
   "symbol_properties": ["O", "V", "S", "P", ...],
+  "dimension_class": "{dimension_track}",
+  "mechanism_manifest": {{"baseline_mechanisms": ["..."], "active_mechanisms": ["..."]}},
   "derivation_notes": "<1-2 sentences explaining the governing mechanism>",
   "ode_system": {{
     "time_symbol": "{time_symbol}",
@@ -1226,6 +1250,12 @@ def generate_m2_for_subfield(
                 scenario["discipline"] = discipline
                 scenario["subfield"] = subfield["name"]
                 scenario["generation_mode"] = "M2"
+                profile = load_taxonomy_profile(discipline, subfield["name"])
+                scenario["mechanism_profile"] = profile
+                if not scenario.get("baseline_mechanisms"):
+                    scenario["baseline_mechanisms"] = [scenario.get("mechanism_tag", "baseline")]
+                if not scenario.get("refinement_agenda"):
+                    scenario["refinement_agenda"] = [m.get("id") for m in profile.get("domain_mechanisms", [])]
             return scenarios
         except _retryable_errors() as e:
             last_err = e
@@ -1248,11 +1278,23 @@ def derive_equation(
     discipline: str,
     subfield: str,
     model: str,
+    dimension_track: str = "fixed_univariate",
+    baseline_mechanisms: list[str] | None = None,
+    refinement_agenda: list[str] | None = None,
+    mechanism_profile: dict | None = None,
     max_retries: int = 3,
 ) -> dict:
     validated_spec = Spec.model_validate(spec)
     _validate_scenario_spec(validated_spec)
     subfield_line = f"Subfield: {subfield}\n" if subfield else "\n"
+    profile = mechanism_profile or load_taxonomy_profile(discipline, subfield)
+    evolution_context = (
+        f"dimension_track: {dimension_track}\n"
+        f"gen0 baseline mechanisms: {', '.join(baseline_mechanisms or []) or '(not recorded)'}\n"
+        f"later refinement agenda: {', '.join(refinement_agenda or []) or '(not recorded)'}\n"
+        f"taxonomy mechanism profile:\n{mechanism_menu(profile)}\n"
+        "Derive gen0 from baseline mechanisms only. Do not pre-include every agenda mechanism."
+    )
     if validated_spec.model_family == "ode":
         prompt = ODE_MODELING_PROMPT.format(
             scenario_text=scenario_text,
@@ -1267,6 +1309,8 @@ def derive_equation(
             discipline=discipline,
             subfield_line=subfield_line,
             max_ode_states=MAX_ODE_STATES,
+            dimension_track=dimension_track,
+            evolution_context=evolution_context,
         )
     else:
         prompt = STATIC_MODELING_PROMPT.format(
@@ -1278,6 +1322,8 @@ def derive_equation(
             ),
             discipline=discipline,
             subfield_line=subfield_line,
+            dimension_track=dimension_track,
+            evolution_context=evolution_context,
         )
 
     last_err: Exception | None = None
@@ -1289,7 +1335,16 @@ def derive_equation(
             parsed = json.loads(_strip_code_fence(raw))
             validated = EquationOutput.model_validate(parsed)
             _validate_equation_output(validated, validated_spec)
-            return validated.model_dump()
+            result = validated.model_dump()
+            if result["dimension_class"] != dimension_track:
+                raise ValueError(
+                    "equation dimension_class must match scenario dimension_track"
+                )
+            manifest = dict(result.get("mechanism_manifest") or {})
+            manifest.setdefault("baseline_mechanisms", list(baseline_mechanisms or []))
+            manifest.setdefault("active_mechanisms", list(baseline_mechanisms or []))
+            result["mechanism_manifest"] = manifest
+            return result
         except _retryable_errors() as e:
             last_err = e
             if attempt < max_retries:
@@ -1324,6 +1379,9 @@ def _build_combined_xlsx(
             "subfield": sc.get("subfield", ""),
             "mechanism_tag": sc.get("mechanism_tag", ""),
             "functional_family": sc.get("functional_family", ""),
+            "dimension_track": sc.get("dimension_track", "fixed_univariate"),
+            "baseline_mechanisms": "; ".join(sc.get("baseline_mechanisms", [])),
+            "refinement_agenda": "; ".join(sc.get("refinement_agenda", [])),
             "model_family": spec.get("model_family", "static"),
             "scenario_text": sc.get("scenario_text", ""),
             "target_symbol": spec.get("target_symbol", ""),
@@ -1346,6 +1404,8 @@ def _build_combined_xlsx(
             "symbols": ", ".join(eq.get("symbols", [])),
             "symbol_descriptions": " | ".join(eq.get("symbol_descriptions", [])),
             "symbol_properties": ", ".join(eq.get("symbol_properties", [])),
+            "dimension_class": eq.get("dimension_class", ""),
+            "mechanism_manifest": json.dumps(eq.get("mechanism_manifest", {}), ensure_ascii=False),
             "ode_system": json.dumps(eq.get("ode_system"), ensure_ascii=False),
             "derivation_notes": eq.get("derivation_notes", ""),
             "equation_error": eq.get("error", ""),
@@ -1382,6 +1442,9 @@ def main() -> None:
                         help="Frozen taxonomy JSON used by fixed/extend modes")
     parser.add_argument("--fixed-equations", default=None,
                         help="Import reviewed Stage-3 equations directly instead of calling the scenario/equation LLMs")
+    parser.add_argument("--equation-mode", choices=["auto", "fixed", "generate"], default="auto",
+                        help="auto: obey taxonomy fixed-equation policy; fixed: require/import its fixed source; "
+                             "generate: run scenario/equation generation even when the taxonomy has a fixed seed source")
     parser.add_argument("--new-subfields", type=int, default=None,
                         help="Number of extension candidates; required with --subfield-source extend")
     parser.add_argument("--extension-output", default=None,
@@ -1427,14 +1490,20 @@ def main() -> None:
     # A taxonomy subject may declare a reviewed fixed-equation source.  Such
     # records already are Stage-3 gen0 equations, so they use the common
     # checkpoint layout without making redundant Stage-2/3 API calls.
+    if args.equation_mode == "generate" and args.fixed_equations:
+        raise SystemExit("--equation-mode generate cannot be combined with --fixed-equations.")
     fixed_source_value = args.fixed_equations
     fixed_equation_count: int | None = None
-    if fixed_source_value is None and source == "fixed":
+    if args.equation_mode != "generate" and fixed_source_value is None and source == "fixed":
         taxonomy_for_mode, _ = _load_taxonomy_subject(taxonomy_path, args.subject)
         subject_entry = taxonomy_for_mode["subjects"][args.subject]
         if subject_entry.get("equation_mode") == "fixed":
             fixed_source_value = subject_entry.get("fixed_equation_source")
             fixed_equation_count = subject_entry.get("fixed_equation_count")
+    if args.equation_mode == "fixed" and not fixed_source_value:
+        raise SystemExit(
+            "--equation-mode fixed requires --fixed-equations or a taxonomy fixed_equation_source."
+        )
     if fixed_source_value:
         if source != "fixed":
             raise SystemExit("--fixed-equations requires --subfield-source fixed.")
@@ -1843,12 +1912,20 @@ def main() -> None:
                     discipline=sc.get("discipline", args.subject),
                     subfield=sc.get("subfield", ""),
                     model=equation_model,
+                    dimension_track=sc.get("dimension_track", "fixed_univariate"),
+                    baseline_mechanisms=sc.get("baseline_mechanisms", []),
+                    refinement_agenda=sc.get("refinement_agenda", []),
+                    mechanism_profile=sc.get("mechanism_profile") or None,
                 )
                 eq["scenario_id"] = scenario_id
                 eq["scenario_text"] = sc.get("scenario_text", "")
                 eq["discipline"] = sc.get("discipline", args.subject)
                 eq["subfield"] = sc.get("subfield", "")
                 eq["model_family"] = spec.get("model_family", "static")
+                eq["dimension_track"] = sc.get("dimension_track", "fixed_univariate")
+                eq["baseline_mechanisms"] = sc.get("baseline_mechanisms", [])
+                eq["refinement_agenda"] = sc.get("refinement_agenda", [])
+                eq["mechanism_profile"] = sc.get("mechanism_profile", {})
             except Exception as e:
                 print(f"      FAILED: {type(e).__name__}: {e}",
                       file=sys.stderr, flush=True)

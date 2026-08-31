@@ -26,9 +26,9 @@ def _safe_name(value: str) -> str:
 
 
 def _replace_task_config(source: str, features: list[str], target: str) -> str:
-    source = re.sub(r"^FEATURE_NAMES\\s*=.*$", f"FEATURE_NAMES = {features!r}", source,
+    source = re.sub(r"^FEATURE_NAMES\s*=.*$", f"FEATURE_NAMES = {features!r}", source,
                     flags=re.MULTILINE)
-    source = re.sub(r"^TARGET_NAME\\s*=.*$", f"TARGET_NAME = {target!r}", source,
+    source = re.sub(r"^TARGET_NAME\s*=.*$", f"TARGET_NAME = {target!r}", source,
                     flags=re.MULTILINE)
     if "FEATURE_NAMES" not in source or "TARGET_NAME" not in source:
         raise ValueError("template verifier must define FEATURE_NAMES and TARGET_NAME")
@@ -38,7 +38,8 @@ def _replace_task_config(source: str, features: list[str], target: str) -> str:
 def _instruction(spec: dict[str, Any], features: list[str], target: str) -> str:
     discipline = str(spec.get("discipline") or "science")
     scenario = str(spec.get("scenario_text") or "an experimental system")
-    columns = "\\n".join(f"- `{name}`: input variable" for name in features)
+    columns = "\n".join(f"- `{name}`: input variable" for name in features)
+    feature_list = ", ".join(features)
     return f"""You have to analyze an experimental dataset to discover the underlying mathematical relationship that governs it.
 The training dataset is located at `/app/data/train_data.csv` and can be loaded using `pandas.read_csv()`.
 
@@ -51,18 +52,36 @@ The dataset columns are:
 
 You must produce two files:
 
-1. A Python function in `/app/law.py` named `law` with this signature:
+1. A Python function in `/app/law.py` named `law` with this signature. The
+verifier supplies exactly one row per call:
 
 ```python
 def law(input_data: list[dict[str, float]]) -> list[dict[str, float]]:
-    # Return one {{"{target}": prediction}} dict per input row.
-    pass
+    row = input_data[0]
+    # Compute one {{"{target}": prediction}} dict from this row only.
+    return [{{"{target}": prediction}}]
 ```
 
 2. A detailed explanation in `/app/explain.md` describing the discovered formula,
 methodology, and fitted parameters.
 
-Your submitted `law` function will be tested on a hidden, independently generated dataset.
+## Required solution style
+
+The scientific target is `{target}`. Express it as an explicit, interpretable
+pointwise function of the listed variables.
+
+Implement the discovered relationship in `/app/law.py`; `law` is the submitted
+answer. It must map each input row independently to one `{target}` prediction.
+Do not use a machine-learning black box, fitted lookup table, interpolation,
+sequence/trajectory processing, numerical differentiation, file reads,
+hidden-data access, input ordering, or state carried between calls. The
+relationship may use only the declared variables ({feature_list}) and fixed
+constants/parameters inferred from the training data.
+
+The hidden verifier calls `law([row])` with exactly one row at a time, in random
+order, and in a fresh process for each row. It checks the returned `{target}`
+value against the reference value for that row. Return a list containing exactly
+one dictionary with key `{target}`.
 """
 
 
@@ -105,11 +124,6 @@ def build_task(template: Path, train_csv: Path, test_csv: Path, spec_path: Path,
     verifier = task_dir / "tests" / "test_outputs.py"
     verifier.write_text(_replace_task_config(verifier.read_text(encoding="utf-8"), features, target), encoding="utf-8")
     (task_dir / "instruction.md").write_text(_instruction(spec, features, target), encoding="utf-8")
-    (task_dir / "srbench_manifest.json").write_text(json.dumps({
-        "source_spec": str(spec_path.resolve()), "source_train_csv": str(train_csv.resolve()),
-        "source_hidden_test_csv": str(test_csv.resolve()), "features": features, "target": target,
-        "metric": "raw test R² = 1 - MSE / Var(y_test); reporting uses clip(raw, -1, 1)",
-    }, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
     return task_dir
 
 
