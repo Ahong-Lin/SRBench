@@ -164,9 +164,9 @@ python evolution_pipeline.py \
 
 这会生成一份未评测的候选题，不会创建 4,500/500 split、Harbor task 或 solver 分数。模型通过 `--model`、`--spec-model` 和 `--novelty-model` 指定，不在代码中写死。
 
-### 全 taxonomy 批量实验
+### Core taxonomy 批量实验
 
-`scripts/run_full_taxonomy_pipeline.py` 是可恢复的正式批调度器。它固定运行 Biology、Chemistry、Physics、Materials 的全部 14 个子领域、每个子领域 10 个 scenario，另加 AI 的唯一 `scaling_laws` 子领域 10 个新生成 scenario：合计 **570 个 gen0**。AI 的 reviewed seed 目前只有 7 条；批处理显式使用 `--equation-mode generate` 在同一冻结子领域下生成 10 条新 scenario，而不是重复 seed。
+`scripts/run_full_taxonomy_pipeline.py` 是可恢复的首轮批调度器。它固定运行 Biology、Chemistry、Physics、Materials、Economy 的 taxonomy 顺序前 7 个子领域、每个子领域 10 个 scenario，另加 AI 的唯一 `scaling_laws` 子领域 10 个新生成 scenario：合计 **360 个 gen0**。AI 的 reviewed seed 目前只有 7 条；批处理显式使用 `--equation-mode generate` 在同一冻结子领域下生成 10 条新 scenario，而不是重复 seed。
 
 先只打印计划：
 
@@ -187,7 +187,7 @@ python scripts/run_full_taxonomy_pipeline.py \
   --continue-on-error
 ```
 
-需要真实 Harbor 难度门时，把 `--mode` 改为 `difficulty_gate`，再提供 `--solver-command`、`--harbor-template Harbor_example`。全 taxonomy batch 默认每个 gen0 只跑一条 lineage、只做一次 4500/500 single-row-isolated Harbor R² 评测；若 R² 超过 `0.90`，它直接拒绝该 gen0 并进入下一个，不做 sampling replan 或同题重演化。中断后用同一个 `--run-name --resume` 继续。每个 subject 的 gen0 checkpoint、每题 evolve 输出和 append-only `batch_ledger.jsonl` 都位于 `outputs/Full_Taxonomy/<run-name>/`。
+需要真实 Harbor 难度门时，把 `--mode` 改为 `difficulty_gate`，再提供 `--solver-command`、`--harbor-template Harbor_example`。该 core batch 默认每个 gen0 只跑一条 lineage、只做一次 4500/500 single-row-isolated Harbor R² 评测；若 R² 超过 `0.90`，它直接拒绝该 gen0 并进入下一个，不做 sampling replan 或同题重演化。中断后用同一个 `--run-name --resume` 继续。每个 subject 的 gen0 checkpoint、每题 evolve 输出和 append-only `batch_ledger.jsonl` 都位于 `outputs/Core_Taxonomy/<run-name>/`。
 
 ## 输出
 

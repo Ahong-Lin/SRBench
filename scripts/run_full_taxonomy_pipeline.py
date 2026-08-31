@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Run the fixed full-taxonomy SRBench v6 experiment, resumably.
+"""Run the fixed core-taxonomy SRBench v6 experiment, resumably.
 
 The plan is intentionally narrow and explicit:
 
-* biology, chemistry, physics, materials: 14 frozen subfields x 10 scenarios;
+* biology, chemistry, physics, materials, economy: 7 frozen subfields x 10 scenarios;
 * AI: its one frozen ``scaling_laws`` subfield x 10 *generated* scenarios;
 * every successfully generated gen0 equation is sent to the same existing
   ``evolution_pipeline.py`` workflow.
@@ -28,10 +28,11 @@ from typing import Any
 
 
 PLAN: tuple[tuple[str, int, str], ...] = (
-    ("biology", 14, "auto"),
-    ("chemistry", 14, "auto"),
-    ("physics", 14, "auto"),
-    ("materials", 14, "auto"),
+    ("biology", 7, "auto"),
+    ("chemistry", 7, "auto"),
+    ("physics", 7, "auto"),
+    ("materials", 7, "auto"),
+    ("economy", 7, "auto"),
     # The frozen AI taxonomy has one subfield but its reviewed seed file has
     # only seven records.  ``generate`` intentionally creates ten new gen0
     # scenarios under that same frozen scaling_laws subfield; it never repeats
@@ -110,9 +111,9 @@ def _evolution_status(result: subprocess.CompletedProcess[str]) -> str:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run the 570-scenario full-taxonomy SRBench v6 batch.")
+    parser = argparse.ArgumentParser(description="Run the 360-scenario core-taxonomy SRBench v6 batch.")
     parser.add_argument("--run-name", required=True,
-                        help="Stable batch name under outputs/Full_Taxonomy; reuse with --resume.")
+                        help="Stable batch name under outputs/Core_Taxonomy; reuse with --resume.")
     parser.add_argument("--mode", choices=["candidate", "difficulty_gate"], default="candidate")
     parser.add_argument("--provider", choices=["anthropic", "openrouter"], default="anthropic")
     parser.add_argument("--model", default="claude-opus-4-7",
@@ -148,7 +149,7 @@ def main() -> None:
         raise SystemExit("--run-name cannot be empty")
 
     repo = Path(__file__).resolve().parents[1]
-    batch_dir = repo / "outputs" / "Full_Taxonomy" / args.run_name
+    batch_dir = repo / "outputs" / "Core_Taxonomy" / args.run_name
     ledger = batch_dir / "batch_ledger.jsonl"
     config_path = batch_dir / "batch_config.json"
     if batch_dir.exists() and not args.resume:
