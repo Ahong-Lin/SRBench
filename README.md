@@ -183,11 +183,10 @@ python scripts/run_full_taxonomy_pipeline.py \
   --run-name full_taxonomy_v1 \
   --mode candidate \
   --provider anthropic \
-  --model <model> \
-  --continue-on-error
+  --model <model>
 ```
 
-需要真实 Harbor 难度门时，把 `--mode` 改为 `difficulty_gate`，再提供 `--solver-command`、`--harbor-template Harbor_example`。该 core batch 默认每个 gen0 只跑一条 lineage、只做一次 4500/500 single-row-isolated Harbor R² 评测；若 R² 超过 `0.90`，它直接拒绝该 gen0 并进入下一个，不做 sampling replan 或同题重演化。中断后用同一个 `--run-name --resume` 继续。每个 subject 的 gen0 checkpoint、每题 evolve 输出和 append-only `batch_ledger.jsonl` 都位于 `outputs/Core_Taxonomy/<run-name>/`。
+需要真实 Harbor 难度门时，把 `--mode` 改为 `difficulty_gate`，再提供 `--solver-command`、`--harbor-template Harbor_example`。该 core batch 默认每个 gen0 只跑一条 lineage、只做一次 4500/500 single-row-isolated Harbor R² 评测；若 R² 超过 `0.90`，它直接拒绝该 gen0 并进入下一个，不做 sampling replan 或同题重演化。预期的科学 rejection 会继续下一题；Harbor、凭据、模型、代码或数据格式等 execution failure 默认立即停止并报告。仅在明确需要尽可能跑完所有题时，才添加 `--continue-on-error`。中断后用同一个 `--run-name --resume` 继续。每个 subject 的 gen0 checkpoint、每题 evolve 输出和 append-only `batch_ledger.jsonl` 都位于 `outputs/Core_Taxonomy/<run-name>/`。
 
 ## 输出
 

@@ -138,7 +138,7 @@ def main() -> None:
     parser.add_argument("--solver-command", default=None,
                         help="Required for difficulty_gate; template accepts {task}, {train}, {test}, {spec}, {output}.")
     parser.add_argument("--continue-on-error", action="store_true",
-                        help="Record failed subjects/equations and continue the rest of the batch.")
+                        help="Continue after unexpected generation/execution failures. By default those failures stop the batch; expected scientific rejections always continue.")
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
@@ -271,7 +271,11 @@ def main() -> None:
                      "log": str(batch_dir / "logs" / "evolve" / subject / f"{equation_id}.log")}
             _append_jsonl(ledger, entry)
             records.append(entry)
-            if result.returncode != 0 and not args.continue_on_error:
+            # A nonzero evolution exit can be an expected one-shot rejection
+            # (all internal gates exhausted).  Continue to the next gen0 in
+            # that case.  Stop immediately on real infrastructure or runtime
+            # failures unless the operator explicitly opts into continuation.
+            if status == "execution_failure" and not args.continue_on_error:
                 raise SystemExit(f"Evolution failed for {subject}/{equation_id}; inspect {entry['log']}")
 
     print(f"Batch complete. Ledger: {ledger}")
