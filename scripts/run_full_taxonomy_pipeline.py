@@ -125,6 +125,8 @@ def main() -> None:
     parser.add_argument("--auth-source", choices=["auto", "api_key", "auth_token"], default="auto")
     parser.add_argument("--cli-path", default=None)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--operation-policy", choices=["guided", "random"], default="guided")
+    parser.add_argument("--embedding-policy", choices=["random"], default="random")
     parser.add_argument("--steps", type=int, default=5)
     parser.add_argument("--max-steps", type=int, default=None)
     parser.add_argument("--max-lineage-attempts", type=int, default=1,
@@ -165,6 +167,8 @@ def main() -> None:
             "schema_version": "1.0",
             "created_at": datetime.now(timezone.utc).isoformat(),
             "mode": args.mode,
+            "operation_policy": args.operation_policy,
+            "embedding_policy": args.embedding_policy,
             "max_lineage_attempts": args.max_lineage_attempts,
             "difficulty_policy": args.difficulty_policy if args.mode == "difficulty_gate" else None,
             "scenarios_per_subfield": SCENARIOS_PER_SUBFIELD,
@@ -244,6 +248,8 @@ def main() -> None:
                        "--id", equation_id, "--discipline", subject, "--mode", args.mode,
                        "--steps", str(args.steps), "--max-lineage-attempts", str(args.max_lineage_attempts),
                        "--n-total", str(args.n_total), "--seed", str(args.seed + 1000 * subject_index + equation_index),
+                       "--operation-policy", args.operation_policy,
+                       "--embedding-policy", args.embedding_policy,
                        "--provider", args.provider, "--model", args.model, "--output-dir", str(output_dir)]
             if args.max_steps is not None:
                 command += ["--max-steps", str(args.max_steps)]

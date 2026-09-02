@@ -1,3 +1,4 @@
+import random
 import sys
 import unittest
 from pathlib import Path
@@ -29,6 +30,9 @@ def _contract(operation="add_term", mechanism_id="nonlinear_drag"):
         "operation": operation, "scope_kind": "pairwise", "scope_symbols": ["x", "y"],
         "structural_role": "response_law", "domain_mechanism_id": mechanism_id,
         "domain_mechanism": "velocity-dependent nonlinear response",
+        "scientific_mechanism": "velocity-dependent nonlinear response",
+        "embedding_pattern": "state_coupling",
+        "difficulty_rationale": "joint dependence cannot be represented by a coefficient-only correction",
         "assumption_before": "linear response", "assumption_after": "nonlinear response",
         "before_fragment": "a*x", "after_fragment": "a*x + b*x**2",
         "parent_reduction": "b -> 0", "observable_signature": "curvature changes with x",
@@ -37,14 +41,35 @@ def _contract(operation="add_term", mechanism_id="nonlinear_drag"):
 
 
 class MechanismEvolutionTests(unittest.TestCase):
-  def test_add_term_contract_requires_declared_scope_and_profile_role(self):
+  def test_add_term_contract_requires_declared_scope_but_not_profile_whitelist(self):
     profile = _profile()
     with self.assertRaises(ValueError):
         validate_contract_fields(_contract() | {"scope_symbols": ["x", "z"]}, profile, {"y", "x"})
     good = _contract(mechanism_id="nonlinear_drag")
-    # nonlinear_drag is available in the classical-mechanics profile but its
-    # role is response_law, so this is a valid contract when all symbols exist.
+    # A profile-known mechanism remains valid, but a new scientific mechanism
+    # may now be recorded provisionally rather than being rejected by name.
     validate_contract_fields(good, profile, {"y", "x", "a", "b"})
+    provisional = _contract(mechanism_id="new_domain_mechanism") | {
+        "domain_mechanism": "new scenario-natural mechanism",
+        "scientific_mechanism": "new scenario-natural mechanism",
+        "taxonomy_match": "provisional",
+    }
+    validate_contract_fields(provisional, profile, {"y", "x", "a", "b"})
+
+  def test_embedding_draw_is_seed_reproducible_and_compatible(self):
+    current = _current()
+    first = evolve.sample_embedding_pattern(random.Random(12), current, "add_term")
+    second = evolve.sample_embedding_pattern(random.Random(12), current, "add_term")
+    self.assertEqual(first["id"], second["id"])
+    self.assertNotEqual(first["id"], "auxiliary_state_feedback")
+
+  def test_contract_requires_new_mechanism_and_embedding_fields(self):
+    profile = _profile()
+    for field in ("scientific_mechanism", "embedding_pattern", "difficulty_rationale"):
+        bad = _contract()
+        bad[field] = ""
+        with self.assertRaises(ValueError):
+            validate_contract_fields(bad, profile, {"y", "x", "a", "b"})
 
 
   def test_add_term_cannot_add_a_v_input(self):

@@ -150,8 +150,27 @@ def _lineage(base: dict, base_id: str, caller: Any, args: argparse.Namespace,
     current = base
     novelty: dict[str, Any] | None = None
     for generation in range(1, args.max_steps + 1):
-        operation = "change_assumption" if rng.random() < args.p_assumption else "add_term"
-        print(f"[gen {generation}/{args.steps}] {operation}", file=sys.stderr, flush=True)
+        plan = None
+        if args.operation_policy == "guided":
+            plan = evolve.plan_evolution_step(
+                caller=caller, current=current, discipline=args.discipline,
+                scenario_text=scenario, model=args.model, strip_fence=evolve._strip_code_fence,
+                baseline_mechanisms=base.get("baseline_mechanisms", []),
+                baseline_assumptions=base.get("baseline_assumptions", []),
+                scientific_constraints=base.get("scientific_constraints", []),
+                prior_mechanisms=[
+                    str((item.get("evolution_contract") or {}).get("scientific_mechanism", ""))
+                    for item in lineage[1:]
+                ],
+            )
+            operation = plan["operation"]
+        else:
+            operation = "change_assumption" if rng.random() < args.p_assumption else "add_term"
+        embedding = evolve.sample_embedding_pattern(
+            rng, current, operation, args.assumption_mode
+        )
+        print(f"[gen {generation}/{args.steps}] {operation}; embedding={embedding['id']}",
+              file=sys.stderr, flush=True)
         child = evolve.evolve_once(
             caller=caller, current=current, operation=operation, discipline=args.discipline,
             scenario_text=scenario, model=args.model, strip_fence=evolve._strip_code_fence,
@@ -159,6 +178,8 @@ def _lineage(base: dict, base_id: str, caller: Any, args: argparse.Namespace,
             max_ode_states=args.max_ode_state_dim, difficulty_feedback=feedback,
             dimension_track=base.get("dimension_track") or base.get("dimension_class"),
             mechanism_profile=base.get("mechanism_profile") or None,
+            evolution_plan=plan,
+            embedding_pattern=embedding,
         )
         lineage.append(evolve._record(child, base_id, generation, operation, scenario))
         current = child
@@ -197,6 +218,10 @@ def main() -> None:
     p.add_argument("--test-points", type=int, default=500,
                    help="points withheld from the Harbor agent and used only by its verifier")
     p.add_argument("--p-assumption", type=float, default=0.5)
+    p.add_argument("--operation-policy", choices=["guided", "random"], default="guided",
+                   help="guided diagnoses a scientific gap before choosing an operation; random keeps the legacy coin flip")
+    p.add_argument("--embedding-policy", choices=["random"], default="random",
+                   help="embedding pattern policy (currently weighted random and seed-reproducible)")
     p.add_argument("--assumption-mode", choices=["core", "extended"], default="extended")
     p.add_argument("--max-static-input-dim", type=int, default=evolve.MAX_STATIC_INPUTS_DEFAULT)
     p.add_argument("--max-ode-state-dim", type=int, default=evolve.MAX_ODE_STATES_DEFAULT)
@@ -247,6 +272,9 @@ def main() -> None:
         "selection": "novelty-screened candidate" if args.mode == "candidate" else "final external solver clipped test R²",
         "minimum_steps": args.steps, "max_steps": args.max_steps,
         "total_points": args.n_total, "seed": args.seed,
+        "operation_policy": args.operation_policy,
+        "embedding_policy": args.embedding_policy,
+        "parent_child_difference_gate": "record_only",
         "train_points": train_points, "hidden_test_points": args.test_points if args.mode == "difficulty_gate" else None,
         "easy_r2": args.easy_r2 if args.mode == "difficulty_gate" else None,
         "difficulty_policy": args.difficulty_policy if args.mode == "difficulty_gate" else None,
@@ -316,6 +344,8 @@ def main() -> None:
                     "dimension_track": final.get("dimension_track", final.get("dimension_class", "fixed_univariate")),
                     "mechanism_profile": final.get("mechanism_profile", {}),
                     "baseline_mechanisms": base.get("baseline_mechanisms", []),
+                    "baseline_assumptions": base.get("baseline_assumptions", []),
+                    "scientific_constraints": base.get("scientific_constraints", []),
                     "refinement_agenda": base.get("refinement_agenda", []),
                     "evolution_contracts": [
                         item.get("evolution_contract") for item in lineage[1:]
@@ -410,6 +440,8 @@ def main() -> None:
                 "dimension_track": final.get("dimension_track", final.get("dimension_class", "fixed_univariate")),
                 "mechanism_profile": final.get("mechanism_profile", {}),
                 "baseline_mechanisms": base.get("baseline_mechanisms", []),
+                "baseline_assumptions": base.get("baseline_assumptions", []),
+                "scientific_constraints": base.get("scientific_constraints", []),
                 "refinement_agenda": base.get("refinement_agenda", []),
                 "evolution_contracts": [
                     item.get("evolution_contract") for item in lineage[1:]

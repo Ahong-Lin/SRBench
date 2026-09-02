@@ -132,6 +132,8 @@ class Scenario(BaseModel):
     functional_family: str
     dimension_track: Literal["fixed_univariate", "promotable_multivariate", "multiway"] = "fixed_univariate"
     baseline_mechanisms: list[str] = Field(default_factory=list)
+    baseline_assumptions: list[str] = Field(default_factory=list)
+    scientific_constraints: list[str] = Field(default_factory=list)
     refinement_agenda: list[str] = Field(default_factory=list)
     mechanism_profile: dict = Field(default_factory=dict)
     spec: Spec
@@ -260,8 +262,12 @@ HARD CONSTRAINTS:
   one-input/one-output; "promotable_multivariate" when a realistic omitted
   condition may later become an observed input or ODE state; "multiway" only
   when the mechanism intrinsically requires three or more quantities.
-- Also provide baseline_mechanisms (already present in gen0) and a
-  refinement_agenda (plausible later add_term/change_assumption mechanisms).
+- Also provide baseline_mechanisms (already present in gen0),
+  baseline_assumptions (2-4 concrete idealizations made by gen0),
+  scientific_constraints (1-4 non-negativity, conservation, boundedness, or
+  directionality constraints), and a refinement_agenda (plausible later
+  add_term/change_assumption mechanisms). These are prompts and records, not a
+  closed whitelist of future mechanisms.
 
 For each scenario output:
 - scenario_text: 3-5 sentences of natural language.
@@ -285,7 +291,8 @@ For each scenario output:
   "dv_dt".
 - spec.expected_behaviors
 - spec.forbidden_behaviors
-- dimension_track, baseline_mechanisms, refinement_agenda
+- dimension_track, baseline_mechanisms, baseline_assumptions,
+  scientific_constraints, refinement_agenda
 
 OUTPUT FORMAT:
 Return a SINGLE JSON object of the exact form:
@@ -1254,6 +1261,14 @@ def generate_m2_for_subfield(
                 scenario["mechanism_profile"] = profile
                 if not scenario.get("baseline_mechanisms"):
                     scenario["baseline_mechanisms"] = [scenario.get("mechanism_tag", "baseline")]
+                if not scenario.get("baseline_assumptions"):
+                    scenario["baseline_assumptions"] = [
+                        "gen0 uses the simplest scenario-consistent response law"
+                    ]
+                if not scenario.get("scientific_constraints"):
+                    scenario["scientific_constraints"] = [
+                        "the generated law must remain mathematically finite over its sampled domain"
+                    ]
                 if not scenario.get("refinement_agenda"):
                     scenario["refinement_agenda"] = [m.get("id") for m in profile.get("domain_mechanisms", [])]
             return scenarios
@@ -1280,6 +1295,8 @@ def derive_equation(
     model: str,
     dimension_track: str = "fixed_univariate",
     baseline_mechanisms: list[str] | None = None,
+    baseline_assumptions: list[str] | None = None,
+    scientific_constraints: list[str] | None = None,
     refinement_agenda: list[str] | None = None,
     mechanism_profile: dict | None = None,
     max_retries: int = 3,
@@ -1291,6 +1308,8 @@ def derive_equation(
     evolution_context = (
         f"dimension_track: {dimension_track}\n"
         f"gen0 baseline mechanisms: {', '.join(baseline_mechanisms or []) or '(not recorded)'}\n"
+        f"gen0 baseline assumptions: {'; '.join(baseline_assumptions or []) or '(not recorded)'}\n"
+        f"scientific constraints: {'; '.join(scientific_constraints or []) or '(not recorded)'}\n"
         f"later refinement agenda: {', '.join(refinement_agenda or []) or '(not recorded)'}\n"
         f"taxonomy mechanism profile:\n{mechanism_menu(profile)}\n"
         "Derive gen0 from baseline mechanisms only. Do not pre-include every agenda mechanism."
@@ -1381,6 +1400,8 @@ def _build_combined_xlsx(
             "functional_family": sc.get("functional_family", ""),
             "dimension_track": sc.get("dimension_track", "fixed_univariate"),
             "baseline_mechanisms": "; ".join(sc.get("baseline_mechanisms", [])),
+            "baseline_assumptions": "; ".join(sc.get("baseline_assumptions", [])),
+            "scientific_constraints": "; ".join(sc.get("scientific_constraints", [])),
             "refinement_agenda": "; ".join(sc.get("refinement_agenda", [])),
             "model_family": spec.get("model_family", "static"),
             "scenario_text": sc.get("scenario_text", ""),
@@ -1914,6 +1935,8 @@ def main() -> None:
                     model=equation_model,
                     dimension_track=sc.get("dimension_track", "fixed_univariate"),
                     baseline_mechanisms=sc.get("baseline_mechanisms", []),
+                    baseline_assumptions=sc.get("baseline_assumptions", []),
+                    scientific_constraints=sc.get("scientific_constraints", []),
                     refinement_agenda=sc.get("refinement_agenda", []),
                     mechanism_profile=sc.get("mechanism_profile") or None,
                 )
@@ -1924,6 +1947,8 @@ def main() -> None:
                 eq["model_family"] = spec.get("model_family", "static")
                 eq["dimension_track"] = sc.get("dimension_track", "fixed_univariate")
                 eq["baseline_mechanisms"] = sc.get("baseline_mechanisms", [])
+                eq["baseline_assumptions"] = sc.get("baseline_assumptions", [])
+                eq["scientific_constraints"] = sc.get("scientific_constraints", [])
                 eq["refinement_agenda"] = sc.get("refinement_agenda", [])
                 eq["mechanism_profile"] = sc.get("mechanism_profile", {})
             except Exception as e:

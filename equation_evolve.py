@@ -34,8 +34,9 @@ Usage
         --id m2_classical_mechanics_0_000 \
         --steps 8 --seed 42
 
-    # Bias the coin toward adding terms (70% add, 30% assumption-change):
-    python equation_evolve.py --input eq.jsonl --steps 6 --p-assumption 0.3
+    # Legacy random-operation baseline (70% add, 30% assumption-change):
+    python equation_evolve.py --input eq.jsonl --steps 6 \
+        --operation-policy random --p-assumption 0.3
 """
 
 from __future__ import annotations
@@ -55,6 +56,7 @@ from pydantic import BaseModel, Field
 
 from model_provider import ModelCaller, ModelRequestError, build_model_caller
 from mechanism_ontology import (
+    compatible_embedding_patterns,
     fallback_contract,
     load_taxonomy_profile,
     mechanism_menu,
@@ -126,16 +128,6 @@ class AssumptionAudit(BaseModel):
     parent_reduction: str = ""
 
 
-MechanismClass = Literal[
-    "nonlinear_response",
-    "interaction",
-    "capacity_constraint",
-    "heterogeneity_modulation",
-    "feedback_competition",
-    "regime_crossover",
-]
-
-
 class AddTermAudit(BaseModel):
     """Scientific justification for one ``add_term`` transition.
 
@@ -143,7 +135,10 @@ class AddTermAudit(BaseModel):
     rather than merely describe a more complicated mathematical form.
     """
 
-    mechanism_class: MechanismClass
+    # This is an explanatory free-text category.  It is deliberately not a
+    # closed taxonomy: a new scientific domain should not need a source-code
+    # update merely to name a valid mechanism.
+    mechanism_class: str
     mechanism_claim: str
     parent_reduction: str
     observable_signature: str
@@ -158,6 +153,10 @@ class EvolutionContract(BaseModel):
     structural_role: str
     domain_mechanism_id: str = ""
     domain_mechanism: str
+    scientific_mechanism: str
+    embedding_pattern: str
+    difficulty_rationale: str
+    taxonomy_match: Literal["known", "alias", "provisional"] = "provisional"
     assumption_before: str
     assumption_after: str
     before_fragment: str
@@ -165,6 +164,17 @@ class EvolutionContract(BaseModel):
     parent_reduction: str
     observable_signature: str
     shortcut_blocked: str
+
+
+class MechanismPlan(BaseModel):
+    """First-layer diagnosis made before an equation successor is written."""
+
+    operation: Literal["add_term", "change_assumption"]
+    gap_statement: str
+    baseline_assumption: str
+    scientific_mechanism: str
+    affected_symbols: list[str] = Field(min_length=1)
+    rationale: str
 
 
 class ODEStateEquation(BaseModel):
@@ -281,13 +291,36 @@ The first character of your response must be `{{` and the last must be `}}`.
 Do NOT wrap in markdown fences. Do NOT add any prose before or after the JSON.
 """
 
+_MECHANISM_PLAN_PROMPT = _HEADER + """
+FIRST-LAYER TASK — DIAGNOSE ONE SCIENTIFIC GAP. Do not write a successor
+equation yet.
+
+Read the current equation, variable meanings, scenario, baseline assumptions,
+and scientific constraints. Identify one realistic next refinement.
+
+Choose ``add_term`` only when the parent completely omits a real generative
+process. Choose ``change_assumption`` only when a process already present in
+the parent has an overly idealized mathematical form. Do not choose an
+operation randomly and do not invent a mechanism merely to make the formula
+more difficult.
+
+Return a SINGLE JSON object:
+{{
+  "operation": "add_term | change_assumption",
+  "gap_statement": "<specific scientific omission or idealization>",
+  "baseline_assumption": "<the exact parent assumption to add or relax>",
+  "scientific_mechanism": "<specific scenario-natural process>",
+  "affected_symbols": ["<one or more declared symbols>"],
+  "rationale": "<why this is the next scientifically natural refinement>"
+}}
+The first character must be {{ and the last must be }}. No markdown or prose.
+"""
+
 CHANGE_ASSUMPTION_PROMPT = _HEADER + """
 YOUR TASK — CHANGE AN ASSUMPTION:
-First, REASON ABOUT THIS SPECIFIC SYSTEM. Looking at the phenomenon context and
-the current equation above, identify which simplifying assumption is the most
-physically questionable or restrictive FOR THIS PARTICULAR MODEL — i.e. the
-idealization a domain expert would most want to drop next when moving from a
-textbook treatment toward a realistic description of THIS system.
+The first-layer plan below has already identified the scientific gap and
+selected this operation. Implement that plan; do not substitute an unrelated
+mechanism just because it produces a more complicated formula.
 
 Then pick exactly ONE variable or parameter and RELAX or CHANGE that assumption,
 and RE-DERIVE the governing equation under the new assumption. The change must be
@@ -314,28 +347,20 @@ higher-dimensional. The successor must be a natural next refinement for this
 specific phenomenon.
 
 In evolution_contract, record the precise parent assumption, changed expression
-fragment, recovery limit, observable signature, and why a shortcut that ignores
-the changed mechanism is structurally inadequate. Choose a scope and structural
-role from the supplied mechanism profile.
+fragment, recovery limit, observable signature, why a shortcut that ignores
+the changed mechanism is structurally inadequate, and the required embedding
+pattern. The subfield mechanism menu is advisory, not a whitelist.
 
 """
 
 ADD_TERM_PROMPT = _HEADER + """
 YOUR TASK — ADD A FUNCTION TERM:
-First, identify one missing GENERATIVE PROCESS: a real scientific process that
-the current model omits, but that plausibly produces an observable deviation in
-this specific system. ``add_term`` means adding that process to the governing
-law; it does NOT mean adding an arbitrary nonlinear mathematical decoration.
+The first-layer plan below has already identified one missing GENERATIVE
+PROCESS. ``add_term`` means adding that process to the governing law; it does
+NOT mean adding an arbitrary nonlinear mathematical decoration.
 
-Choose exactly one mechanism class:
-  - nonlinear_response: saturation, threshold, or another non-proportional response;
-  - interaction: two already-present quantities jointly change the outcome;
-  - capacity_constraint: a finite resource, bottleneck, carrying capacity, or floor;
-  - heterogeneity_modulation: an existing coefficient varies across latent regimes;
-  - feedback_competition: a process reinforces, suppresses, or competes with itself;
-  - regime_crossover: a different existing-process balance dominates in another range.
-
-Then ADD exactly ONE function term that implements the selected process. Keep
+Then ADD exactly ONE function term that implements the planned process using
+the required embedding pattern. Keep
 the existing structure and incorporate the new term; do not simplify away what
 is already there. The successor must be richer because the scientific process is
 new, not because a coefficient is tiny or an exponent is cosmetically changed.
@@ -355,8 +380,8 @@ appropriate existing state RHS expression. Set assumption_audit to null.
 
 In evolution_contract, name the affected declared symbols, the exact old/new
 fragments, the parent-recovery limit, and why the parent cannot reproduce the
-new observable signature just by retuning existing coefficients. Choose a scope
-and structural role from the supplied mechanism profile.
+new observable signature just by retuning existing coefficients. Record the
+required embedding pattern. The subfield mechanism menu is advisory only.
 
 """
 
@@ -918,6 +943,95 @@ def _system_block(eq: dict) -> str:
     )
 
 
+def _active_quantity_symbols(eq: dict) -> list[str]:
+    """Declared non-output quantities that can carry an embedding pattern."""
+    roles = _symbol_roles(eq)
+    return [symbol for symbol, role in roles.items() if role in {"V", "S"}]
+
+
+def sample_embedding_pattern(
+    rng: random.Random,
+    current: dict,
+    operation: str,
+    assumption_mode: AssumptionMode = "extended",
+) -> dict:
+    """Draw one compatible, weighted embedding pattern reproducibly."""
+    current = _normalize_base_equation(current)
+    choices = compatible_embedding_patterns(
+        operation=operation,
+        model_family=_model_family(current),
+        active_quantity_count=len(_active_quantity_symbols(current)),
+        assumption_mode=assumption_mode,
+    )
+    weights = [max(1, int(choice.get("weight", 1))) for choice in choices]
+    return dict(rng.choices(choices, weights=weights, k=1)[0])
+
+
+def plan_evolution_step(
+    caller: ModelCaller,
+    current: dict,
+    discipline: str,
+    scenario_text: str,
+    model: str,
+    strip_fence,
+    *,
+    baseline_mechanisms: list[str] | None = None,
+    baseline_assumptions: list[str] | None = None,
+    scientific_constraints: list[str] | None = None,
+    prior_mechanisms: list[str] | None = None,
+    max_retries: int = 3,
+) -> dict:
+    """Let the LLM choose an operation by diagnosing the current model gap."""
+    current = _normalize_base_equation(current)
+    declared = set(current.get("symbols", []))
+    prompt = _MECHANISM_PLAN_PROMPT.format(
+        discipline=discipline,
+        scenario_text=scenario_text or "(no scenario text recorded)",
+        target_symbol=current.get("target_symbol", "y"),
+        expression=current.get("expression", ""),
+        symbol_table=_symbol_table(current),
+        model_family=_model_family(current),
+        equation_type=current.get("equation_type"),
+        system_block=_system_block(current),
+    )
+    prompt += (
+        "\nRECORDED BASELINE MECHANISMS: "
+        + (", ".join(baseline_mechanisms or []) or "(not recorded)")
+        + "\nRECORDED BASELINE ASSUMPTIONS: "
+        + ("; ".join(baseline_assumptions or []) or "(infer cautiously from the equation and scenario)")
+        + "\nSCIENTIFIC CONSTRAINTS: "
+        + ("; ".join(scientific_constraints or []) or "(use stated variable meanings and standard domain constraints)")
+        + "\nMECHANISMS ALREADY USED IN THIS LINEAGE: "
+        + ("; ".join(prior_mechanisms or []) or "(none)")
+        + "\nThe affected_symbols must be existing declared V or S quantities; do not name parameters or the output.\n"
+    )
+    last_err: Exception | None = None
+    for attempt in range(max_retries + 1):
+        try:
+            raw = caller.complete(prompt, model=model, max_tokens=1400)
+            if not raw.strip():
+                raise ValueError("empty evolution-plan response")
+            plan = MechanismPlan.model_validate(json.loads(strip_fence(raw))).model_dump()
+            invalid = [symbol for symbol in plan["affected_symbols"] if symbol not in declared]
+            active = set(_active_quantity_symbols(current))
+            inactive = [symbol for symbol in plan["affected_symbols"] if symbol not in active]
+            if invalid:
+                raise ValueError("evolution plan uses undeclared symbols: " + ", ".join(invalid))
+            if inactive:
+                raise ValueError("evolution plan affected_symbols must be declared V/S quantities: " + ", ".join(inactive))
+            return plan
+        except (ModelRequestError, json.JSONDecodeError, ValueError) as exc:
+            last_err = exc
+            if attempt < max_retries:
+                prompt += (
+                    "\nPREVIOUS PLAN FAILED: " + f"{type(exc).__name__}: {exc}. "
+                    "Return corrected JSON using declared active quantities only.\n"
+                )
+                continue
+            raise
+    raise last_err  # pragma: no cover
+
+
 def _output_schema_values(
     current: dict,
     operation: str,
@@ -926,7 +1040,7 @@ def _output_schema_values(
     if operation == "add_term":
         audit_schema = "null"
         add_term_audit_schema = """{
-    "mechanism_class": "nonlinear_response | interaction | capacity_constraint | heterogeneity_modulation | feedback_competition | regime_crossover",
+    "mechanism_class": "<short free-text scientific mechanism category>",
     "mechanism_claim": "<specific causal process missing from the parent>",
     "parent_reduction": "<limit in which the new process vanishes or is negligible>",
     "observable_signature": "<qualitative data pattern distinguishing child from parent>"
@@ -947,8 +1061,12 @@ def _output_schema_values(
     "scope_kind": "unary | pairwise | multiway | state_coupling | time_forcing | memory",
     "scope_symbols": ["<declared symbol>"],
     "structural_role": "contribution | response_law | modulation | interaction | constraint | transition | feedback | heterogeneity | timescale | transport_balance",
-    "domain_mechanism_id": "<id from the mechanism menu>",
+    "domain_mechanism_id": "<optional taxonomy id, or empty string>",
     "domain_mechanism": "<specific scientific process>",
+    "scientific_mechanism": "<must match the first-layer plan>",
+    "embedding_pattern": "<must match the required pattern id>",
+    "difficulty_rationale": "<why this embedding is structurally harder than a coefficient-only correction>",
+    "taxonomy_match": "known | alias | provisional",
     "assumption_before": "<parent assumption>",
     "assumption_after": "<child mechanism or relaxed assumption>",
     "before_fragment": "<exact parent fragment>",
@@ -1035,6 +1153,8 @@ def evolve_once(
     max_ode_states: int,
     dimension_track: str | None = None,
     mechanism_profile: dict | None = None,
+    evolution_plan: dict | None = None,
+    embedding_pattern: dict | None = None,
     max_retries: int = 3,
     difficulty_feedback: str | None = None,
 ) -> dict:
@@ -1043,6 +1163,16 @@ def evolve_once(
     mechanism_profile = mechanism_profile or load_taxonomy_profile(
         discipline, current.get("subfield")
     )
+    if evolution_plan is not None:
+        evolution_plan = MechanismPlan.model_validate(evolution_plan).model_dump()
+        if evolution_plan["operation"] != operation:
+            raise EvolvedEquationValidationError(
+                "evolution_plan.operation must match the requested operation"
+            )
+    if embedding_pattern is not None:
+        embedding_pattern = dict(embedding_pattern)
+        if not embedding_pattern.get("id"):
+            raise EvolvedEquationValidationError("embedding_pattern requires an id")
     task_prompt = (
         CHANGE_ASSUMPTION_PROMPT
         if operation == "change_assumption"
@@ -1084,6 +1214,19 @@ def evolve_once(
                 "only change_assumption may promote one scientifically fixed condition; "
                 "multiway: retain the declared multi-variable scientific structure.\n"
             )
+            if evolution_plan is not None:
+                prompt += (
+                    "\nFIRST-LAYER EVOLUTION PLAN (must implement exactly one planned mechanism):\n"
+                    + json.dumps(evolution_plan, ensure_ascii=False, indent=2)
+                )
+            if embedding_pattern is not None:
+                prompt += (
+                    "\nREQUIRED EMBEDDING PATTERN (chosen randomly but reproducibly by the pipeline):\n"
+                    + json.dumps(embedding_pattern, ensure_ascii=False, indent=2)
+                    + "\nThe child must use this exact embedding_pattern id. Use at least the number "
+                    "of declared active quantities required by the pattern where applicable. Do not quietly "
+                    "substitute a different pattern.\n"
+                )
             if operation == "change_assumption":
                 prompt += "\nASSUMPTION MODE: " + assumption_mode_note + "\n"
             if difficulty_feedback:
@@ -1118,6 +1261,17 @@ def evolve_once(
                 mechanism_profile=mechanism_profile,
                 dimension_track=dimension_track,
             )
+            contract = normalized.get("evolution_contract") or {}
+            if evolution_plan is not None:
+                if contract.get("scientific_mechanism", "").strip() != evolution_plan["scientific_mechanism"].strip():
+                    raise EvolvedEquationValidationError(
+                        "evolution_contract.scientific_mechanism must match the first-layer plan"
+                    )
+            if embedding_pattern is not None:
+                if contract.get("embedding_pattern") != embedding_pattern["id"]:
+                    raise EvolvedEquationValidationError(
+                        "evolution_contract.embedding_pattern must match the selected pattern"
+                    )
             if dimension_track == "fixed_univariate":
                 current_v = {s for s, role in _symbol_roles(current).items() if role == "V"}
                 child_v = {s for s, role in _symbol_roles(normalized).items() if role == "V"}
@@ -1127,6 +1281,10 @@ def evolve_once(
                     )
             normalized["dimension_track"] = dimension_track
             normalized["mechanism_profile"] = mechanism_profile
+            if evolution_plan is not None:
+                normalized["evolution_plan"] = evolution_plan
+            if embedding_pattern is not None:
+                normalized["selected_embedding_pattern"] = embedding_pattern
             if changes:
                 print("      normalized symbol roles: " + "; ".join(changes),
                       file=sys.stderr, flush=True)
@@ -1172,6 +1330,10 @@ def _record(eq: dict, base_id: str, generation: int, operation: str,
         ) or (fallback_contract(eq, operation) if operation != "base" else None),
         "dimension_track": eq.get("dimension_track", eq.get("dimension_class", "fixed_univariate")),
         "mechanism_profile": eq.get("mechanism_profile", {}),
+        "evolution_plan": eq.get("evolution_plan") if operation != "base" else None,
+        "selected_embedding_pattern": (
+            eq.get("selected_embedding_pattern") if operation != "base" else None
+        ),
         "ode_system": eq.get("ode_system"),
         "scenario_text": scenario_text,
     }
@@ -1308,6 +1470,11 @@ def _build_lineage_xlsx(out_path: Path, lineage: list[dict]) -> None:
             "dimension_track": rec.get("dimension_track", ""),
             "evolution_contract": json.dumps(rec.get("evolution_contract"), ensure_ascii=False),
             "mechanism_profile": json.dumps(rec.get("mechanism_profile"), ensure_ascii=False),
+            "evolution_plan": json.dumps(rec.get("evolution_plan"), ensure_ascii=False),
+            "selected_embedding_pattern": json.dumps(rec.get("selected_embedding_pattern"), ensure_ascii=False),
+            "scientific_mechanism": (rec.get("evolution_contract") or {}).get("scientific_mechanism", ""),
+            "embedding_pattern": (rec.get("evolution_contract") or {}).get("embedding_pattern", ""),
+            "difficulty_rationale": (rec.get("evolution_contract") or {}).get("difficulty_rationale", ""),
             "new_symbol_range_suggestions": json.dumps(
                 rec.get("new_symbol_range_suggestions", {}),
                 ensure_ascii=False,
@@ -1348,9 +1515,13 @@ def main() -> None:
                    help="hard cap on evolution steps when novelty gating keeps "
                         "requesting more (default: --steps + 10). Ignored when "
                         "novelty checking is off.")
+    p.add_argument("--operation-policy", choices=["guided", "random"], default="guided",
+                   help="guided: diagnose a scientific gap before selecting an operation; "
+                        "random: retain the legacy coin flip")
+    p.add_argument("--embedding-policy", choices=["random"], default="random",
+                   help="embedding-pattern selection policy (currently weighted random)")
     p.add_argument("--p-assumption", type=float, default=0.5,
-                   help="probability of the 'change assumption' branch each step "
-                        "(the rest go to 'add term')")
+                   help="legacy random-policy probability of change_assumption (ignored by guided)")
     p.add_argument("--assumption-mode", choices=["core", "extended"], default="extended",
                    help="core permits only non-dimensional assumption refinements; "
                         "extended also permits condition promotion and state augmentation")
@@ -1370,7 +1541,7 @@ def main() -> None:
                    default="auto",
                    help="auto prefers ANTHROPIC_API_KEY then ANTHROPIC_AUTH_TOKEN")
     p.add_argument("--seed", type=int, default=0,
-                   help="seed for the per-step coin flips (reproducible)")
+                   help="seed for reproducible embedding draws and legacy random operations")
     p.add_argument("--output-dir", default=None,
                    help="output dir (default: outputs/Evolved_Equations)")
     p.add_argument("--novelty-check", dest="novelty_check", action="store_true",
@@ -1443,7 +1614,8 @@ def main() -> None:
     print("=" * 60, file=sys.stderr)
     print(f"Evolving equation  base_id={base_id}", file=sys.stderr)
     print(f"  discipline={discipline}  min_steps={args.steps}  "
-          f"p(assumption)={args.p_assumption}  seed={args.seed}", file=sys.stderr)
+          f"operation_policy={args.operation_policy}  embedding_policy={args.embedding_policy}  "
+          f"seed={args.seed}", file=sys.stderr)
     print(f"  assumptions={args.assumption_mode}  static_inputs<={args.max_static_input_dim}  "
           f"ode_states<={args.max_ode_state_dim}", file=sys.stderr)
     print(f"  provider={args.provider}", file=sys.stderr)
@@ -1483,8 +1655,27 @@ def main() -> None:
                 stop_reason = f"hit max-steps ({max_steps}) without a 'Yes' verdict"
             break
 
-        operation = "change_assumption" if rng.random() < args.p_assumption else "add_term"
-        print(f"\n[gen {step}] operation = {operation}", file=sys.stderr, flush=True)
+        plan = None
+        if args.operation_policy == "guided":
+            prior_mechanisms = [
+                str((item.get("evolution_contract") or {}).get("scientific_mechanism", ""))
+                for item in lineage[1:]
+            ]
+            plan = plan_evolution_step(
+                caller=caller, current=current, discipline=discipline,
+                scenario_text=scenario_text, model=args.model,
+                strip_fence=_strip_code_fence,
+                baseline_mechanisms=base.get("baseline_mechanisms", []),
+                baseline_assumptions=base.get("baseline_assumptions", []),
+                scientific_constraints=base.get("scientific_constraints", []),
+                prior_mechanisms=prior_mechanisms,
+            )
+            operation = plan["operation"]
+        else:
+            operation = "change_assumption" if rng.random() < args.p_assumption else "add_term"
+        embedding = sample_embedding_pattern(rng, current, operation, args.assumption_mode)
+        print(f"\n[gen {step}] operation = {operation}; embedding = {embedding['id']}",
+              file=sys.stderr, flush=True)
         try:
             evolved = evolve_once(
                 caller=caller,
@@ -1497,6 +1688,8 @@ def main() -> None:
                 assumption_mode=args.assumption_mode,
                 max_static_inputs=args.max_static_input_dim,
                 max_ode_states=args.max_ode_state_dim,
+                evolution_plan=plan,
+                embedding_pattern=embedding,
             )
         except Exception as e:
             print(f"    FAILED at gen {step}: {type(e).__name__}: {e}\n"
