@@ -1,0 +1,75 @@
+# Discovering the law relating `H_c` to `R0`
+
+## Problem
+Predict the critical immune fraction (herd immunity threshold) `H_c` as an
+explicit, instantaneous algebraic function of the basic reproduction number
+`R0`, using the dataset `/app/data/train_data.csv` (4500 rows,
+`R0 ∈ [1.05, 8.0]`).
+
+## Discovered formula
+
+$$
+H_c \;=\; \frac{a\,\ln R_0 + b}{\,R_0 + c\,\sqrt{R_0} + d\,}
+$$
+
+with the fitted constants
+
+| constant | value |
+|----------|-------|
+| `a` |  2.1193976787 |
+| `b` |  0.5010329161 |
+| `c` |  4.0388393954 |
+| `d` | -1.1493858221 |
+
+The denominator is a quadratic in `√R0` and stays strictly positive over the
+whole observed range (its value at `R0 = 1.05` is ≈ 4.04 and it grows
+monotonically), so the expression is smooth and singularity-free on the domain.
+
+## Why this form
+
+### Shape of the data
+The clean target column `H_c` is extremely smooth (second finite differences
+~5×10⁻⁹, i.e. essentially noise-free). It is **non-monotonic**:
+
+* `H_c(1.05) ≈ 0.150`,
+* rises to a maximum `H_c ≈ 0.320` near `R0 ≈ 3.08`,
+* then decays slowly (`H_c(8.0) ≈ 0.269`).
+
+This "hump" rules out the textbook monotone threshold `1 − 1/R0` and any pure
+power/log law — the function must both grow (a logarithmic numerator) and be
+damped at large `R0` (a super-linear denominator).
+
+### Search methodology
+1. **Baselines.** The classic `1 − 1/R0` and simple power/log fits leave
+   residuals of order 10⁻¹–10⁻² and cannot reproduce the peak.
+2. **Variable identification.** Linear-basis fits showed the function is
+   analytic in `u = 1/√R0` (a series in `u` converges far faster than in `1/R0`
+   or `R0`), and that a `ln R0` factor is needed as well. In other words the
+   generator has the structure `H_c = ln(R0)·g(1/√R0) + h(1/√R0)`.
+3. **Compact closed form.** Guided by that structure, a logarithm over a
+   quadratic in `√R0`,
+   `(a ln R0 + b)/(R0 + c√R0 + d)`, was fit by non-linear least squares
+   (`scipy.optimize.curve_fit`). It captures the full curve — rise, peak and
+   decay — with only four parameters.
+
+### Interpretation
+* The numerator `a ln R0 + b` encodes the increasing "immunity demand" as
+  transmissibility grows (logarithmic in `R0`).
+* The denominator `R0 + c√R0 + d` provides a saturating/decaying damping that
+  turns the curve over past the peak, producing the observed hump.
+* Setting `dH_c/dR0 = 0` locates the maximum at `R0 ≈ 3.08`, matching the data.
+
+## Accuracy (training set)
+
+| metric | value |
+|--------|-------|
+| max absolute error | 5.1×10⁻⁵ |
+| max relative error | 1.9×10⁻⁴ |
+| RMSE | 2.1×10⁻⁵ |
+| R² | 0.9999994 |
+
+## Implementation
+`/app/law.py` implements the formula in `law(input_data)`. It reads `R0` from
+the single supplied row, evaluates the closed-form expression with the fitted
+constants, and returns `[{"H_c": prediction}]`. It uses only `R0` and fixed
+constants — no data reads, no state between calls, no lookup/interpolation.

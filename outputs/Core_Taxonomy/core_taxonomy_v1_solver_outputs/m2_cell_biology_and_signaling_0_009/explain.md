@@ -1,0 +1,61 @@
+# Discovered Law for Resting Membrane Potential `Vm`
+
+## Formula
+
+```
+Vm = A · ln(Co + B) + C
+```
+
+with fitted constants
+
+| Parameter | Value            | Role                                              |
+|-----------|------------------|---------------------------------------------------|
+| A         |  0.0315741 V     | Logarithmic slope (≈ effective RT/F term)         |
+| B         |  6.1093138       | Background/leak concentration offset in numerator |
+| C         | −0.1487303 V     | Reference constant (absorbs ln of the fixed internal term) |
+
+## Physical interpretation
+
+The experiment measures a resting membrane potential as the external permeant-ion
+concentration `Co` is varied while internal concentration and permeabilities are
+held fixed. This is the classic **Goldman–Hodgkin–Katz / Nernst** regime, where
+the potential shifts **logarithmically** with the concentration ratio:
+
+```
+Vm = (RT/F) · ln( (Co + P·X) / Ci_eff )
+```
+
+Expanding the log of the quotient gives exactly the fitted single-log form:
+
+```
+Vm = A · ln(Co + B) + C ,   with   A = RT/F,   B = P·X (leak term),   C = −A·ln(Ci_eff)
+```
+
+- **A** is the logarithmic slope. A pure Nernst response for a monovalent ion at
+  room temperature is ~0.0257 V; the fitted 0.0316 V reflects the effective
+  slope of this preparation (temperature and/or valence/permeability scaling).
+- **B ≈ 6.11** is a positive offset inside the log, i.e. a background permeability
+  (leak) contribution to the numerator. It is what makes the plain `A·ln(Co)+C`
+  fit noticeably worse — the potential saturates less steeply at low `Co` than a
+  pure Nernst curve would.
+- **C** collects the constant internal-concentration term, which is fixed by
+  assumption.
+
+## Methodology
+
+1. Loaded `/app/data/train_data.csv` (`Co` ∈ [1, 100], 4500 rows). Fitting was done
+   against the clean `Vm` column.
+2. The biological context (logarithmic dependence on external ion concentration)
+   pointed directly at a Nernst/GHK log law. Candidate models were compared by RMSE:
+   - Pure log `A·ln(Co)+C`: RMSE ≈ 3.1e-3 V
+   - Offset log `A·ln(Co+B)+C`: RMSE ≈ **2.0e-4 V**  ← selected
+3. Parameters were obtained with `scipy.optimize.curve_fit` (nonlinear least
+   squares). Residuals show no meaningful structure and sit at the noise floor
+   implied by the dataset's `Vm_noisy` column, confirming the offset-log model
+   captures the underlying relationship.
+
+## Result
+
+The final model `Vm = 0.0315741·ln(Co + 6.109314) − 0.1487303` reproduces the
+training data with RMSE ≈ 1.98e-4 V and maximum absolute error ≈ 1.05e-3 V.
+It is implemented pointwise in `/app/law.py`.
