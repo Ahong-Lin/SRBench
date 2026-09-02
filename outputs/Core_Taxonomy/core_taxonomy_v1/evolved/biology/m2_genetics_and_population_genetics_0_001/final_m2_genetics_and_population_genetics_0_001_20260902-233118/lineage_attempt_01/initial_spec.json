@@ -1,0 +1,228 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "H",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        300.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "two_Ne0",
+      "value": 50.0
+    },
+    {
+      "symbol": "Ne_ratio",
+      "value": 2.0
+    },
+    {
+      "symbol": "t_half",
+      "value": 100.0
+    },
+    {
+      "symbol": "two_mu",
+      "value": 0.001
+    },
+    {
+      "symbol": "osc_amp",
+      "value": 0.2
+    },
+    {
+      "symbol": "period",
+      "value": 50.0
+    },
+    {
+      "symbol": "pi",
+      "value": 3.141592653589793
+    },
+    {
+      "symbol": "mig_rate",
+      "value": 0.005
+    },
+    {
+      "symbol": "H_source",
+      "value": 0.6
+    },
+    {
+      "symbol": "inbreed_coupling",
+      "value": 0.5
+    },
+    {
+      "symbol": "H_start",
+      "value": 0.35
+    }
+  ],
+  "benchmark_output": "dH_dt",
+  "benchmark_target_state": "H",
+  "observed_variables": [
+    "t",
+    "H"
+  ],
+  "rhs_for_integrator": "-H * (1 + inbreed_coupling * (1 - H / H_start)) / (two_Ne0 * (1 + (Ne_ratio - 1) * (t / (t + t_half))) * (1 + osc_amp * sin(2 * pi * t / period))) + two_mu * (1 - H) + mig_rate * (H_source - H)",
+  "state_variables": [
+    "H"
+  ],
+  "state_rhs": [
+    "-H * (1 + inbreed_coupling * (1 - H / H_start)) / (two_Ne0 * (1 + (Ne_ratio - 1) * (t / (t + t_half))) * (1 + osc_amp * sin(2 * pi * t / period))) + two_mu * (1 - H) + mig_rate * (H_source - H)"
+  ],
+  "initial_conditions": {
+    "H": 0.35
+  },
+  "noise": 0.0003,
+  "sanity_expectations": [
+    "H(0) = 0.35",
+    "H stays strictly within (0, 1) for all sampled t",
+    "H declines overall across the window as drift dominates mutation+migration inflow",
+    "small periodic ripples of period ~50 generations are superimposed on the decay (from osc_amp modulation of Ne)",
+    "dH_dt is negative for most of the window and finite/real everywhere",
+    "the inbreeding coefficient F = 1 - H/H_start grows from 0 toward positive values as H drops below H_start"
+  ],
+  "excitation_ok": true,
+  "excitation_report": "Noise yardstick sigma=0.0003 (abs, on dH_dt). ODE-mode excitation_check compared the full child vs parent systems on the H trajectory over t in [0,300]. NEW term (inbreeding-coupling enhancement of drift loss, inbreed_coupling*(1-H/H_start)): peak trajectory effect 0.0292 = 97.5x sigma, strongest at t≈247.8, well above the 5x threshold — clearly visible. Dominant drift term (-H/(two_Ne0*...)) sets dH_dt≈-0.005 initially (≈17x sigma); migration term mig_rate*(H_source-H)≈0.00125 (≈4x sigma) and mutation term two_mu*(1-H)≈0.00065 both contribute to the balance. Drift dominates so H declines below H_start, making F=1-H/H_start grow and exciting the new term.",
+  "role_corrections": [
+    "dH_dt: output->output (confirmed: target derivative of the single state H)",
+    "t: time-axis->independent variable (confirmed: only differentiation axis, gets sampling range)",
+    "H: dynamic state->dependent state variable (confirmed; IC H(0)=0.35 per contract)",
+    "two_Ne0: P->P (confirmed, fixed=50 -> Ne0=25, strong drift so decay is visible)",
+    "Ne_ratio: P->P (confirmed, fixed=2.0 growth)",
+    "t_half: P->P (confirmed, fixed=100 generations)",
+    "two_mu: P->P (confirmed, fixed=0.001)",
+    "osc_amp: P->P (confirmed, fixed=0.2)",
+    "period: P->P (confirmed, fixed=50 generations)",
+    "pi: P->P (confirmed, fixed to math constant 3.141592653589793)",
+    "mig_rate: P->P (confirmed, fixed=0.005)",
+    "H_source: P->P (confirmed, fixed=0.6)",
+    "inbreed_coupling: P->P (confirmed, fixed=0.5, within suggested 0..1; drives the NEW term)",
+    "H_start: P->P (confirmed, fixed=0.35=H(0) within suggested 0.05..1.0, so F=0 at t=0 and grows as H decays)"
+  ],
+  "rationale": "Typed ODE contract inherited verbatim (state H, RHS, IC H(0)=0.35). Roles confirmed against analyze_expression: no derivatives/integrals in the RHS string, no ungoverned functions, free symbols = {H, t} + 11 parameters, so t is the sole sampling axis and the other 11 symbols are fixed constants. Parameter magnitudes chosen for population genetics: small effective size (two_Ne0=50) gives a ~50-generation drift timescale so heterozygosity visibly decays over t in [0,300]; moderate growth (Ne_ratio=2, t_half=100), seasonal Ne oscillation (osc_amp=0.2, period=50), weak mutation (two_mu=1e-3) and migration (mig_rate=5e-3, H_source=0.6) keep the balance drift-dominated so H falls below H_start and the NEW inbreeding-coupling term (inbreed_coupling=0.5, H_start=0.35) becomes strongly excited (97.5x sigma). check_substitution confirmed a finite real RHS; excitation_check(is_ode=true) confirmed the new mechanism is visible in one pass.",
+  "_trace": [
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "-H * (1 + inbreed_coupling * (1 - H / H_start)) / (two_Ne0 * (1 + (Ne_ratio - 1) * (t / (t + t_half))) * (1 + osc_amp * sin(2 * pi * t / period))) + two_mu * (1 - H) + mig_rate * (H_source - H)",
+        "target_symbol": "H"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "H",
+          "H_source",
+          "H_start",
+          "Ne_ratio",
+          "inbreed_coupling",
+          "mig_rate",
+          "osc_amp",
+          "period",
+          "t",
+          "t_half",
+          "two_Ne0",
+          "two_mu"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": false,
+        "explicit_solution_preview": null,
+        "classification_hint": "implicit_or_explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "-H * (1 + inbreed_coupling * (1 - H / H_start)) / (two_Ne0 * (1 + (Ne_ratio - 1) * (t / (t + t_half))) * (1 + osc_amp * sin(2 * pi * t / period))) + two_mu * (1 - H) + mig_rate * (H_source - H)",
+        "assignments": {
+          "two_Ne0": 50,
+          "Ne_ratio": 2,
+          "t_half": 100,
+          "two_mu": 0.001,
+          "osc_amp": 0.2,
+          "period": 50,
+          "pi": 3.141592653589793,
+          "mig_rate": 0.005,
+          "H_source": 0.6,
+          "inbreed_coupling": 0.5,
+          "H_start": 0.35,
+          "H": 0.3,
+          "t": 10
+        },
+        "target_symbol": "H"
+      },
+      "result": {
+        "ok": true,
+        "value_real": -0.002751101646171021,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "excitation_check",
+      "input": {
+        "assignments": {
+          "two_Ne0": 50,
+          "Ne_ratio": 2,
+          "t_half": 100,
+          "two_mu": 0.001,
+          "osc_amp": 0.2,
+          "period": 50,
+          "pi": 3.141592653589793,
+          "mig_rate": 0.005,
+          "H_source": 0.6,
+          "inbreed_coupling": 0.5,
+          "H_start": 0.35
+        },
+        "indep": [
+          {
+            "symbol": "t",
+            "range": [
+              0,
+              300
+            ],
+            "n_points": 300
+          }
+        ],
+        "sigma": 0.0003,
+        "is_ode": true
+      },
+      "result": {
+        "ok": true,
+        "mode": "ode_system",
+        "comparison": "full_child_parent_systems",
+        "target_state": "H",
+        "child_state_count": 1,
+        "parent_state_count": 1,
+        "n_time_points": 300,
+        "new_term_max_effect": 0.02924652286252924,
+        "new_term_sigma_multiple": 97.48840954176414,
+        "strongest_at": {
+          "t": 247.82608695652175
+        },
+        "k": 5.0,
+        "passes": true,
+        "advice": "new mechanism is visible on the target trajectory"
+      }
+    }
+  ],
+  "_cost_usd": 0.39906825,
+  "_num_turns": 5,
+  "discipline": "biology",
+  "scenario_text": "In a finite population the frequency of a neutral allele fluctuates purely due to random sampling of gametes each generation. Across many independent replicate populations, the variance in allele frequency grows over generations until fixation or loss dominates. We consider the expected heterozygosity, a measure of remaining genetic diversity, as it declines over time. The target is how expected heterozygosity decays across generations in a population of fixed size.",
+  "record_id": "m2_genetics_and_population_genetics_0_001",
+  "generation": 5,
+  "_n_total": 4500
+}
