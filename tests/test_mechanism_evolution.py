@@ -4,11 +4,11 @@ import unittest
 from pathlib import Path
 import tempfile
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-import equation_evolve as evolve
-from mechanism_ontology import load_taxonomy_profile, validate_contract_fields
-from quality.observable_gate import assess_observable_variation
+from srbench.generation import evolution as evolve
+from srbench.generation.ontology import load_taxonomy_profile, validate_contract_fields
+from srbench.generation.observable import assess_observable_variation
 
 
 def _profile():
@@ -72,7 +72,7 @@ class MechanismEvolutionTests(unittest.TestCase):
             validate_contract_fields(bad, profile, {"y", "x", "a", "b"})
 
 
-  def test_add_term_cannot_add_a_v_input(self):
+  def test_add_term_can_add_a_scientifically_planned_input(self):
     child = _current() | {
         "expression": "a*x + b*z", "symbols": ["y", "x", "a", "b", "z"],
         "symbol_descriptions": ["output", "input", "coefficient", "coefficient", "new input"],
@@ -81,13 +81,16 @@ class MechanismEvolutionTests(unittest.TestCase):
         "assumption_audit": None, "add_term_audit": {
             "mechanism_class": "interaction", "mechanism_claim": "new interaction",
             "parent_reduction": "b -> 0", "observable_signature": "interaction curvature",
-        }, "evolution_contract": _contract() | {"after_fragment": "a*x + b*z"},
+        }, "evolution_contract": _contract() | {
+            "after_fragment": "a*x + b*z", "freedom_change": "add_input",
+            "promotion_reason": "the missing process depends on an independently controlled condition",
+        },
     }
-    with self.assertRaisesRegex(evolve.EvolvedEquationValidationError, "V inputs"):
-        evolve._normalize_and_validate_evolved(
-            _current(), child, "add_term", "extended", 4, 4,
-            mechanism_profile=_profile(),
-        )
+    result, _ = evolve._normalize_and_validate_evolved(
+        _current(), child, "add_term", "extended", 4, 4,
+        mechanism_profile=_profile(),
+    )
+    self.assertEqual([v["symbol"] for v in evolve._split_roles(result)["independent_variables"]], ["x", "z"])
 
 
   def test_fixed_univariate_rejects_condition_promotion(self):
@@ -117,7 +120,8 @@ class MechanismEvolutionTests(unittest.TestCase):
   def test_legacy_record_can_be_recorded_without_contract(self):
     rec = evolve._record(_current(), "demo", 0, "base", "demo scenario")
     self.assertIsNone(rec["evolution_contract"])
-    self.assertEqual(rec["dimension_track"], "fixed_univariate")
+    self.assertIsNone(rec["dimension_track"])
+    self.assertEqual(rec["freedom_change"], "none")
 
   def test_contract_fragments_must_match_parent_and_child(self):
     child = _current() | {
@@ -145,7 +149,7 @@ class MechanismEvolutionTests(unittest.TestCase):
       )
       self.assertTrue(report["accepted"])
 
-  def test_observable_gate_rejects_terminally_converged_ode(self):
+  def test_observable_gate_reports_but_accepts_terminally_converged_ode(self):
     with tempfile.TemporaryDirectory() as tmp:
       path = Path(tmp) / "ode.csv"
       rows = ["t,y"]
@@ -155,8 +159,8 @@ class MechanismEvolutionTests(unittest.TestCase):
           {"integrator": "integrate_ode", "benchmark_output": "y"}, [path],
           terminal_window_fraction=0.2,
       )
-      self.assertFalse(report["accepted"])
-      self.assertIn("numerical_terminal_convergence", report["reasons"])
+      self.assertTrue(report["accepted"])
+      self.assertEqual(report["reasons"], [])
       convergence = report["ode_convergence"][0]
       self.assertLess(convergence["r1_terminal_range_ratio"], 0.02)
       self.assertLess(convergence["r2_terminal_median_shift_ratio"], 0.02)
