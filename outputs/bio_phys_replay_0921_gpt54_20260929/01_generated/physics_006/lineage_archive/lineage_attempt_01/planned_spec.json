@@ -1,0 +1,231 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "V_C",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        2.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "resistance",
+      "value": 50.0
+    },
+    {
+      "symbol": "capacitance",
+      "value": 0.01
+    },
+    {
+      "symbol": "temp_coeff",
+      "value": 0.004
+    },
+    {
+      "symbol": "cap_temp_coeff",
+      "value": 0.0005
+    },
+    {
+      "symbol": "thermal_capacitance",
+      "value": 0.2
+    },
+    {
+      "symbol": "thermal_resistance",
+      "value": 8.0
+    },
+    {
+      "symbol": "T_ref",
+      "value": 300.0
+    },
+    {
+      "symbol": "T_ambient",
+      "value": 300.0
+    },
+    {
+      "symbol": "resistance_temp_quadratic_coeff",
+      "value": 1e-06
+    },
+    {
+      "symbol": "cap_thermal_capacitance",
+      "value": 1.5
+    },
+    {
+      "symbol": "cap_thermal_resistance",
+      "value": 20.0
+    },
+    {
+      "symbol": "resistor_to_cap_thermal_resistance",
+      "value": 6.0
+    },
+    {
+      "symbol": "cap_voltage_coeff",
+      "value": 0.002
+    }
+  ],
+  "benchmark_output": "dV_C_dt",
+  "benchmark_target_state": "V_C",
+  "observed_variables": [
+    "t",
+    "V_C",
+    "T_R",
+    "T_C"
+  ],
+  "rhs_for_integrator": "-V_C/(capacitance*(1 + cap_temp_coeff*(T_C - T_ref))*(1 + cap_voltage_coeff*V_C**2)*resistance*(1 + temp_coeff*(T_R - T_ref) + resistance_temp_quadratic_coeff*(T_R - T_ref)**2))",
+  "state_variables": [
+    "V_C",
+    "T_R",
+    "T_C"
+  ],
+  "state_rhs": [
+    "-V_C/(capacitance*(1 + cap_temp_coeff*(T_C - T_ref))*(1 + cap_voltage_coeff*V_C**2)*resistance*(1 + temp_coeff*(T_R - T_ref) + resistance_temp_quadratic_coeff*(T_R - T_ref)**2))",
+    "(V_C**2/(resistance*(1 + temp_coeff*(T_R - T_ref) + resistance_temp_quadratic_coeff*(T_R - T_ref)**2)) - (T_R - T_ambient)/thermal_resistance - (T_R - T_C)/resistor_to_cap_thermal_resistance)/thermal_capacitance",
+    "((T_R - T_C)/resistor_to_cap_thermal_resistance - (T_C - T_ambient)/cap_thermal_resistance)/cap_thermal_capacitance"
+  ],
+  "initial_conditions": {
+    "V_C": 12.0,
+    "T_R": 300.0,
+    "T_C": 300.0
+  },
+  "sanity_expectations": [
+    "V_C(t) should remain nonnegative and decrease monotonically from 12 V over the sampled window because the RHS for dV_C_dt is negative for positive V_C with all chosen denominator factors positive.",
+    "The normalized decay rate -dV_C_dt/V_C should not stay constant in time: it should vary due to both thermal feedback and the explicit factor 1 + cap_voltage_coeff*V_C^2, giving noticeable semilog curvature rather than a perfect exponential.",
+    "T_R should initially rise above 300 K because Joule heating starts at about 2.88 W, then its heating rate should weaken as V_C falls.",
+    "T_C should warm more slowly than T_R and generally lag it, so there should be periods where T_R > T_C > T_ambient rather than instantaneous thermal tracking.",
+    "Because resistance has positive temperature coefficients, resistor self-heating should tend to reduce the magnitude of the discharge rate relative to an isothermal RC with the same instantaneous V_C and T_C.",
+    "The quadratic resistance term should remain a mild correction over the realized temperature excursion, bending the T_R dependence slightly rather than dominating it.",
+    "The voltage-dependent capacitance factor should be largest near the start of discharge and relax toward 1 as V_C decays, so the normalized slope magnitude should generally increase as voltage falls if thermal changes are not overpowering at that moment."
+  ],
+  "role_corrections": [
+    "dV_C_dt: claimed-output/target derivative -> target derivative expression within ode_system contract (confirmed)",
+    "t: claimed-input/time axis -> independent variable/time axis (confirmed)",
+    "V_C: claimed-dynamic state -> dependent variable and state variable (confirmed)",
+    "T_R: claimed-dynamic state -> state variable (confirmed)",
+    "T_C: claimed-dynamic state -> state variable (confirmed)",
+    "resistance: claimed-parameter -> parameter (confirmed)",
+    "capacitance: claimed-parameter -> parameter (confirmed)",
+    "temp_coeff: claimed-parameter -> parameter (confirmed)",
+    "cap_temp_coeff: claimed-parameter -> parameter (confirmed)",
+    "thermal_capacitance: claimed-parameter -> parameter (confirmed)",
+    "thermal_resistance: claimed-parameter -> parameter (confirmed)",
+    "T_ref: claimed-parameter -> parameter (confirmed)",
+    "T_ambient: claimed-parameter -> parameter (confirmed)",
+    "resistance_temp_quadratic_coeff: claimed-parameter -> parameter (confirmed)",
+    "cap_thermal_capacitance: claimed-parameter -> parameter (confirmed)",
+    "cap_thermal_resistance: claimed-parameter -> parameter (confirmed)",
+    "resistor_to_cap_thermal_resistance: claimed-parameter -> parameter (confirmed)",
+    "cap_voltage_coeff: claimed-parameter -> parameter (confirmed)",
+    "equation_type: explicit-from-standalone-expression -> ode_system per supplied validated ODE contract (confirmed by required contract override)"
+  ],
+  "rationale": "Structure check: the standalone target expression is explicit in dV_C_dt, but the supplied typed ODE system contract is the governing object for data generation and must be inherited exactly. The declared roles agree with the contract: V_C, T_R, and T_C are dynamic states; t is the sole sampled axis; all listed component and thermal symbols are fixed parameters. The chosen parameters keep all denominator factors positive near and throughout the intended operating region while making the recorded mechanisms visible without pushing into extreme saturation. Electrical time scale at reference conditions is RC = 50*0.01 = 0.5 s, so sampling t in [0,2] s captures several decay constants plus thermal evolution. Initial discharge power is about 12^2/50 = 2.88 W, enough to produce modest resistor self-heating over a 0.2 J/K thermal mass with 8 K/W cooling, so T_R should rise perceptibly before relaxing, activating electrothermal feedback. The capacitor thermal channel is slower and weaker (1.5 J/K, 20 K/W to ambient, 6 K/W coupling from resistor), so T_C should lag T_R, exposing the added thermal-memory effect rather than collapsing to the proxy limit. The resistor linear TCR 0.004 1/K gives a realistic metallic positive temperature dependence; the quadratic term 1e-6 1/K^2 is mild, so curvature in resistance-vs-temperature is present but not dominant. The capacitance temperature coefficient 5e-4 1/K is small but active over several-kelvin excursions. The voltage coefficient 0.002 1/V^2 yields 1 + cap_voltage_coeff*V_C^2 = 1.288 at the inherited initial 12 V, strong enough to create visible voltage-dependent normalized-slope curvature while respecting the positivity guidance and staying far from singularity. Ambient and reference temperatures are matched at 300 K so heating signatures are attributable to self-dissipation rather than imposed offsets. This plan preserves the inherited initial conditions exactly and produces exact noiseless trajectories and exact target derivatives from the system RHS.",
+  "coverage_report": {},
+  "inactive_mechanisms": [],
+  "target_variance": {},
+  "parent_absorption_report": {},
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_dZOTi4KyyRmodxXu6lwQro7V"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "-V_C/(capacitance*(1 + cap_temp_coeff*(T_C - T_ref))*(1 + cap_voltage_coeff*V_C**2)*resistance*(1 + temp_coeff*(T_R - T_ref) + resistance_temp_quadratic_coeff*(T_R - T_ref)**2))",
+        "target_symbol": "dV_C_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "T_C",
+          "T_R",
+          "T_ref",
+          "V_C",
+          "cap_temp_coeff",
+          "cap_voltage_coeff",
+          "capacitance",
+          "resistance",
+          "resistance_temp_quadratic_coeff",
+          "temp_coeff"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "(-V_C)/((capacitance*resistance*(V_C**2*cap_voltage_coeff + 1)*(cap_temp_coeff*(T_C - T_ref) + 1)*(resistance_temp_quadr"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_YKSy82q3PnnV6MPBjhNOJmnl"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "-V_C/(capacitance*(1 + cap_temp_coeff*(T_C - T_ref))*(1 + cap_voltage_coeff*V_C**2)*resistance*(1 + temp_coeff*(T_R - T_ref) + resistance_temp_quadratic_coeff*(T_R - T_ref)**2))",
+        "target_symbol": "dV_C_dt",
+        "assignments": {
+          "V_C": 12,
+          "T_R": 300,
+          "T_C": 300,
+          "T_ref": 300,
+          "capacitance": 0.01,
+          "cap_temp_coeff": 0.0005,
+          "cap_voltage_coeff": 0.002,
+          "resistance": 50,
+          "temp_coeff": 0.004,
+          "resistance_temp_quadratic_coeff": 1e-06
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": -18.633540372670808,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_pn02tmspn1hJtVUyUsM7V4aG"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 3
+}

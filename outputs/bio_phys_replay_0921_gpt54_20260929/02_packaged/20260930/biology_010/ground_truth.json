@@ -1,0 +1,1855 @@
+{
+  "version": 7,
+  "spec": {
+    "equation_type": "ode_system",
+    "integrator": "integrate_system",
+    "dependent_variable": "C",
+    "independent_variables": [
+      {
+        "symbol": "t",
+        "range": [
+          0.0,
+          40.0
+        ],
+        "n_points": 401,
+        "scale": "linear"
+      }
+    ],
+    "parameters": [
+      {
+        "symbol": "stimulus_strength",
+        "value": 1.2
+      },
+      {
+        "symbol": "k_release",
+        "value": 0.9
+      },
+      {
+        "symbol": "k_extrusion",
+        "value": 0.7
+      },
+      {
+        "symbol": "k_sensor_activation",
+        "value": 0.9
+      },
+      {
+        "symbol": "k_sensor_relaxation",
+        "value": 0.25
+      },
+      {
+        "symbol": "pump_saturation_scale",
+        "value": 1.0
+      },
+      {
+        "symbol": "release_inactivation_scale",
+        "value": 0.8
+      },
+      {
+        "symbol": "k_buffer_bind",
+        "value": 0.8
+      },
+      {
+        "symbol": "k_buffer_unbind",
+        "value": 0.18
+      },
+      {
+        "symbol": "buffer_binding_scale",
+        "value": 0.6
+      },
+      {
+        "symbol": "k_cicr_release",
+        "value": 1.3
+      },
+      {
+        "symbol": "sensor_activation_scale",
+        "value": 1.5
+      }
+    ],
+    "benchmark_output": "dC_dt",
+    "benchmark_target_state": "C",
+    "observed_variables": [
+      "t",
+      "C",
+      "H",
+      "B"
+    ],
+    "rhs_for_integrator": "(k_release*stimulus_strength*(1 - H))/(1 + release_inactivation_scale*C) + (k_cicr_release*stimulus_strength*C*(1 - H))/(1 + release_inactivation_scale*C) - (k_extrusion*C)/(1 + pump_saturation_scale*C) - (k_buffer_bind*C*(1 - B))/(1 + buffer_binding_scale*C) + k_buffer_unbind*B",
+    "state_variables": [
+      "C",
+      "H",
+      "B"
+    ],
+    "state_rhs": [
+      "(k_release*stimulus_strength*(1 - H))/(1 + release_inactivation_scale*C) + (k_cicr_release*stimulus_strength*C*(1 - H))/(1 + release_inactivation_scale*C) - (k_extrusion*C)/(1 + pump_saturation_scale*C) - (k_buffer_bind*C*(1 - B))/(1 + buffer_binding_scale*C) + k_buffer_unbind*B",
+      "(k_sensor_activation*C*(1 - H))/(1 + sensor_activation_scale*C) - k_sensor_relaxation*H",
+      "(k_buffer_bind*C*(1 - B))/(1 + buffer_binding_scale*C) - k_buffer_unbind*B"
+    ],
+    "initial_conditions": {
+      "C": 0.1,
+      "H": 0.0,
+      "B": 0.0
+    },
+    "sanity_expectations": [
+      "All sampled states should remain real and, for these nonnegative initial conditions and positive rate constants, typically stay in the biologically admissible region C>=0 with H and B tending to remain between 0 and 1.",
+      "At t=0, H=0 and B=0 remove inhibitory gating and buffer occupancy penalties except for baseline buffering uptake, so C should initially rise from 0.1 because the chosen release terms exceed extrusion plus binding sink at rest.",
+      "As C rises above rest, the CICR term should transiently increase total release, so the early upstroke of C(t) should be steeper than would occur with k_cicr_release=0 under the same remaining parameters.",
+      "During moderate-to-high C, increasing C should simultaneously weaken incremental release through 1/(1+release_inactivation_scale*C), weaken incremental extrusion through pump saturation, and accelerate H activation through the nonlinear sensor term; thus the trajectory should show delayed negative feedback rather than unchecked growth.",
+      "B(t) should increase during the rising phase and then relax more slowly, so compared with an unbuffered counterpart one expects a blunted peak and a broader post-peak tail supported by buffer unloading.",
+      "Because sensor_activation_scale=1.5 and C starts at 0.1, sensor_activation_scale*C is initially about 0.15 (weak curvature) but should become order one if C reaches around 0.7 or higher, producing visibly more nonlinear H accumulation than the parent linear-activation limit sensor_activation_scale=0.",
+      "If the chosen parameters place the system near oscillatory onset, C and H may show one or more damped or sustained pulses; if not, the dataset should still display a pronounced transient pulse with delayed H rise and slower buffered recovery."
+    ],
+    "role_corrections": [
+      "dC_dt: claimed-output/target derivative -> ODE RHS for state C (confirmed within provided ode_system contract)",
+      "t: claimed-input/time axis -> independent variable (confirmed)",
+      "C: claimed-dynamic state -> dependent variable / target_state and system state (confirmed)",
+      "H: claimed-dynamic state -> system state variable, not independent sampled axis (confirmed)",
+      "B: claimed-dynamic state -> system state variable, not independent sampled axis (confirmed)",
+      "stimulus_strength: claimed-parameter -> parameter (confirmed)",
+      "k_release: claimed-parameter -> parameter (confirmed)",
+      "k_extrusion: claimed-parameter -> parameter (confirmed)",
+      "k_sensor_activation: claimed-parameter -> parameter (confirmed)",
+      "k_sensor_relaxation: claimed-parameter -> parameter (confirmed)",
+      "pump_saturation_scale: claimed-parameter -> parameter (confirmed)",
+      "release_inactivation_scale: claimed-parameter -> parameter (confirmed)",
+      "k_buffer_bind: claimed-parameter -> parameter (confirmed)",
+      "k_buffer_unbind: claimed-parameter -> parameter (confirmed)",
+      "buffer_binding_scale: claimed-parameter -> parameter (confirmed)",
+      "k_cicr_release: claimed-parameter -> parameter (confirmed)",
+      "sensor_activation_scale: claimed-parameter -> parameter (confirmed)"
+    ],
+    "rationale": "The provided typed ODE-system contract is preserved exactly as required: time is the only sampled axis, C is the target state, and the inherited three-state system is used without reordering or rewriting. Parameter values are chosen to keep all denominator factors positive over the expected nonnegative state range and to place several nonlinearities in an active but not fully saturated regime. In particular, stimulus_strength is strong enough to drive C above rest; k_cicr_release is nonzero and comparable to k_release so the rising phase can be steepened by Ca-assisted release but remains terminable by clearance and inhibition; pump_saturation_scale and release_inactivation_scale are order-one inverse-C scales so pump saturation and direct release inactivation become noticeable once C grows beyond rest rather than remaining negligible; k_buffer_bind exceeds k_buffer_unbind enough for transient buffer loading, while unbinding is slow enough to support a recovery tail; and sensor_activation_scale is positive and order-one so sensor_activation_scale*C is small near rest but can become order one during ordinary pulses, matching the supplied hint and activating the intended curved H response. The 0-40 window with 401 points is long enough to capture early acceleration, delayed H buildup, buffer loading/unloading, and possible approach to a damped or sustained oscillatory regime without oversampling excessively. This plan exposes the recorded contrasts through reachable state excursions rather than by changing initial conditions or rewriting the law. Some mechanisms may compete: strong buffering and direct inactivation can blunt CICR, and if the chosen trajectory settles quickly then oscillations may be weak or absent; nonetheless the selected values are meant to keep the system away from the trivial parent-recovery limits k_cicr_release=0, pump_saturation_scale≈0, release_inactivation_scale≈0, or sensor_activation_scale≈0.",
+    "coverage_report": {
+      "groups": [
+        {
+          "generation": 1,
+          "name": "effective_release",
+          "expression": "k_release*stimulus_strength*(1 - H)",
+          "role": "Instantaneous calcium source after inhibitory gating",
+          "train_range": [
+            0.3575939746467447,
+            1.08
+          ],
+          "hidden_range": [
+            0.35662711855474255,
+            0.3575918495276204
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.3575939746467447,
+            "max": 1.08,
+            "q05": 0.3580943768706175,
+            "median": 0.3660899949275338,
+            "q95": 0.701319116675366,
+            "range": 0.7224060253532554,
+            "robust_range": 0.34322473980474844
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.35662711855474255,
+            "max": 0.3575918495276204,
+            "q05": 0.35667118609414444,
+            "median": 0.3570866695050116,
+            "q95": 0.35753909743737566,
+            "range": 0.0009647309728778586,
+            "robust_range": 0.0008679113432312202
+          }
+        },
+        {
+          "generation": 1,
+          "name": "linear_clearance_load",
+          "expression": "k_extrusion*C",
+          "role": "Parent-model calcium removal burden growing proportionally with C",
+          "train_range": [
+            0.06999999999999999,
+            2.5053942091864436
+          ],
+          "hidden_range": [
+            2.5055266635125486,
+            2.5672334294885917
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.06999999999999999,
+            "max": 2.5053942091864436,
+            "q05": 0.8311262289123391,
+            "median": 2.074597327928687,
+            "q95": 2.474614822738286,
+            "range": 2.435394209186444,
+            "robust_range": 1.6434885938259467
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 2.5055266635125486,
+            "max": 2.5672334294885917,
+            "q05": 2.5088193432552455,
+            "median": 2.5374418902013156,
+            "q95": 2.564344553895988,
+            "range": 0.061706765976043076,
+            "robust_range": 0.05552521064074245
+          }
+        },
+        {
+          "generation": 1,
+          "name": "inhibition_free_fraction",
+          "expression": "1 - H",
+          "role": "Available release fraction before feedback shuts release down",
+          "train_range": [
+            0.3311055320803191,
+            1.0
+          ],
+          "hidden_range": [
+            0.33021029495809495,
+            0.3311035643774263
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.3311055320803191,
+            "max": 1.0,
+            "q05": 0.331568867472794,
+            "median": 0.3389722175254943,
+            "q95": 0.6493695524771907,
+            "range": 0.6688944679196809,
+            "robust_range": 0.31780068500439673
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.33021029495809495,
+            "max": 0.3311035643774263,
+            "q05": 0.33025109823531895,
+            "median": 0.33063580509723295,
+            "q95": 0.33105471984942186,
+            "range": 0.0008932694193313218,
+            "robust_range": 0.0008036216141029118
+          }
+        },
+        {
+          "generation": 2,
+          "name": "release_gate_parent",
+          "expression": "stimulus_strength*(1 - H)",
+          "role": "Parent release drive before adding any direct calcium-dependent attenuation",
+          "train_range": [
+            0.39732663849638294,
+            1.2
+          ],
+          "hidden_range": [
+            0.3962523539497139,
+            0.39732427725291153
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.39732663849638294,
+            "max": 1.2,
+            "q05": 0.39788264096735276,
+            "median": 0.4067666610305931,
+            "q95": 0.7792434629726288,
+            "range": 0.802673361503617,
+            "robust_range": 0.38136082200527605
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.3962523539497139,
+            "max": 0.39732427725291153,
+            "q05": 0.39630131788238265,
+            "median": 0.3967629661166795,
+            "q95": 0.3972656638193063,
+            "range": 0.0010719233031976083,
+            "robust_range": 0.0009643459369236274
+          }
+        },
+        {
+          "generation": 2,
+          "name": "pump_load",
+          "expression": "pump_saturation_scale*C",
+          "role": "Dimensionless regime indicator for whether extrusion is still near-linear or already saturating",
+          "train_range": [
+            0.1,
+            3.5791345845520626
+          ],
+          "hidden_range": [
+            3.579323805017927,
+            3.6674763278408453
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.1,
+            "max": 3.5791345845520626,
+            "q05": 1.1873231841604845,
+            "median": 2.9637104684695537,
+            "q95": 3.535164032483266,
+            "range": 3.4791345845520625,
+            "robust_range": 2.3478408483227815
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 3.579323805017927,
+            "max": 3.6674763278408453,
+            "q05": 3.584027633221779,
+            "median": 3.62491698600188,
+            "q95": 3.663349362708554,
+            "range": 0.0881525228229183,
+            "robust_range": 0.07932172948677518
+          }
+        },
+        {
+          "generation": 2,
+          "name": "sensor_drive",
+          "expression": "k_sensor_activation*C",
+          "role": "Strength of delayed inhibitory-sensor recruitment by current calcium",
+          "train_range": [
+            0.09000000000000001,
+            3.2212211260968564
+          ],
+          "hidden_range": [
+            3.2213914245161344,
+            3.300728695056761
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.09000000000000001,
+            "max": 3.2212211260968564,
+            "q05": 1.068590865744436,
+            "median": 2.6673394216225983,
+            "q95": 3.181647629234939,
+            "range": 3.1312211260968565,
+            "robust_range": 2.113056763490503
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 3.2213914245161344,
+            "max": 3.300728695056761,
+            "q05": 3.225624869899601,
+            "median": 3.262425287401692,
+            "q95": 3.297014426437699,
+            "range": 0.07933727054062656,
+            "robust_range": 0.07138955653809775
+          }
+        },
+        {
+          "generation": 3,
+          "name": "release_drive",
+          "expression": "(k_release*stimulus_strength*(1 - H))/(1 + release_inactivation_scale*C)",
+          "role": "Instantaneous calcium release into the cytosol",
+          "train_range": [
+            0.09256160922462521,
+            1.0
+          ],
+          "hidden_range": [
+            0.09065298304936874,
+            0.0925574324598154
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.09256160922462521,
+            "max": 1.0,
+            "q05": 0.09354286876966648,
+            "median": 0.10860083963465648,
+            "q95": 0.359676987770944,
+            "range": 0.9074383907753748,
+            "robust_range": 0.2661341190012775
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.09065298304936874,
+            "max": 0.0925574324598154,
+            "q05": 0.09074033815491198,
+            "median": 0.09156224369174448,
+            "q95": 0.09245372714921449,
+            "range": 0.0019044494104466653,
+            "robust_range": 0.0017133889943025116
+          }
+        },
+        {
+          "generation": 3,
+          "name": "extrusion_flux",
+          "expression": "(k_extrusion*C)/(1 + pump_saturation_scale*C)",
+          "role": "Instantaneous pump-mediated calcium removal",
+          "train_range": [
+            0.06363636363636363,
+            0.5471326869576001
+          ],
+          "hidden_range": [
+            0.5471390035286531,
+            0.5500260203089629
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.06363636363636363,
+            "max": 0.5471326869576001,
+            "q05": 0.37997410374899,
+            "median": 0.5233977967632072,
+            "q95": 0.5456505663186476,
+            "range": 0.4834963233212365,
+            "robust_range": 0.16567646256965762
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.5471390035286531,
+            "max": 0.5500260203089629,
+            "q05": 0.5472958594353226,
+            "median": 0.5486459319435408,
+            "q95": 0.5498932965134886,
+            "range": 0.0028870167803097813,
+            "robust_range": 0.002597437078166065
+          }
+        },
+        {
+          "generation": 3,
+          "name": "sensor_timescale_ratio",
+          "expression": "k_sensor_activation*C/(k_sensor_relaxation + k_sensor_activation*C)",
+          "role": "Current tendency of the inhibitory sensor toward activation under the present calcium level",
+          "train_range": [
+            0.2647058823529412,
+            0.9279792352839511
+          ],
+          "hidden_range": [
+            0.9279827684557794,
+            0.9295919171892677
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.2647058823529412,
+            "max": 0.9279792352839511,
+            "q05": 0.8104036238996725,
+            "median": 0.9143054801686913,
+            "q95": 0.927148697347753,
+            "range": 0.66327335293101,
+            "robust_range": 0.1167450734480805
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.9279827684557794,
+            "max": 0.9295919171892677,
+            "q05": 0.928070488218329,
+            "median": 0.9288241087932905,
+            "q95": 0.9295181891120384,
+            "range": 0.0016091487334882748,
+            "robust_range": 0.0014477008937093805
+          }
+        },
+        {
+          "generation": 4,
+          "name": "release_gate_parent",
+          "expression": "stimulus_strength*(1 - H)/(1 + release_inactivation_scale*C)",
+          "role": "baseline stimulus-driven releasable flux factor",
+          "train_range": [
+            0.10284623247180578,
+            1.111111111111111
+          ],
+          "hidden_range": [
+            0.1007255367215208,
+            0.1028415916220171
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.10284623247180578,
+            "max": 1.111111111111111,
+            "q05": 0.10393652085518497,
+            "median": 0.12066759959406276,
+            "q95": 0.3996410975232711,
+            "range": 1.0082648786393051,
+            "robust_range": 0.29570457666808614
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.1007255367215208,
+            "max": 0.1028415916220171,
+            "q05": 0.10082259794990217,
+            "median": 0.1017358263241605,
+            "q95": 0.1027263634991272,
+            "range": 0.0021160549004962947,
+            "robust_range": 0.0019037655492250283
+          }
+        },
+        {
+          "generation": 4,
+          "name": "clearance_load",
+          "expression": "(k_extrusion*C)/(1 + pump_saturation_scale*C) + (k_buffer_bind*C*(1 - B))/(1 + buffer_binding_scale*C)",
+          "role": "instantaneous free-calcium removal and sequestration load",
+          "train_range": [
+            0.1391080617495712,
+            0.6976536425484516
+          ],
+          "hidden_range": [
+            0.697660277534383,
+            0.7006939445715515
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.1391080617495712,
+            "max": 0.6976536425484516,
+            "q05": 0.6286783122594995,
+            "median": 0.6749724167196933,
+            "q95": 0.6960970980694251,
+            "range": 0.5585455807988804,
+            "robust_range": 0.06741878580992555
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.697660277534383,
+            "max": 0.7006939445715515,
+            "q05": 0.6978250419008477,
+            "median": 0.6992434850190852,
+            "q95": 0.7005544317982724,
+            "range": 0.0030336670371685637,
+            "robust_range": 0.002729389897424661
+          }
+        },
+        {
+          "generation": 4,
+          "name": "sensor_buffer_state",
+          "expression": "H + B",
+          "role": "combined delayed negative and buffering occupancy that limits sustained amplification",
+          "train_range": [
+            0.0,
+            1.503434843842996
+          ],
+          "hidden_range": [
+            1.5034392405834822,
+            1.5054360362940082
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0,
+            "max": 1.503434843842996,
+            "q05": 0.8023308214992082,
+            "median": 1.485936334786273,
+            "q95": 1.5023997871027577,
+            "range": 1.503434843842996,
+            "robust_range": 0.7000689656035495
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 1.5034392405834822,
+            "max": 1.5054360362940082,
+            "q05": 1.5035483856671892,
+            "median": 1.5044846501008013,
+            "q95": 1.5053447895873626,
+            "range": 0.0019967957105260226,
+            "robust_range": 0.0017964039201734394
+          }
+        },
+        {
+          "generation": 5,
+          "name": "release_drive",
+          "expression": "stimulus_strength*(1 - H)/(1 + release_inactivation_scale*C)",
+          "role": "Instantaneous stimulus-gated release drive after direct inhibition",
+          "train_range": [
+            0.10284623247180578,
+            1.111111111111111
+          ],
+          "hidden_range": [
+            0.1007255367215208,
+            0.1028415916220171
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.10284623247180578,
+            "max": 1.111111111111111,
+            "q05": 0.10393652085518497,
+            "median": 0.12066759959406276,
+            "q95": 0.3996410975232711,
+            "range": 1.0082648786393051,
+            "robust_range": 0.29570457666808614
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.1007255367215208,
+            "max": 0.1028415916220171,
+            "q05": 0.10082259794990217,
+            "median": 0.1017358263241605,
+            "q95": 0.1027263634991272,
+            "range": 0.0021160549004962947,
+            "robust_range": 0.0019037655492250283
+          }
+        },
+        {
+          "generation": 5,
+          "name": "sensor_load",
+          "expression": "C",
+          "role": "Calcium level currently driving inhibitory sensor activation",
+          "train_range": [
+            0.1,
+            3.5791345845520626
+          ],
+          "hidden_range": [
+            3.579323805017927,
+            3.6674763278408453
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.1,
+            "max": 3.5791345845520626,
+            "q05": 1.1873231841604845,
+            "median": 2.9637104684695537,
+            "q95": 3.535164032483266,
+            "range": 3.4791345845520625,
+            "robust_range": 2.3478408483227815
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 3.579323805017927,
+            "max": 3.6674763278408453,
+            "q05": 3.584027633221779,
+            "median": 3.62491698600188,
+            "q95": 3.663349362708554,
+            "range": 0.0881525228229183,
+            "robust_range": 0.07932172948677518
+          }
+        },
+        {
+          "generation": 5,
+          "name": "net_buffer_sink",
+          "expression": "k_buffer_bind*C*(1 - B)/(1 + buffer_binding_scale*C) - k_buffer_unbind*B",
+          "role": "Instantaneous reversible buffering sink strength",
+          "train_range": [
+            0.0003036879246547941,
+            0.29548245877822077
+          ],
+          "hidden_range": [
+            0.00025158463721011715,
+            0.00030356911276641085
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0003036879246547941,
+            "max": 0.29548245877822077,
+            "q05": 0.00033217392717820314,
+            "median": 0.000941396685933224,
+            "q95": 0.1979526399323645,
+            "range": 0.295178770853566,
+            "robust_range": 0.1976204660051863
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.00025158463721011715,
+            "max": 0.00030356911276641085,
+            "q05": 0.00025387547670104456,
+            "median": 0.0002758711398982011,
+            "q95": 0.0003006234725352372,
+            "range": 5.198447555629371e-05,
+            "robust_range": 4.6747995834192646e-05
+          }
+        }
+      ],
+      "inactive_mechanisms": [],
+      "visible_mechanisms": [
+        "effective_release",
+        "linear_clearance_load",
+        "inhibition_free_fraction",
+        "release_gate_parent",
+        "pump_load",
+        "sensor_drive",
+        "release_drive",
+        "extrusion_flux",
+        "sensor_timescale_ratio",
+        "release_gate_parent",
+        "clearance_load",
+        "sensor_buffer_state",
+        "release_drive",
+        "sensor_load",
+        "net_buffer_sink"
+      ],
+      "extended_mechanisms": [
+        "effective_release",
+        "linear_clearance_load",
+        "inhibition_free_fraction",
+        "release_gate_parent",
+        "pump_load",
+        "sensor_drive",
+        "release_drive",
+        "extrusion_flux",
+        "sensor_timescale_ratio",
+        "release_gate_parent",
+        "clearance_load",
+        "sensor_buffer_state",
+        "release_drive",
+        "sensor_load",
+        "net_buffer_sink"
+      ]
+    },
+    "inactive_mechanisms": [],
+    "target_variance": {
+      "train": {
+        "n": 4500,
+        "variance": 0.018899579960021205,
+        "range": 0.9816804885625652
+      },
+      "hidden": {
+        "n": 500,
+        "variance": 7.738985799088316e-07,
+        "range": 0.003042767869589749
+      }
+    },
+    "parent_absorption_report": {
+      "status": "ok",
+      "n_points": 512,
+      "fixed_parent_normalized_rmse": 0.0,
+      "refit": {
+        "status": "not_run",
+        "reason": "no free parent parameters"
+      },
+      "interpretation": "<1e-3 nearly absorbed; 1e-3..1e-2 weak; >1e-2 visible structure"
+    },
+    "noise": 0.0,
+    "_trace": [
+      {
+        "turn": 1,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "analyze_expression",
+            "id": "call_E3E9HEyOmfdHmSrmznMwJrdV"
+          }
+        ]
+      },
+      {
+        "tool": "analyze_expression",
+        "input": {
+          "expression": "(k_release*stimulus_strength*(1 - H))/(1 + release_inactivation_scale*C) + (k_cicr_release*stimulus_strength*C*(1 - H))/(1 + release_inactivation_scale*C) - (k_extrusion*C)/(1 + pump_saturation_scale*C) - (k_buffer_bind*C*(1 - B))/(1 + buffer_binding_scale*C) + k_buffer_unbind*B",
+          "target_symbol": "C"
+        },
+        "result": {
+          "ok": true,
+          "free_symbols": [
+            "B",
+            "C",
+            "H",
+            "buffer_binding_scale",
+            "k_buffer_bind",
+            "k_buffer_unbind",
+            "k_cicr_release",
+            "k_extrusion",
+            "k_release",
+            "pump_saturation_scale",
+            "release_inactivation_scale",
+            "stimulus_strength"
+          ],
+          "functions_of": {},
+          "target_function_calls": [],
+          "delayed_target_calls": [],
+          "ungoverned_functions": [],
+          "derivatives": [],
+          "max_derivative_order": 0,
+          "integral_kernels": [],
+          "explicitly_solvable_for_target": false,
+          "explicit_solution_preview": null,
+          "classification_hint": "implicit_or_explicit",
+          "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+        }
+      },
+      {
+        "turn": 2,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "check_substitution",
+            "id": "call_zz7a1XR08XnnAs5lvdgKdAeP"
+          }
+        ]
+      },
+      {
+        "tool": "check_substitution",
+        "input": {
+          "expression": "(k_release*stimulus_strength*(1 - H))/(1 + release_inactivation_scale*C) + (k_cicr_release*stimulus_strength*C*(1 - H))/(1 + release_inactivation_scale*C) - (k_extrusion*C)/(1 + pump_saturation_scale*C) - (k_buffer_bind*C*(1 - B))/(1 + buffer_binding_scale*C) + k_buffer_unbind*B",
+          "target_symbol": "C",
+          "assignments": {
+            "C": 0.1,
+            "H": 0.0,
+            "B": 0.0,
+            "stimulus_strength": 1.2,
+            "k_release": 0.9,
+            "k_extrusion": 0.7,
+            "k_sensor_activation": 0.9,
+            "k_sensor_relaxation": 0.25,
+            "pump_saturation_scale": 1.0,
+            "release_inactivation_scale": 0.8,
+            "k_buffer_bind": 0.8,
+            "k_buffer_unbind": 0.18,
+            "buffer_binding_scale": 0.6,
+            "k_cicr_release": 1.3,
+            "sensor_activation_scale": 1.5
+          }
+        },
+        "result": {
+          "ok": true,
+          "value_real": 1.0053363826948731,
+          "value_imag": 0.0,
+          "is_finite": true,
+          "is_real": true,
+          "verdict": "ok",
+          "residual_free_symbols": []
+        }
+      },
+      {
+        "turn": 3,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "emit_data_gen_spec",
+            "id": "call_03cKBF7ADTbQMq01hC58G6CW"
+          }
+        ]
+      },
+      {
+        "tool": "emit_data_gen_spec",
+        "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+      },
+      {
+        "turn": 4,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "emit_data_gen_spec",
+            "id": "call_FAitzxkTUNm4zRhFxWOqdg0n"
+          }
+        ]
+      },
+      {
+        "tool": "emit_data_gen_spec",
+        "accepted": true
+      }
+    ],
+    "_provider": "openai",
+    "_num_turns": 4,
+    "discipline": "biology",
+    "scenario_text": "A constant upstream receptor stimulus drives calcium release into the cytosol while pumps remove calcium from the cytosol. A calcium-sensitive inhibitory sensor gradually becomes active and suppresses further release, creating delayed negative feedback. Cytosolic calcium and the inhibitory sensor are evolved together to study transient pulses and sustained oscillations.",
+    "record_id": "m2_cell_biology_and_signaling_20260921_002",
+    "generation": 5,
+    "_n_total": 5000,
+    "mechanism_observation_history": [
+      {
+        "generation": 1,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "At fixed H, the target mapping is linear in cytosolic calcium removal: dC_dt decreases with a constant slope -k_extrusion as C increases, while release is independent of C except through H.",
+            "child_relation": "Replace first-order extrusion with saturable calcium pumping so that, at fixed H, removal is approximately linear only at low C and then bends toward a maximal clearance rate at higher C.",
+            "affected_inputs": [
+              "C",
+              "H",
+              "k_extrusion",
+              "stimulus_strength"
+            ],
+            "observable_effect": "Across weak versus strong constant stimulus, the child can show disproportionately larger and broader calcium transients or higher sustained C under strong drive because clearance loses incremental slope at high C, whereas the parent keeps the same linear damping slope at all C."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "effective_release",
+              "expression": "k_release*stimulus_strength*(1 - H)",
+              "role": "Instantaneous calcium source after inhibitory gating"
+            },
+            {
+              "name": "linear_clearance_load",
+              "expression": "k_extrusion*C",
+              "role": "Parent-model calcium removal burden growing proportionally with C"
+            },
+            {
+              "name": "inhibition_free_fraction",
+              "expression": "1 - H",
+              "role": "Available release fraction before feedback shuts release down"
+            }
+          ],
+          "activation_condition": "The contrast is visible when stimulus is strong enough that C reaches a regime where pump occupancy would no longer be dilute, i.e. low-C approximately linear clearance is no longer a good approximation; at very low C the child should reduce to the parent-like behavior.",
+          "train_hidden_contrast": "In training over modest stimuli the refined model can already show slight sublinearity of net dC_dt versus C; in holdout at stronger sustained stimulus the same mechanism extends to a clearer excess peak height, longer decay, or elevated plateau that a single linear-extrusion law cannot match across both regimes with one shared parameter set.",
+          "continuation_path": "Take the saturating-pump scale to be much larger than realized C, so extrusion returns to an effectively first-order term k_extrusion*C over the observed range.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The model assumes cytosolic calcium extrusion remains first-order over all amplitudes, omitting pump saturation at elevated cytosolic calcium.",
+          "baseline_assumption": "Calcium extrusion is represented by a nonnegative first-order rate constant k_extrusion multiplying C for all cytosolic calcium levels.",
+          "scientific_mechanism": "Finite-capacity ATP-dependent calcium pumps and exchangers produce saturable clearance, making net calcium removal sublinear at higher cytosolic calcium.",
+          "affected_symbols": [
+            "C",
+            "H",
+            "k_extrusion",
+            "stimulus_strength"
+          ],
+          "rationale": "A realistic next refinement is to relax the idealized linear-extrusion assumption rather than add a new compartment or pathway. Vary stimulus_strength while holding the initial conditions, k_release, k_sensor_activation, and k_sensor_relaxation fixed. In the parent, once H is specified, the target mapping dC_dt versus C has constant negative slope from extrusion, so stronger stimulation mainly rescales how far release initially exceeds a linear sink. In the child, the sink slope decreases as C enters the pump-saturation regime, creating extra curvature in the target mapping itself, not merely in the auxiliary H trajectory. This yields a concrete observable contrast: under weak stimulus both models can look similar because C stays in the low-occupancy regime, but under stronger stimulus the child predicts disproportionately larger peaks, slower high-C decay, or higher sustained calcium before inhibition catches up. A single refit of the parent parameters cannot reproduce both low-amplitude near-linear damping and high-amplitude reduced incremental clearance across those conditions, because its removal term has one fixed slope in C at all amplitudes. The refinement remains scientifically admissible so long as calcium stays nonnegative and the saturating pump law is chosen to preserve nonnegative removal."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "At fixed H, the target mapping is linear in cytosolic calcium removal: dC_dt decreases with a constant slope -k_extrusion as C increases, while release is independent of C except through H.",
+            "child_relation": "Replace first-order extrusion with saturable calcium pumping so that, at fixed H, removal is approximately linear only at low C and then bends toward a maximal clearance rate at higher C.",
+            "affected_inputs": [
+              "C",
+              "H",
+              "k_extrusion",
+              "stimulus_strength"
+            ],
+            "observable_effect": "Across weak versus strong constant stimulus, the child can show disproportionately larger and broader calcium transients or higher sustained C under strong drive because clearance loses incremental slope at high C, whereas the parent keeps the same linear damping slope at all C."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "effective_release",
+              "expression": "k_release*stimulus_strength*(1 - H)",
+              "role": "Instantaneous calcium source after inhibitory gating"
+            },
+            {
+              "name": "linear_clearance_load",
+              "expression": "k_extrusion*C",
+              "role": "Parent-model calcium removal burden growing proportionally with C"
+            },
+            {
+              "name": "inhibition_free_fraction",
+              "expression": "1 - H",
+              "role": "Available release fraction before feedback shuts release down"
+            }
+          ],
+          "activation_condition": "The contrast is visible when stimulus is strong enough that C reaches a regime where pump occupancy would no longer be dilute, i.e. low-C approximately linear clearance is no longer a good approximation; at very low C the child should reduce to the parent-like behavior.",
+          "train_hidden_contrast": "In training over modest stimuli the refined model can already show slight sublinearity of net dC_dt versus C; in holdout at stronger sustained stimulus the same mechanism extends to a clearer excess peak height, longer decay, or elevated plateau that a single linear-extrusion law cannot match across both regimes with one shared parameter set.",
+          "continuation_path": "Take the saturating-pump scale to be much larger than realized C, so extrusion returns to an effectively first-order term k_extrusion*C over the observed range.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "C",
+            "H"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Saturable cytosolic calcium extrusion by finite-capacity pumps",
+          "scientific_mechanism": "Finite-capacity ATP-dependent calcium pumps and exchangers produce saturable clearance, making net calcium removal sublinear at higher cytosolic calcium.",
+          "embedding_pattern": "multiplicative_modulation",
+          "difficulty_rationale": "This is harder than a coefficient-only correction because the extrusion contribution changes from a constant-slope linear sink to a C-dependent effective gain k_extrusion/(1 + pump_saturation_scale*C), introducing amplitude-dependent curvature in the scored dC_dt mapping itself.",
+          "taxonomy_match": "known",
+          "assumption_before": "Calcium extrusion is represented by a nonnegative first-order rate constant k_extrusion multiplying C for all cytosolic calcium levels.",
+          "assumption_after": "Calcium extrusion has finite capacity, so the effective strength of the existing removal process is modulated downward as C rises.",
+          "before_fragment": "k_release*stimulus_strength*(1 - H) - k_extrusion*C",
+          "after_fragment": "k_release*stimulus_strength*(1 - H) - (k_extrusion*C)/(1 + pump_saturation_scale*C)",
+          "parent_reduction": "Setting pump_saturation_scale = 0 recovers the parent exactly; approximately, pump_saturation_scale*C << 1 gives near-linear extrusion.",
+          "observable_signature": "Vary stimulus_strength while holding initial conditions, k_release, k_sensor_activation, and k_sensor_relaxation fixed. Under weak drive, C remains low and the child behaves nearly like the parent. Under stronger drive, the target mapping dC_dt versus C bends because the removal term approaches a maximal scale k_extrusion/pump_saturation_scale, producing larger peaks, slower decay at high C, or a higher plateau for the same shared parameter set. This is a changed target mapping, not only altered H dynamics, because the C-dependence of the scored RHS itself is no longer a straight line at fixed H.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce both regimes because its extrusion term has one fixed slope -k_extrusion in C at all amplitudes. Retuning k_extrusion can fit either low-C damping or high-C reduced incremental clearance, but not both simultaneously across weak and strong stimulus when the child exhibits amplitude-dependent curvature in dC_dt versus C."
+        },
+        "range_suggestions": {
+          "pump_saturation_scale": "positive; small enough that pump_saturation_scale*C << 1 recovers near-linear extrusion, larger values activate saturation over the observed C range"
+        }
+      },
+      {
+        "generation": 2,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "Net calcium release is proportional to stimulus_strength with one shared gain k_release and only linearly reduced by the current inhibitory fraction (1 - H), so for fixed H the stimulus-to-dC_dt map has fixed curvature-free scaling.",
+            "child_relation": "Release remains stimulus-driven and H-suppressed, but the effective release efficacy decreases with rising cytosolic calcium itself, so the stimulus-to-dC_dt relation bends downward at higher C because elevated calcium reduces additional release before H has fully accumulated.",
+            "affected_inputs": [
+              "C",
+              "H",
+              "stimulus_strength"
+            ],
+            "observable_effect": "At fixed initial conditions and common parameters, increasing stimulus_strength gives a weaker-than-proportional increase in early calcium rise and a reduced peak increment once C enters the inhibitory calcium range; the parent can only change this by the slower H pathway and therefore cannot match both low-stimulus near-linear growth and high-stimulus early self-limiting curvature with one parameter set."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "release_gate_parent",
+              "expression": "stimulus_strength*(1 - H)",
+              "role": "Parent release drive before adding any direct calcium-dependent attenuation"
+            },
+            {
+              "name": "pump_load",
+              "expression": "pump_saturation_scale*C",
+              "role": "Dimensionless regime indicator for whether extrusion is still near-linear or already saturating"
+            },
+            {
+              "name": "sensor_drive",
+              "expression": "k_sensor_activation*C",
+              "role": "Strength of delayed inhibitory-sensor recruitment by current calcium"
+            }
+          ],
+          "activation_condition": "Observable when stimulus_strength is high enough that C rises appreciably before H approaches 1, i.e. an early-to-intermediate transient regime with C in a biologically relevant range where direct calcium-dependent inactivation of release channels can engage while H is still lagging; if C stays very small, the refinement collapses toward the parent behavior.",
+          "train_hidden_contrast": "In training, moderate stimuli can already show slight downward bending of early rise versus stimulus. In holdout, stronger stimuli extend this same mechanism, producing earlier peak compression and less-than-expected additional release even before delayed H activation dominates.",
+          "continuation_path": "Take the strength or sensitivity of direct calcium-dependent release inhibition to zero, recovering release proportional to k_release*stimulus_strength*(1 - H).",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The model assumes inhibitory control of release is only delayed through H and omits the well-known faster self-limiting effect that elevated cytosolic calcium can directly reduce further channel-mediated release.",
+          "baseline_assumption": "All negative feedback onto release is represented solely by the sensor state H; cytosolic calcium C does not directly attenuate the release flux.",
+          "scientific_mechanism": "Direct calcium-dependent inactivation of the release pathway, acting faster than the slower inhibitory sensor accumulation.",
+          "affected_symbols": [
+            "C",
+            "H",
+            "stimulus_strength",
+            "k_release"
+          ],
+          "rationale": "A realistic next refinement is to relax the parent assumption that release suppression occurs only through H. In many calcium-release systems, cytosolic calcium both promotes delayed inhibition through a sensor and more directly inactivates release channels on a faster timescale. Vary stimulus_strength while holding initial conditions, k_extrusion, k_sensor_activation, k_sensor_relaxation, and pump_saturation_scale fixed. The parent predicts that early release scales with stimulus_strength through a single gain because H starts at 0 and has not yet risen, so the initial target mapping from stimulus_strength to dC_dt is essentially linear apart from extrusion. A child with direct C-dependent attenuation changes the target mapping itself: as stronger stimulus drives C upward, release efficacy bends downward with C even before H catches up, compressing early slope and peak growth. This is observable only when calcium reaches the inactivation range during the measured transient; for weak stimuli or very strong extrusion the new effect may be negligible, and then the parent is an adequate approximation. No new state is needed because the omitted mechanism can be represented as an instantaneous dependence of release on existing C rather than a separately resolved slow variable."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "Net calcium release is proportional to stimulus_strength with one shared gain k_release and only linearly reduced by the current inhibitory fraction (1 - H), so for fixed H the stimulus-to-dC_dt map has fixed curvature-free scaling.",
+            "child_relation": "Release remains stimulus-driven and H-suppressed, but the effective release efficacy decreases with rising cytosolic calcium itself, so the stimulus-to-dC_dt relation bends downward at higher C because elevated calcium reduces additional release before H has fully accumulated.",
+            "affected_inputs": [
+              "C",
+              "H",
+              "stimulus_strength"
+            ],
+            "observable_effect": "At fixed initial conditions and common parameters, increasing stimulus_strength gives a weaker-than-proportional increase in early calcium rise and a reduced peak increment once C enters the inhibitory calcium range; the parent can only change this by the slower H pathway and therefore cannot match both low-stimulus near-linear growth and high-stimulus early self-limiting curvature with one parameter set."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "release_gate_parent",
+              "expression": "stimulus_strength*(1 - H)",
+              "role": "Parent release drive before adding any direct calcium-dependent attenuation"
+            },
+            {
+              "name": "pump_load",
+              "expression": "pump_saturation_scale*C",
+              "role": "Dimensionless regime indicator for whether extrusion is still near-linear or already saturating"
+            },
+            {
+              "name": "sensor_drive",
+              "expression": "k_sensor_activation*C",
+              "role": "Strength of delayed inhibitory-sensor recruitment by current calcium"
+            }
+          ],
+          "activation_condition": "Observable when stimulus_strength is high enough that C rises appreciably before H approaches 1, i.e. an early-to-intermediate transient regime with C in a biologically relevant range where direct calcium-dependent inactivation of release channels can engage while H is still lagging; if C stays very small, the refinement collapses toward the parent behavior.",
+          "train_hidden_contrast": "In training, moderate stimuli can already show slight downward bending of early rise versus stimulus. In holdout, stronger stimuli extend this same mechanism, producing earlier peak compression and less-than-expected additional release even before delayed H activation dominates.",
+          "continuation_path": "Take the strength or sensitivity of direct calcium-dependent release inhibition to zero, recovering release proportional to k_release*stimulus_strength*(1 - H).",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "multiway",
+          "scope_symbols": [
+            "C",
+            "H",
+            "stimulus_strength"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Direct calcium-dependent inactivation of channel-mediated calcium release",
+          "scientific_mechanism": "Direct calcium-dependent inactivation of the release pathway, acting faster than the slower inhibitory sensor accumulation.",
+          "embedding_pattern": "nested_nonlinearity",
+          "difficulty_rationale": "This is harder than a coefficient-only correction because the release drive stimulus_strength*(1 - H) is first formed and then passed through a calcium-dependent nonlinear attenuation, creating state-dependent curvature in the target mapping rather than a uniform gain change.",
+          "taxonomy_match": "known",
+          "assumption_before": "All negative feedback onto release is represented solely by the sensor state H; cytosolic calcium C does not directly attenuate the release flux.",
+          "assumption_after": "Release is suppressed both by the delayed inhibitory sensor H and by instantaneous cytosolic-calcium-dependent inactivation of the release pathway.",
+          "before_fragment": "k_release*stimulus_strength*(1 - H) - (k_extrusion*C)/(1 + pump_saturation_scale*C)",
+          "after_fragment": "(k_release*stimulus_strength*(1 - H))/(1 + release_inactivation_scale*C) - (k_extrusion*C)/(1 + pump_saturation_scale*C)",
+          "parent_reduction": "Setting release_inactivation_scale to zero recovers the parent expression exactly.",
+          "observable_signature": "Across experiments varying stimulus_strength from weak to strong while holding initial conditions and one shared parameter set fixed, the child predicts near-parent behavior at low C but a compressed early dC_dt increase and reduced peak C at stronger stimuli once release_inactivation_scale*C becomes appreciable before H nears 1. This changes the scored target mapping for dC_dt itself, not merely the hidden H trajectory.",
+          "shortcut_blocked": "A single refit of the parent parameters cannot reproduce this contrast across low- and high-stimulus conditions because the parent early release term is affine in stimulus_strength for fixed H and lacks any instantaneous C-dependent attenuation. Retuning k_release, k_extrusion, pump_saturation_scale, or H-kinetic parameters can shift overall gain or delayed feedback timing, but cannot generate the same within-transient downward curvature of release versus rising C before H has accumulated."
+        },
+        "range_suggestions": {
+          "release_inactivation_scale": "positive; small values recover near-parent behavior over the observed C range, larger values make direct release attenuation engage once release_inactivation_scale*C becomes order 1"
+        }
+      },
+      {
+        "generation": 3,
+        "plan": {
+          "operation": "add_term",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "interaction_emergence",
+            "parent_relation": "For fixed stimulus_strength and H, the target mapping dC_dt depends only on cytosolic calcium through direct release inactivation and pump saturation; the cell has no adaptive buffering load, so the same C always implies the same instantaneous release-clearance balance.",
+            "child_relation": "Introduce a reversible calcium-buffer occupancy state that sequesters free calcium when C rises, so dC_dt depends jointly on C and buffer occupancy; the same C can correspond to different net uptake/release depending on prior calcium exposure.",
+            "affected_inputs": [
+              "C",
+              "H"
+            ],
+            "observable_effect": "After a rising calcium phase, free-calcium accumulation slows and peak C is reduced relative to the parent, while during recovery previously loaded buffer can release calcium and prolong the tail; this history dependence is absent from the parent."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "release_drive",
+              "expression": "(k_release*stimulus_strength*(1 - H))/(1 + release_inactivation_scale*C)",
+              "role": "Instantaneous calcium release into the cytosol"
+            },
+            {
+              "name": "extrusion_flux",
+              "expression": "(k_extrusion*C)/(1 + pump_saturation_scale*C)",
+              "role": "Instantaneous pump-mediated calcium removal"
+            },
+            {
+              "name": "sensor_timescale_ratio",
+              "expression": "k_sensor_activation*C/(k_sensor_relaxation + k_sensor_activation*C)",
+              "role": "Current tendency of the inhibitory sensor toward activation under the present calcium level"
+            }
+          ],
+          "activation_condition": "Observable when stimulus_strength is large enough that C rises into a regime where reversible endogenous binding would load appreciably during the transient, and on observation windows comparable to buffer binding/unbinding times rather than infinitely fast quasi-equilibrium buffering.",
+          "train_hidden_contrast": "In training, the mechanism appears as weaker early-time slope and lower peak during strong calcium transients; in holdout or longer trajectories it extends to a slower post-peak decay because buffer unloading sustains free calcium after release has been curtailed.",
+          "continuation_path": "Recover the parent law in the limit of vanishing buffer capacity or infinitely fast/slaved buffering with negligible occupancy over the observed C range.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "History-dependent sequestration cannot be represented by refitting only existing fixed coefficients because the parent maps dC_dt from the current C and H alone. A buffer occupancy state is needed so the same C,H can produce different dC_dt after loading versus after unloading.",
+          "gap_statement": "The model omits reversible intracellular calcium buffering as an explicit dynamic sink/source, even though buffering can reshape free-calcium transients without changing total calcium flux generation upstream.",
+          "baseline_assumption": "Calcium buffering is absorbed into effective rates and is not modeled as a separate state.",
+          "scientific_mechanism": "Finite-capacity reversible binding of cytosolic calcium to endogenous buffers that transiently sequester free calcium and later release it.",
+          "affected_symbols": [
+            "C",
+            "H",
+            "stimulus_strength",
+            "k_release",
+            "k_extrusion",
+            "k_sensor_activation",
+            "k_sensor_relaxation",
+            "pump_saturation_scale",
+            "release_inactivation_scale"
+          ],
+          "rationale": "A realistic next refinement is to relax the effective-rate treatment of buffering and add explicit reversible buffer occupancy. The parent target mapping has a fixed-environment shortcut: once C and H are specified, dC_dt is fully determined by a release term opposed by extrusion, so prior calcium loading history cannot matter. Scientifically, many calcium transients are shaped by endogenous buffers whose occupancy changes over time. Vary stimulus_strength while holding all kinetic parameters and initial conditions fixed: under sufficiently strong stimulation, the child should show a reduced initial rise and lower peak free calcium because newly available buffer binds calcium, plus a more prolonged decay after release subsides because bound calcium is returned. The parent can mimic some peak reduction by refitting release or extrusion gains, but one shared parameter set cannot simultaneously create both stronger transient attenuation during the upswing and delayed tail support at matched C and H, because it lacks a hidden occupancy variable. This contrast is observable only when buffering loads appreciably over the sampled C range and on timescales not collapsed into an instantaneous algebraic renormalization. If buffering is weak or effectively instantaneous with negligible occupancy variation, the refinement reduces back toward the parent."
+        },
+        "contract": {
+          "operation": "add_term",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "interaction_emergence",
+            "parent_relation": "For fixed stimulus_strength and H, the target mapping dC_dt depends only on cytosolic calcium through direct release inactivation and pump saturation; the cell has no adaptive buffering load, so the same C always implies the same instantaneous release-clearance balance.",
+            "child_relation": "Introduce a reversible calcium-buffer occupancy state that sequesters free calcium when C rises, so dC_dt depends jointly on C and buffer occupancy; the same C can correspond to different net uptake/release depending on prior calcium exposure.",
+            "affected_inputs": [
+              "C",
+              "H"
+            ],
+            "observable_effect": "After a rising calcium phase, free-calcium accumulation slows and peak C is reduced relative to the parent, while during recovery previously loaded buffer can release calcium and prolong the tail; this history dependence is absent from the parent."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "release_drive",
+              "expression": "(k_release*stimulus_strength*(1 - H))/(1 + release_inactivation_scale*C)",
+              "role": "Instantaneous calcium release into the cytosol"
+            },
+            {
+              "name": "extrusion_flux",
+              "expression": "(k_extrusion*C)/(1 + pump_saturation_scale*C)",
+              "role": "Instantaneous pump-mediated calcium removal"
+            },
+            {
+              "name": "sensor_timescale_ratio",
+              "expression": "k_sensor_activation*C/(k_sensor_relaxation + k_sensor_activation*C)",
+              "role": "Current tendency of the inhibitory sensor toward activation under the present calcium level"
+            }
+          ],
+          "activation_condition": "Observable when stimulus_strength is large enough that C rises into a regime where reversible endogenous binding would load appreciably during the transient, and on observation windows comparable to buffer binding/unbinding times rather than infinitely fast quasi-equilibrium buffering.",
+          "train_hidden_contrast": "In training, the mechanism appears as weaker early-time slope and lower peak during strong calcium transients; in holdout or longer trajectories it extends to a slower post-peak decay because buffer unloading sustains free calcium after release has been curtailed.",
+          "continuation_path": "Recover the parent law in the limit of vanishing buffer capacity or infinitely fast/slaved buffering with negligible occupancy over the observed C range.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "History-dependent sequestration cannot be represented by refitting only existing fixed coefficients because the parent maps dC_dt from the current C and H alone. A buffer occupancy state is needed so the same C,H can produce different dC_dt after loading versus after unloading.",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "C",
+            "B"
+          ],
+          "structural_role": "transport_balance",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "finite-capacity reversible intracellular calcium buffering",
+          "scientific_mechanism": "Finite-capacity reversible binding of cytosolic calcium to endogenous buffers that transiently sequester free calcium and later release it.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "The added term is not a fixed gain correction: it introduces a saturating finite-capacity uptake process coupled to a hidden occupancy state, creating path-dependent target values at the same observed C and H.",
+          "taxonomy_match": "provisional",
+          "assumption_before": "Calcium buffering is absorbed into effective rates and is not modeled as a separate state.",
+          "assumption_after": "A finite-capacity endogenous buffer loads and unloads dynamically, contributing a saturating binding sink and a release source to the free-calcium balance.",
+          "before_fragment": "(k_release*stimulus_strength*(1 - H))/(1 + release_inactivation_scale*C) - (k_extrusion*C)/(1 + pump_saturation_scale*C)",
+          "after_fragment": "(k_release*stimulus_strength*(1 - H))/(1 + release_inactivation_scale*C) - (k_extrusion*C)/(1 + pump_saturation_scale*C) - (k_buffer_bind*C*(1 - B))/(1 + buffer_binding_scale*C) + k_buffer_unbind*B",
+          "parent_reduction": "Set k_buffer_bind=0 so B remains dynamically irrelevant and the added sink/source vanishes from dC_dt.",
+          "observable_signature": "At fixed kinetic parameters and initial conditions while varying stimulus_strength, sufficiently strong stimuli produce both a blunted upswing/lower peak and a longer recovery tail because buffer occupancy builds and later unloads; this joint contrast is absent from the parent target mapping.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce the child signature across these conditions because in the parent dC_dt is a function only of current C and H, so matched C and H always imply matched flux balance. Retuning k_release, k_extrusion, pump_saturation_scale, or release_inactivation_scale can reduce peaks or slow decay globally, but cannot make the same C,H correspond to stronger net uptake during loading and extra source during unloading without an added occupancy variable."
+        },
+        "range_suggestions": {
+          "B": "[0, 1] as a fractional occupancy; appreciable effects when neither near 0 nor 1 throughout the observed trajectory",
+          "k_buffer_bind": "positive; large enough to load buffer during stimulus-driven calcium rises but not so large that buffering is effectively instantaneous over the observation window",
+          "k_buffer_unbind": "positive; comparable to or slower than transient decay times to permit delayed calcium return from the buffer",
+          "buffer_binding_scale": "positive inverse calcium scale; small values approach near-linear loading, larger values make loading saturate once buffer_binding_scale*C becomes order 1"
+        }
+      },
+      {
+        "generation": 4,
+        "plan": {
+          "operation": "add_term",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "At fixed stimulus_strength and H, the release term decreases with C only through the hyperbolic factor 1/(1 + release_inactivation_scale*C), so net dC_dt has a single direct Ca-dependent inactivation scale for release.",
+            "child_relation": "Add a fast positive Ca-dependent release component so that, at fixed stimulus_strength and H, net release becomes biphasic in C: initially increasing over a low-to-intermediate C range due to calcium-induced calcium release, then decreasing at higher C because direct inactivation and extrusion dominate.",
+            "affected_inputs": [
+              "C",
+              "H",
+              "stimulus_strength"
+            ],
+            "observable_effect": "For the same constant stimulus_strength, low initial/intermediate C excursions gain a steeper upstroke and larger transient peak, while high-C regimes still terminate because inhibition and clearance dominate; this creates a non-monotone release-vs-C curvature absent from the parent."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "release_gate_parent",
+              "expression": "stimulus_strength*(1 - H)/(1 + release_inactivation_scale*C)",
+              "role": "baseline stimulus-driven releasable flux factor"
+            },
+            {
+              "name": "clearance_load",
+              "expression": "(k_extrusion*C)/(1 + pump_saturation_scale*C) + (k_buffer_bind*C*(1 - B))/(1 + buffer_binding_scale*C)",
+              "role": "instantaneous free-calcium removal and sequestration load"
+            },
+            {
+              "name": "sensor_buffer_state",
+              "expression": "H + B",
+              "role": "combined delayed negative and buffering occupancy that limits sustained amplification"
+            }
+          ],
+          "activation_condition": "Observable when free calcium reaches a low-to-moderate range where Ca-assisted release channels can be recruited before strong direct inactivation and sensor buildup suppress release; practically, H should still be below near-saturation and C should not yet be so large that release_inactivation_scale*C >> 1.",
+          "train_hidden_contrast": "Within training, stronger stimulus pulses already produce steeper early rises than weaker ones; in holdout, the same mechanism extends this to a sharper dependence of early dC_dt on the contemporaneous C level during the rising phase, not just on stimulus_strength alone.",
+          "continuation_path": "Recover the parent by taking the added Ca-assisted release coefficient to zero.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The model omits calcium-induced facilitation of release, treating cytosolic calcium as only self-limiting for release and never self-amplifying on the fast timescale.",
+          "baseline_assumption": "Stimulus-driven release is gated only by inhibitory suppression and direct Ca-dependent inactivation, with no fast positive dependence of release on cytosolic calcium.",
+          "scientific_mechanism": "Calcium-induced calcium release through release channels whose open probability increases with local cytosolic calcium over a low-to-intermediate range before slower inhibition shuts the flux down.",
+          "affected_symbols": [
+            "C",
+            "H",
+            "stimulus_strength",
+            "k_release",
+            "release_inactivation_scale"
+          ],
+          "rationale": "A realistic next refinement is to add fast Ca-assisted release to the C equation without adding a new state, because the current states already contain the needed driver and delayed suppressor. Vary constant stimulus_strength across a range that produces both small transients and larger excursions, while holding all kinetic parameters fixed and observing C(t) from the stated initial conditions. In the parent, increasing C can only reduce the stimulus-driven release branch directly, so any increase in early dC_dt with larger excursions comes indirectly from stimulus and not from a local positive C-to-release effect. In the child, once C enters an admissible activation range before H accumulates strongly, release gains extra slope with C, producing a steeper rising limb and larger transient peak for conditions that cross that range. A single parent parameter set cannot reproduce both weak-response traces and traces with pronounced early acceleration tied to contemporaneous C, because its direct release mapping is monotone decreasing in C at fixed H and stimulus_strength. This refinement changes the scored target mapping dC_dt(C,H,B,...) itself, not only auxiliary trajectories. Limitation: if observed C always stays very low, or H activates essentially immediately, the added mechanism may be weakly expressed."
+        },
+        "contract": {
+          "operation": "add_term",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "At fixed stimulus_strength and H, the release term decreases with C only through the hyperbolic factor 1/(1 + release_inactivation_scale*C), so net dC_dt has a single direct Ca-dependent inactivation scale for release.",
+            "child_relation": "Add a fast positive Ca-dependent release component so that, at fixed stimulus_strength and H, net release becomes biphasic in C: initially increasing over a low-to-intermediate C range due to calcium-induced calcium release, then decreasing at higher C because direct inactivation and extrusion dominate.",
+            "affected_inputs": [
+              "C",
+              "H",
+              "stimulus_strength"
+            ],
+            "observable_effect": "For the same constant stimulus_strength, low initial/intermediate C excursions gain a steeper upstroke and larger transient peak, while high-C regimes still terminate because inhibition and clearance dominate; this creates a non-monotone release-vs-C curvature absent from the parent."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "release_gate_parent",
+              "expression": "stimulus_strength*(1 - H)/(1 + release_inactivation_scale*C)",
+              "role": "baseline stimulus-driven releasable flux factor"
+            },
+            {
+              "name": "clearance_load",
+              "expression": "(k_extrusion*C)/(1 + pump_saturation_scale*C) + (k_buffer_bind*C*(1 - B))/(1 + buffer_binding_scale*C)",
+              "role": "instantaneous free-calcium removal and sequestration load"
+            },
+            {
+              "name": "sensor_buffer_state",
+              "expression": "H + B",
+              "role": "combined delayed negative and buffering occupancy that limits sustained amplification"
+            }
+          ],
+          "activation_condition": "Observable when free calcium reaches a low-to-moderate range where Ca-assisted release channels can be recruited before strong direct inactivation and sensor buildup suppress release; practically, H should still be below near-saturation and C should not yet be so large that release_inactivation_scale*C >> 1.",
+          "train_hidden_contrast": "Within training, stronger stimulus pulses already produce steeper early rises than weaker ones; in holdout, the same mechanism extends this to a sharper dependence of early dC_dt on the contemporaneous C level during the rising phase, not just on stimulus_strength alone.",
+          "continuation_path": "Recover the parent by taking the added Ca-assisted release coefficient to zero.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "C",
+            "H",
+            "stimulus_strength"
+          ],
+          "structural_role": "contribution",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "calcium-induced calcium release acting as a fast amplification of the existing stimulus-driven release process",
+          "scientific_mechanism": "Calcium-induced calcium release through release channels whose open probability increases with local cytosolic calcium over a low-to-intermediate range before slower inhibition shuts the flux down.",
+          "embedding_pattern": "state_dependent_coefficient",
+          "difficulty_rationale": "The child does not merely rescale release; it makes the effective release coefficient depend on the dynamical state C, altering local slope and curvature of dC_dt with respect to C at fixed stimulus_strength and H. This creates a qualitatively different target mapping that cannot be mimicked by one shared constant gain across conditions.",
+          "taxonomy_match": "provisional",
+          "assumption_before": "Stimulus-driven release is gated only by inhibitory suppression and direct Ca-dependent inactivation, with no fast positive dependence of release on cytosolic calcium.",
+          "assumption_after": "Stimulus-driven release retains inhibitory suppression and direct inactivation but is additionally amplified by contemporaneous cytosolic calcium through a fast Ca-assisted release branch.",
+          "before_fragment": "(k_release*stimulus_strength*(1 - H))/(1 + release_inactivation_scale*C) - (k_extrusion*C)/(1 + pump_saturation_scale*C) - (k_buffer_bind*C*(1 - B))/(1 + buffer_binding_scale*C) + k_buffer_unbind*B",
+          "after_fragment": "(k_release*stimulus_strength*(1 - H))/(1 + release_inactivation_scale*C) + (k_cicr_release*stimulus_strength*C*(1 - H))/(1 + release_inactivation_scale*C) - (k_extrusion*C)/(1 + pump_saturation_scale*C) - (k_buffer_bind*C*(1 - B))/(1 + buffer_binding_scale*C) + k_buffer_unbind*B",
+          "parent_reduction": "k_cicr_release = 0",
+          "observable_signature": "Across constant-stimulus conditions that move C into the admissible activation range, the child shows extra early acceleration and larger peaks tied to contemporaneous C during the rising phase, while weak responses that keep C very low remain close to the parent.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce this contrast because, at fixed stimulus_strength and H, its direct release contribution is strictly monotone decreasing in C, so any stronger rise must come only from changing stimulus or auxiliary state histories. The child changes the scored target mapping dC_dt(C,H,B,...) itself by adding a positive C-dependent release slope over low-to-moderate C, which coefficient retuning of the parent cannot create simultaneously with preserved high-C suppression."
+        },
+        "range_suggestions": {
+          "k_cicr_release": "positive; small enough that direct inactivation and clearance still terminate responses, but large enough to steepen the rising phase once C reaches low-to-moderate levels"
+        }
+      },
+      {
+        "generation": 5,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_threshold",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The inhibitory sensor activates with a linear calcium dependence k_sensor_activation*C*(1-H), so at fixed H the suppression pathway strength grows with a single low-calcium slope and no intrinsic activation threshold curvature.",
+            "child_relation": "Replace the linear calcium dependence of sensor activation by a steeper saturating calcium dependence so that inhibition accumulates weakly at very low C and disproportionately faster once C reaches a moderate activation range.",
+            "affected_inputs": [
+              "C",
+              "H",
+              "k_sensor_activation"
+            ],
+            "observable_effect": "Across fixed stimulus_strength with identical initial conditions, low-amplitude calcium elevations produce less inhibition buildup than in the parent, while moderate elevations trigger earlier and stronger delayed suppression, changing pulse width and the onset of oscillation termination."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "release_drive",
+              "expression": "stimulus_strength*(1 - H)/(1 + release_inactivation_scale*C)",
+              "role": "Instantaneous stimulus-gated release drive after direct inhibition"
+            },
+            {
+              "name": "sensor_load",
+              "expression": "C",
+              "role": "Calcium level currently driving inhibitory sensor activation"
+            },
+            {
+              "name": "net_buffer_sink",
+              "expression": "k_buffer_bind*C*(1 - B)/(1 + buffer_binding_scale*C) - k_buffer_unbind*B",
+              "role": "Instantaneous reversible buffering sink strength"
+            }
+          ],
+          "activation_condition": "Observable when C traverses a low-to-moderate range during transients or oscillations, so that sensor activation is neither always near zero nor always fully saturated; especially when stimulus_strength is large enough for CICR to lift C into this regime but clearance and inactivation still terminate excursions.",
+          "train_hidden_contrast": "In training, the same mechanism changes how H accumulates during ordinary calcium pulses; in holdout, the contrast extends to stronger pulses where the steeper activation curvature produces earlier shutdown and altered oscillation envelopes.",
+          "continuation_path": "The parent law is recovered in the limit where the refined sensor-activation nonlinearity reduces to linear dependence on C over the sampled range.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The inhibitory sensor is assumed to respond proportionally to cytosolic calcium at all low-to-moderate concentrations, omitting the common cooperative or saturating occupancy needed to represent a delayed feedback branch with a sharper calcium sensitivity.",
+          "baseline_assumption": "Sensor activation rate is linear in free calcium concentration with one fixed slope and no intrinsic curvature or threshold-like occupancy effect.",
+          "scientific_mechanism": "Cooperative calcium binding or multistep occupancy in the inhibitory sensor, causing nonlinear accumulation of the active inhibitory fraction as calcium rises.",
+          "affected_symbols": [
+            "C",
+            "H",
+            "k_sensor_activation",
+            "k_sensor_relaxation"
+          ],
+          "rationale": "A realistic next refinement is to relax the parent's linear sensor-activation law rather than adding a new process. The parent target mapping from observed states to dC_dt uses H as the only delayed inhibitor, but H itself is generated from a single-slope calcium response. Vary stimulus_strength while holding all other parameters and initial conditions fixed. In the parent, stronger stimuli mainly scale the amplitude and duration of C excursions, and H accumulation follows proportionally because dH_dt has no activation curvature beyond the (1-H) occupancy factor. In a child with cooperative or saturating calcium dependence of sensor activation, small calcium excursions generated under weaker stimulus produce noticeably less H buildup than predicted by the parent, whereas moderate excursions generated under stronger stimulus cross into a steeper activation range and suppress release sooner. This changes the scored mapping indirectly but consequentially through H, because the observed dC_dt at the same C and H trajectory history now comes from a differently curved H evolution that feeds back onto release. The contrast is scientifically admissible when calcium pulses reach the sensor's activation range; if C stays uniformly tiny or uniformly very high, the refinement becomes hard to distinguish. A single refitted parent parameter set cannot generally match both weak-response underactivation and moderate-response sharp feedback onset across those conditions, because changing k_sensor_activation only rescales one linear slope instead of introducing the needed curvature."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_threshold",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The inhibitory sensor activates with a linear calcium dependence k_sensor_activation*C*(1-H), so at fixed H the suppression pathway strength grows with a single low-calcium slope and no intrinsic activation threshold curvature.",
+            "child_relation": "Replace the linear calcium dependence of sensor activation by a steeper saturating calcium dependence so that inhibition accumulates weakly at very low C and disproportionately faster once C reaches a moderate activation range.",
+            "affected_inputs": [
+              "C",
+              "H",
+              "k_sensor_activation"
+            ],
+            "observable_effect": "Across fixed stimulus_strength with identical initial conditions, low-amplitude calcium elevations produce less inhibition buildup than in the parent, while moderate elevations trigger earlier and stronger delayed suppression, changing pulse width and the onset of oscillation termination."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "release_drive",
+              "expression": "stimulus_strength*(1 - H)/(1 + release_inactivation_scale*C)",
+              "role": "Instantaneous stimulus-gated release drive after direct inhibition"
+            },
+            {
+              "name": "sensor_load",
+              "expression": "C",
+              "role": "Calcium level currently driving inhibitory sensor activation"
+            },
+            {
+              "name": "net_buffer_sink",
+              "expression": "k_buffer_bind*C*(1 - B)/(1 + buffer_binding_scale*C) - k_buffer_unbind*B",
+              "role": "Instantaneous reversible buffering sink strength"
+            }
+          ],
+          "activation_condition": "Observable when C traverses a low-to-moderate range during transients or oscillations, so that sensor activation is neither always near zero nor always fully saturated; especially when stimulus_strength is large enough for CICR to lift C into this regime but clearance and inactivation still terminate excursions.",
+          "train_hidden_contrast": "In training, the same mechanism changes how H accumulates during ordinary calcium pulses; in holdout, the contrast extends to stronger pulses where the steeper activation curvature produces earlier shutdown and altered oscillation envelopes.",
+          "continuation_path": "The parent law is recovered in the limit where the refined sensor-activation nonlinearity reduces to linear dependence on C over the sampled range.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "C",
+            "H"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Nonlinear calcium occupancy of the inhibitory sensor",
+          "scientific_mechanism": "Cooperative calcium binding or multistep occupancy in the inhibitory sensor, causing nonlinear accumulation of the active inhibitory fraction as calcium rises.",
+          "embedding_pattern": "state_dependent_coefficient",
+          "difficulty_rationale": "This embedding is harder than a coefficient-only correction because the effective activation coefficient of the inhibitory pathway now depends on the evolving state C, introducing response curvature that a single constant k_sensor_activation cannot reproduce across weak and moderate pulses.",
+          "taxonomy_match": "known",
+          "assumption_before": "Sensor activation rate is linear in free calcium concentration with one fixed slope and no intrinsic curvature or threshold-like occupancy effect.",
+          "assumption_after": "The inhibitory sensor has saturating calcium-dependent occupancy, so its activation coefficient depends on the current calcium level.",
+          "before_fragment": "(k_release*stimulus_strength*(1 - H))/(1 + release_inactivation_scale*C) + (k_cicr_release*stimulus_strength*C*(1 - H))/(1 + release_inactivation_scale*C) - (k_extrusion*C)/(1 + pump_saturation_scale*C) - (k_buffer_bind*C*(1 - B))/(1 + buffer_binding_scale*C) + k_buffer_unbind*B",
+          "after_fragment": "(k_release*stimulus_strength*(1 - H))/(1 + release_inactivation_scale*C) + (k_cicr_release*stimulus_strength*C*(1 - H))/(1 + release_inactivation_scale*C) - (k_extrusion*C)/(1 + pump_saturation_scale*C) - (k_buffer_bind*C*(1 - B))/(1 + buffer_binding_scale*C) + k_buffer_unbind*B",
+          "parent_reduction": "The parent is recovered exactly when sensor_activation_scale = 0, or approximately when sensor_activation_scale*C << 1 throughout the sampled trajectories.",
+          "observable_signature": "Vary stimulus_strength while holding all other parameters and initial conditions fixed. Under weaker stimuli that keep C low, H accumulates less than in the parent; under stronger stimuli that lift C into the moderate activation range, H builds more abruptly and shuts release down earlier. This altered H trajectory feeds back onto the release terms and changes the scored dC_dt mapping across conditions through delayed inhibition, not merely an auxiliary unobserved branch.",
+          "shortcut_blocked": "A single refitted parent parameter set can only rescale the linear activation slope k_sensor_activation in dH_dt. That cannot simultaneously match weak-response underactivation and moderate-response sharper feedback onset across the stated conditions, because the child introduces calcium-dependent curvature in the inhibitory-loading law rather than a uniform gain change."
+        },
+        "range_suggestions": {
+          "sensor_activation_scale": "positive; chosen so sensor_activation_scale*C is small at resting calcium but can become order one during ordinary pulses, allowing weak low-C activation and stronger curvature at moderate C"
+        }
+      }
+    ],
+    "evolution_provenance": {
+      "dimension_track": null,
+      "mechanism_profile": {
+        "allowed_structural_roles": [
+          "contribution",
+          "modulation",
+          "interaction",
+          "feedback",
+          "timescale",
+          "transport_balance"
+        ],
+        "preferred_scopes": [
+          "unary",
+          "pairwise",
+          "state_coupling",
+          "memory"
+        ],
+        "domain_mechanisms": [
+          {
+            "id": "receptor_saturation",
+            "description": "finite receptor occupancy or saturating signal transduction",
+            "operations": [
+              "add_term",
+              "change_assumption"
+            ]
+          },
+          {
+            "id": "negative_feedback",
+            "description": "feedback repression or adaptive regulation",
+            "operations": [
+              "add_term"
+            ]
+          },
+          {
+            "id": "finite_signal_relaxation",
+            "description": "non-instantaneous intracellular relaxation",
+            "operations": [
+              "change_assumption"
+            ]
+          }
+        ],
+        "profile_source": "subfield",
+        "ontology_schema_version": "1.0",
+        "taxonomy_schema_version": "1.0"
+      },
+      "baseline_mechanisms": [
+        "Stimulus-dependent calcium release into the cytosol",
+        "Calcium-dependent activation of an inhibitory sensor",
+        "Delayed sensor relaxation",
+        "Cytosolic calcium extrusion"
+      ],
+      "baseline_assumptions": [
+        "The upstream receptor stimulus is constant and represented by fixed parameters.",
+        "The cytosol is treated as a single well-mixed compartment.",
+        "Calcium buffering is absorbed into effective rates and is not modeled as a separate state.",
+        "Calcium entry from outside the cell is negligible in the baseline model."
+      ],
+      "scientific_constraints": [
+        "Cytosolic calcium is nonnegative.",
+        "The inhibitory sensor activation fraction is bounded between zero and one.",
+        "Release and extrusion must not produce negative calcium concentrations."
+      ],
+      "refinement_agenda": [
+        "Add extracellular calcium entry if sustained influx is required to explain the data.",
+        "Add an intracellular store state if pulse timing cannot be explained by a single release process.",
+        "Add calcium buffering or multiple sensor states if the observed rise and recovery phases have distinct timescales."
+      ],
+      "evolution_contracts": [
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "At fixed H, the target mapping is linear in cytosolic calcium removal: dC_dt decreases with a constant slope -k_extrusion as C increases, while release is independent of C except through H.",
+            "child_relation": "Replace first-order extrusion with saturable calcium pumping so that, at fixed H, removal is approximately linear only at low C and then bends toward a maximal clearance rate at higher C.",
+            "affected_inputs": [
+              "C",
+              "H",
+              "k_extrusion",
+              "stimulus_strength"
+            ],
+            "observable_effect": "Across weak versus strong constant stimulus, the child can show disproportionately larger and broader calcium transients or higher sustained C under strong drive because clearance loses incremental slope at high C, whereas the parent keeps the same linear damping slope at all C."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "effective_release",
+              "expression": "k_release*stimulus_strength*(1 - H)",
+              "role": "Instantaneous calcium source after inhibitory gating"
+            },
+            {
+              "name": "linear_clearance_load",
+              "expression": "k_extrusion*C",
+              "role": "Parent-model calcium removal burden growing proportionally with C"
+            },
+            {
+              "name": "inhibition_free_fraction",
+              "expression": "1 - H",
+              "role": "Available release fraction before feedback shuts release down"
+            }
+          ],
+          "activation_condition": "The contrast is visible when stimulus is strong enough that C reaches a regime where pump occupancy would no longer be dilute, i.e. low-C approximately linear clearance is no longer a good approximation; at very low C the child should reduce to the parent-like behavior.",
+          "train_hidden_contrast": "In training over modest stimuli the refined model can already show slight sublinearity of net dC_dt versus C; in holdout at stronger sustained stimulus the same mechanism extends to a clearer excess peak height, longer decay, or elevated plateau that a single linear-extrusion law cannot match across both regimes with one shared parameter set.",
+          "continuation_path": "Take the saturating-pump scale to be much larger than realized C, so extrusion returns to an effectively first-order term k_extrusion*C over the observed range.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "C",
+            "H"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Saturable cytosolic calcium extrusion by finite-capacity pumps",
+          "scientific_mechanism": "Finite-capacity ATP-dependent calcium pumps and exchangers produce saturable clearance, making net calcium removal sublinear at higher cytosolic calcium.",
+          "embedding_pattern": "multiplicative_modulation",
+          "difficulty_rationale": "This is harder than a coefficient-only correction because the extrusion contribution changes from a constant-slope linear sink to a C-dependent effective gain k_extrusion/(1 + pump_saturation_scale*C), introducing amplitude-dependent curvature in the scored dC_dt mapping itself.",
+          "taxonomy_match": "known",
+          "assumption_before": "Calcium extrusion is represented by a nonnegative first-order rate constant k_extrusion multiplying C for all cytosolic calcium levels.",
+          "assumption_after": "Calcium extrusion has finite capacity, so the effective strength of the existing removal process is modulated downward as C rises.",
+          "before_fragment": "k_release*stimulus_strength*(1 - H) - k_extrusion*C",
+          "after_fragment": "k_release*stimulus_strength*(1 - H) - (k_extrusion*C)/(1 + pump_saturation_scale*C)",
+          "parent_reduction": "Setting pump_saturation_scale = 0 recovers the parent exactly; approximately, pump_saturation_scale*C << 1 gives near-linear extrusion.",
+          "observable_signature": "Vary stimulus_strength while holding initial conditions, k_release, k_sensor_activation, and k_sensor_relaxation fixed. Under weak drive, C remains low and the child behaves nearly like the parent. Under stronger drive, the target mapping dC_dt versus C bends because the removal term approaches a maximal scale k_extrusion/pump_saturation_scale, producing larger peaks, slower decay at high C, or a higher plateau for the same shared parameter set. This is a changed target mapping, not only altered H dynamics, because the C-dependence of the scored RHS itself is no longer a straight line at fixed H.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce both regimes because its extrusion term has one fixed slope -k_extrusion in C at all amplitudes. Retuning k_extrusion can fit either low-C damping or high-C reduced incremental clearance, but not both simultaneously across weak and strong stimulus when the child exhibits amplitude-dependent curvature in dC_dt versus C."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "Net calcium release is proportional to stimulus_strength with one shared gain k_release and only linearly reduced by the current inhibitory fraction (1 - H), so for fixed H the stimulus-to-dC_dt map has fixed curvature-free scaling.",
+            "child_relation": "Release remains stimulus-driven and H-suppressed, but the effective release efficacy decreases with rising cytosolic calcium itself, so the stimulus-to-dC_dt relation bends downward at higher C because elevated calcium reduces additional release before H has fully accumulated.",
+            "affected_inputs": [
+              "C",
+              "H",
+              "stimulus_strength"
+            ],
+            "observable_effect": "At fixed initial conditions and common parameters, increasing stimulus_strength gives a weaker-than-proportional increase in early calcium rise and a reduced peak increment once C enters the inhibitory calcium range; the parent can only change this by the slower H pathway and therefore cannot match both low-stimulus near-linear growth and high-stimulus early self-limiting curvature with one parameter set."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "release_gate_parent",
+              "expression": "stimulus_strength*(1 - H)",
+              "role": "Parent release drive before adding any direct calcium-dependent attenuation"
+            },
+            {
+              "name": "pump_load",
+              "expression": "pump_saturation_scale*C",
+              "role": "Dimensionless regime indicator for whether extrusion is still near-linear or already saturating"
+            },
+            {
+              "name": "sensor_drive",
+              "expression": "k_sensor_activation*C",
+              "role": "Strength of delayed inhibitory-sensor recruitment by current calcium"
+            }
+          ],
+          "activation_condition": "Observable when stimulus_strength is high enough that C rises appreciably before H approaches 1, i.e. an early-to-intermediate transient regime with C in a biologically relevant range where direct calcium-dependent inactivation of release channels can engage while H is still lagging; if C stays very small, the refinement collapses toward the parent behavior.",
+          "train_hidden_contrast": "In training, moderate stimuli can already show slight downward bending of early rise versus stimulus. In holdout, stronger stimuli extend this same mechanism, producing earlier peak compression and less-than-expected additional release even before delayed H activation dominates.",
+          "continuation_path": "Take the strength or sensitivity of direct calcium-dependent release inhibition to zero, recovering release proportional to k_release*stimulus_strength*(1 - H).",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "multiway",
+          "scope_symbols": [
+            "C",
+            "H",
+            "stimulus_strength"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Direct calcium-dependent inactivation of channel-mediated calcium release",
+          "scientific_mechanism": "Direct calcium-dependent inactivation of the release pathway, acting faster than the slower inhibitory sensor accumulation.",
+          "embedding_pattern": "nested_nonlinearity",
+          "difficulty_rationale": "This is harder than a coefficient-only correction because the release drive stimulus_strength*(1 - H) is first formed and then passed through a calcium-dependent nonlinear attenuation, creating state-dependent curvature in the target mapping rather than a uniform gain change.",
+          "taxonomy_match": "known",
+          "assumption_before": "All negative feedback onto release is represented solely by the sensor state H; cytosolic calcium C does not directly attenuate the release flux.",
+          "assumption_after": "Release is suppressed both by the delayed inhibitory sensor H and by instantaneous cytosolic-calcium-dependent inactivation of the release pathway.",
+          "before_fragment": "k_release*stimulus_strength*(1 - H) - (k_extrusion*C)/(1 + pump_saturation_scale*C)",
+          "after_fragment": "(k_release*stimulus_strength*(1 - H))/(1 + release_inactivation_scale*C) - (k_extrusion*C)/(1 + pump_saturation_scale*C)",
+          "parent_reduction": "Setting release_inactivation_scale to zero recovers the parent expression exactly.",
+          "observable_signature": "Across experiments varying stimulus_strength from weak to strong while holding initial conditions and one shared parameter set fixed, the child predicts near-parent behavior at low C but a compressed early dC_dt increase and reduced peak C at stronger stimuli once release_inactivation_scale*C becomes appreciable before H nears 1. This changes the scored target mapping for dC_dt itself, not merely the hidden H trajectory.",
+          "shortcut_blocked": "A single refit of the parent parameters cannot reproduce this contrast across low- and high-stimulus conditions because the parent early release term is affine in stimulus_strength for fixed H and lacks any instantaneous C-dependent attenuation. Retuning k_release, k_extrusion, pump_saturation_scale, or H-kinetic parameters can shift overall gain or delayed feedback timing, but cannot generate the same within-transient downward curvature of release versus rising C before H has accumulated."
+        },
+        {
+          "operation": "add_term",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "interaction_emergence",
+            "parent_relation": "For fixed stimulus_strength and H, the target mapping dC_dt depends only on cytosolic calcium through direct release inactivation and pump saturation; the cell has no adaptive buffering load, so the same C always implies the same instantaneous release-clearance balance.",
+            "child_relation": "Introduce a reversible calcium-buffer occupancy state that sequesters free calcium when C rises, so dC_dt depends jointly on C and buffer occupancy; the same C can correspond to different net uptake/release depending on prior calcium exposure.",
+            "affected_inputs": [
+              "C",
+              "H"
+            ],
+            "observable_effect": "After a rising calcium phase, free-calcium accumulation slows and peak C is reduced relative to the parent, while during recovery previously loaded buffer can release calcium and prolong the tail; this history dependence is absent from the parent."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "release_drive",
+              "expression": "(k_release*stimulus_strength*(1 - H))/(1 + release_inactivation_scale*C)",
+              "role": "Instantaneous calcium release into the cytosol"
+            },
+            {
+              "name": "extrusion_flux",
+              "expression": "(k_extrusion*C)/(1 + pump_saturation_scale*C)",
+              "role": "Instantaneous pump-mediated calcium removal"
+            },
+            {
+              "name": "sensor_timescale_ratio",
+              "expression": "k_sensor_activation*C/(k_sensor_relaxation + k_sensor_activation*C)",
+              "role": "Current tendency of the inhibitory sensor toward activation under the present calcium level"
+            }
+          ],
+          "activation_condition": "Observable when stimulus_strength is large enough that C rises into a regime where reversible endogenous binding would load appreciably during the transient, and on observation windows comparable to buffer binding/unbinding times rather than infinitely fast quasi-equilibrium buffering.",
+          "train_hidden_contrast": "In training, the mechanism appears as weaker early-time slope and lower peak during strong calcium transients; in holdout or longer trajectories it extends to a slower post-peak decay because buffer unloading sustains free calcium after release has been curtailed.",
+          "continuation_path": "Recover the parent law in the limit of vanishing buffer capacity or infinitely fast/slaved buffering with negligible occupancy over the observed C range.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "History-dependent sequestration cannot be represented by refitting only existing fixed coefficients because the parent maps dC_dt from the current C and H alone. A buffer occupancy state is needed so the same C,H can produce different dC_dt after loading versus after unloading.",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "C",
+            "B"
+          ],
+          "structural_role": "transport_balance",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "finite-capacity reversible intracellular calcium buffering",
+          "scientific_mechanism": "Finite-capacity reversible binding of cytosolic calcium to endogenous buffers that transiently sequester free calcium and later release it.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "The added term is not a fixed gain correction: it introduces a saturating finite-capacity uptake process coupled to a hidden occupancy state, creating path-dependent target values at the same observed C and H.",
+          "taxonomy_match": "provisional",
+          "assumption_before": "Calcium buffering is absorbed into effective rates and is not modeled as a separate state.",
+          "assumption_after": "A finite-capacity endogenous buffer loads and unloads dynamically, contributing a saturating binding sink and a release source to the free-calcium balance.",
+          "before_fragment": "(k_release*stimulus_strength*(1 - H))/(1 + release_inactivation_scale*C) - (k_extrusion*C)/(1 + pump_saturation_scale*C)",
+          "after_fragment": "(k_release*stimulus_strength*(1 - H))/(1 + release_inactivation_scale*C) - (k_extrusion*C)/(1 + pump_saturation_scale*C) - (k_buffer_bind*C*(1 - B))/(1 + buffer_binding_scale*C) + k_buffer_unbind*B",
+          "parent_reduction": "Set k_buffer_bind=0 so B remains dynamically irrelevant and the added sink/source vanishes from dC_dt.",
+          "observable_signature": "At fixed kinetic parameters and initial conditions while varying stimulus_strength, sufficiently strong stimuli produce both a blunted upswing/lower peak and a longer recovery tail because buffer occupancy builds and later unloads; this joint contrast is absent from the parent target mapping.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce the child signature across these conditions because in the parent dC_dt is a function only of current C and H, so matched C and H always imply matched flux balance. Retuning k_release, k_extrusion, pump_saturation_scale, or release_inactivation_scale can reduce peaks or slow decay globally, but cannot make the same C,H correspond to stronger net uptake during loading and extra source during unloading without an added occupancy variable."
+        },
+        {
+          "operation": "add_term",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "At fixed stimulus_strength and H, the release term decreases with C only through the hyperbolic factor 1/(1 + release_inactivation_scale*C), so net dC_dt has a single direct Ca-dependent inactivation scale for release.",
+            "child_relation": "Add a fast positive Ca-dependent release component so that, at fixed stimulus_strength and H, net release becomes biphasic in C: initially increasing over a low-to-intermediate C range due to calcium-induced calcium release, then decreasing at higher C because direct inactivation and extrusion dominate.",
+            "affected_inputs": [
+              "C",
+              "H",
+              "stimulus_strength"
+            ],
+            "observable_effect": "For the same constant stimulus_strength, low initial/intermediate C excursions gain a steeper upstroke and larger transient peak, while high-C regimes still terminate because inhibition and clearance dominate; this creates a non-monotone release-vs-C curvature absent from the parent."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "release_gate_parent",
+              "expression": "stimulus_strength*(1 - H)/(1 + release_inactivation_scale*C)",
+              "role": "baseline stimulus-driven releasable flux factor"
+            },
+            {
+              "name": "clearance_load",
+              "expression": "(k_extrusion*C)/(1 + pump_saturation_scale*C) + (k_buffer_bind*C*(1 - B))/(1 + buffer_binding_scale*C)",
+              "role": "instantaneous free-calcium removal and sequestration load"
+            },
+            {
+              "name": "sensor_buffer_state",
+              "expression": "H + B",
+              "role": "combined delayed negative and buffering occupancy that limits sustained amplification"
+            }
+          ],
+          "activation_condition": "Observable when free calcium reaches a low-to-moderate range where Ca-assisted release channels can be recruited before strong direct inactivation and sensor buildup suppress release; practically, H should still be below near-saturation and C should not yet be so large that release_inactivation_scale*C >> 1.",
+          "train_hidden_contrast": "Within training, stronger stimulus pulses already produce steeper early rises than weaker ones; in holdout, the same mechanism extends this to a sharper dependence of early dC_dt on the contemporaneous C level during the rising phase, not just on stimulus_strength alone.",
+          "continuation_path": "Recover the parent by taking the added Ca-assisted release coefficient to zero.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "C",
+            "H",
+            "stimulus_strength"
+          ],
+          "structural_role": "contribution",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "calcium-induced calcium release acting as a fast amplification of the existing stimulus-driven release process",
+          "scientific_mechanism": "Calcium-induced calcium release through release channels whose open probability increases with local cytosolic calcium over a low-to-intermediate range before slower inhibition shuts the flux down.",
+          "embedding_pattern": "state_dependent_coefficient",
+          "difficulty_rationale": "The child does not merely rescale release; it makes the effective release coefficient depend on the dynamical state C, altering local slope and curvature of dC_dt with respect to C at fixed stimulus_strength and H. This creates a qualitatively different target mapping that cannot be mimicked by one shared constant gain across conditions.",
+          "taxonomy_match": "provisional",
+          "assumption_before": "Stimulus-driven release is gated only by inhibitory suppression and direct Ca-dependent inactivation, with no fast positive dependence of release on cytosolic calcium.",
+          "assumption_after": "Stimulus-driven release retains inhibitory suppression and direct inactivation but is additionally amplified by contemporaneous cytosolic calcium through a fast Ca-assisted release branch.",
+          "before_fragment": "(k_release*stimulus_strength*(1 - H))/(1 + release_inactivation_scale*C) - (k_extrusion*C)/(1 + pump_saturation_scale*C) - (k_buffer_bind*C*(1 - B))/(1 + buffer_binding_scale*C) + k_buffer_unbind*B",
+          "after_fragment": "(k_release*stimulus_strength*(1 - H))/(1 + release_inactivation_scale*C) + (k_cicr_release*stimulus_strength*C*(1 - H))/(1 + release_inactivation_scale*C) - (k_extrusion*C)/(1 + pump_saturation_scale*C) - (k_buffer_bind*C*(1 - B))/(1 + buffer_binding_scale*C) + k_buffer_unbind*B",
+          "parent_reduction": "k_cicr_release = 0",
+          "observable_signature": "Across constant-stimulus conditions that move C into the admissible activation range, the child shows extra early acceleration and larger peaks tied to contemporaneous C during the rising phase, while weak responses that keep C very low remain close to the parent.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce this contrast because, at fixed stimulus_strength and H, its direct release contribution is strictly monotone decreasing in C, so any stronger rise must come only from changing stimulus or auxiliary state histories. The child changes the scored target mapping dC_dt(C,H,B,...) itself by adding a positive C-dependent release slope over low-to-moderate C, which coefficient retuning of the parent cannot create simultaneously with preserved high-C suppression."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_threshold",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The inhibitory sensor activates with a linear calcium dependence k_sensor_activation*C*(1-H), so at fixed H the suppression pathway strength grows with a single low-calcium slope and no intrinsic activation threshold curvature.",
+            "child_relation": "Replace the linear calcium dependence of sensor activation by a steeper saturating calcium dependence so that inhibition accumulates weakly at very low C and disproportionately faster once C reaches a moderate activation range.",
+            "affected_inputs": [
+              "C",
+              "H",
+              "k_sensor_activation"
+            ],
+            "observable_effect": "Across fixed stimulus_strength with identical initial conditions, low-amplitude calcium elevations produce less inhibition buildup than in the parent, while moderate elevations trigger earlier and stronger delayed suppression, changing pulse width and the onset of oscillation termination."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "release_drive",
+              "expression": "stimulus_strength*(1 - H)/(1 + release_inactivation_scale*C)",
+              "role": "Instantaneous stimulus-gated release drive after direct inhibition"
+            },
+            {
+              "name": "sensor_load",
+              "expression": "C",
+              "role": "Calcium level currently driving inhibitory sensor activation"
+            },
+            {
+              "name": "net_buffer_sink",
+              "expression": "k_buffer_bind*C*(1 - B)/(1 + buffer_binding_scale*C) - k_buffer_unbind*B",
+              "role": "Instantaneous reversible buffering sink strength"
+            }
+          ],
+          "activation_condition": "Observable when C traverses a low-to-moderate range during transients or oscillations, so that sensor activation is neither always near zero nor always fully saturated; especially when stimulus_strength is large enough for CICR to lift C into this regime but clearance and inactivation still terminate excursions.",
+          "train_hidden_contrast": "In training, the same mechanism changes how H accumulates during ordinary calcium pulses; in holdout, the contrast extends to stronger pulses where the steeper activation curvature produces earlier shutdown and altered oscillation envelopes.",
+          "continuation_path": "The parent law is recovered in the limit where the refined sensor-activation nonlinearity reduces to linear dependence on C over the sampled range.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "C",
+            "H"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Nonlinear calcium occupancy of the inhibitory sensor",
+          "scientific_mechanism": "Cooperative calcium binding or multistep occupancy in the inhibitory sensor, causing nonlinear accumulation of the active inhibitory fraction as calcium rises.",
+          "embedding_pattern": "state_dependent_coefficient",
+          "difficulty_rationale": "This embedding is harder than a coefficient-only correction because the effective activation coefficient of the inhibitory pathway now depends on the evolving state C, introducing response curvature that a single constant k_sensor_activation cannot reproduce across weak and moderate pulses.",
+          "taxonomy_match": "known",
+          "assumption_before": "Sensor activation rate is linear in free calcium concentration with one fixed slope and no intrinsic curvature or threshold-like occupancy effect.",
+          "assumption_after": "The inhibitory sensor has saturating calcium-dependent occupancy, so its activation coefficient depends on the current calcium level.",
+          "before_fragment": "(k_release*stimulus_strength*(1 - H))/(1 + release_inactivation_scale*C) + (k_cicr_release*stimulus_strength*C*(1 - H))/(1 + release_inactivation_scale*C) - (k_extrusion*C)/(1 + pump_saturation_scale*C) - (k_buffer_bind*C*(1 - B))/(1 + buffer_binding_scale*C) + k_buffer_unbind*B",
+          "after_fragment": "(k_release*stimulus_strength*(1 - H))/(1 + release_inactivation_scale*C) + (k_cicr_release*stimulus_strength*C*(1 - H))/(1 + release_inactivation_scale*C) - (k_extrusion*C)/(1 + pump_saturation_scale*C) - (k_buffer_bind*C*(1 - B))/(1 + buffer_binding_scale*C) + k_buffer_unbind*B",
+          "parent_reduction": "The parent is recovered exactly when sensor_activation_scale = 0, or approximately when sensor_activation_scale*C << 1 throughout the sampled trajectories.",
+          "observable_signature": "Vary stimulus_strength while holding all other parameters and initial conditions fixed. Under weaker stimuli that keep C low, H accumulates less than in the parent; under stronger stimuli that lift C into the moderate activation range, H builds more abruptly and shuts release down earlier. This altered H trajectory feeds back onto the release terms and changes the scored dC_dt mapping across conditions through delayed inhibition, not merely an auxiliary unobserved branch.",
+          "shortcut_blocked": "A single refitted parent parameter set can only rescale the linear activation slope k_sensor_activation in dH_dt. That cannot simultaneously match weak-response underactivation and moderate-response sharper feedback onset across the stated conditions, because the child introduces calcium-dependent curvature in the inhibitory-loading law rather than a uniform gain change."
+        }
+      ]
+    },
+    "finalization": {
+      "mode": "candidate",
+      "accepted_generations": 5,
+      "novelty": {
+        "answer": "NOT_EVALUATED"
+      },
+      "total_points": 5000,
+      "evaluation_status": "not_evaluated"
+    }
+  },
+  "contract": {
+    "features": [
+      "t",
+      "C",
+      "H",
+      "B"
+    ],
+    "target": "dC_dt",
+    "family": "ode",
+    "expression": "(k_release*stimulus_strength*(1 - H))/(1 + release_inactivation_scale*C) + (k_cicr_release*stimulus_strength*C*(1 - H))/(1 + release_inactivation_scale*C) - (k_extrusion*C)/(1 + pump_saturation_scale*C) - (k_buffer_bind*C*(1 - B))/(1 + buffer_binding_scale*C) + k_buffer_unbind*B",
+    "parameters": {
+      "stimulus_strength": 1.2,
+      "k_release": 0.9,
+      "k_extrusion": 0.7,
+      "k_sensor_activation": 0.9,
+      "k_sensor_relaxation": 0.25,
+      "pump_saturation_scale": 1.0,
+      "release_inactivation_scale": 0.8,
+      "k_buffer_bind": 0.8,
+      "k_buffer_unbind": 0.18,
+      "buffer_binding_scale": 0.6,
+      "k_cicr_release": 1.3,
+      "sensor_activation_scale": 1.5
+    },
+    "implicit_branch": null
+  }
+}

@@ -1,0 +1,427 @@
+{
+  "base_id": "m2_epidemiology_and_disease_dynamics_20260921_002",
+  "generation": 5,
+  "operation": "change_assumption",
+  "model_family": "ode",
+  "equation_type": "ode_system",
+  "target_symbol": "dIh_dt",
+  "expression": "host_transmission_rate * host_susceptible_background * (Iv / (1 + Iv / (vector_to_host_saturation_scale * (1 - Ih / host_infection_capacity) / ((1 + infected_host_crowding_saturation_strength * Ih / host_infection_capacity) * (1 + host_exposure_memory_strength * host_exposure_memory))))) * (1 - Ih / host_infection_capacity) - host_removal_rate * Ih",
+  "symbols": [
+    "dIh_dt",
+    "t",
+    "Ih",
+    "Iv",
+    "host_transmission_rate",
+    "host_exposure_memory",
+    "vector_transmission_rate",
+    "host_susceptible_background",
+    "vector_susceptible_background",
+    "host_removal_rate",
+    "vector_removal_rate",
+    "host_infection_capacity",
+    "vector_infection_capacity",
+    "vector_to_host_saturation_scale",
+    "infected_host_crowding_saturation_strength",
+    "host_transmission_rate_relaxation_rate",
+    "host_transmission_rate_feedback_strength",
+    "host_transmission_rate_baseline",
+    "host_exposure_memory_relaxation_rate",
+    "host_exposure_memory_accumulation_rate",
+    "host_exposure_memory_strength"
+  ],
+  "symbol_descriptions": [
+    "Time derivative of the infected host population fraction or normalized abundance",
+    "Time",
+    "Infected host population fraction or normalized abundance",
+    "Infected vector population fraction or normalized abundance",
+    "Effective vector-to-host transmission rate state capturing transient competence or control level",
+    "Short-memory host exposure protection or desensitization state driven by recent infectious-vector pressure",
+    "Host-to-vector transmission rate coefficient",
+    "Fixed susceptible host background abundance",
+    "Fixed susceptible vector background abundance",
+    "Per-capita removal rate of infected hosts",
+    "Per-capita removal rate of infected vectors",
+    "Maximum available infected-host fraction or normalized abundance",
+    "Maximum available infected-vector fraction or normalized abundance",
+    "Characteristic infected-vector abundance scale for vector-to-host saturation in the baseline law",
+    "Strength by which infected-host crowding further reduces the effective vector-to-host saturation scale",
+    "Relaxation rate of the effective vector-to-host transmission state toward its baseline level",
+    "Strength of occupancy-driven decay in effective vector-to-host transmission",
+    "Baseline or reference effective vector-to-host transmission rate",
+    "Relaxation rate by which short-memory exposure protection decays back toward zero",
+    "Rate at which current infectious-vector pressure accumulates short-memory exposure protection",
+    "Strength by which exposure memory increases the effective transmission threshold and lowers host acquisition efficiency"
+  ],
+  "symbol_properties": [
+    "O",
+    "V",
+    "S",
+    "S",
+    "S",
+    "S",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P"
+  ],
+  "new_symbol_range_suggestions": {
+    "host_exposure_memory": "nonnegative, typically 0 to order 1 under normalized exposure-memory scaling",
+    "host_exposure_memory_relaxation_rate": "positive; comparable to or faster than host infection dynamics",
+    "host_exposure_memory_accumulation_rate": "nonnegative",
+    "host_exposure_memory_strength": "nonnegative"
+  },
+  "derivation_notes": "The memoryless vector-to-host acquisition law is relaxed by introducing a transient host exposure-memory state that accumulates from current saturating infectious-vector pressure and decays over time. This state raises the effective vector-pressure threshold through a finite-capacity saturation factor, so sustained recent exposure lowers present host incidence even at the same current Iv and Ih.",
+  "change_summary": "Added one internal host_exposure_memory state to represent short-lived protection, desensitization, or avoidance induced by recent infectious-vector exposure. This modifies the scored Ih equation directly by making the vector-to-host saturation threshold history dependent rather than instantaneous only.",
+  "assumption_audit": {
+    "released_assumption": "The present vector-to-host transmission law is memoryless: only current Iv, current Ih, and the current transmission-rate state determine host incidence.",
+    "outcome": "state_augmentation",
+    "quantity": "host_exposure_memory",
+    "quantity_role": "internal_state",
+    "mechanism": "Recent cumulative infectious-vector exposure transiently lowers host susceptibility or accessibility, introducing a dynamic exposure-memory modifier on vector-to-host transmission.",
+    "reference_condition": {},
+    "parent_reduction": "The successor reduces to the parent when host_exposure_memory_strength = 0, or when host_exposure_memory_accumulation_rate = 0 so host_exposure_memory stays at zero, or in the fast-relaxation limit where host_exposure_memory remains negligible."
+  },
+  "add_term_audit": null,
+  "evolution_contract": {
+    "operation": "change_assumption",
+    "parent_shortcut": "single_phase",
+    "response_change": {
+      "type": "threshold_surface",
+      "parent_relation": "At fixed Ih and host_transmission_rate, host incidence is an immediate monotone saturating function of current Iv with no explicit dependence on recent exposure history beyond the current transmission-rate state.",
+      "child_relation": "Host acquisition efficiency is reduced when recent infectious-vector pressure is high, so the instantaneous Ih response depends on both current Iv and a short-memory exposure state, creating a history-dependent effective saturation/threshold for vector-to-host transmission.",
+      "affected_inputs": [
+        "Iv",
+        "Ih",
+        "host_transmission_rate"
+      ],
+      "observable_effect": "For trajectories reaching the same current Iv and Ih, dIh_dt is lower after a sustained high-Iv episode than after a recent low-Iv history; the parent cannot separate these cases because it maps the target from only current states."
+    },
+    "diagnostic_groups": [
+      {
+        "name": "host_free_capacity",
+        "expression": "1 - Ih/host_infection_capacity",
+        "role": "remaining host infection headroom"
+      },
+      {
+        "name": "vector_pressure",
+        "expression": "Iv/(1 + Iv/(vector_to_host_saturation_scale*(1 - Ih/host_infection_capacity)/(1 + infected_host_crowding_saturation_strength*Ih/host_infection_capacity)))",
+        "role": "current saturating infectious-vector exposure pressure"
+      },
+      {
+        "name": "host_occupancy",
+        "expression": "Ih/host_infection_capacity",
+        "role": "infected-host occupancy level governing crowding and depletion"
+      }
+    ],
+    "activation_condition": "Observable when Iv remains moderate to high for a timescale comparable to host infection dynamics, so repeated exposure can transiently desensitize or protect susceptible hosts; weak when Iv is always low or changes much faster than any host exposure-memory process.",
+    "train_hidden_contrast": "In training, varying outbreak histories already changes how long the system spends under elevated Iv; in holdout, longer or sharper high-Iv episodes amplify the same history dependence, producing different dIh_dt at matched current Iv and Ih.",
+    "continuation_path": "Recover the parent law when the exposure-memory effect relaxes infinitely fast or has zero strength, so host incidence depends only on current Iv, Ih, and host_transmission_rate.",
+    "freedom_change": "add_state",
+    "promoted_symbol": null,
+    "promotion_reason": "A genuine short-memory modification of the target mapping cannot be represented with only current Ih, Iv, and host_transmission_rate, because those states do not encode recent cumulative infectious-vector exposure separately from present conditions.",
+    "scope_kind": "memory",
+    "scope_symbols": [
+      "Iv",
+      "Ih",
+      "host_transmission_rate",
+      "host_exposure_memory"
+    ],
+    "structural_role": "response_law",
+    "domain_mechanism_id": "",
+    "domain_mechanism": "short-lived host protection or avoidance induced by recent infectious-vector exposure",
+    "scientific_mechanism": "Recent cumulative infectious-vector exposure transiently lowers host susceptibility or accessibility, introducing a dynamic exposure-memory modifier on vector-to-host transmission.",
+    "embedding_pattern": "saturating_or_thresholded",
+    "difficulty_rationale": "This refinement is structurally harder than coefficient retuning because it changes the target from a memoryless map of current states into a history-dependent threshold law, requiring an additional dynamical degree of freedom that can separate matched current-state snapshots by prior exposure.",
+    "taxonomy_match": "known",
+    "assumption_before": "The present vector-to-host transmission law is memoryless: only current Iv, current Ih, and the current transmission-rate state determine host incidence.",
+    "assumption_after": "Recent infectious-vector exposure accumulates a transient host protection/desensitization state that raises the effective vector-pressure threshold for new host infection.",
+    "before_fragment": "host_transmission_rate * host_susceptible_background * (Iv / (1 + Iv / (vector_to_host_saturation_scale * (1 - Ih / host_infection_capacity) / (1 + infected_host_crowding_saturation_strength * Ih / host_infection_capacity)))) * (1 - Ih / host_infection_capacity) - host_removal_rate * Ih",
+    "after_fragment": "host_transmission_rate * host_susceptible_background * (Iv / (1 + Iv / (vector_to_host_saturation_scale * (1 - Ih / host_infection_capacity) / ((1 + infected_host_crowding_saturation_strength * Ih / host_infection_capacity) * (1 + host_exposure_memory_strength * host_exposure_memory))))) * (1 - Ih / host_infection_capacity) - host_removal_rate * Ih",
+    "parent_reduction": "The successor reduces to the parent when host_exposure_memory_strength = 0, or when host_exposure_memory_accumulation_rate = 0 so host_exposure_memory stays at zero, or in the fast-relaxation limit where host_exposure_memory remains negligible.",
+    "observable_signature": "Relative to the parent's single-phase current-Iv response, the child shows a shifted transmission threshold surface: after sustained moderate-to-high Iv, host_exposure_memory is elevated and the same current Iv, Ih, and host_transmission_rate produce smaller dIh_dt because the effective vector-to-host saturation scale is divided by an additional (1 + host_exposure_memory_strength*host_exposure_memory) factor. This contrast is observable only when recent high Iv persists long enough to build memory and vanishes when the memory mechanism is inactive.",
+    "shortcut_blocked": "A single refitted parent parameter set cannot reproduce this contrast across histories because the parent target is a deterministic function of only current Ih, Iv, and host_transmission_rate. Retuning vector_to_host_saturation_scale, infected_host_crowding_saturation_strength, or host_transmission_rate dynamics can shift the shared current-state response curve, but cannot assign different dIh_dt values to matched current Ih and Iv reached through different prior Iv trajectories."
+  },
+  "dimension_track": null,
+  "mechanism_profile": {
+    "allowed_structural_roles": [
+      "contribution",
+      "interaction",
+      "constraint",
+      "feedback",
+      "transition",
+      "timescale"
+    ],
+    "preferred_scopes": [
+      "unary",
+      "pairwise",
+      "state_coupling",
+      "time_forcing"
+    ],
+    "domain_mechanisms": [
+      {
+        "id": "density_dependent_transmission",
+        "description": "contact or transmission response changes with prevalence or density",
+        "operations": [
+          "add_term",
+          "change_assumption"
+        ]
+      },
+      {
+        "id": "behavioral_feedback",
+        "description": "risk response changes contact or control behavior",
+        "operations": [
+          "add_term"
+        ]
+      },
+      {
+        "id": "waning_immunity",
+        "description": "finite immunity duration or recovery transition",
+        "operations": [
+          "change_assumption"
+        ]
+      },
+      {
+        "id": "seasonal_forcing",
+        "description": "seasonally modulated exposure or transmission",
+        "operations": [
+          "change_assumption"
+        ]
+      }
+    ],
+    "profile_source": "subfield",
+    "ontology_schema_version": "1.0",
+    "taxonomy_schema_version": "1.0"
+  },
+  "evolution_plan": {
+    "operation": "change_assumption",
+    "parent_shortcut": "single_phase",
+    "response_change": {
+      "type": "threshold_surface",
+      "parent_relation": "At fixed Ih and host_transmission_rate, host incidence is an immediate monotone saturating function of current Iv with no explicit dependence on recent exposure history beyond the current transmission-rate state.",
+      "child_relation": "Host acquisition efficiency is reduced when recent infectious-vector pressure is high, so the instantaneous Ih response depends on both current Iv and a short-memory exposure state, creating a history-dependent effective saturation/threshold for vector-to-host transmission.",
+      "affected_inputs": [
+        "Iv",
+        "Ih",
+        "host_transmission_rate"
+      ],
+      "observable_effect": "For trajectories reaching the same current Iv and Ih, dIh_dt is lower after a sustained high-Iv episode than after a recent low-Iv history; the parent cannot separate these cases because it maps the target from only current states."
+    },
+    "diagnostic_groups": [
+      {
+        "name": "host_free_capacity",
+        "expression": "1 - Ih/host_infection_capacity",
+        "role": "remaining host infection headroom"
+      },
+      {
+        "name": "vector_pressure",
+        "expression": "Iv/(1 + Iv/(vector_to_host_saturation_scale*(1 - Ih/host_infection_capacity)/(1 + infected_host_crowding_saturation_strength*Ih/host_infection_capacity)))",
+        "role": "current saturating infectious-vector exposure pressure"
+      },
+      {
+        "name": "host_occupancy",
+        "expression": "Ih/host_infection_capacity",
+        "role": "infected-host occupancy level governing crowding and depletion"
+      }
+    ],
+    "activation_condition": "Observable when Iv remains moderate to high for a timescale comparable to host infection dynamics, so repeated exposure can transiently desensitize or protect susceptible hosts; weak when Iv is always low or changes much faster than any host exposure-memory process.",
+    "train_hidden_contrast": "In training, varying outbreak histories already changes how long the system spends under elevated Iv; in holdout, longer or sharper high-Iv episodes amplify the same history dependence, producing different dIh_dt at matched current Iv and Ih.",
+    "continuation_path": "Recover the parent law when the exposure-memory effect relaxes infinitely fast or has zero strength, so host incidence depends only on current Iv, Ih, and host_transmission_rate.",
+    "freedom_change": "add_state",
+    "promoted_symbol": null,
+    "promotion_reason": "A genuine short-memory modification of the target mapping cannot be represented with only current Ih, Iv, and host_transmission_rate, because those states do not encode recent cumulative infectious-vector exposure separately from present conditions.",
+    "gap_statement": "The current model assumes hosts respond instantaneously to infectious-vector pressure, omitting short-lived exposure-history effects such as induced protection, behavioral avoidance, or temporary refractory status among still-counted susceptible hosts.",
+    "baseline_assumption": "The present vector-to-host transmission law is memoryless: only current Iv, current Ih, and the current transmission-rate state determine host incidence.",
+    "scientific_mechanism": "Recent cumulative infectious-vector exposure transiently lowers host susceptibility or accessibility, introducing a dynamic exposure-memory modifier on vector-to-host transmission.",
+    "affected_symbols": [
+      "Iv",
+      "Ih",
+      "host_transmission_rate",
+      "host_infection_capacity",
+      "vector_to_host_saturation_scale",
+      "infected_host_crowding_saturation_strength"
+    ],
+    "rationale": "A realistic next refinement is to relax the memoryless transmission assumption rather than add an unrelated process. The parent already includes current-vector saturation, host-capacity limitation, crowding-induced saturation tightening, and a slowly varying host_transmission_rate, but it still treats host incidence as single-phase with respect to present Iv: once current Ih and host_transmission_rate are fixed, the same Iv gives the same dIh_dt regardless of whether vectors have been high for a long time or just rose recently. Scientifically, repeated infectious bites can induce transient host protection or avoidance that is not equivalent to changing Ih itself. Vary outbreak histories through different prior Iv trajectories while holding the observation protocol and parameters fixed; compare times where current Iv and Ih are similar. The child should show lower dIh_dt after sustained elevated Iv, whereas the parent cannot because no existing state stores that history. This is observable when elevated Iv persists long enough for short-memory protection/desensitization to accumulate, and it disappears when the memory effect is negligible or infinitely fast, which gives a clean parent-recovery limit. The refinement changes the scored Ih mapping itself, not merely auxiliary dynamics."
+  },
+  "selected_embedding_pattern": {
+    "description": "Use a finite-capacity, saturation, threshold, or regime-transition response.",
+    "difficulty_level": 5,
+    "operations": [
+      "add_term",
+      "change_assumption"
+    ],
+    "model_families": [
+      "static",
+      "ode"
+    ],
+    "minimum_active_quantities": 1,
+    "weight": 17,
+    "id": "saturating_or_thresholded"
+  },
+  "ode_system": {
+    "time_symbol": "t",
+    "target_state": "Ih",
+    "states": [
+      {
+        "symbol": "Ih",
+        "rhs": "host_transmission_rate * host_susceptible_background * (Iv / (1 + Iv / (vector_to_host_saturation_scale * (1 - Ih / host_infection_capacity) / ((1 + infected_host_crowding_saturation_strength * Ih / host_infection_capacity) * (1 + host_exposure_memory_strength * host_exposure_memory))))) * (1 - Ih / host_infection_capacity) - host_removal_rate * Ih",
+        "initial_condition": 0.01,
+        "description": "Infected host population fraction or normalized abundance"
+      },
+      {
+        "symbol": "Iv",
+        "rhs": "vector_transmission_rate * vector_susceptible_background * Ih * (1 - Iv / vector_infection_capacity) - vector_removal_rate * Iv",
+        "initial_condition": 0.02,
+        "description": "Infected vector population fraction or normalized abundance"
+      },
+      {
+        "symbol": "host_transmission_rate",
+        "rhs": "host_transmission_rate_relaxation_rate * (host_transmission_rate_baseline - host_transmission_rate) - host_transmission_rate_feedback_strength * (Ih / host_infection_capacity) * host_transmission_rate",
+        "initial_condition": 1.0,
+        "description": "Effective vector-to-host transmission rate state capturing transient competence or control level"
+      },
+      {
+        "symbol": "host_exposure_memory",
+        "rhs": "host_exposure_memory_accumulation_rate * (Iv / (1 + Iv / (vector_to_host_saturation_scale * (1 - Ih / host_infection_capacity) / (1 + infected_host_crowding_saturation_strength * Ih / host_infection_capacity)))) - host_exposure_memory_relaxation_rate * host_exposure_memory",
+        "initial_condition": 0.0,
+        "description": "Short-memory host exposure protection or desensitization state driven by recent infectious-vector pressure"
+      }
+    ]
+  },
+  "scenario_text": "Represent transmission between an infected host population and an infected vector population. Host infection is driven by infectious vectors, while vector infection is driven by infectious hosts, producing reciprocal transmission feedback. Host and vector susceptible abundances are held fixed as background conditions in the baseline model, so only the two infected populations are dynamically evolved. The target is the time derivative of infected hosts.",
+  "freedom_change": "add_state",
+  "promoted_symbol": null,
+  "promotion_reason": "A genuine short-memory modification of the target mapping cannot be represented with only current Ih, Iv, and host_transmission_rate, because those states do not encode recent cumulative infectious-vector exposure separately from present conditions.",
+  "parent_shortcut": "single_phase",
+  "response_change": {
+    "type": "threshold_surface",
+    "parent_relation": "At fixed Ih and host_transmission_rate, host incidence is an immediate monotone saturating function of current Iv with no explicit dependence on recent exposure history beyond the current transmission-rate state.",
+    "child_relation": "Host acquisition efficiency is reduced when recent infectious-vector pressure is high, so the instantaneous Ih response depends on both current Iv and a short-memory exposure state, creating a history-dependent effective saturation/threshold for vector-to-host transmission.",
+    "affected_inputs": [
+      "Iv",
+      "Ih",
+      "host_transmission_rate"
+    ],
+    "observable_effect": "For trajectories reaching the same current Iv and Ih, dIh_dt is lower after a sustained high-Iv episode than after a recent low-Iv history; the parent cannot separate these cases because it maps the target from only current states."
+  },
+  "diagnostic_groups": [
+    {
+      "name": "host_free_capacity",
+      "expression": "1 - Ih/host_infection_capacity",
+      "role": "remaining host infection headroom"
+    },
+    {
+      "name": "vector_pressure",
+      "expression": "Iv/(1 + Iv/(vector_to_host_saturation_scale*(1 - Ih/host_infection_capacity)/(1 + infected_host_crowding_saturation_strength*Ih/host_infection_capacity)))",
+      "role": "current saturating infectious-vector exposure pressure"
+    },
+    {
+      "name": "host_occupancy",
+      "expression": "Ih/host_infection_capacity",
+      "role": "infected-host occupancy level governing crowding and depletion"
+    }
+  ],
+  "activation_condition": "Observable when Iv remains moderate to high for a timescale comparable to host infection dynamics, so repeated exposure can transiently desensitize or protect susceptible hosts; weak when Iv is always low or changes much faster than any host exposure-memory process.",
+  "train_hidden_contrast": "In training, varying outbreak histories already changes how long the system spends under elevated Iv; in holdout, longer or sharper high-Iv episodes amplify the same history dependence, producing different dIh_dt at matched current Iv and Ih.",
+  "continuation_path": "Recover the parent law when the exposure-memory effect relaxes infinitely fast or has zero strength, so host incidence depends only on current Iv, Ih, and host_transmission_rate.",
+  "dependent_variable": {
+    "symbol": "dIh_dt",
+    "description": "Time derivative of the infected host population fraction or normalized abundance"
+  },
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "description": "Time"
+    }
+  ],
+  "state_variables": [
+    {
+      "symbol": "Ih",
+      "description": "Infected host population fraction or normalized abundance"
+    },
+    {
+      "symbol": "Iv",
+      "description": "Infected vector population fraction or normalized abundance"
+    },
+    {
+      "symbol": "host_transmission_rate",
+      "description": "Effective vector-to-host transmission rate state capturing transient competence or control level"
+    },
+    {
+      "symbol": "host_exposure_memory",
+      "description": "Short-memory host exposure protection or desensitization state driven by recent infectious-vector pressure"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "vector_transmission_rate",
+      "description": "Host-to-vector transmission rate coefficient"
+    },
+    {
+      "symbol": "host_susceptible_background",
+      "description": "Fixed susceptible host background abundance"
+    },
+    {
+      "symbol": "vector_susceptible_background",
+      "description": "Fixed susceptible vector background abundance"
+    },
+    {
+      "symbol": "host_removal_rate",
+      "description": "Per-capita removal rate of infected hosts"
+    },
+    {
+      "symbol": "vector_removal_rate",
+      "description": "Per-capita removal rate of infected vectors"
+    },
+    {
+      "symbol": "host_infection_capacity",
+      "description": "Maximum available infected-host fraction or normalized abundance"
+    },
+    {
+      "symbol": "vector_infection_capacity",
+      "description": "Maximum available infected-vector fraction or normalized abundance"
+    },
+    {
+      "symbol": "vector_to_host_saturation_scale",
+      "description": "Characteristic infected-vector abundance scale for vector-to-host saturation in the baseline law"
+    },
+    {
+      "symbol": "infected_host_crowding_saturation_strength",
+      "description": "Strength by which infected-host crowding further reduces the effective vector-to-host saturation scale"
+    },
+    {
+      "symbol": "host_transmission_rate_relaxation_rate",
+      "description": "Relaxation rate of the effective vector-to-host transmission state toward its baseline level"
+    },
+    {
+      "symbol": "host_transmission_rate_feedback_strength",
+      "description": "Strength of occupancy-driven decay in effective vector-to-host transmission"
+    },
+    {
+      "symbol": "host_transmission_rate_baseline",
+      "description": "Baseline or reference effective vector-to-host transmission rate"
+    },
+    {
+      "symbol": "host_exposure_memory_relaxation_rate",
+      "description": "Relaxation rate by which short-memory exposure protection decays back toward zero"
+    },
+    {
+      "symbol": "host_exposure_memory_accumulation_rate",
+      "description": "Rate at which current infectious-vector pressure accumulates short-memory exposure protection"
+    },
+    {
+      "symbol": "host_exposure_memory_strength",
+      "description": "Strength by which exposure memory increases the effective transmission threshold and lowers host acquisition efficiency"
+    }
+  ]
+}

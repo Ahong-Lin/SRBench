@@ -1,0 +1,1908 @@
+{
+  "version": 7,
+  "spec": {
+    "equation_type": "ode_system",
+    "integrator": "integrate_system",
+    "dependent_variable": "I",
+    "independent_variables": [
+      {
+        "symbol": "t",
+        "range": [
+          0.0,
+          0.03
+        ],
+        "n_points": 400,
+        "scale": "linear"
+      }
+    ],
+    "parameters": [
+      {
+        "symbol": "capacitance",
+        "value": 0.001
+      },
+      {
+        "symbol": "inductance",
+        "value": 0.001
+      },
+      {
+        "symbol": "charge_saturation",
+        "value": 0.002
+      },
+      {
+        "symbol": "current_saturation",
+        "value": 0.5
+      },
+      {
+        "symbol": "polarization_relaxation_time",
+        "value": 0.0012
+      },
+      {
+        "symbol": "polarization_coupling",
+        "value": 0.8
+      },
+      {
+        "symbol": "polarization_saturation",
+        "value": 0.0007
+      },
+      {
+        "symbol": "slow_polarization_relaxation_time",
+        "value": 0.004
+      },
+      {
+        "symbol": "slow_polarization_coupling",
+        "value": 0.4
+      },
+      {
+        "symbol": "slow_polarization_saturation",
+        "value": 0.00035
+      }
+    ],
+    "benchmark_output": "dI_dt",
+    "benchmark_target_state": "I",
+    "observed_variables": [
+      "t",
+      "Q",
+      "I",
+      "P_pol",
+      "P_slow"
+    ],
+    "rhs_for_integrator": "-(Q + (polarization_coupling/(1 + (P_pol/polarization_saturation)**2))*P_pol/(1 + (P_pol/polarization_saturation)**2) + (slow_polarization_coupling/(1 + (P_slow/slow_polarization_saturation)**2))*P_slow/(1 + (P_slow/slow_polarization_saturation)**2))/(capacitance*(1 + (Q/charge_saturation)**2)*(inductance*(1 + (I/current_saturation)**2)))",
+    "state_variables": [
+      "Q",
+      "I",
+      "P_pol",
+      "P_slow"
+    ],
+    "state_rhs": [
+      "I",
+      "-(Q + (polarization_coupling/(1 + (P_pol/polarization_saturation)**2))*P_pol/(1 + (P_pol/polarization_saturation)**2) + (slow_polarization_coupling/(1 + (P_slow/slow_polarization_saturation)**2))*P_slow/(1 + (P_slow/slow_polarization_saturation)**2))/(capacitance*(1 + (Q/charge_saturation)**2)*(inductance*(1 + (I/current_saturation)**2)))",
+      "(Q - P_pol)/polarization_relaxation_time",
+      "(Q - P_slow)/slow_polarization_relaxation_time"
+    ],
+    "initial_conditions": {
+      "Q": 0.001,
+      "I": 0.0,
+      "P_pol": 0.0005,
+      "P_slow": 0.00025
+    },
+    "sanity_expectations": [
+      "At t=0, dI_dt should be negative and finite because Q, P_pol, and P_slow are all positive while all denominator factors are positive.",
+      "Because polarization_relaxation_time is comparable to sqrt(inductance*capacitance), the fast polarization state should not remain exactly slaved to Q; early oscillation segments should show noticeable lag between Q and P_pol.",
+      "Because slow_polarization_relaxation_time is several times larger than sqrt(inductance*capacitance) but still well inside the 0.03 s window, later-cycle behavior should differ from earliest-cycle behavior through additional slow-memory contribution from P_slow.",
+      "The polarization contributions are weighted by effectively steeper factors ~1/(1+(P/P_sat)^2)^2, so as |P_pol| or |P_slow| approaches its saturation scale, incremental changes in dI_dt from further polarization growth should flatten more strongly than in the parent generation.",
+      "Since charge_saturation is only about twice the initial |Q|, the restoring response should deviate from a single global linear dI_dt-versus-Q slope over the trajectory, but not be fully saturated at all times.",
+      "Since current_saturation is finite and moderate, points with similar Q but larger |I| should tend to have reduced |dI_dt| relative to small-|I| points, other states being comparable."
+    ],
+    "role_corrections": [
+      "dI_dt: claimed-output/target derivative -> target derivative within ode_system contract (confirmed: target is derivative of dependent state I, not the dependent variable itself)",
+      "t: claimed-input/time axis -> independent variable (confirmed)",
+      "Q: claimed-dynamic state -> dynamic state (confirmed)",
+      "I: claimed-dynamic state -> dependent variable and dynamic state (confirmed)",
+      "P_pol: claimed-dynamic state -> dynamic state (confirmed)",
+      "P_slow: claimed-dynamic state -> dynamic state (confirmed)",
+      "capacitance: claimed-parameter -> parameter (confirmed)",
+      "inductance: claimed-parameter -> parameter (confirmed)",
+      "charge_saturation: claimed-parameter -> parameter (confirmed)",
+      "current_saturation: claimed-parameter -> parameter (confirmed)",
+      "polarization_relaxation_time: claimed-parameter -> parameter (confirmed)",
+      "polarization_coupling: claimed-parameter -> parameter (confirmed)",
+      "polarization_saturation: claimed-parameter -> parameter (confirmed)",
+      "slow_polarization_relaxation_time: claimed-parameter -> parameter (confirmed)",
+      "slow_polarization_coupling: claimed-parameter -> parameter (confirmed)",
+      "slow_polarization_saturation: claimed-parameter -> parameter (confirmed)"
+    ],
+    "rationale": "Preserved the supplied ODE-system contract exactly as required: target state I, time as the sole sampled axis, and the inherited four-state system with fixed initial conditions. Although the target expression alone is structurally explicit in dI_dt, the typed contract governs data generation here and closes the dynamics through Q' = I, P_pol' = (Q-P_pol)/polarization_relaxation_time, and P_slow' = (Q-P_slow)/slow_polarization_relaxation_time, so integrate_system is the correct plan. Parameter choices are conservative and finite, with nominal LC time sqrt(L*C)=0.001 s. I set polarization_relaxation_time = 0.0012 s, comparable to the LC time, to keep the fast polarization lag observable rather than adiabatically slaved; slow_polarization_relaxation_time = 0.004 s gives a distinct slower reversible memory branch still active within the observation window. The saturation scales are chosen comparable to reachable state magnitudes from the inherited initial condition: charge_saturation = 0.002 C is about twice the initial Q, polarization_saturation = 0.0007 C and slow_polarization_saturation = 0.00035 C are near the initial polarization amplitudes, so the steeper polarization compression in the current generation should become visible without placing the trajectory deep in saturation everywhere. current_saturation = 0.5 A should allow current-dependent inductive modulation to emerge once oscillatory current grows from the initial charged state, but not dominate immediately. Couplings 0.8 and 0.4 keep Q as the primary restoring contribution while making both fast and slow polarization branches visibly consequential. The time window 0 to 0.03 s spans about 30 nominal LC times, enough to resolve early-cycle fast lag and later-cycle slow-memory effects from the fixed inherited initial state; no observation noise is added.",
+    "coverage_report": {
+      "groups": [
+        {
+          "generation": 1,
+          "name": "charge_scale",
+          "expression": "Abs(Q)",
+          "role": "instantaneous charge amplitude controlling departure from linear capacitance",
+          "train_range": [
+            4.039277067722721e-07,
+            0.0021605026476170645
+          ],
+          "hidden_range": [
+            2.3095576748091717e-06,
+            0.0018034748486014675
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 4.039277067722721e-07,
+            "max": 0.0021605026476170645,
+            "q05": 0.00011994365515976504,
+            "median": 0.0010824821887092085,
+            "q95": 0.0019772699747215208,
+            "range": 0.002160098719910292,
+            "robust_range": 0.0018573263195617558
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 2.3095576748091717e-06,
+            "max": 0.0018034748486014675,
+            "q05": 7.771491717161182e-05,
+            "median": 0.0007577638932859132,
+            "q95": 0.0016906778710261046,
+            "range": 0.0018011652909266584,
+            "robust_range": 0.0016129629538544927
+          }
+        },
+        {
+          "generation": 1,
+          "name": "linear_restoring",
+          "expression": "Q/(inductance*capacitance)",
+          "role": "parent linear restoring acceleration scale",
+          "train_range": [
+            -2160.5026476170647,
+            1977.6744323604978
+          ],
+          "hidden_range": [
+            -1051.2521905293413,
+            1803.4748486014676
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -2160.5026476170647,
+            "max": 1977.6744323604978,
+            "q05": -1963.7871282894791,
+            "median": -189.7411874659379,
+            "q95": 1778.7812897833667,
+            "range": 4138.177079977562,
+            "robust_range": 3742.568418072846
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": -1051.2521905293413,
+            "max": 1803.4748486014676,
+            "q05": -913.4727903120271,
+            "median": 437.7403745282059,
+            "q95": 1690.6778710261046,
+            "range": 2854.727039130809,
+            "robust_range": 2604.1506613381316
+          }
+        },
+        {
+          "generation": 1,
+          "name": "em_energy",
+          "expression": "Q**2/(2*capacitance) + inductance*I**2/2",
+          "role": "baseline conserved electromagnetic energy used to compare amplitude regimes",
+          "train_range": [
+            0.0002848874724535366,
+            0.0023338858530623846
+          ],
+          "hidden_range": [
+            0.0005265070253416282,
+            0.0018921112543724243
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0002848874724535366,
+            "max": 0.0023338858530623846,
+            "q05": 0.0003544761682284494,
+            "median": 0.0008180395828234117,
+            "q95": 0.002059980030538441,
+            "range": 0.002048998380608848,
+            "robust_range": 0.0017055038623099916
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.0005265070253416282,
+            "max": 0.0018921112543724243,
+            "q05": 0.0005290322479614035,
+            "median": 0.0007657730417846736,
+            "q95": 0.0017311546966483754,
+            "range": 0.0013656042290307961,
+            "robust_range": 0.001202122448686972
+          }
+        },
+        {
+          "generation": 2,
+          "name": "cap_restoring",
+          "expression": "Q/(capacitance*(1 + (Q/charge_saturation)**2))",
+          "role": "Nonlinear capacitor voltage-scale term that drives the magnetic response",
+          "train_range": [
+            -0.9999999603457949,
+            0.9999369967625225
+          ],
+          "hidden_range": [
+            -0.8236828053310026,
+            0.9946746610851251
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -0.9999999603457949,
+            "max": 0.9999369967625225,
+            "q05": -0.9975509784868312,
+            "median": -0.18804866022602784,
+            "q95": 0.9931689830623222,
+            "range": 1.9999369571083174,
+            "robust_range": 1.9907199615491533
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": -0.8236828053310026,
+            "max": 0.9946746610851251,
+            "q05": -0.7558050568976178,
+            "median": 0.41772676925716246,
+            "q95": 0.9860489840511648,
+            "range": 1.8183574664161277,
+            "robust_range": 1.7418540409487826
+          }
+        },
+        {
+          "generation": 2,
+          "name": "phase_point",
+          "expression": "I**2 + Q**2",
+          "role": "Trajectory location indicator showing that identical charge can occur at different current values during oscillation",
+          "train_range": [
+            1e-06,
+            0.9898674377270962
+          ],
+          "hidden_range": [
+            0.5317042317282918,
+            1.0561073334356283
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 1e-06,
+            "max": 0.9898674377270962,
+            "q05": 0.015430024479393296,
+            "median": 0.5119554828558774,
+            "q95": 0.9140606653604006,
+            "range": 0.9898664377270961,
+            "robust_range": 0.8986306408810073
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.5317042317282918,
+            "max": 1.0561073334356283,
+            "q05": 0.6039195576216809,
+            "median": 0.9616931784575891,
+            "q95": 1.055107099079187,
+            "range": 0.5244031017073365,
+            "robust_range": 0.45118754145750617
+          }
+        },
+        {
+          "generation": 2,
+          "name": "charge_to_sat",
+          "expression": "Q/charge_saturation",
+          "role": "Activation of the already-present capacitor saturation nonlinearity",
+          "train_range": [
+            -1.0802513238085323,
+            0.9888372161802488
+          ],
+          "hidden_range": [
+            -0.5256260952646706,
+            0.9017374243007338
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -1.0802513238085323,
+            "max": 0.9888372161802488,
+            "q05": -0.9818935641447395,
+            "median": -0.09487059373296897,
+            "q95": 0.8893906448916833,
+            "range": 2.069088539988781,
+            "robust_range": 1.8712842090364228
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": -0.5256260952646706,
+            "max": 0.9017374243007338,
+            "q05": -0.45673639515601355,
+            "median": 0.21887018726410296,
+            "q95": 0.8453389355130523,
+            "range": 1.4273635195654044,
+            "robust_range": 1.3020753306690658
+          }
+        },
+        {
+          "generation": 3,
+          "name": "charge_ratio",
+          "expression": "Q/charge_saturation",
+          "role": "capacitor nonlinearity activation coordinate",
+          "train_range": [
+            -1.0802513238085323,
+            0.9888372161802488
+          ],
+          "hidden_range": [
+            -0.5256260952646706,
+            0.9017374243007338
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -1.0802513238085323,
+            "max": 0.9888372161802488,
+            "q05": -0.9818935641447395,
+            "median": -0.09487059373296897,
+            "q95": 0.8893906448916833,
+            "range": 2.069088539988781,
+            "robust_range": 1.8712842090364228
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": -0.5256260952646706,
+            "max": 0.9017374243007338,
+            "q05": -0.45673639515601355,
+            "median": 0.21887018726410296,
+            "q95": 0.8453389355130523,
+            "range": 1.4273635195654044,
+            "robust_range": 1.3020753306690658
+          }
+        },
+        {
+          "generation": 3,
+          "name": "current_ratio",
+          "expression": "I/current_saturation",
+          "role": "inductive nonlinearity activation coordinate",
+          "train_range": [
+            -1.989841619465827,
+            1.9121299520153983
+          ],
+          "hidden_range": [
+            1.4583565808220735,
+            2.0553416429151996
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -1.989841619465827,
+            "max": 1.9121299520153983,
+            "q05": -1.9114686401387,
+            "median": -0.48193693045905195,
+            "q95": 1.8305055647083757,
+            "range": 3.9019715714812255,
+            "robust_range": 3.7419742048470757
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 1.4583565808220735,
+            "max": 2.0553416429151996,
+            "q05": 1.5542413419772432,
+            "median": 1.9613185087296365,
+            "q95": 2.0543681217217737,
+            "range": 0.5969850620931261,
+            "robust_range": 0.5001267797445306
+          }
+        },
+        {
+          "generation": 3,
+          "name": "state_plane",
+          "expression": "Q*Q + I*I",
+          "role": "gross oscillation amplitude proxy in the observed state plane",
+          "train_range": [
+            1e-06,
+            0.9898674377270962
+          ],
+          "hidden_range": [
+            0.5317042317282918,
+            1.0561073334356283
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 1e-06,
+            "max": 0.9898674377270962,
+            "q05": 0.015430024479393296,
+            "median": 0.5119554828558774,
+            "q95": 0.9140606653604006,
+            "range": 0.9898664377270961,
+            "robust_range": 0.8986306408810073
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.5317042317282918,
+            "max": 1.0561073334356283,
+            "q05": 0.6039195576216809,
+            "median": 0.9616931784575891,
+            "q95": 1.055107099079187,
+            "range": 0.5244031017073365,
+            "robust_range": 0.45118754145750617
+          }
+        },
+        {
+          "generation": 4,
+          "name": "lc_time",
+          "expression": "sqrt(inductance*capacitance)",
+          "role": "Nominal electromagnetic exchange timescale used to compare dielectric memory rates",
+          "train_range": [
+            0.001,
+            0.001
+          ],
+          "hidden_range": [
+            0.001,
+            0.001
+          ],
+          "train_status": "inactive",
+          "hidden_status": "inactive",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.001,
+            "max": 0.001,
+            "q05": 0.001,
+            "median": 0.001,
+            "q95": 0.001,
+            "range": 0.0,
+            "robust_range": 0.0
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.001,
+            "max": 0.001,
+            "q05": 0.001,
+            "median": 0.001,
+            "q95": 0.001,
+            "range": 0.0,
+            "robust_range": 0.0
+          }
+        },
+        {
+          "generation": 4,
+          "name": "charge_nl",
+          "expression": "Q/charge_saturation",
+          "role": "Capacitive saturation coordinate controlling charge-dependent restoring softening",
+          "train_range": [
+            -1.0802513238085323,
+            0.9888372161802488
+          ],
+          "hidden_range": [
+            -0.5256260952646706,
+            0.9017374243007338
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -1.0802513238085323,
+            "max": 0.9888372161802488,
+            "q05": -0.9818935641447395,
+            "median": -0.09487059373296897,
+            "q95": 0.8893906448916833,
+            "range": 2.069088539988781,
+            "robust_range": 1.8712842090364228
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": -0.5256260952646706,
+            "max": 0.9017374243007338,
+            "q05": -0.45673639515601355,
+            "median": 0.21887018726410296,
+            "q95": 0.8453389355130523,
+            "range": 1.4273635195654044,
+            "robust_range": 1.3020753306690658
+          }
+        },
+        {
+          "generation": 4,
+          "name": "current_nl",
+          "expression": "I/current_saturation",
+          "role": "Inductive saturation coordinate controlling current-dependent inertial nonlinearity",
+          "train_range": [
+            -1.989841619465827,
+            1.9121299520153983
+          ],
+          "hidden_range": [
+            1.4583565808220735,
+            2.0553416429151996
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -1.989841619465827,
+            "max": 1.9121299520153983,
+            "q05": -1.9114686401387,
+            "median": -0.48193693045905195,
+            "q95": 1.8305055647083757,
+            "range": 3.9019715714812255,
+            "robust_range": 3.7419742048470757
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 1.4583565808220735,
+            "max": 2.0553416429151996,
+            "q05": 1.5542413419772432,
+            "median": 1.9613185087296365,
+            "q95": 2.0543681217217737,
+            "range": 0.5969850620931261,
+            "robust_range": 0.5001267797445306
+          }
+        },
+        {
+          "generation": 4,
+          "name": "pol_phase_ratio",
+          "expression": "polarization_relaxation_time/sqrt(inductance*capacitance)",
+          "role": "Existing dielectric-memory lag relative to the LC period",
+          "train_range": [
+            1.2,
+            1.2
+          ],
+          "hidden_range": [
+            1.2,
+            1.2
+          ],
+          "train_status": "inactive",
+          "hidden_status": "inactive",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 1.2,
+            "max": 1.2,
+            "q05": 1.2,
+            "median": 1.2,
+            "q95": 1.2,
+            "range": 0.0,
+            "robust_range": 0.0
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 1.2,
+            "max": 1.2,
+            "q05": 1.2,
+            "median": 1.2,
+            "q95": 1.2,
+            "range": 0.0,
+            "robust_range": 0.0
+          }
+        },
+        {
+          "generation": 5,
+          "name": "fast_pol_ratio",
+          "expression": "P_pol/polarization_saturation",
+          "role": "activation level of the fast polarization nonlinearity",
+          "train_range": [
+            -2.538955879235936,
+            2.2839789990685757
+          ],
+          "hidden_range": [
+            -2.241374230424605,
+            1.085289180201304
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -2.538955879235936,
+            "max": 2.2839789990685757,
+            "q05": -2.3639773607938896,
+            "median": -0.01774961032175034,
+            "q95": 2.109990629850685,
+            "range": 4.822934878304512,
+            "robust_range": 4.473967990644574
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": -2.241374230424605,
+            "max": 1.085289180201304,
+            "q05": -2.1429101160820663,
+            "median": -0.8156592012233013,
+            "q95": 0.8975421493215285,
+            "range": 3.326663410625909,
+            "robust_range": 3.040452265403595
+          }
+        },
+        {
+          "generation": 5,
+          "name": "slow_pol_ratio",
+          "expression": "P_slow/slow_polarization_saturation",
+          "role": "activation level of the slow polarization nonlinearity",
+          "train_range": [
+            -2.5726873617562958,
+            2.2701922521362095
+          ],
+          "hidden_range": [
+            -2.5819459243252014,
+            -0.31533700996317005
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -2.5726873617562958,
+            "max": 2.2701922521362095,
+            "q05": -1.9350691292304443,
+            "median": 0.20007491098535865,
+            "q95": 2.1224396022690244,
+            "range": 4.842879613892505,
+            "robust_range": 4.0575087314994684
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": -2.5819459243252014,
+            "max": -0.31533700996317005,
+            "q05": -2.5800107000746317,
+            "median": -2.014702347251265,
+            "q95": -0.5178175373063891,
+            "range": 2.266608914362031,
+            "robust_range": 2.0621931627682426
+          }
+        },
+        {
+          "generation": 5,
+          "name": "restoring_balance",
+          "expression": "(Q + polarization_coupling*P_pol/(1 + (P_pol/polarization_saturation)**2) + slow_polarization_coupling*P_slow/(1 + (P_slow/slow_polarization_saturation)**2))/(capacitance*inductance)",
+          "role": "parent effective restoring acceleration scale before inductive and capacitive saturation factors fully modulate it",
+          "train_range": [
+            -2446.3520099900593,
+            2280.2837142468356
+          ],
+          "hidden_range": [
+            -1306.8882808752585,
+            2042.3852834623806
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -2446.3520099900593,
+            "max": 2280.2837142468356,
+            "q05": -2236.596271244647,
+            "median": -150.99995200750246,
+            "q95": 2062.3490655229734,
+            "range": 4726.635724236895,
+            "robust_range": 4298.945336767621
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": -1306.8882808752585,
+            "max": 2042.3852834623806,
+            "q05": -1175.2183619040138,
+            "median": 107.70345027589772,
+            "q95": 1911.8835492918934,
+            "range": 3349.273564337639,
+            "robust_range": 3087.101911195907
+          }
+        }
+      ],
+      "inactive_mechanisms": [
+        "lc_time",
+        "pol_phase_ratio"
+      ],
+      "visible_mechanisms": [
+        "charge_scale",
+        "linear_restoring",
+        "em_energy",
+        "cap_restoring",
+        "phase_point",
+        "charge_to_sat",
+        "charge_ratio",
+        "current_ratio",
+        "state_plane",
+        "charge_nl",
+        "current_nl",
+        "fast_pol_ratio",
+        "slow_pol_ratio",
+        "restoring_balance"
+      ],
+      "extended_mechanisms": [
+        "charge_scale",
+        "phase_point",
+        "current_ratio",
+        "state_plane",
+        "current_nl",
+        "slow_pol_ratio"
+      ]
+    },
+    "inactive_mechanisms": [
+      "lc_time",
+      "pol_phase_ratio"
+    ],
+    "target_variance": {
+      "train": {
+        "n": 4500,
+        "variance": 213330.8141121493,
+        "range": 2108.7626832880505
+      },
+      "hidden": {
+        "n": 500,
+        "variance": 24891.09898518555,
+        "range": 534.0345174627989
+      }
+    },
+    "parent_absorption_report": {
+      "status": "ok",
+      "n_points": 512,
+      "fixed_parent_normalized_rmse": 0.21888628100217308,
+      "refit": {
+        "status": "not_run",
+        "reason": "no free parent parameters"
+      },
+      "interpretation": "<1e-3 nearly absorbed; 1e-3..1e-2 weak; >1e-2 visible structure"
+    },
+    "noise": 0.0,
+    "_trace": [
+      {
+        "turn": 1,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "analyze_expression",
+            "id": "call_gHPRkaHIRVcJGwdP1wMbQVYz"
+          }
+        ]
+      },
+      {
+        "tool": "analyze_expression",
+        "input": {
+          "expression": "-(Q + (polarization_coupling/(1 + (P_pol/polarization_saturation)**2))*P_pol/(1 + (P_pol/polarization_saturation)**2) + (slow_polarization_coupling/(1 + (P_slow/slow_polarization_saturation)**2))*P_slow/(1 + (P_slow/slow_polarization_saturation)**2))/(capacitance*(1 + (Q/charge_saturation)**2)*(inductance*(1 + (I/current_saturation)**2)))",
+          "target_symbol": "dI_dt"
+        },
+        "result": {
+          "ok": true,
+          "free_symbols": [
+            "I",
+            "P_pol",
+            "P_slow",
+            "Q",
+            "capacitance",
+            "charge_saturation",
+            "current_saturation",
+            "inductance",
+            "polarization_coupling",
+            "polarization_saturation",
+            "slow_polarization_coupling",
+            "slow_polarization_saturation"
+          ],
+          "functions_of": {},
+          "target_function_calls": [],
+          "delayed_target_calls": [],
+          "ungoverned_functions": [],
+          "derivatives": [],
+          "max_derivative_order": 0,
+          "integral_kernels": [],
+          "explicitly_solvable_for_target": true,
+          "explicit_solution_preview": [
+            "(-P_pol*polarization_coupling/(((P_pol/polarization_saturation)**2 + 1)*((P_pol/polarization_saturation)**2 + 1)) - P_sl"
+          ],
+          "classification_hint": "explicit",
+          "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+        }
+      },
+      {
+        "turn": 2,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "check_substitution",
+            "id": "call_yhaYkuo3QPlOCPb8KFJ8HBSr"
+          }
+        ]
+      },
+      {
+        "tool": "check_substitution",
+        "input": {
+          "expression": "-(Q + (polarization_coupling/(1 + (P_pol/polarization_saturation)**2))*P_pol/(1 + (P_pol/polarization_saturation)**2) + (slow_polarization_coupling/(1 + (P_slow/slow_polarization_saturation)**2))*P_slow/(1 + (P_slow/slow_polarization_saturation)**2))/(capacitance*(1 + (Q/charge_saturation)**2)*(inductance*(1 + (I/current_saturation)**2)))",
+          "target_symbol": "dI_dt",
+          "assignments": {
+            "Q": 0.001,
+            "I": 0,
+            "P_pol": 0.0005,
+            "P_slow": 0.00025,
+            "capacitance": 0.001,
+            "inductance": 0.001,
+            "charge_saturation": 0.002,
+            "current_saturation": 0.5,
+            "polarization_relaxation_time": 0.0012,
+            "polarization_coupling": 0.8,
+            "polarization_saturation": 0.0007,
+            "slow_polarization_relaxation_time": 0.004,
+            "slow_polarization_coupling": 0.4,
+            "slow_polarization_saturation": 0.00035
+          }
+        },
+        "result": {
+          "ok": true,
+          "value_real": -975.3834915997078,
+          "value_imag": 0.0,
+          "is_finite": true,
+          "is_real": true,
+          "verdict": "ok",
+          "residual_free_symbols": []
+        }
+      },
+      {
+        "turn": 3,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "emit_data_gen_spec",
+            "id": "call_YXOzju42SXh18vBTbxmvWZ0E"
+          }
+        ]
+      },
+      {
+        "tool": "emit_data_gen_spec",
+        "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+      },
+      {
+        "turn": 4,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "emit_data_gen_spec",
+            "id": "call_2Wnu81Hty6p1WTGnaDjumIcD"
+          }
+        ]
+      },
+      {
+        "tool": "emit_data_gen_spec",
+        "accepted": true
+      }
+    ],
+    "_provider": "openai",
+    "_num_turns": 4,
+    "discipline": "physics",
+    "scenario_text": "An ideal capacitor and inductor form a closed circuit that exchanges stored electric and magnetic energy. Initial capacitor charge and loop current are selected independently, after which both quantities evolve together. The target is the instantaneous rate of change of current. The benchmark focuses on undamped electromagnetic energy exchange rather than resistive loss or external driving.",
+    "record_id": "m2_electromagnetism_20280761_002",
+    "generation": 5,
+    "_n_total": 5000,
+    "mechanism_observation_history": [
+      {
+        "generation": 1,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "With fixed inductance and capacitance, the target mapping is dI_dt = -(1/(inductance*capacitance))*Q, a linear proportional response to charge with one constant slope independent of oscillation amplitude.",
+            "child_relation": "Relax the linear-capacitance assumption so the effective restoring response depends on charge amplitude; then dI_dt remains opposing Q but its magnitude is no longer proportional with one constant slope, becoming weaker or stronger at larger |Q| depending on nonlinear capacitance.",
+            "affected_inputs": [
+              "Q",
+              "capacitance"
+            ],
+            "observable_effect": "Across runs with different initial charge amplitude but the same inductance and small initial current, the relation between Q and dI_dt bends away from a single straight line; oscillation frequency and turning-point curvature become amplitude-dependent, which one shared linear LC parameter set cannot reproduce across amplitudes."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "charge_scale",
+              "expression": "Abs(Q)",
+              "role": "instantaneous charge amplitude controlling departure from linear capacitance"
+            },
+            {
+              "name": "linear_restoring",
+              "expression": "Q/(inductance*capacitance)",
+              "role": "parent linear restoring acceleration scale"
+            },
+            {
+              "name": "em_energy",
+              "expression": "Q**2/(2*capacitance) + inductance*I**2/2",
+              "role": "baseline conserved electromagnetic energy used to compare amplitude regimes"
+            }
+          ],
+          "activation_condition": "Observable when the capacitor is driven to charge amplitudes large enough that its incremental capacitance changes measurably over the sampled |Q| range, while losses remain negligible and bounded oscillations persist.",
+          "train_hidden_contrast": "In training, moderate-amplitude trajectories already show slight amplitude-dependent period or nonconstant dI_dt-versus-Q slope; in holdout, larger-amplitude trajectories extend the same monotone curvature rather than introducing a new mechanism.",
+          "continuation_path": "Recover the parent law in the small-signal limit where capacitance is effectively constant over the visited charge range.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The model assumes a strictly linear capacitor, omitting amplitude-dependent capacitance that appears in scientifically admissible nonlinear dielectrics or varactor-like capacitive elements while still allowing conservative energy exchange.",
+          "baseline_assumption": "Capacitance is constant and linear.",
+          "scientific_mechanism": "Nonlinear charge-voltage relation of the capacitor changes the restoring electric force with charge amplitude, producing amplitude-dependent LC oscillation dynamics without introducing dissipation or driving.",
+          "affected_symbols": [
+            "Q",
+            "capacitance",
+            "inductance",
+            "I"
+          ],
+          "rationale": "A realistic next refinement is to replace the constant-capacitance assumption with a conservative nonlinear capacitor law. The parent target mapping has a single-gain shortcut: holding inductance and capacitance fixed, dI_dt is always a straight proportional function of Q with slope -1/(inductance*capacitance), regardless of oscillation amplitude. Vary the initial capacitor charge amplitude while holding inductance fixed, keeping initial current at the stated contract value or another bounded value within the same protocol. Then compare the observed dI_dt-versus-Q relation or the oscillation period across trajectories. In the child mechanism, larger |Q| changes the effective capacitance, so the restoring acceleration is no longer described by one common slope; the curvature near turning points and the period become amplitude-dependent. A single refit of the parent's constant capacitance and inductance can match at most one effective amplitude scale, not the full family of amplitude-dependent responses over an admissible range where nonlinear capacitance is measurable but losses are still negligible. This changes the scored target mapping itself, not only an auxiliary state, because dI_dt as a function of the supplied state Q is altered from linear to amplitude-curved. Limitation: if all observed trajectories remain strictly in the small-signal regime, the refinement is effectively hidden and the parent remains adequate."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "With fixed inductance and capacitance, the target mapping is dI_dt = -(1/(inductance*capacitance))*Q, a linear proportional response to charge with one constant slope independent of oscillation amplitude.",
+            "child_relation": "Relax the linear-capacitance assumption so the effective restoring response depends on charge amplitude; then dI_dt remains opposing Q but its magnitude is no longer proportional with one constant slope, becoming weaker or stronger at larger |Q| depending on nonlinear capacitance.",
+            "affected_inputs": [
+              "Q",
+              "capacitance"
+            ],
+            "observable_effect": "Across runs with different initial charge amplitude but the same inductance and small initial current, the relation between Q and dI_dt bends away from a single straight line; oscillation frequency and turning-point curvature become amplitude-dependent, which one shared linear LC parameter set cannot reproduce across amplitudes."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "charge_scale",
+              "expression": "Abs(Q)",
+              "role": "instantaneous charge amplitude controlling departure from linear capacitance"
+            },
+            {
+              "name": "linear_restoring",
+              "expression": "Q/(inductance*capacitance)",
+              "role": "parent linear restoring acceleration scale"
+            },
+            {
+              "name": "em_energy",
+              "expression": "Q**2/(2*capacitance) + inductance*I**2/2",
+              "role": "baseline conserved electromagnetic energy used to compare amplitude regimes"
+            }
+          ],
+          "activation_condition": "Observable when the capacitor is driven to charge amplitudes large enough that its incremental capacitance changes measurably over the sampled |Q| range, while losses remain negligible and bounded oscillations persist.",
+          "train_hidden_contrast": "In training, moderate-amplitude trajectories already show slight amplitude-dependent period or nonconstant dI_dt-versus-Q slope; in holdout, larger-amplitude trajectories extend the same monotone curvature rather than introducing a new mechanism.",
+          "continuation_path": "Recover the parent law in the small-signal limit where capacitance is effectively constant over the visited charge range.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "unary",
+          "scope_symbols": [
+            "Q"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "conservative saturating nonlinear capacitor response",
+          "scientific_mechanism": "Nonlinear charge-voltage relation of the capacitor changes the restoring electric force with charge amplitude, producing amplitude-dependent LC oscillation dynamics without introducing dissipation or driving.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "This is harder than a coefficient correction because the scored mapping from the observed state Q to dI_dt changes from one global linear gain to an amplitude-dependent curved response with a crossover set by charge_saturation.",
+          "taxonomy_match": "known",
+          "assumption_before": "Capacitance is constant and linear.",
+          "assumption_after": "The capacitor has a conservative saturating charge response so the effective restoring term weakens at finite |Q|.",
+          "before_fragment": "-Q/(inductance*capacitance)",
+          "after_fragment": "-Q/(inductance*capacitance*(1 + (Q/charge_saturation)**2))",
+          "parent_reduction": "For Abs(Q) << charge_saturation, or equivalently charge_saturation -> oo at fixed Q, the denominator factor tends to 1 and the parent law is recovered.",
+          "observable_signature": "Holding inductance, capacitance, and the initial current protocol fixed while varying initial charge amplitude, the parent predicts a single straight dI_dt-versus-Q line shared by all runs, whereas the child predicts the same odd symmetry but with progressive flattening at larger |Q| on the scale charge_saturation; this directly changes the target mapping, not merely auxiliary trajectories.",
+          "shortcut_blocked": "A single refit of the parent parameters only changes the constant slope -1/(inductance*capacitance) and cannot reproduce both the near-origin small-signal slope and the weaker large-|Q| restoring acceleration across multiple amplitude conditions with one shared parameter set."
+        },
+        "range_suggestions": {
+          "charge_saturation": "positive; choose comparable to or somewhat larger than the sampled |Q| range so both small-signal and saturated regimes are admissible"
+        }
+      },
+      {
+        "generation": 2,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The target depends only on instantaneous charge through dI_dt = -Q/(inductance*capacitance*(1 + (Q/charge_saturation)**2)), so for fixed Q the acceleration is independent of current and the phase-plane restoring law is single-valued.",
+            "child_relation": "Retain conservative LC exchange but relax the assumption of constant linear inductance so the restoring acceleration also depends on current through an energy-conserving current-dependent inductance; then for the same Q, different I values produce different dI_dt magnitudes.",
+            "affected_inputs": [
+              "Q",
+              "I",
+              "inductance"
+            ],
+            "observable_effect": "At matched |Q| but different |I| along the trajectory, the child shows weaker restoring acceleration at larger |I| if inductance increases with current, creating amplitude- and phase-dependent bending in the Q-I orbit that the parent cannot match with one shared parameter set."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "cap_restoring",
+              "expression": "Q/(capacitance*(1 + (Q/charge_saturation)**2))",
+              "role": "Nonlinear capacitor voltage-scale term that drives the magnetic response"
+            },
+            {
+              "name": "phase_point",
+              "expression": "I**2 + Q**2",
+              "role": "Trajectory location indicator showing that identical charge can occur at different current values during oscillation"
+            },
+            {
+              "name": "charge_to_sat",
+              "expression": "Q/charge_saturation",
+              "role": "Activation of the already-present capacitor saturation nonlinearity"
+            }
+          ],
+          "activation_condition": "Observable when oscillations reach currents large enough that inductive nonlinearity is appreciable while charge remains within the admissible bounded regime; practically, compare portions of trajectories with similar |Q| but substantially different |I|, most evident for moderate-to-large initial energy.",
+          "train_hidden_contrast": "In training, small-current segments remain close to the parent law, while larger-energy segments reveal that dI_dt at a given Q varies systematically with I; in holdout, the same current-dependent curvature extends to larger amplitudes rather than introducing a qualitatively different mechanism.",
+          "continuation_path": "Recover the parent by taking the current-dependent inductance correction to zero, equivalently the limit of constant inductance independent of I.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The model keeps capacitor saturation but still treats magnetic energy storage as strictly linear, omitting conservative current-dependent inductance that naturally appears once large current amplitudes are allowed.",
+          "baseline_assumption": "Inductance is constant and linear.",
+          "scientific_mechanism": "Nonlinear magnetic energy storage in the inductor modifies the effective inductance with current while preserving lossless energy exchange.",
+          "affected_symbols": [
+            "Q",
+            "I",
+            "inductance"
+          ],
+          "rationale": "A realistic next refinement is to relax the parent's constant-inductance assumption rather than add dissipation or forcing, because the scenario remains conservative and already admits amplitude-dependent capacitor behavior. The parent's target mapping has a single-phase shortcut: dI_dt is a function of Q alone, so two times with the same capacitor charge but different current necessarily have the same acceleration. In a conservative circuit with current-dependent inductance, that no longer holds; the magnetic constitutive law changes the restoring response according to current amplitude, so the phase-plane relation acquires additional curvature. The distinguishing condition is to vary total initial energy by choosing different admissible initial Q and/or I while holding capacitance, inductance scale, and charge_saturation fixed, then compare trajectory points with similar Q but different I. The child predicts different dI_dt across those points; the parent cannot reproduce this with one refitted parameter set because any refit still makes dI_dt a single-valued function of Q only. This change affects the scored target mapping directly, not merely auxiliary trajectories. It is scientifically admissible in bounded oscillations below any pathological runaway regime, and it vanishes smoothly in the linear-inductor limit."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The target depends only on instantaneous charge through dI_dt = -Q/(inductance*capacitance*(1 + (Q/charge_saturation)**2)), so for fixed Q the acceleration is independent of current and the phase-plane restoring law is single-valued.",
+            "child_relation": "Retain conservative LC exchange but relax the assumption of constant linear inductance so the restoring acceleration also depends on current through an energy-conserving current-dependent inductance; then for the same Q, different I values produce different dI_dt magnitudes.",
+            "affected_inputs": [
+              "Q",
+              "I",
+              "inductance"
+            ],
+            "observable_effect": "At matched |Q| but different |I| along the trajectory, the child shows weaker restoring acceleration at larger |I| if inductance increases with current, creating amplitude- and phase-dependent bending in the Q-I orbit that the parent cannot match with one shared parameter set."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "cap_restoring",
+              "expression": "Q/(capacitance*(1 + (Q/charge_saturation)**2))",
+              "role": "Nonlinear capacitor voltage-scale term that drives the magnetic response"
+            },
+            {
+              "name": "phase_point",
+              "expression": "I**2 + Q**2",
+              "role": "Trajectory location indicator showing that identical charge can occur at different current values during oscillation"
+            },
+            {
+              "name": "charge_to_sat",
+              "expression": "Q/charge_saturation",
+              "role": "Activation of the already-present capacitor saturation nonlinearity"
+            }
+          ],
+          "activation_condition": "Observable when oscillations reach currents large enough that inductive nonlinearity is appreciable while charge remains within the admissible bounded regime; practically, compare portions of trajectories with similar |Q| but substantially different |I|, most evident for moderate-to-large initial energy.",
+          "train_hidden_contrast": "In training, small-current segments remain close to the parent law, while larger-energy segments reveal that dI_dt at a given Q varies systematically with I; in holdout, the same current-dependent curvature extends to larger amplitudes rather than introducing a qualitatively different mechanism.",
+          "continuation_path": "Recover the parent by taking the current-dependent inductance correction to zero, equivalently the limit of constant inductance independent of I.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "Q",
+            "I"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "current-dependent inductive energy storage",
+          "scientific_mechanism": "Nonlinear magnetic energy storage in the inductor modifies the effective inductance with current while preserving lossless energy exchange.",
+          "embedding_pattern": "state_coupling",
+          "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the scored target ceases to be a single-valued function of Q alone and instead depends jointly on two evolving states, so one global parameter retuning cannot reproduce the same-Q/different-I acceleration contrast.",
+          "taxonomy_match": "known",
+          "assumption_before": "Inductance is constant and linear.",
+          "assumption_after": "Inductance increases with current magnitude through a conservative nonlinear magnetic constitutive law.",
+          "before_fragment": "-Q/(inductance*capacitance*(1 + (Q/charge_saturation)**2))",
+          "after_fragment": "-Q/(capacitance*(1 + (Q/charge_saturation)**2)*(inductance*(1 + (I/current_saturation)**2)))",
+          "parent_reduction": "Take current_saturation -> oo so (I/current_saturation)**2 -> 0 and the constant-inductance parent law is recovered.",
+          "observable_signature": "The parent maps Q to dI_dt with one shared curve, whereas the child produces a family of restoring accelerations indexed by I: for similar |Q|, points with larger |I| have smaller |dI_dt|. This directly changes the scored target mapping, not only auxiliary trajectories, and is observable in bounded oscillations with moderate-to-large current relative to current_saturation.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce the child across the stated conditions because any refit of inductance, capacitance, or charge_saturation still leaves dI_dt a function of Q only. The child creates systematic same-Q/different-I variation in dI_dt, so ignoring current-dependent inductance is structurally inadequate rather than merely miscalibrated."
+        },
+        "range_suggestions": {
+          "current_saturation": "positive; choose comparable to or somewhat larger than the sampled |I| range so both weakly nonlinear and current-dependent inductance regimes are admissible"
+        }
+      },
+      {
+        "generation": 3,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "phase_shift",
+            "parent_relation": "The target mapping dI_dt(Q,I) depends only on instantaneous charge and current through memoryless nonlinear capacitance and inductance factors, so for any observed pair (Q,I) the acceleration is unique and history-independent.",
+            "child_relation": "Retain lossless LC exchange but relax the assumption of instantaneous capacitor polarization by introducing a reversible internal polarization state that contributes to the effective restoring charge; then dI_dt depends on (Q,I,P_pol), creating history-dependent acceleration and phase lag between total charge and restoring electric force.",
+            "affected_inputs": [
+              "Q",
+              "I"
+            ],
+            "observable_effect": "At fixed observed (Q,I) reached on different portions of the oscillation after transient polarization exchange, the child can produce different dI_dt values because the internal polarization state lags Q, whereas the parent predicts the same dI_dt everywhere for that pair."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "charge_ratio",
+              "expression": "Q/charge_saturation",
+              "role": "capacitor nonlinearity activation coordinate"
+            },
+            {
+              "name": "current_ratio",
+              "expression": "I/current_saturation",
+              "role": "inductive nonlinearity activation coordinate"
+            },
+            {
+              "name": "state_plane",
+              "expression": "Q*Q + I*I",
+              "role": "gross oscillation amplitude proxy in the observed state plane"
+            }
+          ],
+          "activation_condition": "Observable when the internal polarization time scale is comparable to the LC oscillation period, so polarization cannot adiabatically follow Q; strongest for moderate-to-large charge excursions where capacitor nonlinearity is already sampled and over at least several oscillation fractions from the stated initial condition.",
+          "train_hidden_contrast": "Within training trajectories starting from the given initial conditions, early evolution can remain close to the parent if polarization is near equilibrium, but later portions show looped hysteretic dI_dt versus (Q,I); holdout with similar amplitudes but different elapsed phase exposes the same memory effect more clearly.",
+          "continuation_path": "Recover the parent law in the fast-relaxation or vanishing-polarization-coupling limit, where the internal polarization remains slaved to instantaneous charge and the restoring force becomes a unique function of Q again.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "A reversible delayed polarization mechanism is intrinsically dynamic memory; it cannot be represented by refitting fixed parameters in a memoryless dI_dt(Q,I) law. One additional state is the minimal way to encode this history dependence while preserving a closed lossless ODE system.",
+          "gap_statement": "The current model assumes the nonlinear capacitor responds instantaneously to charge, omitting reversible dielectric polarization lag that can store and return electric energy without dissipation.",
+          "baseline_assumption": "Capacitor constitutive behavior is instantaneous: the restoring electric term is an algebraic function of current charge only, with no internal dielectric state.",
+          "scientific_mechanism": "Lossless internal dielectric polarization exchange introduces a phase-lagged electric restoring contribution, yielding conservative memory in the capacitor and history-dependent current acceleration.",
+          "affected_symbols": [
+            "Q",
+            "I",
+            "capacitance",
+            "charge_saturation"
+          ],
+          "rationale": "A realistic next refinement is to relax the parent's instantaneous-capacitor assumption rather than add dissipation or forcing, because the scenario requires conserved electromagnetic energy. The parent target mapping is a single-phase shortcut: once Q and I are observed, dI_dt is fixed by one algebraic surface. Vary elapsed time along trajectories while holding the observed pair (Q,I) approximately matched across different passes through state space; in the child, a delayed polarization state can differ between those passes, so the restoring electric force and thus dI_dt differ, creating an observable phase-lag or hysteresis contrast. A single refitted parent parameter set cannot reproduce this across conditions because its mapping from supplied observations to target is strictly single-valued in (Q,I). This effect is scientifically admissible when polarization dynamics are neither infinitely fast nor frozen relative to the LC period. Limitation: if polarization is much faster than the oscillation or coupling is negligibly weak, the refinement collapses back to the parent and may be hard to distinguish over the provided initial-condition contract."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "phase_shift",
+            "parent_relation": "The target mapping dI_dt(Q,I) depends only on instantaneous charge and current through memoryless nonlinear capacitance and inductance factors, so for any observed pair (Q,I) the acceleration is unique and history-independent.",
+            "child_relation": "Retain lossless LC exchange but relax the assumption of instantaneous capacitor polarization by introducing a reversible internal polarization state that contributes to the effective restoring charge; then dI_dt depends on (Q,I,P_pol), creating history-dependent acceleration and phase lag between total charge and restoring electric force.",
+            "affected_inputs": [
+              "Q",
+              "I"
+            ],
+            "observable_effect": "At fixed observed (Q,I) reached on different portions of the oscillation after transient polarization exchange, the child can produce different dI_dt values because the internal polarization state lags Q, whereas the parent predicts the same dI_dt everywhere for that pair."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "charge_ratio",
+              "expression": "Q/charge_saturation",
+              "role": "capacitor nonlinearity activation coordinate"
+            },
+            {
+              "name": "current_ratio",
+              "expression": "I/current_saturation",
+              "role": "inductive nonlinearity activation coordinate"
+            },
+            {
+              "name": "state_plane",
+              "expression": "Q*Q + I*I",
+              "role": "gross oscillation amplitude proxy in the observed state plane"
+            }
+          ],
+          "activation_condition": "Observable when the internal polarization time scale is comparable to the LC oscillation period, so polarization cannot adiabatically follow Q; strongest for moderate-to-large charge excursions where capacitor nonlinearity is already sampled and over at least several oscillation fractions from the stated initial condition.",
+          "train_hidden_contrast": "Within training trajectories starting from the given initial conditions, early evolution can remain close to the parent if polarization is near equilibrium, but later portions show looped hysteretic dI_dt versus (Q,I); holdout with similar amplitudes but different elapsed phase exposes the same memory effect more clearly.",
+          "continuation_path": "Recover the parent law in the fast-relaxation or vanishing-polarization-coupling limit, where the internal polarization remains slaved to instantaneous charge and the restoring force becomes a unique function of Q again.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "A reversible delayed polarization mechanism is intrinsically dynamic memory; it cannot be represented by refitting fixed parameters in a memoryless dI_dt(Q,I) law. One additional state is the minimal way to encode this history dependence while preserving a closed lossless ODE system.",
+          "scope_kind": "memory",
+          "scope_symbols": [
+            "Q",
+            "I",
+            "P_pol"
+          ],
+          "structural_role": "feedback",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "reversible dielectric polarization lag in a nonlinear capacitor",
+          "scientific_mechanism": "Lossless internal dielectric polarization exchange introduces a phase-lagged electric restoring contribution, yielding conservative memory in the capacitor and history-dependent current acceleration.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "The successor is structurally harder because the scored target is no longer a single-valued algebraic surface over observed (Q,I); it depends on an internal memory state whose feedback enters through a saturating restoring contribution. This cannot be mimicked by coefficient-only retuning because the parent has no mechanism for phase-lagged hysteresis at the same observed state pair.",
+          "taxonomy_match": "provisional",
+          "assumption_before": "The current model assumes the nonlinear capacitor responds instantaneously to charge, omitting reversible dielectric polarization lag that can store and return electric energy without dissipation.",
+          "assumption_after": "The capacitor includes a finite-time reversible polarization mode whose saturating contribution to restoring charge lags the observed charge.",
+          "before_fragment": "-Q/(capacitance*(1 + (Q/charge_saturation)**2)*(inductance*(1 + (I/current_saturation)**2)))",
+          "after_fragment": "-(Q + polarization_coupling*P_pol/(1 + (P_pol/polarization_saturation)**2))/(capacitance*(1 + (Q/charge_saturation)**2)*(inductance*(1 + (I/current_saturation)**2)))",
+          "parent_reduction": "Taking polarization_coupling -> 0 removes the polarization feedback exactly and recovers the parent expression; similarly, in the effectively inactive memory regime the target mapping approaches the parent's unique function of (Q,I).",
+          "observable_signature": "Compare times along the same trajectory where observed Q and I are approximately matched after polarization dynamics have developed. The parent predicts identical dI_dt because its response is single-valued in (Q,I), whereas the child predicts different dI_dt values depending on P_pol, with the contrast largest when polarization_relaxation_time is comparable to sqrt(inductance*capacitance) and |P_pol| is not far below polarization_saturation.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce this effect because all parent parameters still define a memoryless map dI_dt=f(Q,I). Retuning capacitance, inductance, or saturation scales can only reshape that one surface, not produce two different accelerations at the same observed (Q,I) on different passes through the oscillation. The added state is therefore consequential rather than decorative."
+        },
+        "range_suggestions": {
+          "P_pol": "initial magnitude small but nonzero relative to charge_saturation; dynamically admissible range comparable to Q so polarization memory is observable without dominating the capacitor charge",
+          "polarization_relaxation_time": "positive and comparable to the nominal LC period sqrt(inductance*capacitance) for strongest phase-lag visibility; much smaller recovers near-instantaneous response",
+          "polarization_coupling": "positive, order unity if P_pol is measured in charge-like units; small values weakly perturb the parent law, larger values produce observable hysteretic restoring-force shifts",
+          "polarization_saturation": "positive and comparable to or somewhat larger than the sampled |P_pol| range so both weakly nonlinear and saturated polarization regimes can occur"
+        }
+      },
+      {
+        "generation": 4,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The target mapping dI_dt(Q,I,P_pol) uses a single polarization memory state with one relaxation time, so the restoring contribution from dielectric memory has one characteristic lag and a correspondingly single-dispersive dependence on oscillation amplitude/phase.",
+            "child_relation": "Replace the single-timescale polarization assumption by a two-timescale conservative dielectric memory in which an additional slower reversible polarization state contributes to the effective restoring charge. Then dI_dt depends on both fast and slow internal polarization coordinates, producing a richer non-separable curvature of dI_dt versus (Q,I) through history-dependent state mixtures reachable from the same observation protocol.",
+            "affected_inputs": [
+              "Q",
+              "I",
+              "P_pol"
+            ],
+            "observable_effect": "Holding capacitance, inductance, and existing saturation scales fixed while varying polarization relaxation scales near and above the nominal LC period, the child can show a broader, two-stage lagged restoring response: for similar instantaneous Q and I, early-cycle versus later-cycle accelerations differ because slow polarization has not yet equilibrated. A parent with one shared relaxation time can match either the fast-lag or slow-lag curvature but not both across these conditions."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "lc_time",
+              "expression": "sqrt(inductance*capacitance)",
+              "role": "Nominal electromagnetic exchange timescale used to compare dielectric memory rates"
+            },
+            {
+              "name": "charge_nl",
+              "expression": "Q/charge_saturation",
+              "role": "Capacitive saturation coordinate controlling charge-dependent restoring softening"
+            },
+            {
+              "name": "current_nl",
+              "expression": "I/current_saturation",
+              "role": "Inductive saturation coordinate controlling current-dependent inertial nonlinearity"
+            },
+            {
+              "name": "pol_phase_ratio",
+              "expression": "polarization_relaxation_time/sqrt(inductance*capacitance)",
+              "role": "Existing dielectric-memory lag relative to the LC period"
+            }
+          ],
+          "activation_condition": "Visible when dielectric relaxation is neither instantaneous nor frozen: polarization relaxation time comparable to the nominal LC period, and the added slower branch would be several times larger than that but still within the observed time window; initial polarization must be small but nonzero so memory is actually excited.",
+          "train_hidden_contrast": "In training, single-branch memory already creates phase-lagged restoring shifts. In holdout, adding a slower reversible branch extends this into a two-stage lag/curvature effect over longer portions of the trajectory, especially when charge amplitude is large enough that capacitor saturation and delayed polarization interact.",
+          "continuation_path": "Recover the parent when the added slow polarization branch has zero coupling, zero initial excitation together with invariant zero dynamics, or relaxation time collapsing to the existing branch so the two branches act effectively as one.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "A genuinely distinct dielectric relaxation channel is an internal dynamic degree of freedom, not a static parameter tweak. Existing states cannot represent simultaneous fast and slow reversible polarization memory, so one additional state is needed to create an observable change in the scored target mapping rather than only reparameterizing the current branch.",
+          "gap_statement": "The current model assumes all reversible dielectric memory is captured by one polarization coordinate with one relaxation timescale, which is an idealization for many dielectrics that exhibit distributed or at least multi-timescale polarization response even in low-loss conditions.",
+          "baseline_assumption": "Internal dielectric polarization responds with a single Debye-like relaxation time and a single saturating restoring contribution.",
+          "scientific_mechanism": "Add a second reversible polarization channel representing a slower bound-charge rearrangement that contributes to the effective restoring charge without dissipation, yielding conservative multi-timescale dielectric memory.",
+          "affected_symbols": [
+            "Q",
+            "I",
+            "P_pol",
+            "polarization_relaxation_time",
+            "polarization_coupling",
+            "polarization_saturation"
+          ],
+          "rationale": "A realistic next refinement is to relax the parent's single-timescale dielectric-memory assumption rather than add dissipation or forcing, because the benchmark explicitly targets conservative electromagnetic exchange. The parent target law maps observed states to dI_dt through one lagged polarization contribution, so at fixed instantaneous Q and I it effectively permits only one characteristic phase relation between polarization memory and charge. Varying conditions means comparing trajectories where the nominal LC timescale sqrt(inductance*capacitance) is held fixed, existing initial Q and I are held at their contract values, and dielectric-memory timescales are in the scientifically admissible regime comparable to or somewhat larger than the LC period. Under those conditions, a child with both fast and slow reversible polarization can produce a measurable contrast: the current acceleration for similar Q and I differs between earlier and later oscillation segments because the slow branch accumulates and releases restoring charge on a different timescale. That is a changed target mapping, not merely a hidden auxiliary effect, because dI_dt itself would depend on an additional observable internal state not reducible to the existing single P_pol branch. A single parent parameter refit cannot generally absorb this across the admissible regime: changing polarization_relaxation_time or polarization_coupling only shifts one lag scale and one saturating branch, so it cannot simultaneously match both the short-lag response near the start and the delayed curvature emerging after several fractions of an LC cycle when a second memory branch remains out of equilibrium. This refinement stays within the conservative scenario, preserves bounded charge/current through saturating storage terms, and has a clear parent-recovery limit if the added branch decouples or collapses onto the original one."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The target mapping dI_dt(Q,I,P_pol) uses a single polarization memory state with one relaxation time, so the restoring contribution from dielectric memory has one characteristic lag and a correspondingly single-dispersive dependence on oscillation amplitude/phase.",
+            "child_relation": "Replace the single-timescale polarization assumption by a two-timescale conservative dielectric memory in which an additional slower reversible polarization state contributes to the effective restoring charge. Then dI_dt depends on both fast and slow internal polarization coordinates, producing a richer non-separable curvature of dI_dt versus (Q,I) through history-dependent state mixtures reachable from the same observation protocol.",
+            "affected_inputs": [
+              "Q",
+              "I",
+              "P_pol"
+            ],
+            "observable_effect": "Holding capacitance, inductance, and existing saturation scales fixed while varying polarization relaxation scales near and above the nominal LC period, the child can show a broader, two-stage lagged restoring response: for similar instantaneous Q and I, early-cycle versus later-cycle accelerations differ because slow polarization has not yet equilibrated. A parent with one shared relaxation time can match either the fast-lag or slow-lag curvature but not both across these conditions."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "lc_time",
+              "expression": "sqrt(inductance*capacitance)",
+              "role": "Nominal electromagnetic exchange timescale used to compare dielectric memory rates"
+            },
+            {
+              "name": "charge_nl",
+              "expression": "Q/charge_saturation",
+              "role": "Capacitive saturation coordinate controlling charge-dependent restoring softening"
+            },
+            {
+              "name": "current_nl",
+              "expression": "I/current_saturation",
+              "role": "Inductive saturation coordinate controlling current-dependent inertial nonlinearity"
+            },
+            {
+              "name": "pol_phase_ratio",
+              "expression": "polarization_relaxation_time/sqrt(inductance*capacitance)",
+              "role": "Existing dielectric-memory lag relative to the LC period"
+            }
+          ],
+          "activation_condition": "Visible when dielectric relaxation is neither instantaneous nor frozen: polarization relaxation time comparable to the nominal LC period, and the added slower branch would be several times larger than that but still within the observed time window; initial polarization must be small but nonzero so memory is actually excited.",
+          "train_hidden_contrast": "In training, single-branch memory already creates phase-lagged restoring shifts. In holdout, adding a slower reversible branch extends this into a two-stage lag/curvature effect over longer portions of the trajectory, especially when charge amplitude is large enough that capacitor saturation and delayed polarization interact.",
+          "continuation_path": "Recover the parent when the added slow polarization branch has zero coupling, zero initial excitation together with invariant zero dynamics, or relaxation time collapsing to the existing branch so the two branches act effectively as one.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "A genuinely distinct dielectric relaxation channel is an internal dynamic degree of freedom, not a static parameter tweak. Existing states cannot represent simultaneous fast and slow reversible polarization memory, so one additional state is needed to create an observable change in the scored target mapping rather than only reparameterizing the current branch.",
+          "scope_kind": "memory",
+          "scope_symbols": [
+            "Q",
+            "I",
+            "P_pol",
+            "P_slow"
+          ],
+          "structural_role": "feedback",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Two-timescale conservative dielectric polarization memory with saturating branch responses",
+          "scientific_mechanism": "Add a second reversible polarization channel representing a slower bound-charge rearrangement that contributes to the effective restoring charge without dissipation, yielding conservative multi-timescale dielectric memory.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "This embedding is harder than a coefficient-only correction because the target now depends on an added internal state with its own timescale and saturating contribution, so identical instantaneous Q and I can map to different dI_dt values depending on the unresolved mixture of fast and slow polarization memory.",
+          "taxonomy_match": "known",
+          "assumption_before": "Internal dielectric polarization responds with a single Debye-like relaxation time and a single saturating restoring contribution.",
+          "assumption_after": "Two reversible dielectric polarization channels with distinct relaxation times and separate saturating restoring contributions determine the effective restoring charge.",
+          "before_fragment": "-(Q + polarization_coupling*P_pol/(1 + (P_pol/polarization_saturation)**2))/(capacitance*(1 + (Q/charge_saturation)**2)*(inductance*(1 + (I/current_saturation)**2)))",
+          "after_fragment": "-(Q + polarization_coupling*P_pol/(1 + (P_pol/polarization_saturation)**2) + slow_polarization_coupling*P_slow/(1 + (P_slow/slow_polarization_saturation)**2))/(capacitance*(1 + (Q/charge_saturation)**2)*(inductance*(1 + (I/current_saturation)**2)))",
+          "parent_reduction": "The parent is recovered when slow_polarization_coupling = 0, or when P_slow remains zero, or approximately when slow_polarization_relaxation_time merges with polarization_relaxation_time and the slow branch becomes indistinguishable from the existing one.",
+          "observable_signature": "At fixed capacitance, inductance, charge_saturation, and current_saturation, trajectories with dielectric timescales near sqrt(inductance*capacitance) but with an added slower branch show two-stage history dependence: for comparable instantaneous Q and I, dI_dt is less collapsed onto a single curve because the slow polarization branch contributes extra lagged restoring charge later in the trajectory. The effect is strongest when slow_polarization_relaxation_time exceeds polarization_relaxation_time by several-fold yet remains within the observation window, and when |P_slow| reaches a non-negligible fraction of slow_polarization_saturation so its saturating branch is active.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce this across the stated conditions because refitting polarization_relaxation_time, polarization_coupling, or polarization_saturation only changes one memory branch with one lag and one saturation scale. That can mimic either the early fast response or the later slow-accumulated restoring curvature, but not the coexistence of both within one shared trajectory family when dI_dt differs for similar Q and I due to an independently evolving slow polarization state."
+        },
+        "range_suggestions": {
+          "P_slow": "Initial magnitude small but nonzero relative to slow_polarization_saturation and comparable to or smaller than P_pol so the slow memory branch is excited without dominating the capacitor charge.",
+          "slow_polarization_relaxation_time": "Positive and typically several times polarization_relaxation_time, often comparable to or moderately larger than sqrt(inductance*capacitance) so the slow branch evolves within the observation window but remains distinct from the fast branch.",
+          "slow_polarization_coupling": "Positive, weak to order-unity relative to polarization_coupling so the slow branch measurably perturbs the restoring charge without overwhelming the primary capacitor term.",
+          "slow_polarization_saturation": "Positive and comparable to or somewhat larger than the sampled |P_slow| range so both weakly nonlinear and saturated slow-polarization regimes can be observed."
+        }
+      },
+      {
+        "generation": 5,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The restoring term from each polarization channel is a static saturating function of its own state added to Q, so at fixed observed (Q,I,P_pol,P_slow) the target dI_dt depends on polarization contributions with one fixed odd saturation shape.",
+            "child_relation": "Keep the same observed states but replace the static polarization restoring law by a stronger field-dependent saturation shape, so the effective restoring charge bends more sharply as |P_pol| or |P_slow| becomes comparable to its saturation scale, changing the curvature of dI_dt versus polarization state at fixed Q and I.",
+            "affected_inputs": [
+              "Q",
+              "I",
+              "P_pol",
+              "P_slow",
+              "polarization_saturation",
+              "slow_polarization_saturation"
+            ],
+            "observable_effect": "For matched Q and I, increasing |P_pol| or |P_slow| from small to moderate values produces a flatter incremental effect on dI_dt than the parent predicts; the target mapping shows stronger compression of polarization-induced acceleration in high-polarization episodes while remaining similar in the weak-polarization regime."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "fast_pol_ratio",
+              "expression": "P_pol/polarization_saturation",
+              "role": "activation level of the fast polarization nonlinearity"
+            },
+            {
+              "name": "slow_pol_ratio",
+              "expression": "P_slow/slow_polarization_saturation",
+              "role": "activation level of the slow polarization nonlinearity"
+            },
+            {
+              "name": "restoring_balance",
+              "expression": "(Q + polarization_coupling*P_pol/(1 + (P_pol/polarization_saturation)**2) + slow_polarization_coupling*P_slow/(1 + (P_slow/slow_polarization_saturation)**2))/(capacitance*inductance)",
+              "role": "parent effective restoring acceleration scale before inductive and capacitive saturation factors fully modulate it"
+            }
+          ],
+          "activation_condition": "Observable when either |P_pol|/polarization_saturation or |P_slow|/slow_polarization_saturation reaches order unity while Q and I remain within bounded oscillatory regimes so the polarization contribution is not negligible compared with Q.",
+          "train_hidden_contrast": "In training, weak-to-moderate polarization excursions already reveal slight extra compression relative to the parent; in holdout, larger memory-state excursions extend this same curvature difference, making the mismatch larger without changing the low-amplitude limit.",
+          "continuation_path": "Recover the parent law in the weak-polarization limit |P_pol|<<polarization_saturation and |P_slow|<<slow_polarization_saturation, or by taking the refined saturation-shape parameter to its parent value.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The model already includes reversible polarization memory, but it assumes one fixed Lorentzian-like saturation shape for how each polarization state contributes to restoring charge.",
+          "baseline_assumption": "Each polarization channel contributes to the effective restoring charge through the specific static form P/(1+(P/P_sat)^2), with no further flexibility in how saturation sharpens at larger polarization amplitude.",
+          "scientific_mechanism": "Real reversible dielectric polarization can remain lossless yet show a steeper-than-Lorentzian bounded restoring contribution as dipolar alignment approaches its reversible occupancy limit, so the charge-like feedback from internal polarization compresses more strongly at high polarization.",
+          "affected_symbols": [
+            "Q",
+            "I",
+            "P_pol",
+            "P_slow",
+            "polarization_saturation",
+            "slow_polarization_saturation"
+          ],
+          "rationale": "A natural next refinement is to relax the assumed saturation shape of the already-present polarization restoring process rather than adding a new mechanism. The parent target mapping uses the observed states Q, I, P_pol, and P_slow directly, but it hard-codes one odd saturating response for both polarization branches. Varying initial charge/current and allowing the existing memory states to evolve produces episodes with similar Q and I but different polarization amplitudes. Holding capacitance, inductance, and the existing relaxation times fixed, the child would predict that as |P_pol| or |P_slow| approaches its saturation scale, the incremental change in dI_dt with further polarization growth bends down faster than in the parent. This is a genuine target-mapping change, not merely an auxiliary-trajectory change, because dI_dt itself as a function of supplied states changes. The effect is scientifically admissible in bounded conservative oscillations where polarization states are excited to order-one fractions of their saturation scales; it is weak in the small-signal regime, where the child should continuously recover the parent behavior."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The restoring term from each polarization channel is a static saturating function of its own state added to Q, so at fixed observed (Q,I,P_pol,P_slow) the target dI_dt depends on polarization contributions with one fixed odd saturation shape.",
+            "child_relation": "Keep the same observed states but replace the static polarization restoring law by a stronger field-dependent saturation shape, so the effective restoring charge bends more sharply as |P_pol| or |P_slow| becomes comparable to its saturation scale, changing the curvature of dI_dt versus polarization state at fixed Q and I.",
+            "affected_inputs": [
+              "Q",
+              "I",
+              "P_pol",
+              "P_slow",
+              "polarization_saturation",
+              "slow_polarization_saturation"
+            ],
+            "observable_effect": "For matched Q and I, increasing |P_pol| or |P_slow| from small to moderate values produces a flatter incremental effect on dI_dt than the parent predicts; the target mapping shows stronger compression of polarization-induced acceleration in high-polarization episodes while remaining similar in the weak-polarization regime."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "fast_pol_ratio",
+              "expression": "P_pol/polarization_saturation",
+              "role": "activation level of the fast polarization nonlinearity"
+            },
+            {
+              "name": "slow_pol_ratio",
+              "expression": "P_slow/slow_polarization_saturation",
+              "role": "activation level of the slow polarization nonlinearity"
+            },
+            {
+              "name": "restoring_balance",
+              "expression": "(Q + polarization_coupling*P_pol/(1 + (P_pol/polarization_saturation)**2) + slow_polarization_coupling*P_slow/(1 + (P_slow/slow_polarization_saturation)**2))/(capacitance*inductance)",
+              "role": "parent effective restoring acceleration scale before inductive and capacitive saturation factors fully modulate it"
+            }
+          ],
+          "activation_condition": "Observable when either |P_pol|/polarization_saturation or |P_slow|/slow_polarization_saturation reaches order unity while Q and I remain within bounded oscillatory regimes so the polarization contribution is not negligible compared with Q.",
+          "train_hidden_contrast": "In training, weak-to-moderate polarization excursions already reveal slight extra compression relative to the parent; in holdout, larger memory-state excursions extend this same curvature difference, making the mismatch larger without changing the low-amplitude limit.",
+          "continuation_path": "Recover the parent law in the weak-polarization limit |P_pol|<<polarization_saturation and |P_slow|<<slow_polarization_saturation, or by taking the refined saturation-shape parameter to its parent value.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "Q",
+            "I",
+            "P_pol",
+            "P_slow"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "state-dependent saturation of reversible dielectric restoring charge",
+          "scientific_mechanism": "Real reversible dielectric polarization can remain lossless yet show a steeper-than-Lorentzian bounded restoring contribution as dipolar alignment approaches its reversible occupancy limit, so the charge-like feedback from internal polarization compresses more strongly at high polarization.",
+          "embedding_pattern": "state_dependent_coefficient",
+          "difficulty_rationale": "This is harder than a coefficient-only correction because the polarization contribution no longer has one fixed odd saturation profile; its effective gain now changes with the same state whose contribution is being measured, altering the curvature of the target map over the trajectory rather than simply rescaling it.",
+          "taxonomy_match": "known",
+          "assumption_before": "The polarization restoring law uses one fixed Lorentzian-like saturation shape with constant coupling for each branch.",
+          "assumption_after": "The polarization restoring coupling itself decreases with polarization amplitude, producing a steeper bounded reversible restoring response.",
+          "before_fragment": "-(Q + polarization_coupling*P_pol/(1 + (P_pol/polarization_saturation)**2) + slow_polarization_coupling*P_slow/(1 + (P_slow/slow_polarization_saturation)**2))/(capacitance*(1 + (Q/charge_saturation)**2)*(inductance*(1 + (I/current_saturation)**2)))",
+          "after_fragment": "-(Q + (polarization_coupling/(1 + (P_pol/polarization_saturation)**2))*P_pol/(1 + (P_pol/polarization_saturation)**2) + (slow_polarization_coupling/(1 + (P_slow/slow_polarization_saturation)**2))*P_slow/(1 + (P_slow/slow_polarization_saturation)**2))/(capacitance*(1 + (Q/charge_saturation)**2)*(inductance*(1 + (I/current_saturation)**2)))",
+          "parent_reduction": "In the weak-polarization limit |P_pol|<<polarization_saturation and |P_slow|<<slow_polarization_saturation, the added state-dependent coupling factors approach 1 and the child reduces approximately to the parent.",
+          "observable_signature": "At fixed observed Q and I, compare times where P_pol or P_slow differ from small to order-saturation values. The child predicts that polarization-driven changes in dI_dt initially track the parent at low amplitude but bend downward more strongly as the polarization ratios approach unity, yielding flatter high-polarization response than any single fixed-shape parent law.",
+          "shortcut_blocked": "Refitting the parent's existing constant couplings or saturation scales can shift overall amplitude or where compression begins, but it cannot match both the low-polarization near-parent slope and the stronger high-polarization flattening across fast and slow branches with one shared parameter set, because the child effectively changes the response from a 1/(1+x^2) profile to a steeper 1/(1+x^2)^2 weighting of each branch's restoring contribution."
+        },
+        "range_suggestions": {}
+      }
+    ],
+    "evolution_provenance": {
+      "dimension_track": null,
+      "mechanism_profile": {
+        "allowed_structural_roles": [
+          "contribution",
+          "response_law",
+          "modulation",
+          "interaction",
+          "constraint",
+          "transition",
+          "feedback",
+          "heterogeneity",
+          "timescale",
+          "transport_balance"
+        ],
+        "preferred_scopes": [
+          "unary",
+          "pairwise",
+          "state_coupling",
+          "time_forcing"
+        ],
+        "domain_mechanisms": [
+          {
+            "id": "nonlinear_constitutive_response",
+            "description": "nonlinear constitutive or response law",
+            "operations": [
+              "add_term",
+              "change_assumption"
+            ]
+          },
+          {
+            "id": "coupled_field_or_force",
+            "description": "coupling to an already declared field, force, or state",
+            "operations": [
+              "add_term"
+            ]
+          },
+          {
+            "id": "finite_relaxation_or_threshold",
+            "description": "finite response time or physical threshold",
+            "operations": [
+              "change_assumption"
+            ]
+          }
+        ],
+        "profile_source": "subject_fallback",
+        "ontology_schema_version": "1.0",
+        "taxonomy_schema_version": "1.0"
+      },
+      "baseline_mechanisms": [
+        "Electric-energy storage by the capacitor.",
+        "Magnetic-energy storage by the inductor.",
+        "Reversible exchange between capacitor charge and loop current."
+      ],
+      "baseline_assumptions": [
+        "Resistance is negligible.",
+        "Capacitance and inductance are constant and linear.",
+        "No external source drives the circuit.",
+        "Radiative and dielectric losses are negligible."
+      ],
+      "scientific_constraints": [
+        "Total stored electromagnetic energy is conserved.",
+        "Charge and current remain bounded.",
+        "The direction of current change opposes the capacitor's signed charge under the chosen circuit orientation."
+      ],
+      "refinement_agenda": [
+        "Add series resistance and damping.",
+        "Introduce sinusoidal external driving.",
+        "Allow nonlinear inductance or capacitance.",
+        "Include weak radiative loss from the loop."
+      ],
+      "evolution_contracts": [
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "With fixed inductance and capacitance, the target mapping is dI_dt = -(1/(inductance*capacitance))*Q, a linear proportional response to charge with one constant slope independent of oscillation amplitude.",
+            "child_relation": "Relax the linear-capacitance assumption so the effective restoring response depends on charge amplitude; then dI_dt remains opposing Q but its magnitude is no longer proportional with one constant slope, becoming weaker or stronger at larger |Q| depending on nonlinear capacitance.",
+            "affected_inputs": [
+              "Q",
+              "capacitance"
+            ],
+            "observable_effect": "Across runs with different initial charge amplitude but the same inductance and small initial current, the relation between Q and dI_dt bends away from a single straight line; oscillation frequency and turning-point curvature become amplitude-dependent, which one shared linear LC parameter set cannot reproduce across amplitudes."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "charge_scale",
+              "expression": "Abs(Q)",
+              "role": "instantaneous charge amplitude controlling departure from linear capacitance"
+            },
+            {
+              "name": "linear_restoring",
+              "expression": "Q/(inductance*capacitance)",
+              "role": "parent linear restoring acceleration scale"
+            },
+            {
+              "name": "em_energy",
+              "expression": "Q**2/(2*capacitance) + inductance*I**2/2",
+              "role": "baseline conserved electromagnetic energy used to compare amplitude regimes"
+            }
+          ],
+          "activation_condition": "Observable when the capacitor is driven to charge amplitudes large enough that its incremental capacitance changes measurably over the sampled |Q| range, while losses remain negligible and bounded oscillations persist.",
+          "train_hidden_contrast": "In training, moderate-amplitude trajectories already show slight amplitude-dependent period or nonconstant dI_dt-versus-Q slope; in holdout, larger-amplitude trajectories extend the same monotone curvature rather than introducing a new mechanism.",
+          "continuation_path": "Recover the parent law in the small-signal limit where capacitance is effectively constant over the visited charge range.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "unary",
+          "scope_symbols": [
+            "Q"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "conservative saturating nonlinear capacitor response",
+          "scientific_mechanism": "Nonlinear charge-voltage relation of the capacitor changes the restoring electric force with charge amplitude, producing amplitude-dependent LC oscillation dynamics without introducing dissipation or driving.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "This is harder than a coefficient correction because the scored mapping from the observed state Q to dI_dt changes from one global linear gain to an amplitude-dependent curved response with a crossover set by charge_saturation.",
+          "taxonomy_match": "known",
+          "assumption_before": "Capacitance is constant and linear.",
+          "assumption_after": "The capacitor has a conservative saturating charge response so the effective restoring term weakens at finite |Q|.",
+          "before_fragment": "-Q/(inductance*capacitance)",
+          "after_fragment": "-Q/(inductance*capacitance*(1 + (Q/charge_saturation)**2))",
+          "parent_reduction": "For Abs(Q) << charge_saturation, or equivalently charge_saturation -> oo at fixed Q, the denominator factor tends to 1 and the parent law is recovered.",
+          "observable_signature": "Holding inductance, capacitance, and the initial current protocol fixed while varying initial charge amplitude, the parent predicts a single straight dI_dt-versus-Q line shared by all runs, whereas the child predicts the same odd symmetry but with progressive flattening at larger |Q| on the scale charge_saturation; this directly changes the target mapping, not merely auxiliary trajectories.",
+          "shortcut_blocked": "A single refit of the parent parameters only changes the constant slope -1/(inductance*capacitance) and cannot reproduce both the near-origin small-signal slope and the weaker large-|Q| restoring acceleration across multiple amplitude conditions with one shared parameter set."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The target depends only on instantaneous charge through dI_dt = -Q/(inductance*capacitance*(1 + (Q/charge_saturation)**2)), so for fixed Q the acceleration is independent of current and the phase-plane restoring law is single-valued.",
+            "child_relation": "Retain conservative LC exchange but relax the assumption of constant linear inductance so the restoring acceleration also depends on current through an energy-conserving current-dependent inductance; then for the same Q, different I values produce different dI_dt magnitudes.",
+            "affected_inputs": [
+              "Q",
+              "I",
+              "inductance"
+            ],
+            "observable_effect": "At matched |Q| but different |I| along the trajectory, the child shows weaker restoring acceleration at larger |I| if inductance increases with current, creating amplitude- and phase-dependent bending in the Q-I orbit that the parent cannot match with one shared parameter set."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "cap_restoring",
+              "expression": "Q/(capacitance*(1 + (Q/charge_saturation)**2))",
+              "role": "Nonlinear capacitor voltage-scale term that drives the magnetic response"
+            },
+            {
+              "name": "phase_point",
+              "expression": "I**2 + Q**2",
+              "role": "Trajectory location indicator showing that identical charge can occur at different current values during oscillation"
+            },
+            {
+              "name": "charge_to_sat",
+              "expression": "Q/charge_saturation",
+              "role": "Activation of the already-present capacitor saturation nonlinearity"
+            }
+          ],
+          "activation_condition": "Observable when oscillations reach currents large enough that inductive nonlinearity is appreciable while charge remains within the admissible bounded regime; practically, compare portions of trajectories with similar |Q| but substantially different |I|, most evident for moderate-to-large initial energy.",
+          "train_hidden_contrast": "In training, small-current segments remain close to the parent law, while larger-energy segments reveal that dI_dt at a given Q varies systematically with I; in holdout, the same current-dependent curvature extends to larger amplitudes rather than introducing a qualitatively different mechanism.",
+          "continuation_path": "Recover the parent by taking the current-dependent inductance correction to zero, equivalently the limit of constant inductance independent of I.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "Q",
+            "I"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "current-dependent inductive energy storage",
+          "scientific_mechanism": "Nonlinear magnetic energy storage in the inductor modifies the effective inductance with current while preserving lossless energy exchange.",
+          "embedding_pattern": "state_coupling",
+          "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the scored target ceases to be a single-valued function of Q alone and instead depends jointly on two evolving states, so one global parameter retuning cannot reproduce the same-Q/different-I acceleration contrast.",
+          "taxonomy_match": "known",
+          "assumption_before": "Inductance is constant and linear.",
+          "assumption_after": "Inductance increases with current magnitude through a conservative nonlinear magnetic constitutive law.",
+          "before_fragment": "-Q/(inductance*capacitance*(1 + (Q/charge_saturation)**2))",
+          "after_fragment": "-Q/(capacitance*(1 + (Q/charge_saturation)**2)*(inductance*(1 + (I/current_saturation)**2)))",
+          "parent_reduction": "Take current_saturation -> oo so (I/current_saturation)**2 -> 0 and the constant-inductance parent law is recovered.",
+          "observable_signature": "The parent maps Q to dI_dt with one shared curve, whereas the child produces a family of restoring accelerations indexed by I: for similar |Q|, points with larger |I| have smaller |dI_dt|. This directly changes the scored target mapping, not only auxiliary trajectories, and is observable in bounded oscillations with moderate-to-large current relative to current_saturation.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce the child across the stated conditions because any refit of inductance, capacitance, or charge_saturation still leaves dI_dt a function of Q only. The child creates systematic same-Q/different-I variation in dI_dt, so ignoring current-dependent inductance is structurally inadequate rather than merely miscalibrated."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "phase_shift",
+            "parent_relation": "The target mapping dI_dt(Q,I) depends only on instantaneous charge and current through memoryless nonlinear capacitance and inductance factors, so for any observed pair (Q,I) the acceleration is unique and history-independent.",
+            "child_relation": "Retain lossless LC exchange but relax the assumption of instantaneous capacitor polarization by introducing a reversible internal polarization state that contributes to the effective restoring charge; then dI_dt depends on (Q,I,P_pol), creating history-dependent acceleration and phase lag between total charge and restoring electric force.",
+            "affected_inputs": [
+              "Q",
+              "I"
+            ],
+            "observable_effect": "At fixed observed (Q,I) reached on different portions of the oscillation after transient polarization exchange, the child can produce different dI_dt values because the internal polarization state lags Q, whereas the parent predicts the same dI_dt everywhere for that pair."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "charge_ratio",
+              "expression": "Q/charge_saturation",
+              "role": "capacitor nonlinearity activation coordinate"
+            },
+            {
+              "name": "current_ratio",
+              "expression": "I/current_saturation",
+              "role": "inductive nonlinearity activation coordinate"
+            },
+            {
+              "name": "state_plane",
+              "expression": "Q*Q + I*I",
+              "role": "gross oscillation amplitude proxy in the observed state plane"
+            }
+          ],
+          "activation_condition": "Observable when the internal polarization time scale is comparable to the LC oscillation period, so polarization cannot adiabatically follow Q; strongest for moderate-to-large charge excursions where capacitor nonlinearity is already sampled and over at least several oscillation fractions from the stated initial condition.",
+          "train_hidden_contrast": "Within training trajectories starting from the given initial conditions, early evolution can remain close to the parent if polarization is near equilibrium, but later portions show looped hysteretic dI_dt versus (Q,I); holdout with similar amplitudes but different elapsed phase exposes the same memory effect more clearly.",
+          "continuation_path": "Recover the parent law in the fast-relaxation or vanishing-polarization-coupling limit, where the internal polarization remains slaved to instantaneous charge and the restoring force becomes a unique function of Q again.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "A reversible delayed polarization mechanism is intrinsically dynamic memory; it cannot be represented by refitting fixed parameters in a memoryless dI_dt(Q,I) law. One additional state is the minimal way to encode this history dependence while preserving a closed lossless ODE system.",
+          "scope_kind": "memory",
+          "scope_symbols": [
+            "Q",
+            "I",
+            "P_pol"
+          ],
+          "structural_role": "feedback",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "reversible dielectric polarization lag in a nonlinear capacitor",
+          "scientific_mechanism": "Lossless internal dielectric polarization exchange introduces a phase-lagged electric restoring contribution, yielding conservative memory in the capacitor and history-dependent current acceleration.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "The successor is structurally harder because the scored target is no longer a single-valued algebraic surface over observed (Q,I); it depends on an internal memory state whose feedback enters through a saturating restoring contribution. This cannot be mimicked by coefficient-only retuning because the parent has no mechanism for phase-lagged hysteresis at the same observed state pair.",
+          "taxonomy_match": "provisional",
+          "assumption_before": "The current model assumes the nonlinear capacitor responds instantaneously to charge, omitting reversible dielectric polarization lag that can store and return electric energy without dissipation.",
+          "assumption_after": "The capacitor includes a finite-time reversible polarization mode whose saturating contribution to restoring charge lags the observed charge.",
+          "before_fragment": "-Q/(capacitance*(1 + (Q/charge_saturation)**2)*(inductance*(1 + (I/current_saturation)**2)))",
+          "after_fragment": "-(Q + polarization_coupling*P_pol/(1 + (P_pol/polarization_saturation)**2))/(capacitance*(1 + (Q/charge_saturation)**2)*(inductance*(1 + (I/current_saturation)**2)))",
+          "parent_reduction": "Taking polarization_coupling -> 0 removes the polarization feedback exactly and recovers the parent expression; similarly, in the effectively inactive memory regime the target mapping approaches the parent's unique function of (Q,I).",
+          "observable_signature": "Compare times along the same trajectory where observed Q and I are approximately matched after polarization dynamics have developed. The parent predicts identical dI_dt because its response is single-valued in (Q,I), whereas the child predicts different dI_dt values depending on P_pol, with the contrast largest when polarization_relaxation_time is comparable to sqrt(inductance*capacitance) and |P_pol| is not far below polarization_saturation.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce this effect because all parent parameters still define a memoryless map dI_dt=f(Q,I). Retuning capacitance, inductance, or saturation scales can only reshape that one surface, not produce two different accelerations at the same observed (Q,I) on different passes through the oscillation. The added state is therefore consequential rather than decorative."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The target mapping dI_dt(Q,I,P_pol) uses a single polarization memory state with one relaxation time, so the restoring contribution from dielectric memory has one characteristic lag and a correspondingly single-dispersive dependence on oscillation amplitude/phase.",
+            "child_relation": "Replace the single-timescale polarization assumption by a two-timescale conservative dielectric memory in which an additional slower reversible polarization state contributes to the effective restoring charge. Then dI_dt depends on both fast and slow internal polarization coordinates, producing a richer non-separable curvature of dI_dt versus (Q,I) through history-dependent state mixtures reachable from the same observation protocol.",
+            "affected_inputs": [
+              "Q",
+              "I",
+              "P_pol"
+            ],
+            "observable_effect": "Holding capacitance, inductance, and existing saturation scales fixed while varying polarization relaxation scales near and above the nominal LC period, the child can show a broader, two-stage lagged restoring response: for similar instantaneous Q and I, early-cycle versus later-cycle accelerations differ because slow polarization has not yet equilibrated. A parent with one shared relaxation time can match either the fast-lag or slow-lag curvature but not both across these conditions."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "lc_time",
+              "expression": "sqrt(inductance*capacitance)",
+              "role": "Nominal electromagnetic exchange timescale used to compare dielectric memory rates"
+            },
+            {
+              "name": "charge_nl",
+              "expression": "Q/charge_saturation",
+              "role": "Capacitive saturation coordinate controlling charge-dependent restoring softening"
+            },
+            {
+              "name": "current_nl",
+              "expression": "I/current_saturation",
+              "role": "Inductive saturation coordinate controlling current-dependent inertial nonlinearity"
+            },
+            {
+              "name": "pol_phase_ratio",
+              "expression": "polarization_relaxation_time/sqrt(inductance*capacitance)",
+              "role": "Existing dielectric-memory lag relative to the LC period"
+            }
+          ],
+          "activation_condition": "Visible when dielectric relaxation is neither instantaneous nor frozen: polarization relaxation time comparable to the nominal LC period, and the added slower branch would be several times larger than that but still within the observed time window; initial polarization must be small but nonzero so memory is actually excited.",
+          "train_hidden_contrast": "In training, single-branch memory already creates phase-lagged restoring shifts. In holdout, adding a slower reversible branch extends this into a two-stage lag/curvature effect over longer portions of the trajectory, especially when charge amplitude is large enough that capacitor saturation and delayed polarization interact.",
+          "continuation_path": "Recover the parent when the added slow polarization branch has zero coupling, zero initial excitation together with invariant zero dynamics, or relaxation time collapsing to the existing branch so the two branches act effectively as one.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "A genuinely distinct dielectric relaxation channel is an internal dynamic degree of freedom, not a static parameter tweak. Existing states cannot represent simultaneous fast and slow reversible polarization memory, so one additional state is needed to create an observable change in the scored target mapping rather than only reparameterizing the current branch.",
+          "scope_kind": "memory",
+          "scope_symbols": [
+            "Q",
+            "I",
+            "P_pol",
+            "P_slow"
+          ],
+          "structural_role": "feedback",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Two-timescale conservative dielectric polarization memory with saturating branch responses",
+          "scientific_mechanism": "Add a second reversible polarization channel representing a slower bound-charge rearrangement that contributes to the effective restoring charge without dissipation, yielding conservative multi-timescale dielectric memory.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "This embedding is harder than a coefficient-only correction because the target now depends on an added internal state with its own timescale and saturating contribution, so identical instantaneous Q and I can map to different dI_dt values depending on the unresolved mixture of fast and slow polarization memory.",
+          "taxonomy_match": "known",
+          "assumption_before": "Internal dielectric polarization responds with a single Debye-like relaxation time and a single saturating restoring contribution.",
+          "assumption_after": "Two reversible dielectric polarization channels with distinct relaxation times and separate saturating restoring contributions determine the effective restoring charge.",
+          "before_fragment": "-(Q + polarization_coupling*P_pol/(1 + (P_pol/polarization_saturation)**2))/(capacitance*(1 + (Q/charge_saturation)**2)*(inductance*(1 + (I/current_saturation)**2)))",
+          "after_fragment": "-(Q + polarization_coupling*P_pol/(1 + (P_pol/polarization_saturation)**2) + slow_polarization_coupling*P_slow/(1 + (P_slow/slow_polarization_saturation)**2))/(capacitance*(1 + (Q/charge_saturation)**2)*(inductance*(1 + (I/current_saturation)**2)))",
+          "parent_reduction": "The parent is recovered when slow_polarization_coupling = 0, or when P_slow remains zero, or approximately when slow_polarization_relaxation_time merges with polarization_relaxation_time and the slow branch becomes indistinguishable from the existing one.",
+          "observable_signature": "At fixed capacitance, inductance, charge_saturation, and current_saturation, trajectories with dielectric timescales near sqrt(inductance*capacitance) but with an added slower branch show two-stage history dependence: for comparable instantaneous Q and I, dI_dt is less collapsed onto a single curve because the slow polarization branch contributes extra lagged restoring charge later in the trajectory. The effect is strongest when slow_polarization_relaxation_time exceeds polarization_relaxation_time by several-fold yet remains within the observation window, and when |P_slow| reaches a non-negligible fraction of slow_polarization_saturation so its saturating branch is active.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce this across the stated conditions because refitting polarization_relaxation_time, polarization_coupling, or polarization_saturation only changes one memory branch with one lag and one saturation scale. That can mimic either the early fast response or the later slow-accumulated restoring curvature, but not the coexistence of both within one shared trajectory family when dI_dt differs for similar Q and I due to an independently evolving slow polarization state."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The restoring term from each polarization channel is a static saturating function of its own state added to Q, so at fixed observed (Q,I,P_pol,P_slow) the target dI_dt depends on polarization contributions with one fixed odd saturation shape.",
+            "child_relation": "Keep the same observed states but replace the static polarization restoring law by a stronger field-dependent saturation shape, so the effective restoring charge bends more sharply as |P_pol| or |P_slow| becomes comparable to its saturation scale, changing the curvature of dI_dt versus polarization state at fixed Q and I.",
+            "affected_inputs": [
+              "Q",
+              "I",
+              "P_pol",
+              "P_slow",
+              "polarization_saturation",
+              "slow_polarization_saturation"
+            ],
+            "observable_effect": "For matched Q and I, increasing |P_pol| or |P_slow| from small to moderate values produces a flatter incremental effect on dI_dt than the parent predicts; the target mapping shows stronger compression of polarization-induced acceleration in high-polarization episodes while remaining similar in the weak-polarization regime."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "fast_pol_ratio",
+              "expression": "P_pol/polarization_saturation",
+              "role": "activation level of the fast polarization nonlinearity"
+            },
+            {
+              "name": "slow_pol_ratio",
+              "expression": "P_slow/slow_polarization_saturation",
+              "role": "activation level of the slow polarization nonlinearity"
+            },
+            {
+              "name": "restoring_balance",
+              "expression": "(Q + polarization_coupling*P_pol/(1 + (P_pol/polarization_saturation)**2) + slow_polarization_coupling*P_slow/(1 + (P_slow/slow_polarization_saturation)**2))/(capacitance*inductance)",
+              "role": "parent effective restoring acceleration scale before inductive and capacitive saturation factors fully modulate it"
+            }
+          ],
+          "activation_condition": "Observable when either |P_pol|/polarization_saturation or |P_slow|/slow_polarization_saturation reaches order unity while Q and I remain within bounded oscillatory regimes so the polarization contribution is not negligible compared with Q.",
+          "train_hidden_contrast": "In training, weak-to-moderate polarization excursions already reveal slight extra compression relative to the parent; in holdout, larger memory-state excursions extend this same curvature difference, making the mismatch larger without changing the low-amplitude limit.",
+          "continuation_path": "Recover the parent law in the weak-polarization limit |P_pol|<<polarization_saturation and |P_slow|<<slow_polarization_saturation, or by taking the refined saturation-shape parameter to its parent value.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "Q",
+            "I",
+            "P_pol",
+            "P_slow"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "state-dependent saturation of reversible dielectric restoring charge",
+          "scientific_mechanism": "Real reversible dielectric polarization can remain lossless yet show a steeper-than-Lorentzian bounded restoring contribution as dipolar alignment approaches its reversible occupancy limit, so the charge-like feedback from internal polarization compresses more strongly at high polarization.",
+          "embedding_pattern": "state_dependent_coefficient",
+          "difficulty_rationale": "This is harder than a coefficient-only correction because the polarization contribution no longer has one fixed odd saturation profile; its effective gain now changes with the same state whose contribution is being measured, altering the curvature of the target map over the trajectory rather than simply rescaling it.",
+          "taxonomy_match": "known",
+          "assumption_before": "The polarization restoring law uses one fixed Lorentzian-like saturation shape with constant coupling for each branch.",
+          "assumption_after": "The polarization restoring coupling itself decreases with polarization amplitude, producing a steeper bounded reversible restoring response.",
+          "before_fragment": "-(Q + polarization_coupling*P_pol/(1 + (P_pol/polarization_saturation)**2) + slow_polarization_coupling*P_slow/(1 + (P_slow/slow_polarization_saturation)**2))/(capacitance*(1 + (Q/charge_saturation)**2)*(inductance*(1 + (I/current_saturation)**2)))",
+          "after_fragment": "-(Q + (polarization_coupling/(1 + (P_pol/polarization_saturation)**2))*P_pol/(1 + (P_pol/polarization_saturation)**2) + (slow_polarization_coupling/(1 + (P_slow/slow_polarization_saturation)**2))*P_slow/(1 + (P_slow/slow_polarization_saturation)**2))/(capacitance*(1 + (Q/charge_saturation)**2)*(inductance*(1 + (I/current_saturation)**2)))",
+          "parent_reduction": "In the weak-polarization limit |P_pol|<<polarization_saturation and |P_slow|<<slow_polarization_saturation, the added state-dependent coupling factors approach 1 and the child reduces approximately to the parent.",
+          "observable_signature": "At fixed observed Q and I, compare times where P_pol or P_slow differ from small to order-saturation values. The child predicts that polarization-driven changes in dI_dt initially track the parent at low amplitude but bend downward more strongly as the polarization ratios approach unity, yielding flatter high-polarization response than any single fixed-shape parent law.",
+          "shortcut_blocked": "Refitting the parent's existing constant couplings or saturation scales can shift overall amplitude or where compression begins, but it cannot match both the low-polarization near-parent slope and the stronger high-polarization flattening across fast and slow branches with one shared parameter set, because the child effectively changes the response from a 1/(1+x^2) profile to a steeper 1/(1+x^2)^2 weighting of each branch's restoring contribution."
+        }
+      ]
+    },
+    "finalization": {
+      "mode": "candidate",
+      "accepted_generations": 5,
+      "novelty": {
+        "answer": "NOT_EVALUATED"
+      },
+      "total_points": 5000,
+      "evaluation_status": "not_evaluated"
+    }
+  },
+  "contract": {
+    "features": [
+      "t",
+      "Q",
+      "I",
+      "P_pol",
+      "P_slow"
+    ],
+    "target": "dI_dt",
+    "family": "ode",
+    "expression": "-(Q + (polarization_coupling/(1 + (P_pol/polarization_saturation)**2))*P_pol/(1 + (P_pol/polarization_saturation)**2) + (slow_polarization_coupling/(1 + (P_slow/slow_polarization_saturation)**2))*P_slow/(1 + (P_slow/slow_polarization_saturation)**2))/(capacitance*(1 + (Q/charge_saturation)**2)*(inductance*(1 + (I/current_saturation)**2)))",
+    "parameters": {
+      "capacitance": 0.001,
+      "inductance": 0.001,
+      "charge_saturation": 0.002,
+      "current_saturation": 0.5,
+      "polarization_relaxation_time": 0.0012,
+      "polarization_coupling": 0.8,
+      "polarization_saturation": 0.0007,
+      "slow_polarization_relaxation_time": 0.004,
+      "slow_polarization_coupling": 0.4,
+      "slow_polarization_saturation": 0.00035
+    },
+    "implicit_branch": null
+  }
+}

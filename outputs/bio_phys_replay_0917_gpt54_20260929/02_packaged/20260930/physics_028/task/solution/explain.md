@@ -1,0 +1,3 @@
+Ground truth: domega_dt = -(mass * gravity * center_of_mass_distance / moment_of_inertia) * sin(theta) / (1 + aerodynamic_stiffness_gain * (1 + amplitude_softening_gain * (1 - cos(theta))) * Max(wake_intensity - 1, 0)) - (damping_coefficient / moment_of_inertia) * omega - (quadratic_drag_coefficient / moment_of_inertia) * wake_intensity * omega * Abs(omega)
+
+Fixed parameters: {'mass': 1.0, 'gravity': 9.81, 'center_of_mass_distance': 0.5, 'moment_of_inertia': 0.25, 'damping_coefficient': 0.08, 'quadratic_drag_coefficient': 0.02, 'wake_relaxation_time': 0.8, 'wake_drive_gain': 0.06, 'aerodynamic_stiffness_gain': 0.7, 'amplitude_softening_gain': 0.8}

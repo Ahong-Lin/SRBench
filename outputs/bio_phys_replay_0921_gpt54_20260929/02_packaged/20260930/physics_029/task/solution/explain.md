@@ -1,0 +1,3 @@
+Ground truth: delta_p = 8*mu*L*Q/(pi*R**4*(1 + shear_thinning_strength*(4*Q/(pi*R**3)*((shear_profile_shape_factor + 1)/(shear_profile_shape_factor + 2)))**shear_thinning_exponent/(1 + shear_thinning_saturation_strength*(4*Q/(pi*R**3)*((shear_profile_shape_factor + 1)/(shear_profile_shape_factor + 2)))**shear_thinning_exponent)))*(1 + laminar_inertia_coeff*Q*Rho/(pi*mu*R) + entrance_development_coeff*(2*Rho*Q/(pi*mu*R))*(R/L))
+
+Fixed parameters: {'Rho': 1000.0, 'laminar_inertia_coeff': 0.08, 'entrance_development_coeff': 0.04, 'shear_thinning_strength': 0.6, 'shear_thinning_exponent': 0.8, 'shear_thinning_saturation_strength': 1.2, 'shear_profile_shape_factor': 2.0}

@@ -1,0 +1,3 @@
+Ground truth: A = (k_activation*(1 + gamma_env*E*alpha_R*R_tot)*(((1 - eta_hetero*(alpha_R*R_tot)/(1 + alpha_R*R_tot))*L**(1 + beta_cluster*alpha_R*R_tot))/((K_d*(1 + alpha_R*R_tot))**(1 + beta_cluster*alpha_R*R_tot) + L**(1 + beta_cluster*alpha_R*R_tot)) + (eta_hetero*(alpha_R*R_tot)/(1 + alpha_R*R_tot))*L**(1 + beta_cluster*alpha_R*R_tot + delta_cluster)/(K_d**(1 + beta_cluster*alpha_R*R_tot + delta_cluster) + L**(1 + beta_cluster*alpha_R*R_tot + delta_cluster))))/(k_activation + k_deactivation + k_crowding*alpha_R*R_tot)
+
+Fixed parameters: {'K_d': 1.0, 'k_activation': 0.9, 'k_deactivation': 0.7, 'alpha_R': 0.4, 'beta_cluster': 0.7, 'k_crowding': 0.35, 'gamma_env': 0.25, 'eta_hetero': 0.6, 'delta_cluster': 1.2}

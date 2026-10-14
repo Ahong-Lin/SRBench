@@ -1,0 +1,1772 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "P",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        300.0
+      ],
+      "n_points": 401,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "cardiac_delivery_baseline",
+      "value": 0.9
+    },
+    {
+      "symbol": "cardiac_delivery_gain",
+      "value": 3.0
+    },
+    {
+      "symbol": "peripheral_resistance_baseline",
+      "value": 0.8
+    },
+    {
+      "symbol": "peripheral_resistance_gain",
+      "value": 1.6
+    },
+    {
+      "symbol": "arterial_compliance",
+      "value": 2.0
+    },
+    {
+      "symbol": "pressure_setpoint",
+      "value": 95.0
+    },
+    {
+      "symbol": "baroreflex_pressure_scale",
+      "value": 12.0
+    },
+    {
+      "symbol": "autonomic_time_constant",
+      "value": 8.0
+    },
+    {
+      "symbol": "vascular_saturation_scale",
+      "value": 0.7
+    },
+    {
+      "symbol": "vascular_time_constant",
+      "value": 20.0
+    },
+    {
+      "symbol": "cardiac_afterload_pressure_scale",
+      "value": 120.0
+    },
+    {
+      "symbol": "baroreflex_resetting_gain",
+      "value": 0.25
+    },
+    {
+      "symbol": "baroreflex_resetting_time_constant",
+      "value": 120.0
+    },
+    {
+      "symbol": "baroreflex_asymmetry_gain",
+      "value": 0.35
+    }
+  ],
+  "benchmark_output": "dP_dt",
+  "benchmark_target_state": "P",
+  "observed_variables": [
+    "t",
+    "P",
+    "S",
+    "R",
+    "B"
+  ],
+  "rhs_for_integrator": "(cardiac_delivery_baseline + cardiac_delivery_gain*S*exp(-P/cardiac_afterload_pressure_scale) - P/(peripheral_resistance_baseline + peripheral_resistance_gain*R))/arterial_compliance",
+  "state_variables": [
+    "P",
+    "S",
+    "R",
+    "B"
+  ],
+  "state_rhs": [
+    "(cardiac_delivery_baseline + cardiac_delivery_gain*S*exp(-P/cardiac_afterload_pressure_scale) - P/(peripheral_resistance_baseline + peripheral_resistance_gain*R))/arterial_compliance",
+    "(1/(1 + exp((P - (pressure_setpoint + B))/(baroreflex_pressure_scale*(1 + baroreflex_asymmetry_gain*(P - (pressure_setpoint + B))/baroreflex_pressure_scale)))) - S)/autonomic_time_constant",
+    "(vascular_saturation_scale*(1 - exp(-S/vascular_saturation_scale)) - R)/vascular_time_constant",
+    "(baroreflex_resetting_gain*(P - pressure_setpoint) - B)/baroreflex_resetting_time_constant"
+  ],
+  "initial_conditions": {
+    "P": 100.0,
+    "S": 0.5,
+    "R": 0.5,
+    "B": 0.0
+  },
+  "sanity_expectations": [
+    "The runoff denominator peripheral_resistance_baseline + peripheral_resistance_gain*R stays positive throughout the sampled window, so the RHS remains finite for the chosen parameters.",
+    "Because vascular_time_constant exceeds autonomic_time_constant, S should change earlier than R after onset, producing a visible lag between neural drive adjustment and resistance-mediated runoff change.",
+    "Since cardiac_afterload_pressure_scale is of the same order as P, the marginal effect of S on dP_dt through the cardiac term should be noticeably smaller at higher P than at lower P reached later in the transient.",
+    "With baroreflex_resetting_time_constant much longer than autonomic_time_constant, early behavior should resemble a nearly fixed-threshold reflex, while later times show gradual drift of the effective setpoint via B.",
+    "For baroreflex_asymmetry_gain=0.35, local pressure-to-command steepness should differ above versus below the effective setpoint if the trajectory samples both sides; if it does not cross both sides, this asymmetry will be weakly visible rather than absent by model inconsistency."
+  ],
+  "role_corrections": [
+    "dP_dt: claimed-output/target derivative -> derived quantity from system RHS for state P (confirmed as target derivative, but dependent variable for data generation is P by ODE contract)",
+    "t: claimed-input/time axis -> independent variable/time axis (confirmed)",
+    "P: claimed-dynamic state -> dependent variable/target state (confirmed)",
+    "S: claimed-dynamic state -> state variable (confirmed)",
+    "R: claimed-dynamic state -> state variable (confirmed)",
+    "B: claimed-dynamic state -> state variable (confirmed)",
+    "cardiac_delivery_baseline: claimed-parameter -> parameter (confirmed)",
+    "cardiac_delivery_gain: claimed-parameter -> parameter (confirmed)",
+    "peripheral_resistance_baseline: claimed-parameter -> parameter (confirmed)",
+    "peripheral_resistance_gain: claimed-parameter -> parameter (confirmed)",
+    "arterial_compliance: claimed-parameter -> parameter (confirmed)",
+    "pressure_setpoint: claimed-parameter -> parameter (confirmed)",
+    "baroreflex_pressure_scale: claimed-parameter -> parameter (confirmed)",
+    "autonomic_time_constant: claimed-parameter -> parameter (confirmed)",
+    "vascular_saturation_scale: claimed-parameter -> parameter (confirmed)",
+    "vascular_time_constant: claimed-parameter -> parameter (confirmed)",
+    "cardiac_afterload_pressure_scale: claimed-parameter -> parameter (confirmed)",
+    "baroreflex_resetting_gain: claimed-parameter -> parameter (confirmed)",
+    "baroreflex_resetting_time_constant: claimed-parameter -> parameter (confirmed)",
+    "baroreflex_asymmetry_gain: claimed-parameter -> parameter (confirmed)",
+    "equation_type: upstream ode_system contract preserved (confirmed override of local explicit-expression hint, because typed contract governs full system sampling)"
+  ],
+  "rationale": "The ODE-system contract is preserved exactly: target state P is sampled only along time t, with inherited state ordering, RHS, and initial conditions unchanged. Parameter choices are set to keep all denominators positive, maintain a monotone baroreflex command over the expected trajectory range, and expose the intended mechanisms without collapsing to the parent-recovery limits. Specifically, vascular_saturation_scale=0.7 keeps the R-command noticeably saturating over the inherited S(0)=0.5 to high-drive range; vascular_time_constant=20 s makes R lag S enough to create visible early-versus-late pressure-recovery phase separation; cardiac_afterload_pressure_scale=120 mmHg is comparable to the operating pressure so sympathetic cardiac support is weaker at higher P but not extinguished; baroreflex_resetting_gain=0.25 and baroreflex_resetting_time_constant=120 s allow slow threshold adaptation within the 300 s window; baroreflex_asymmetry_gain=0.35 introduces asymmetry without approaching loss of monotonicity. With P initially above the 95 mmHg setpoint, the trajectory should first reduce autonomic drive, then reveal coupled recovery dynamics as B slowly shifts and the asymmetric command law changes steepness above versus below the effective setpoint. This dataset can expose the recorded distinguishing conditions only insofar as the single inherited transient naturally visits them; if the solved trajectory remains on one side of the effective setpoint or in a narrow S band, asymmetry or saturation contrasts will be weaker. No observation noise is added.",
+  "coverage_report": {
+    "groups": [
+      {
+        "generation": 1,
+        "name": "runoff_load",
+        "expression": "P/(peripheral_resistance_baseline + peripheral_resistance_gain*S)",
+        "role": "Current parent peripheral runoff term opposing pressure rise",
+        "train_range": [
+          0.9142956603256239,
+          62.5
+        ],
+        "hidden_range": [
+          0.9136784060252363,
+          0.914290185115381
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.9142956603256239,
+          "max": 62.5,
+          "q05": 0.9146311645694417,
+          "median": 0.9222141522298539,
+          "q95": 3.1558048483893653,
+          "range": 61.58570433967438,
+          "robust_range": 2.2411736838199237
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.9136784060252363,
+          "max": 0.914290185115381,
+          "q05": 0.9137053893382193,
+          "median": 0.9139644686884738,
+          "q95": 0.9142556605894954,
+          "range": 0.0006117790901446485,
+          "robust_range": 0.0005502712512760466
+        }
+      },
+      {
+        "generation": 1,
+        "name": "autonomic_level",
+        "expression": "S",
+        "role": "Instantaneous vasomotor activation level that may enter a saturating effector law",
+        "train_range": [
+          0.004684724387288365,
+          0.5510101573292032
+        ],
+        "hidden_range": [
+          0.004504572354904071,
+          0.0046831292824073495
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.004684724387288365,
+          "max": 0.5510101573292032,
+          "q05": 0.004782259031440229,
+          "median": 0.006427886022603468,
+          "q95": 0.1341418343553603,
+          "range": 0.5463254329419148,
+          "robust_range": 0.1293595753239201
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.004504572354904071,
+          "max": 0.0046831292824073495,
+          "q05": 0.004512458712404025,
+          "median": 0.0045881522396603504,
+          "q95": 0.004673075471425155,
+          "range": 0.0001785569275032789,
+          "robust_range": 0.0001606167590211295
+        }
+      },
+      {
+        "generation": 1,
+        "name": "pressure_drive_balance",
+        "expression": "cardiac_delivery_baseline + cardiac_delivery_gain*S - P/(peripheral_resistance_baseline + peripheral_resistance_gain*S)",
+        "role": "Net arterial filling tendency whose dependence on S gains new curvature under the refinement",
+        "train_range": [
+          -60.1,
+          -0.0002414871637588245
+        ],
+        "hidden_range": [
+          -0.00024079726815884328,
+          -0.00016468896052412862
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": -60.1,
+          "max": -0.0002414871637588245,
+          "q05": -1.8533793453232925,
+          "median": -0.00293049416204344,
+          "q95": -0.00028438747512096193,
+          "range": 60.099758512836246,
+          "robust_range": 1.8530949578481715
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": -0.00024079726815884328,
+          "max": -0.00016468896052412862,
+          "q05": -0.00023643417521989062,
+          "median": -0.00020001196949265276,
+          "q95": -0.00016801320100723883,
+          "range": 7.610830763471466e-05,
+          "robust_range": 6.842097421265179e-05
+        }
+      },
+      {
+        "generation": 2,
+        "name": "baro_cmd",
+        "expression": "1/(1 + exp((P - pressure_setpoint)/baroreflex_pressure_scale))",
+        "role": "Instantaneous baroreflex command toward which autonomic drive relaxes",
+        "train_range": [
+          0.39731466202150834,
+          0.9996123974906387
+        ],
+        "hidden_range": [
+          0.99961239770873,
+          0.9996124220863537
+        ],
+        "train_status": "inactive",
+        "hidden_status": "inactive",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.39731466202150834,
+          "max": 0.9996123974906387,
+          "q05": 0.9995240577784337,
+          "median": 0.9996121078828094,
+          "q95": 0.9996123841345614,
+          "range": 0.6022977354691303,
+          "robust_range": 8.832635612776585e-05
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.99961239770873,
+          "max": 0.9996124220863537,
+          "q05": 0.9996123990837018,
+          "median": 0.9996124106850172,
+          "q95": 0.9996124210109039,
+          "range": 2.4377623697446893e-08,
+          "robust_range": 2.1927202054072836e-08
+        }
+      },
+      {
+        "generation": 2,
+        "name": "resistance_cmd",
+        "expression": "vascular_saturation_scale*(1 - exp(-S/vascular_saturation_scale))",
+        "role": "Instantaneous saturating resistance recruitment commanded by current autonomic drive in the parent",
+        "train_range": [
+          0.004669083126320316,
+          0.38140427878382493
+        ],
+        "hidden_range": [
+          0.004490109700068579,
+          0.0046674986591729965
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.004669083126320316,
+          "max": 0.38140427878382493,
+          "q05": 0.004765960450801233,
+          "median": 0.006398463452652886,
+          "q95": 0.12206357245235669,
+          "range": 0.37673519565750463,
+          "robust_range": 0.11729761200155546
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.004490109700068579,
+          "max": 0.0046674986591729965,
+          "q05": 0.004497945426590463,
+          "median": 0.004573148508608443,
+          "q95": 0.004657511813429315,
+          "range": 0.00017738895910441796,
+          "robust_range": 0.00015956638683885162
+        }
+      },
+      {
+        "generation": 2,
+        "name": "runoff_parent",
+        "expression": "P/(peripheral_resistance_baseline + peripheral_resistance_gain*(vascular_saturation_scale*(1 - exp(-S/vascular_saturation_scale))))",
+        "role": "Parent peripheral runoff term directly setting one component of dP_dt",
+        "train_range": [
+          0.9143239971853667,
+          72.90152905089056
+        ],
+        "hidden_range": [
+          0.9137045992352971,
+          0.9143185026223501
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.9143239971853667,
+          "max": 72.90152905089056,
+          "q05": 0.9146606974440813,
+          "median": 0.922267734370512,
+          "q95": 3.217157920147778,
+          "range": 71.9872050537052,
+          "robust_range": 2.3024972227036966
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.9137045992352971,
+          "max": 0.9143185026223501,
+          "q05": 0.9137316746136873,
+          "median": 0.9139916458720495,
+          "q95": 0.9142838562709134,
+          "range": 0.0006139033870530275,
+          "robust_range": 0.0005521816572260363
+        }
+      },
+      {
+        "generation": 3,
+        "name": "cardiac_inflow_parent",
+        "expression": "cardiac_delivery_baseline + cardiac_delivery_gain*S",
+        "role": "Parent autonomically controlled arterial inflow contribution",
+        "train_range": [
+          0.9140541731618651,
+          2.5530304719876096
+        ],
+        "hidden_range": [
+          0.9135137170647122,
+          0.9140493878472221
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.9140541731618651,
+          "max": 2.5530304719876096,
+          "q05": 0.9143467770943208,
+          "median": 0.9192836580678104,
+          "q95": 1.302425503066081,
+          "range": 1.6389762988257446,
+          "robust_range": 0.3880787259717602
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.9135137170647122,
+          "max": 0.9140493878472221,
+          "q05": 0.9135373761372121,
+          "median": 0.9137644567189811,
+          "q95": 0.9140192264142755,
+          "range": 0.0005356707825099338,
+          "robust_range": 0.00048185027706337813
+        }
+      },
+      {
+        "generation": 3,
+        "name": "runoff_load",
+        "expression": "P/(peripheral_resistance_baseline + peripheral_resistance_gain*R)",
+        "role": "Pressure-driven peripheral runoff opposing inflow",
+        "train_range": [
+          0.914025695000113,
+          62.5
+        ],
+        "hidden_range": [
+          0.9134753874064021,
+          0.9140208234816932
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.914025695000113,
+          "max": 62.5,
+          "q05": 0.914323736330722,
+          "median": 0.9195088904861322,
+          "q95": 2.3003873191758077,
+          "range": 61.58597430499989,
+          "robust_range": 1.3860635828450858
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.9134753874064021,
+          "max": 0.9140208234816932,
+          "q05": 0.9134994805186883,
+          "median": 0.9137306586702694,
+          "q95": 0.9139900982470441,
+          "range": 0.0005454360752911169,
+          "robust_range": 0.0004906177283557911
+        }
+      },
+      {
+        "generation": 3,
+        "name": "baroreflex_regime",
+        "expression": "(P - pressure_setpoint)/baroreflex_pressure_scale",
+        "role": "Pressure regime determining whether observations probe low-pressure or high-pressure autonomic conditions",
+        "train_range": [
+          -7.855142526221343,
+          0.4166666666666667
+        ],
+        "hidden_range": [
+          -7.8552060088664435,
+          -7.8551430891071705
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": -7.855142526221343,
+          "max": 0.4166666666666667,
+          "q05": -7.85510805527403,
+          "median": -7.854395338127526,
+          "q95": -7.649786276184596,
+          "range": 8.271809192888009,
+          "robust_range": 0.2053217790894344
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": -7.8552060088664435,
+          "max": -7.8551430891071705,
+          "q05": -7.855203232997998,
+          "median": -7.855176581004013,
+          "q95": -7.855146637866827,
+          "range": 6.291975927297244e-05,
+          "robust_range": 5.659513117084458e-05
+        }
+      },
+      {
+        "generation": 4,
+        "name": "pressure_error",
+        "expression": "P - pressure_setpoint",
+        "role": "Distance from the fixed reflex threshold that controls parent feedback strength",
+        "train_range": [
+          -94.26171031465611,
+          5.0
+        ],
+        "hidden_range": [
+          -94.26247210639733,
+          -94.26171706928605
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": -94.26171031465611,
+          "max": 5.0,
+          "q05": -94.26129666328836,
+          "median": -94.25274405753032,
+          "q95": -91.79743531421515,
+          "range": 99.26171031465611,
+          "robust_range": 2.4638613490732126
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": -94.26247210639733,
+          "max": -94.26171706928605,
+          "q05": -94.26243879597597,
+          "median": -94.26211897204814,
+          "q95": -94.26175965440193,
+          "range": 0.0007550371112756693,
+          "robust_range": 0.0006791415740394768
+        }
+      },
+      {
+        "generation": 4,
+        "name": "runoff_den",
+        "expression": "peripheral_resistance_baseline + peripheral_resistance_gain*R",
+        "role": "Instantaneous vascular runoff denominator through which altered autonomic feedback reaches dP_dt",
+        "train_range": [
+          0.8077340597561635,
+          1.6
+        ],
+        "hidden_range": [
+          0.8073867164573664,
+          0.807730974773292
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.8077340597561635,
+          "max": 1.6,
+          "q05": 0.8079231757166973,
+          "median": 0.8126685332500864,
+          "q95": 1.392017200968103,
+          "range": 0.7922659402438366,
+          "robust_range": 0.5840940252514059
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.8073867164573664,
+          "max": 0.807730974773292,
+          "q05": 0.8074018866471013,
+          "median": 0.8075476300891262,
+          "q95": 0.8077115353991533,
+          "range": 0.0003442583159256607,
+          "robust_range": 0.00030964875205197195
+        }
+      },
+      {
+        "generation": 5,
+        "name": "effective_pressure_error",
+        "expression": "P - (pressure_setpoint + B)",
+        "role": "Signed baroreflex error relative to the slowly reset operating point",
+        "train_range": [
+          -90.44834320216214,
+          5.0
+        ],
+        "hidden_range": [
+          -73.25600661253138,
+          -72.69442875369495
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": -90.44834320216214,
+          "max": 5.0,
+          "q05": -89.63276704778615,
+          "median": -78.18030110483498,
+          "q95": -73.43439361311034,
+          "range": 95.44834320216214,
+          "robust_range": 16.1983734346758
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": -73.25600661253138,
+          "max": -72.69442875369495,
+          "q05": -73.22449976980403,
+          "median": -72.9578356741105,
+          "q95": -72.71932514549371,
+          "range": 0.5615778588364293,
+          "robust_range": 0.5051746243103139
+        }
+      },
+      {
+        "generation": 5,
+        "name": "cardiac_inflow_term",
+        "expression": "cardiac_delivery_baseline + cardiac_delivery_gain*S*exp(-P/cardiac_afterload_pressure_scale)",
+        "role": "Pressure-dependent arterial inflow contributed by baseline and autonomically augmented cardiac delivery",
+        "train_range": [
+          0.9139679715155395,
+          1.928861610472052
+        ],
+        "hidden_range": [
+          0.9134309155830225,
+          0.9139632163377213
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.9139679715155395,
+          "max": 1.928861610472052,
+          "q05": 0.9142587316022864,
+          "median": 0.9191639492635952,
+          "q95": 1.2918168605123035,
+          "range": 1.0148936389565124,
+          "robust_range": 0.37755812891001705
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.9134309155830225,
+          "max": 0.9139632163377213,
+          "q05": 0.9134544259564333,
+          "median": 0.9136800786432727,
+          "q95": 0.9139332448435552,
+          "range": 0.000532300754698789,
+          "robust_range": 0.00047881888712186793
+        }
+      },
+      {
+        "generation": 5,
+        "name": "runoff_term",
+        "expression": "P/(peripheral_resistance_baseline + peripheral_resistance_gain*R)",
+        "role": "Peripheral runoff load opposing pressure elevation",
+        "train_range": [
+          0.914025695000113,
+          62.5
+        ],
+        "hidden_range": [
+          0.9134753874064021,
+          0.9140208234816932
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.914025695000113,
+          "max": 62.5,
+          "q05": 0.914323736330722,
+          "median": 0.9195088904861322,
+          "q95": 2.3003873191758077,
+          "range": 61.58597430499989,
+          "robust_range": 1.3860635828450858
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.9134753874064021,
+          "max": 0.9140208234816932,
+          "q05": 0.9134994805186883,
+          "median": 0.9137306586702694,
+          "q95": 0.9139900982470441,
+          "range": 0.0005454360752911169,
+          "robust_range": 0.0004906177283557911
+        }
+      }
+    ],
+    "inactive_mechanisms": [
+      "baro_cmd"
+    ],
+    "visible_mechanisms": [
+      "runoff_load",
+      "autonomic_level",
+      "pressure_drive_balance",
+      "resistance_cmd",
+      "runoff_parent",
+      "cardiac_inflow_parent",
+      "runoff_load",
+      "baroreflex_regime",
+      "pressure_error",
+      "runoff_den",
+      "effective_pressure_error",
+      "cardiac_inflow_term",
+      "runoff_term"
+    ],
+    "extended_mechanisms": [
+      "runoff_load",
+      "autonomic_level",
+      "pressure_drive_balance",
+      "resistance_cmd",
+      "runoff_parent",
+      "cardiac_inflow_parent",
+      "runoff_load",
+      "baroreflex_regime",
+      "pressure_error",
+      "runoff_den",
+      "effective_pressure_error",
+      "cardiac_inflow_term",
+      "runoff_term"
+    ]
+  },
+  "inactive_mechanisms": [
+    "baro_cmd"
+  ],
+  "target_variance": {
+    "train": {
+      "n": 384,
+      "variance": 6.647251570795912,
+      "range": 30.474022481877405
+    },
+    "hidden": {
+      "n": 128,
+      "variance": 3.640390377769992e-12,
+      "range": 6.567660296163957e-06
+    }
+  },
+  "parent_absorption_report": {
+    "status": "ok",
+    "n_points": 512,
+    "fixed_parent_normalized_rmse": 0.0,
+    "refit": {
+      "status": "not_run",
+      "reason": "no free parent parameters"
+    },
+    "interpretation": "<1e-3 nearly absorbed; 1e-3..1e-2 weak; >1e-2 visible structure"
+  },
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_n19mQeC0MdWZzdlhPh44OXem"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "(cardiac_delivery_baseline + cardiac_delivery_gain*S*exp(-P/cardiac_afterload_pressure_scale) - P/(peripheral_resistance_baseline + peripheral_resistance_gain*R))/arterial_compliance",
+        "target_symbol": "dP_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "P",
+          "R",
+          "S",
+          "arterial_compliance",
+          "cardiac_afterload_pressure_scale",
+          "cardiac_delivery_baseline",
+          "cardiac_delivery_gain",
+          "peripheral_resistance_baseline",
+          "peripheral_resistance_gain"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "(-P/(R*peripheral_resistance_gain + peripheral_resistance_baseline) + S*cardiac_delivery_gain*exp((-P)/cardiac_afterload"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_cAxegx66kzci4qQo8DIn2ZyM"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "(cardiac_delivery_baseline + cardiac_delivery_gain*S*exp(-P/cardiac_afterload_pressure_scale) - P/(peripheral_resistance_baseline + peripheral_resistance_gain*R))/arterial_compliance",
+        "target_symbol": "dP_dt",
+        "assignments": {
+          "P": 100,
+          "S": 0.5,
+          "R": 0.5,
+          "cardiac_delivery_baseline": 0.9,
+          "cardiac_delivery_gain": 3.0,
+          "peripheral_resistance_baseline": 0.8,
+          "peripheral_resistance_gain": 1.6,
+          "arterial_compliance": 2.0,
+          "cardiac_afterload_pressure_scale": 120.0
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": -30.474051343619692,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_nmNP5EKet3BDqTc5IuiWX2l9"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_YjTY6nbrFXKOx4bWBGS9BAiu"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 4,
+  "discipline": "biology",
+  "scenario_text": "Model short-term arterial pressure regulation after the circulation begins away from its resting operating point. Mean arterial pressure changes through the imbalance between cardiac delivery and peripheral runoff, while autonomic vasomotor drive is adjusted by pressure-sensitive feedback and relaxes toward a pressure-dependent command level. Posture, blood volume, metabolic demand, and circulating hormone levels remain fixed background conditions during the observation window. The scientific target is the instantaneous rate of change of mean arterial pressure along the coupled pressure-control trajectory.",
+  "record_id": "m2_physiology_and_homeostasis_20262905_000",
+  "generation": 5,
+  "_n_total": 5000,
+  "mechanism_observation_history": [
+    {
+      "generation": 1,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "At fixed P, autonomic drive S changes cardiac delivery and peripheral resistance with constant linear gains, so the target mapping dP_dt versus S has one fixed curvature set only by the reciprocal runoff term.",
+          "child_relation": "Relax the linear vascular actuation assumption so that the resistance effect of S saturates at high drive, making the target mapping dP_dt versus S bend more strongly at low to moderate S and flatten at high S.",
+          "affected_inputs": [
+            "P",
+            "S"
+          ],
+          "observable_effect": "During trajectories that transiently span low and high autonomic drive, pressure recovery becomes initially more sensitive to S but shows diminishing additional pressor effect near maximal drive, compared with the parent's continued near-linear increase in vasomotor effect."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "runoff_load",
+            "expression": "P/(peripheral_resistance_baseline + peripheral_resistance_gain*S)",
+            "role": "Current parent peripheral runoff term opposing pressure rise"
+          },
+          {
+            "name": "autonomic_level",
+            "expression": "S",
+            "role": "Instantaneous vasomotor activation level that may enter a saturating effector law"
+          },
+          {
+            "name": "pressure_drive_balance",
+            "expression": "cardiac_delivery_baseline + cardiac_delivery_gain*S - P/(peripheral_resistance_baseline + peripheral_resistance_gain*S)",
+            "role": "Net arterial filling tendency whose dependence on S gains new curvature under the refinement"
+          }
+        ],
+        "activation_condition": "Observable when the trajectory visits a broad enough S range, especially moderate-to-high vasomotor drive where further resistance recruitment should taper rather than increase indefinitely; P must remain positive and within the sampled transient recovery range.",
+        "train_hidden_contrast": "In training, low-to-moderate S still resembles the parent law, but holdout segments reaching stronger sympathetic activation reveal diminishing incremental pressure support from additional S that one shared linear-gain parent cannot match simultaneously with the low-S slope.",
+        "continuation_path": "Recover the parent law in the limit where the saturation scale is large enough that the saturating resistance law is effectively linear over the observed S range.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The model assumes autonomic vasomotor drive recruits peripheral resistance with a constant gain across the full normalized drive range, omitting physiological saturation of vasoconstrictor effect.",
+        "baseline_assumption": "Cardiac and vascular effects of autonomic drive are instantaneous relative to the modeled neural adjustment time.",
+        "scientific_mechanism": "Finite vascular smooth-muscle and arteriolar receptor recruitment causes diminishing additional peripheral resistance at high autonomic drive even while neural drive S continues to increase.",
+        "affected_symbols": [
+          "P",
+          "S"
+        ],
+        "rationale": "A realistic next refinement is to keep the same states and feedback architecture but replace the linear S-to-resistance mapping with a saturating monotone form. The parent target relation from observed states to dP_dt is effectively governed by one shared vascular gain, so at fixed P it cannot express both a steep early vasoconstrictor effect and diminished marginal effect near high S. Varying condition: the coupled transient is observed from the prescribed initial condition while P and S evolve naturally, so different times along the trajectory sample different S levels; held fixed: posture, blood volume, metabolic demand, hormones, and the baroreflex command form. Observable contrast: under stronger hypotensive excursions that drive S toward its upper range, the child predicts flattening of the pressor benefit from further S increases, whereas the parent keeps adding resistance approximately linearly and therefore overstates late high-drive support if fitted to early low-drive behavior. This changes the scored target mapping dP_dt(P,S), not merely the auxiliary S trajectory, because the runoff denominator itself acquires different S-curvature. The effect is admissible whenever S reaches moderate to high values; if all data remain near a narrow low-S band, the refinement may be weakly identifiable, and in that restricted regime the parent is approximately recovered."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "At fixed P, autonomic drive S changes cardiac delivery and peripheral resistance with constant linear gains, so the target mapping dP_dt versus S has one fixed curvature set only by the reciprocal runoff term.",
+          "child_relation": "Relax the linear vascular actuation assumption so that the resistance effect of S saturates at high drive, making the target mapping dP_dt versus S bend more strongly at low to moderate S and flatten at high S.",
+          "affected_inputs": [
+            "P",
+            "S"
+          ],
+          "observable_effect": "During trajectories that transiently span low and high autonomic drive, pressure recovery becomes initially more sensitive to S but shows diminishing additional pressor effect near maximal drive, compared with the parent's continued near-linear increase in vasomotor effect."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "runoff_load",
+            "expression": "P/(peripheral_resistance_baseline + peripheral_resistance_gain*S)",
+            "role": "Current parent peripheral runoff term opposing pressure rise"
+          },
+          {
+            "name": "autonomic_level",
+            "expression": "S",
+            "role": "Instantaneous vasomotor activation level that may enter a saturating effector law"
+          },
+          {
+            "name": "pressure_drive_balance",
+            "expression": "cardiac_delivery_baseline + cardiac_delivery_gain*S - P/(peripheral_resistance_baseline + peripheral_resistance_gain*S)",
+            "role": "Net arterial filling tendency whose dependence on S gains new curvature under the refinement"
+          }
+        ],
+        "activation_condition": "Observable when the trajectory visits a broad enough S range, especially moderate-to-high vasomotor drive where further resistance recruitment should taper rather than increase indefinitely; P must remain positive and within the sampled transient recovery range.",
+        "train_hidden_contrast": "In training, low-to-moderate S still resembles the parent law, but holdout segments reaching stronger sympathetic activation reveal diminishing incremental pressure support from additional S that one shared linear-gain parent cannot match simultaneously with the low-S slope.",
+        "continuation_path": "Recover the parent law in the limit where the saturation scale is large enough that the saturating resistance law is effectively linear over the observed S range.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "pairwise",
+        "scope_symbols": [
+          "P",
+          "S"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Saturating vasoconstrictor recruitment in peripheral resistance control",
+        "scientific_mechanism": "Finite vascular smooth-muscle and arteriolar receptor recruitment causes diminishing additional peripheral resistance at high autonomic drive even while neural drive S continues to increase.",
+        "embedding_pattern": "multi_timescale",
+        "difficulty_rationale": "This embedding is structurally harder than a coefficient-only correction because it changes the functional form of the runoff denominator, introducing a new saturation scale that alters the S-dependent curvature of the scored target mapping rather than merely rescaling one gain.",
+        "taxonomy_match": "known",
+        "assumption_before": "Peripheral resistance recruitment by autonomic drive is linear with one constant gain over the whole normalized drive range.",
+        "assumption_after": "Peripheral resistance recruitment by autonomic drive is monotone but saturating, with a distinct saturation scale for high-drive tapering.",
+        "before_fragment": "(cardiac_delivery_baseline + cardiac_delivery_gain*S - P/(peripheral_resistance_baseline + peripheral_resistance_gain*S))/arterial_compliance",
+        "after_fragment": "(cardiac_delivery_baseline + cardiac_delivery_gain*S - P/(peripheral_resistance_baseline + peripheral_resistance_gain*(vascular_saturation_scale*(1 - exp(-S/vascular_saturation_scale)))))/arterial_compliance",
+        "parent_reduction": "The parent is recovered when vascular_saturation_scale is sufficiently large compared with the observed S range so that vascular_saturation_scale*(1 - exp(-S/vascular_saturation_scale)) is approximately S.",
+        "observable_signature": "Along transient recoveries from the prescribed initial condition, segments that reach stronger hypotensive activation show a steeper early change of dP_dt with S but reduced incremental runoff suppression at high S because the resistance contribution flattens; one shared parent parameter set cannot match both the low-S sensitivity and the high-S tapering over those same observed trajectories.",
+        "shortcut_blocked": "Refitting all parent parameters still forces peripheral resistance to depend linearly on S, so the parent preserves one shared marginal resistance gain across low and high autonomic drive. That single-gain structure cannot simultaneously reproduce the child's near-parent low-S behavior and the reduced high-S incremental pressor support seen when S traverses a broad range during the same trajectory."
+      },
+      "range_suggestions": {
+        "vascular_saturation_scale": "(0.05, 5)"
+      }
+    },
+    {
+      "generation": 2,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "phase_shift",
+          "parent_relation": "At fixed P and S, the target dP_dt responds immediately to autonomic drive through both cardiac delivery and peripheral resistance, so the pressure trajectory has a single effective autonomic phase set only by S.",
+          "child_relation": "Retain the same pressure-balance structure but release the assumption that vascular resistance follows S instantaneously; instead, resistance recruitment relaxes toward the saturating command with its own finite vasomotor phase, so dP_dt depends on P, S, and a lagged vascular effector state.",
+          "affected_inputs": [
+            "P",
+            "S"
+          ],
+          "observable_effect": "After a pressure perturbation, early pressure recovery can show prompt cardiac support while runoff reduction develops later, creating a two-timescale pressure response that the parent cannot match with one shared autonomic phase."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "baro_cmd",
+            "expression": "1/(1 + exp((P - pressure_setpoint)/baroreflex_pressure_scale))",
+            "role": "Instantaneous baroreflex command toward which autonomic drive relaxes"
+          },
+          {
+            "name": "resistance_cmd",
+            "expression": "vascular_saturation_scale*(1 - exp(-S/vascular_saturation_scale))",
+            "role": "Instantaneous saturating resistance recruitment commanded by current autonomic drive in the parent"
+          },
+          {
+            "name": "runoff_parent",
+            "expression": "P/(peripheral_resistance_baseline + peripheral_resistance_gain*(vascular_saturation_scale*(1 - exp(-S/vascular_saturation_scale))))",
+            "role": "Parent peripheral runoff term directly setting one component of dP_dt"
+          }
+        ],
+        "activation_condition": "Observable when pressure is displaced enough that S moves appreciably away from its initial value over the observation window and vascular adjustment is not effectively instantaneous relative to autonomic_time_constant; especially during the first few vascular time constants after onset.",
+        "train_hidden_contrast": "In training windows with modest transients, the mechanism appears as a delayed runoff response relative to the rise or fall in S; in holdout conditions with larger or faster pressure excursions from the same initial conditions, the same lag extends into a clearer separation between early cardiac-driven and later resistance-driven pressure recovery.",
+        "continuation_path": "Recover the parent by taking the new vascular effector time constant to zero so the vascular state instantaneously equals the parent saturating function of S.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A finite vascular response lag cannot be represented by refitting existing static gains or the single S state, because the needed memory of past S is absent unless a separate dynamical vascular effector is introduced.",
+        "gap_statement": "The model assumes cardiac and vascular effects of autonomic drive are synchronous and instantaneous once S is known, omitting the physiologic lag of vascular smooth-muscle constriction relative to neural drive.",
+        "baseline_assumption": "Cardiac and vascular effects of autonomic drive are instantaneous relative to the modeled neural adjustment time.",
+        "scientific_mechanism": "Finite arteriolar smooth-muscle activation and constrictor transduction delay peripheral resistance recruitment after changes in autonomic vasomotor drive.",
+        "affected_symbols": [
+          "P",
+          "S"
+        ],
+        "rationale": "The parent target mapping from observed states to dP_dt uses S as the sole autonomic phase variable, so once P and S are specified the resistance contribution is fixed with no memory. A realistic next refinement is to relax that single-phase assumption for the vascular branch only. Vary the magnitude and timing of the pressure displacement from the common initial conditions while holding posture, blood volume, metabolic demand, and hormones fixed. In the parent, any early rise in S must immediately alter runoff through the same saturating resistance law, so early and late pressure recovery are locked to one shared S trajectory. In the child, cardiac delivery can still respond promptly to S, but resistance reduction appears after a finite vasomotor lag, changing the target mapping itself because dP_dt at the same instantaneous P and S can differ depending on the lagged vascular state. This is observable for nontrivial transients where S changes appreciably and the vascular lag is comparable to the measurement window; it is weak if the lag is much shorter than all sampled times or if trajectories stay very near equilibrium. A single refit of existing parent parameters cannot reproduce both the early weak-resistance response and the later stronger resistance recruitment across such conditions, because the parent has no independent temporal degree of freedom for runoff once P and S are given."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "phase_shift",
+          "parent_relation": "At fixed P and S, the target dP_dt responds immediately to autonomic drive through both cardiac delivery and peripheral resistance, so the pressure trajectory has a single effective autonomic phase set only by S.",
+          "child_relation": "Retain the same pressure-balance structure but release the assumption that vascular resistance follows S instantaneously; instead, resistance recruitment relaxes toward the saturating command with its own finite vasomotor phase, so dP_dt depends on P, S, and a lagged vascular effector state.",
+          "affected_inputs": [
+            "P",
+            "S"
+          ],
+          "observable_effect": "After a pressure perturbation, early pressure recovery can show prompt cardiac support while runoff reduction develops later, creating a two-timescale pressure response that the parent cannot match with one shared autonomic phase."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "baro_cmd",
+            "expression": "1/(1 + exp((P - pressure_setpoint)/baroreflex_pressure_scale))",
+            "role": "Instantaneous baroreflex command toward which autonomic drive relaxes"
+          },
+          {
+            "name": "resistance_cmd",
+            "expression": "vascular_saturation_scale*(1 - exp(-S/vascular_saturation_scale))",
+            "role": "Instantaneous saturating resistance recruitment commanded by current autonomic drive in the parent"
+          },
+          {
+            "name": "runoff_parent",
+            "expression": "P/(peripheral_resistance_baseline + peripheral_resistance_gain*(vascular_saturation_scale*(1 - exp(-S/vascular_saturation_scale))))",
+            "role": "Parent peripheral runoff term directly setting one component of dP_dt"
+          }
+        ],
+        "activation_condition": "Observable when pressure is displaced enough that S moves appreciably away from its initial value over the observation window and vascular adjustment is not effectively instantaneous relative to autonomic_time_constant; especially during the first few vascular time constants after onset.",
+        "train_hidden_contrast": "In training windows with modest transients, the mechanism appears as a delayed runoff response relative to the rise or fall in S; in holdout conditions with larger or faster pressure excursions from the same initial conditions, the same lag extends into a clearer separation between early cardiac-driven and later resistance-driven pressure recovery.",
+        "continuation_path": "Recover the parent by taking the new vascular effector time constant to zero so the vascular state instantaneously equals the parent saturating function of S.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A finite vascular response lag cannot be represented by refitting existing static gains or the single S state, because the needed memory of past S is absent unless a separate dynamical vascular effector is introduced.",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "P",
+          "S",
+          "R"
+        ],
+        "structural_role": "timescale",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Delayed arteriolar resistance recruitment downstream of autonomic drive",
+        "scientific_mechanism": "Finite arteriolar smooth-muscle activation and constrictor transduction delay peripheral resistance recruitment after changes in autonomic vasomotor drive.",
+        "embedding_pattern": "state_coupling",
+        "difficulty_rationale": "This is structurally harder than a coefficient correction because the runoff term now depends on a separate internal memory state coupled to S, allowing different dP_dt values at the same instantaneous P and S during transients.",
+        "taxonomy_match": "known",
+        "assumption_before": "Cardiac and vascular effects of autonomic drive are instantaneous relative to the modeled neural adjustment time.",
+        "assumption_after": "Cardiac delivery still follows S promptly, but vascular resistance recruitment evolves with its own finite relaxation dynamics toward the saturating autonomic command.",
+        "before_fragment": "(cardiac_delivery_baseline + cardiac_delivery_gain*S - P/(peripheral_resistance_baseline + peripheral_resistance_gain*(vascular_saturation_scale*(1 - exp(-S/vascular_saturation_scale)))))/arterial_compliance",
+        "after_fragment": "(cardiac_delivery_baseline + cardiac_delivery_gain*S - P/(peripheral_resistance_baseline + peripheral_resistance_gain*R))/arterial_compliance",
+        "parent_reduction": "Taking vascular_time_constant -> 0 forces R = vascular_saturation_scale*(1 - exp(-S/vascular_saturation_scale)), which exactly recovers the parent target expression.",
+        "observable_signature": "Holding posture, blood volume, metabolic demand, and hormones fixed, vary the size or timing of the pressure displacement from the common initial conditions. In the parent, once P and S are observed, dP_dt is fixed because runoff changes immediately with S. In the child, for the same instantaneous P and S reached along different transient histories within the first few vascular time constants, dP_dt can differ because R lags behind the saturating resistance command. The visible contrast is weaker early runoff reduction but preserved prompt cardiac support after onset, followed later by stronger resistance-mediated pressure recovery.",
+        "shortcut_blocked": "A single parent parameter set cannot reproduce both early weak resistance response and later stronger resistance recruitment across these conditions because the parent runoff term is an instantaneous function of only P and S. Refitting gains, saturation scale, or autonomic_time_constant can change overall slope or timing of S, but cannot create history dependence in dP_dt at fixed observed P and S without the added vascular memory state."
+      },
+      "range_suggestions": {
+        "R": "[0, vascular_saturation_scale]",
+        "vascular_time_constant": "(0.1, 100)"
+      }
+    },
+    {
+      "generation": 3,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "interaction_emergence",
+          "parent_relation": "The target mapping uses a fixed linear cardiac contribution cardiac_delivery_gain*S, so the pressure-producing effect of a change in autonomic drive has the same slope at low and high arterial pressure when R is held fixed.",
+          "child_relation": "Replace the fixed cardiac autonomic gain with a pressure-dependent effectiveness so the contribution of S to dP_dt weakens as P rises, creating a P-by-S interaction in the target mapping.",
+          "affected_inputs": [
+            "P",
+            "S"
+          ],
+          "observable_effect": "For the same increase in S, dP_dt rises more strongly at lower P than at higher P, beyond the runoff term alone."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "cardiac_inflow_parent",
+            "expression": "cardiac_delivery_baseline + cardiac_delivery_gain*S",
+            "role": "Parent autonomically controlled arterial inflow contribution"
+          },
+          {
+            "name": "runoff_load",
+            "expression": "P/(peripheral_resistance_baseline + peripheral_resistance_gain*R)",
+            "role": "Pressure-driven peripheral runoff opposing inflow"
+          },
+          {
+            "name": "baroreflex_regime",
+            "expression": "(P - pressure_setpoint)/baroreflex_pressure_scale",
+            "role": "Pressure regime determining whether observations probe low-pressure or high-pressure autonomic conditions"
+          }
+        ],
+        "activation_condition": "Observable when trajectories span a moderate pressure range around and above the setpoint so that P varies enough to change cardiac ejection effectiveness, while S is still away from 0 and 1 and R is not the only changing pathway.",
+        "train_hidden_contrast": "Within training trajectories, low-P recovery segments and higher-P segments can show different dP_dt sensitivity to the same S level; in holdout, the same mechanism extends this contrast to larger pressure excursions without changing background conditions.",
+        "continuation_path": "Recover the parent by taking the pressure dependence of cardiac autonomic effectiveness to zero, yielding a constant gain from S to cardiac delivery.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The current law assumes autonomic drive increases cardiac delivery with one pressure-independent gain, omitting that elevated arterial pressure increases afterload and can blunt the pressure-generating benefit of sympathetic drive.",
+        "baseline_assumption": "Cardiac and vascular effects of autonomic drive are instantaneous relative to the modeled neural adjustment time.",
+        "scientific_mechanism": "Pressure-dependent cardiac afterload reduces the effective conversion of autonomic drive into arterial inflow at higher mean arterial pressure.",
+        "affected_symbols": [
+          "P",
+          "S"
+        ],
+        "rationale": "A realistic next refinement is to relax the parent's fixed-gain cardiac term rather than add an unrelated process. The parent target mapping is shortcut by a single_gain assumption: at fixed R, the partial effect of S on dP_dt is constant apart from division by arterial_compliance. Scientifically, higher arterial pressure raises ventricular afterload, so the same autonomic drive need not produce the same net forward delivery into the arterial compartment at high versus low pressure. Under the stated scenario, posture, blood volume, metabolic demand, and hormones stay fixed; the varied condition is the pressure level reached along the observed recovery trajectory, with S and P co-sampled by the solver and R retained as an existing state. The child therefore changes the target mapping itself, not merely an auxiliary trajectory, by making the S-to-dP_dt slope depend on P. Observable contrast: compare segments with similar R and non-saturated S but different P; the child predicts weaker positive sensitivity of dP_dt to S at higher P than the parent can provide with one shared cardiac_delivery_gain. This is admissible for moderate pressure excursions where afterload effects are physiologically relevant and pressure remains nonnegative. Limitation: if observations remain in a very narrow pressure band or S is nearly saturated throughout, the contrast will be weak."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "interaction_emergence",
+          "parent_relation": "The target mapping uses a fixed linear cardiac contribution cardiac_delivery_gain*S, so the pressure-producing effect of a change in autonomic drive has the same slope at low and high arterial pressure when R is held fixed.",
+          "child_relation": "Replace the fixed cardiac autonomic gain with a pressure-dependent effectiveness so the contribution of S to dP_dt weakens as P rises, creating a P-by-S interaction in the target mapping.",
+          "affected_inputs": [
+            "P",
+            "S"
+          ],
+          "observable_effect": "For the same increase in S, dP_dt rises more strongly at lower P than at higher P, beyond the runoff term alone."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "cardiac_inflow_parent",
+            "expression": "cardiac_delivery_baseline + cardiac_delivery_gain*S",
+            "role": "Parent autonomically controlled arterial inflow contribution"
+          },
+          {
+            "name": "runoff_load",
+            "expression": "P/(peripheral_resistance_baseline + peripheral_resistance_gain*R)",
+            "role": "Pressure-driven peripheral runoff opposing inflow"
+          },
+          {
+            "name": "baroreflex_regime",
+            "expression": "(P - pressure_setpoint)/baroreflex_pressure_scale",
+            "role": "Pressure regime determining whether observations probe low-pressure or high-pressure autonomic conditions"
+          }
+        ],
+        "activation_condition": "Observable when trajectories span a moderate pressure range around and above the setpoint so that P varies enough to change cardiac ejection effectiveness, while S is still away from 0 and 1 and R is not the only changing pathway.",
+        "train_hidden_contrast": "Within training trajectories, low-P recovery segments and higher-P segments can show different dP_dt sensitivity to the same S level; in holdout, the same mechanism extends this contrast to larger pressure excursions without changing background conditions.",
+        "continuation_path": "Recover the parent by taking the pressure dependence of cardiac autonomic effectiveness to zero, yielding a constant gain from S to cardiac delivery.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "pairwise",
+        "scope_symbols": [
+          "P",
+          "S"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "afterload-dependent attenuation of cardiac sympathetic efficacy",
+        "scientific_mechanism": "Pressure-dependent cardiac afterload reduces the effective conversion of autonomic drive into arterial inflow at higher mean arterial pressure.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This embedding is harder than a coefficient-only correction because the slope of dP_dt with respect to S is no longer constant: it varies with the observed pressure state P, so one shared gain cannot match both low-pressure and high-pressure sensitivities simultaneously.",
+        "taxonomy_match": "known",
+        "assumption_before": "Cardiac and vascular effects of autonomic drive are instantaneous relative to the modeled neural adjustment time.",
+        "assumption_after": "Autonomic cardiac effectiveness remains instantaneous but is reduced at higher arterial pressure through afterload-dependent gain modulation.",
+        "before_fragment": "(cardiac_delivery_baseline + cardiac_delivery_gain*S - P/(peripheral_resistance_baseline + peripheral_resistance_gain*R))/arterial_compliance",
+        "after_fragment": "(cardiac_delivery_baseline + cardiac_delivery_gain*S*exp(-P/cardiac_afterload_pressure_scale) - P/(peripheral_resistance_baseline + peripheral_resistance_gain*R))/arterial_compliance",
+        "parent_reduction": "As cardiac_afterload_pressure_scale becomes much larger than the encountered pressure range, exp(-P/cardiac_afterload_pressure_scale) approaches 1 and the parent expression is recovered.",
+        "observable_signature": "Along trajectories with comparable R and non-saturated S, the child predicts that the local sensitivity of dP_dt to S decreases with increasing P; equivalently, low-pressure segments show a larger positive cardiac-drive effect than high-pressure segments under the same background conditions. This changes the scored target mapping itself, not only auxiliary S or R trajectories.",
+        "shortcut_blocked": "Refitting a single parent cardiac_delivery_gain cannot create two different S-to-dP_dt slopes at different P when R is held similar, because the parent contribution from S is separable and linear. The runoff term already depends on P but does not modulate the coefficient multiplying S, so one parent parameter set cannot reproduce a systematic weakening of the S effect at higher pressure across the same observation protocol."
+      },
+      "range_suggestions": {
+        "cardiac_afterload_pressure_scale": "(1, 300)"
+      }
+    },
+    {
+      "generation": 4,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_threshold",
+        "response_change": {
+          "type": "threshold_surface",
+          "parent_relation": "The baroreflex command for S is a fixed logistic function of P alone, so the pressure at which autonomic drive is half-activated is constant and independent of recent pressure history.",
+          "child_relation": "Replace the fixed pressure half-activation with a slowly adaptive effective setpoint driven by recent pressure exposure, so the instantaneous P-to-dP_dt mapping depends on both current pressure and the history state of baroreflex resetting.",
+          "affected_inputs": [
+            "P",
+            "S"
+          ],
+          "observable_effect": "After a sustained pressure elevation or depression, the same instantaneous pressure P produces a different autonomic drive and therefore a different dP_dt than it does early in the trajectory; recovery weakens after prolonged exposure because the feedback threshold has shifted toward the experienced pressure."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "baro_cmd",
+            "expression": "1/(1 + exp((P - pressure_setpoint)/baroreflex_pressure_scale))",
+            "role": "Current parent baroreflex command with fixed half-activation pressure"
+          },
+          {
+            "name": "pressure_error",
+            "expression": "P - pressure_setpoint",
+            "role": "Distance from the fixed reflex threshold that controls parent feedback strength"
+          },
+          {
+            "name": "runoff_den",
+            "expression": "peripheral_resistance_baseline + peripheral_resistance_gain*R",
+            "role": "Instantaneous vascular runoff denominator through which altered autonomic feedback reaches dP_dt"
+          }
+        ],
+        "activation_condition": "Observable when pressure remains displaced from the nominal setpoint for a duration comparable to or longer than a plausible baroreflex resetting time, while P traverses a range of order baroreflex_pressure_scale so that threshold motion materially changes S.",
+        "train_hidden_contrast": "In training, early transients still resemble the parent because resetting is initially small; in longer or more prolonged deviations, holdout trajectories show that identical current P values reached after different exposure histories produce different dP_dt, extending the same threshold-shift mechanism rather than introducing a new regime.",
+        "continuation_path": "Recover the parent by taking the resetting time constant to infinity or the resetting gain to zero, which freezes the effective setpoint at pressure_setpoint.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A history-dependent moving baroreflex threshold cannot be represented with the existing Markov state set {P,S,R} without conflating instantaneous neural drive with slow reflex resetting; a separate state is needed to encode recent pressure exposure.",
+        "gap_statement": "The current model assumes the pressure-sensitive feedback curve is time invariant, omitting short-term baroreflex resetting/accommodation during sustained pressure perturbations.",
+        "baseline_assumption": "The pressure-sensitive feedback relation is smooth, monotone, and time invariant over the observation window.",
+        "scientific_mechanism": "Slow baroreceptor and central reflex resetting shifts the effective pressure setpoint toward recently experienced arterial pressure, altering autonomic responsiveness during continued non-resting conditions.",
+        "affected_symbols": [
+          "P",
+          "S"
+        ],
+        "rationale": "The parent target mapping from observed states to dP_dt is effectively governed by a fixed baroreflex threshold: for fixed R and parameters, increasing P always suppresses S according to one unchanging logistic curve, so any two moments with the same current P and similar R are forced toward the same feedback-mediated inflow reduction. A realistic refinement is short-term baroreflex resetting, which changes that threshold after sustained pressure displacement. Under the admissible protocol, vary the duration of a pressure excursion generated from the given initial condition while holding posture, blood volume, metabolic demand, and hormone background fixed as required. Early after the excursion begins, the child behaves close to the parent; later, the effective threshold has shifted toward the prevailing pressure, so at the same current P the child exhibits less restoring autonomic drive and therefore a different dP_dt. This is a genuine change in the scored target mapping, not only an auxiliary-state modification, because the pressure-to-dP_dt relation itself becomes history-dependent through the moving threshold. A single refit of the parent parameters cannot reproduce both the early strong correction and the later weakened correction across these conditions, because changing pressure_setpoint or baroreflex_pressure_scale only selects one static logistic curve rather than a trajectory-dependent family of curves. The effect is strongest when the pressure deviation persists long enough for resetting to develop and when the deviation size is not negligible relative to baroreflex_pressure_scale; if observations are too short, the refinement may be weakly identifiable."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_threshold",
+        "response_change": {
+          "type": "threshold_surface",
+          "parent_relation": "The baroreflex command for S is a fixed logistic function of P alone, so the pressure at which autonomic drive is half-activated is constant and independent of recent pressure history.",
+          "child_relation": "Replace the fixed pressure half-activation with a slowly adaptive effective setpoint driven by recent pressure exposure, so the instantaneous P-to-dP_dt mapping depends on both current pressure and the history state of baroreflex resetting.",
+          "affected_inputs": [
+            "P",
+            "S"
+          ],
+          "observable_effect": "After a sustained pressure elevation or depression, the same instantaneous pressure P produces a different autonomic drive and therefore a different dP_dt than it does early in the trajectory; recovery weakens after prolonged exposure because the feedback threshold has shifted toward the experienced pressure."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "baro_cmd",
+            "expression": "1/(1 + exp((P - pressure_setpoint)/baroreflex_pressure_scale))",
+            "role": "Current parent baroreflex command with fixed half-activation pressure"
+          },
+          {
+            "name": "pressure_error",
+            "expression": "P - pressure_setpoint",
+            "role": "Distance from the fixed reflex threshold that controls parent feedback strength"
+          },
+          {
+            "name": "runoff_den",
+            "expression": "peripheral_resistance_baseline + peripheral_resistance_gain*R",
+            "role": "Instantaneous vascular runoff denominator through which altered autonomic feedback reaches dP_dt"
+          }
+        ],
+        "activation_condition": "Observable when pressure remains displaced from the nominal setpoint for a duration comparable to or longer than a plausible baroreflex resetting time, while P traverses a range of order baroreflex_pressure_scale so that threshold motion materially changes S.",
+        "train_hidden_contrast": "In training, early transients still resemble the parent because resetting is initially small; in longer or more prolonged deviations, holdout trajectories show that identical current P values reached after different exposure histories produce different dP_dt, extending the same threshold-shift mechanism rather than introducing a new regime.",
+        "continuation_path": "Recover the parent by taking the resetting time constant to infinity or the resetting gain to zero, which freezes the effective setpoint at pressure_setpoint.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A history-dependent moving baroreflex threshold cannot be represented with the existing Markov state set {P,S,R} without conflating instantaneous neural drive with slow reflex resetting; a separate state is needed to encode recent pressure exposure.",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "P",
+          "S",
+          "B"
+        ],
+        "structural_role": "feedback",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Short-term baroreflex resetting that shifts the effective half-activation pressure of autonomic drive",
+        "scientific_mechanism": "Slow baroreceptor and central reflex resetting shifts the effective pressure setpoint toward recently experienced arterial pressure, altering autonomic responsiveness during continued non-resting conditions.",
+        "embedding_pattern": "competing_processes",
+        "difficulty_rationale": "The added resetting state creates competition between the baseline threshold and exposure-driven threshold motion in different pressure-history regions, so one static logistic curve is replaced by a moving threshold surface. This cannot be mimicked by a coefficient-only correction because the target mapping changes with exposure history even at the same current pressure.",
+        "taxonomy_match": "known",
+        "assumption_before": "The pressure-sensitive feedback relation is smooth, monotone, and time invariant over the observation window.",
+        "assumption_after": "The effective baroreflex threshold resets slowly toward recent pressure exposure, making feedback history-dependent during sustained perturbations.",
+        "before_fragment": "(cardiac_delivery_baseline + cardiac_delivery_gain*S*exp(-P/cardiac_afterload_pressure_scale) - P/(peripheral_resistance_baseline + peripheral_resistance_gain*R))/arterial_compliance",
+        "after_fragment": "(cardiac_delivery_baseline + cardiac_delivery_gain*S*exp(-P/cardiac_afterload_pressure_scale) - P/(peripheral_resistance_baseline + peripheral_resistance_gain*R))/arterial_compliance",
+        "parent_reduction": "Taking baroreflex_resetting_gain to zero or baroreflex_resetting_time_constant to infinity keeps B at zero so the effective threshold remains pressure_setpoint and the parent system is recovered.",
+        "observable_signature": "Under the same fixed background conditions and same initial P,S,R, early in a pressure excursion the child nearly matches the parent, but after sustained elevation or depression the shifted threshold causes identical current P values to map to different S and therefore different dP_dt. The change is visible in the scored target because the P equation depends on S, and S now depends on both P and the resetting state B rather than on P alone.",
+        "shortcut_blocked": "A single parent parameter set can choose only one static pressure_setpoint and one static baroreflex_pressure_scale, so it cannot reproduce both early strong correction and later weakened correction for the same current P after different exposure durations. Refitting all parent parameters changes only one fixed logistic command curve and cannot generate the required history-dependent family of P-to-dP_dt mappings across these admissible conditions."
+      },
+      "range_suggestions": {
+        "B": "approximately -50 to 50 mmHg setpoint shift during short-term resetting",
+        "baroreflex_resetting_gain": "0 to 1",
+        "baroreflex_resetting_time_constant": "10 to 1000 s"
+      }
+    },
+    {
+      "generation": 5,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_threshold",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The autonomic command driving S is a symmetric logistic function of the shifted pressure error P-(pressure_setpoint+B), so dP_dt inherits one fixed baroreflex sensitivity scale around a single midpoint.",
+          "child_relation": "Replace the symmetric logistic pressure-command relation with an asymmetric pressure-response shape using the same states and parameters, so dP_dt changes more sharply on one side of the effective setpoint than the other while remaining monotone nonincreasing in pressure.",
+          "affected_inputs": [
+            "P",
+            "B",
+            "S"
+          ],
+          "observable_effect": "During comparable excursions below versus above the effective setpoint, pressure recovery and overshoot damping become unequal: one side shows steeper autonomic recruitment per mmHg than the other, which changes the local curvature of dP_dt versus pressure along the observed trajectory."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "effective_pressure_error",
+            "expression": "P - (pressure_setpoint + B)",
+            "role": "Signed baroreflex error relative to the slowly reset operating point"
+          },
+          {
+            "name": "cardiac_inflow_term",
+            "expression": "cardiac_delivery_baseline + cardiac_delivery_gain*S*exp(-P/cardiac_afterload_pressure_scale)",
+            "role": "Pressure-dependent arterial inflow contributed by baseline and autonomically augmented cardiac delivery"
+          },
+          {
+            "name": "runoff_term",
+            "expression": "P/(peripheral_resistance_baseline + peripheral_resistance_gain*R)",
+            "role": "Peripheral runoff load opposing pressure elevation"
+          }
+        ],
+        "activation_condition": "Observable when trajectories pass through both moderate hypotensive and hypertensive deviations relative to pressure_setpoint+B, with pressure excursions of order baroreflex_pressure_scale so the command nonlinearity is sampled on both sides rather than only infinitesimally near equilibrium.",
+        "train_hidden_contrast": "In training, asymmetric recovery is already visible in transients that traverse the effective setpoint neighborhood; in holdout, larger but still admissible deviations extend the same one-sided steepness difference, revealing curvature that a symmetric one-scale logistic cannot match with one shared parameter set.",
+        "continuation_path": "The child reduces to the parent in the symmetry-restoring limit where the modified pressure-command shape becomes the original logistic with one shared baroreflex_pressure_scale on both sides of the effective setpoint.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The current model assumes baroreflex command has the same pressure sensitivity above and below the effective setpoint, omitting physiologically plausible asymmetry between depressor and pressor sides of the short-term reflex response.",
+        "baseline_assumption": "The pressure-sensitive feedback relation is smooth, monotone, and time invariant over the observation window, with a symmetric logistic shape around a single midpoint and one shared pressure scale.",
+        "scientific_mechanism": "Short-term arterial baroreflex signaling can show unequal gain on hypotensive versus hypertensive sides because receptor firing saturation and central efferent recruitment are not perfectly symmetric around the operating point.",
+        "affected_symbols": [
+          "P",
+          "S",
+          "B"
+        ],
+        "rationale": "A realistic next refinement is to relax the parent's symmetric baroreflex command assumption rather than adding a new process. The parent maps effective pressure error to autonomic command through one fixed logistic threshold and scale, so after parameter refitting it still predicts mirrored pressure sensitivity around pressure_setpoint+B. Holding posture, volume status, metabolic demand, and hormones fixed as required, vary only the trajectory's pressure excursion relative to the current effective setpoint. Then compare transients that spend time moderately below versus moderately above that setpoint. In the parent, the slope of the command curve as a function of P is determined by one shared scale, so the shape of dP_dt versus P near low-pressure recovery and high-pressure suppression remains constrained to be symmetric up to the downstream inflow/runoff nonlinearities already present. In the child, the same effective pressure error produces different reflex steepness on the two sides, changing the target mapping itself because S enters the dP_dt inflow term directly and also later influences runoff through R. This is observable when the trajectory actually samples both sides of the setpoint over pressure deviations comparable to baroreflex_pressure_scale; if observations remain confined to a tiny neighborhood on one side only, the contrast may be weak and partial refitting could mimic it locally. But across both sides with one shared parameter set, the parent cannot simultaneously reproduce unequal low-pressure recovery steepness and high-pressure damping curvature if the underlying command law remains symmetric."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_threshold",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The autonomic command driving S is a symmetric logistic function of the shifted pressure error P-(pressure_setpoint+B), so dP_dt inherits one fixed baroreflex sensitivity scale around a single midpoint.",
+          "child_relation": "Replace the symmetric logistic pressure-command relation with an asymmetric pressure-response shape using the same states and parameters, so dP_dt changes more sharply on one side of the effective setpoint than the other while remaining monotone nonincreasing in pressure.",
+          "affected_inputs": [
+            "P",
+            "B",
+            "S"
+          ],
+          "observable_effect": "During comparable excursions below versus above the effective setpoint, pressure recovery and overshoot damping become unequal: one side shows steeper autonomic recruitment per mmHg than the other, which changes the local curvature of dP_dt versus pressure along the observed trajectory."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "effective_pressure_error",
+            "expression": "P - (pressure_setpoint + B)",
+            "role": "Signed baroreflex error relative to the slowly reset operating point"
+          },
+          {
+            "name": "cardiac_inflow_term",
+            "expression": "cardiac_delivery_baseline + cardiac_delivery_gain*S*exp(-P/cardiac_afterload_pressure_scale)",
+            "role": "Pressure-dependent arterial inflow contributed by baseline and autonomically augmented cardiac delivery"
+          },
+          {
+            "name": "runoff_term",
+            "expression": "P/(peripheral_resistance_baseline + peripheral_resistance_gain*R)",
+            "role": "Peripheral runoff load opposing pressure elevation"
+          }
+        ],
+        "activation_condition": "Observable when trajectories pass through both moderate hypotensive and hypertensive deviations relative to pressure_setpoint+B, with pressure excursions of order baroreflex_pressure_scale so the command nonlinearity is sampled on both sides rather than only infinitesimally near equilibrium.",
+        "train_hidden_contrast": "In training, asymmetric recovery is already visible in transients that traverse the effective setpoint neighborhood; in holdout, larger but still admissible deviations extend the same one-sided steepness difference, revealing curvature that a symmetric one-scale logistic cannot match with one shared parameter set.",
+        "continuation_path": "The child reduces to the parent in the symmetry-restoring limit where the modified pressure-command shape becomes the original logistic with one shared baroreflex_pressure_scale on both sides of the effective setpoint.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "P",
+          "B",
+          "S"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Asymmetric baroreflex pressure-to-command transduction",
+        "scientific_mechanism": "Short-term arterial baroreflex signaling can show unequal gain on hypotensive versus hypertensive sides because receptor firing saturation and central efferent recruitment are not perfectly symmetric around the operating point.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the effective logistic slope now depends on the evolving signed pressure error, so the same parameter set produces different local curvature above and below the reset setpoint rather than a uniform rescaling.",
+        "taxonomy_match": "provisional",
+        "assumption_before": "The pressure-sensitive feedback relation is smooth, monotone, and time invariant over the observation window, with a symmetric logistic shape around a single midpoint and one shared pressure scale.",
+        "assumption_after": "The baroreflex remains smooth and monotone but its pressure sensitivity varies with signed effective pressure error, producing asymmetric steepness about the reset setpoint.",
+        "before_fragment": "(cardiac_delivery_baseline + cardiac_delivery_gain*S*exp(-P/cardiac_afterload_pressure_scale) - P/(peripheral_resistance_baseline + peripheral_resistance_gain*R))/arterial_compliance",
+        "after_fragment": "(cardiac_delivery_baseline + cardiac_delivery_gain*S*exp(-P/cardiac_afterload_pressure_scale) - P/(peripheral_resistance_baseline + peripheral_resistance_gain*R))/arterial_compliance",
+        "parent_reduction": "baroreflex_asymmetry_gain = 0",
+        "observable_signature": "The scored target expression keeps the same algebraic dependence on S and R, but along trajectories that sample both signs of P-(pressure_setpoint+B), the successor produces unequal dP_dt-versus-P curvature on the two sides because the S command law uses a state-dependent pressure scale. This is observable for deviations on the order of baroreflex_pressure_scale with posture, blood volume, metabolic demand, and hormones held fixed.",
+        "shortcut_blocked": "Refitting the parent's single baroreflex_pressure_scale can match only one average steepness, not simultaneously the steeper hypotensive recruitment and flatter hypertensive suppression or vice versa across both sides of the effective setpoint with one shared parameter set. The change is therefore not absorbable by global coefficient retuning when both sides of the command curve are observed."
+      },
+      "range_suggestions": {
+        "baroreflex_asymmetry_gain": "approximately -1 to 1; values with 1 + baroreflex_asymmetry_gain*(P - (pressure_setpoint + B))/baroreflex_pressure_scale remaining positive over the sampled trajectory preserve a monotone nonincreasing command law"
+      }
+    }
+  ],
+  "evolution_provenance": {
+    "dimension_track": null,
+    "mechanism_profile": {
+      "allowed_structural_roles": [
+        "response_law",
+        "modulation",
+        "constraint",
+        "feedback",
+        "timescale",
+        "transport_balance"
+      ],
+      "preferred_scopes": [
+        "unary",
+        "pairwise",
+        "state_coupling",
+        "memory"
+      ],
+      "domain_mechanisms": [
+        {
+          "id": "homeostatic_feedback",
+          "description": "negative feedback around a physiological set point",
+          "operations": [
+            "add_term"
+          ]
+        },
+        {
+          "id": "finite_reserve_capacity",
+          "description": "finite storage, transport, or organ capacity",
+          "operations": [
+            "add_term",
+            "change_assumption"
+          ]
+        },
+        {
+          "id": "delayed_regulatory_response",
+          "description": "finite regulatory response time",
+          "operations": [
+            "change_assumption"
+          ]
+        }
+      ],
+      "profile_source": "subfield",
+      "ontology_schema_version": "1.0",
+      "taxonomy_schema_version": "1.0"
+    },
+    "baseline_mechanisms": [
+      "Arterial pressure changes according to the balance between cardiac delivery into the arterial compartment and pressure-dependent peripheral runoff.",
+      "Autonomic vasomotor drive modulates effective cardiac delivery and peripheral resistance.",
+      "Pressure-sensitive neural feedback sets a bounded autonomic command that decreases as arterial pressure rises.",
+      "Autonomic vasomotor drive relaxes toward its commanded level with a finite physiological response time."
+    ],
+    "baseline_assumptions": [
+      "The arterial circulation is represented as one well-mixed compliant compartment.",
+      "Posture, blood volume, metabolic demand, and circulating vasoactive hormones are constant.",
+      "Cardiac and vascular effects of autonomic drive are instantaneous relative to the modeled neural adjustment time.",
+      "The pressure-sensitive feedback relation is smooth, monotone, and time invariant over the observation window."
+    ],
+    "scientific_constraints": [
+      "Mean arterial pressure must remain nonnegative.",
+      "Normalized autonomic vasomotor drive must remain between zero and one.",
+      "The autonomic feedback command must be nonincreasing with arterial pressure.",
+      "Peripheral runoff must be nonnegative and must not decrease when pressure rises under otherwise fixed conditions."
+    ],
+    "refinement_agenda": [
+      "Add a finite neural conduction and effector delay if transient oscillations are systematically missed.",
+      "Separate cardiac and vascular autonomic effectors when their recovery times differ.",
+      "Allow arterial compliance to vary with pressure if large excursions show asymmetric relaxation.",
+      "Add a slowly adapting pressure-sensor operating point for longer experiments.",
+      "Release the fixed blood-volume assumption by introducing a measured hemorrhage or infusion disturbance."
+    ],
+    "evolution_contracts": [
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "At fixed P, autonomic drive S changes cardiac delivery and peripheral resistance with constant linear gains, so the target mapping dP_dt versus S has one fixed curvature set only by the reciprocal runoff term.",
+          "child_relation": "Relax the linear vascular actuation assumption so that the resistance effect of S saturates at high drive, making the target mapping dP_dt versus S bend more strongly at low to moderate S and flatten at high S.",
+          "affected_inputs": [
+            "P",
+            "S"
+          ],
+          "observable_effect": "During trajectories that transiently span low and high autonomic drive, pressure recovery becomes initially more sensitive to S but shows diminishing additional pressor effect near maximal drive, compared with the parent's continued near-linear increase in vasomotor effect."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "runoff_load",
+            "expression": "P/(peripheral_resistance_baseline + peripheral_resistance_gain*S)",
+            "role": "Current parent peripheral runoff term opposing pressure rise"
+          },
+          {
+            "name": "autonomic_level",
+            "expression": "S",
+            "role": "Instantaneous vasomotor activation level that may enter a saturating effector law"
+          },
+          {
+            "name": "pressure_drive_balance",
+            "expression": "cardiac_delivery_baseline + cardiac_delivery_gain*S - P/(peripheral_resistance_baseline + peripheral_resistance_gain*S)",
+            "role": "Net arterial filling tendency whose dependence on S gains new curvature under the refinement"
+          }
+        ],
+        "activation_condition": "Observable when the trajectory visits a broad enough S range, especially moderate-to-high vasomotor drive where further resistance recruitment should taper rather than increase indefinitely; P must remain positive and within the sampled transient recovery range.",
+        "train_hidden_contrast": "In training, low-to-moderate S still resembles the parent law, but holdout segments reaching stronger sympathetic activation reveal diminishing incremental pressure support from additional S that one shared linear-gain parent cannot match simultaneously with the low-S slope.",
+        "continuation_path": "Recover the parent law in the limit where the saturation scale is large enough that the saturating resistance law is effectively linear over the observed S range.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "pairwise",
+        "scope_symbols": [
+          "P",
+          "S"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Saturating vasoconstrictor recruitment in peripheral resistance control",
+        "scientific_mechanism": "Finite vascular smooth-muscle and arteriolar receptor recruitment causes diminishing additional peripheral resistance at high autonomic drive even while neural drive S continues to increase.",
+        "embedding_pattern": "multi_timescale",
+        "difficulty_rationale": "This embedding is structurally harder than a coefficient-only correction because it changes the functional form of the runoff denominator, introducing a new saturation scale that alters the S-dependent curvature of the scored target mapping rather than merely rescaling one gain.",
+        "taxonomy_match": "known",
+        "assumption_before": "Peripheral resistance recruitment by autonomic drive is linear with one constant gain over the whole normalized drive range.",
+        "assumption_after": "Peripheral resistance recruitment by autonomic drive is monotone but saturating, with a distinct saturation scale for high-drive tapering.",
+        "before_fragment": "(cardiac_delivery_baseline + cardiac_delivery_gain*S - P/(peripheral_resistance_baseline + peripheral_resistance_gain*S))/arterial_compliance",
+        "after_fragment": "(cardiac_delivery_baseline + cardiac_delivery_gain*S - P/(peripheral_resistance_baseline + peripheral_resistance_gain*(vascular_saturation_scale*(1 - exp(-S/vascular_saturation_scale)))))/arterial_compliance",
+        "parent_reduction": "The parent is recovered when vascular_saturation_scale is sufficiently large compared with the observed S range so that vascular_saturation_scale*(1 - exp(-S/vascular_saturation_scale)) is approximately S.",
+        "observable_signature": "Along transient recoveries from the prescribed initial condition, segments that reach stronger hypotensive activation show a steeper early change of dP_dt with S but reduced incremental runoff suppression at high S because the resistance contribution flattens; one shared parent parameter set cannot match both the low-S sensitivity and the high-S tapering over those same observed trajectories.",
+        "shortcut_blocked": "Refitting all parent parameters still forces peripheral resistance to depend linearly on S, so the parent preserves one shared marginal resistance gain across low and high autonomic drive. That single-gain structure cannot simultaneously reproduce the child's near-parent low-S behavior and the reduced high-S incremental pressor support seen when S traverses a broad range during the same trajectory."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "phase_shift",
+          "parent_relation": "At fixed P and S, the target dP_dt responds immediately to autonomic drive through both cardiac delivery and peripheral resistance, so the pressure trajectory has a single effective autonomic phase set only by S.",
+          "child_relation": "Retain the same pressure-balance structure but release the assumption that vascular resistance follows S instantaneously; instead, resistance recruitment relaxes toward the saturating command with its own finite vasomotor phase, so dP_dt depends on P, S, and a lagged vascular effector state.",
+          "affected_inputs": [
+            "P",
+            "S"
+          ],
+          "observable_effect": "After a pressure perturbation, early pressure recovery can show prompt cardiac support while runoff reduction develops later, creating a two-timescale pressure response that the parent cannot match with one shared autonomic phase."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "baro_cmd",
+            "expression": "1/(1 + exp((P - pressure_setpoint)/baroreflex_pressure_scale))",
+            "role": "Instantaneous baroreflex command toward which autonomic drive relaxes"
+          },
+          {
+            "name": "resistance_cmd",
+            "expression": "vascular_saturation_scale*(1 - exp(-S/vascular_saturation_scale))",
+            "role": "Instantaneous saturating resistance recruitment commanded by current autonomic drive in the parent"
+          },
+          {
+            "name": "runoff_parent",
+            "expression": "P/(peripheral_resistance_baseline + peripheral_resistance_gain*(vascular_saturation_scale*(1 - exp(-S/vascular_saturation_scale))))",
+            "role": "Parent peripheral runoff term directly setting one component of dP_dt"
+          }
+        ],
+        "activation_condition": "Observable when pressure is displaced enough that S moves appreciably away from its initial value over the observation window and vascular adjustment is not effectively instantaneous relative to autonomic_time_constant; especially during the first few vascular time constants after onset.",
+        "train_hidden_contrast": "In training windows with modest transients, the mechanism appears as a delayed runoff response relative to the rise or fall in S; in holdout conditions with larger or faster pressure excursions from the same initial conditions, the same lag extends into a clearer separation between early cardiac-driven and later resistance-driven pressure recovery.",
+        "continuation_path": "Recover the parent by taking the new vascular effector time constant to zero so the vascular state instantaneously equals the parent saturating function of S.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A finite vascular response lag cannot be represented by refitting existing static gains or the single S state, because the needed memory of past S is absent unless a separate dynamical vascular effector is introduced.",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "P",
+          "S",
+          "R"
+        ],
+        "structural_role": "timescale",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Delayed arteriolar resistance recruitment downstream of autonomic drive",
+        "scientific_mechanism": "Finite arteriolar smooth-muscle activation and constrictor transduction delay peripheral resistance recruitment after changes in autonomic vasomotor drive.",
+        "embedding_pattern": "state_coupling",
+        "difficulty_rationale": "This is structurally harder than a coefficient correction because the runoff term now depends on a separate internal memory state coupled to S, allowing different dP_dt values at the same instantaneous P and S during transients.",
+        "taxonomy_match": "known",
+        "assumption_before": "Cardiac and vascular effects of autonomic drive are instantaneous relative to the modeled neural adjustment time.",
+        "assumption_after": "Cardiac delivery still follows S promptly, but vascular resistance recruitment evolves with its own finite relaxation dynamics toward the saturating autonomic command.",
+        "before_fragment": "(cardiac_delivery_baseline + cardiac_delivery_gain*S - P/(peripheral_resistance_baseline + peripheral_resistance_gain*(vascular_saturation_scale*(1 - exp(-S/vascular_saturation_scale)))))/arterial_compliance",
+        "after_fragment": "(cardiac_delivery_baseline + cardiac_delivery_gain*S - P/(peripheral_resistance_baseline + peripheral_resistance_gain*R))/arterial_compliance",
+        "parent_reduction": "Taking vascular_time_constant -> 0 forces R = vascular_saturation_scale*(1 - exp(-S/vascular_saturation_scale)), which exactly recovers the parent target expression.",
+        "observable_signature": "Holding posture, blood volume, metabolic demand, and hormones fixed, vary the size or timing of the pressure displacement from the common initial conditions. In the parent, once P and S are observed, dP_dt is fixed because runoff changes immediately with S. In the child, for the same instantaneous P and S reached along different transient histories within the first few vascular time constants, dP_dt can differ because R lags behind the saturating resistance command. The visible contrast is weaker early runoff reduction but preserved prompt cardiac support after onset, followed later by stronger resistance-mediated pressure recovery.",
+        "shortcut_blocked": "A single parent parameter set cannot reproduce both early weak resistance response and later stronger resistance recruitment across these conditions because the parent runoff term is an instantaneous function of only P and S. Refitting gains, saturation scale, or autonomic_time_constant can change overall slope or timing of S, but cannot create history dependence in dP_dt at fixed observed P and S without the added vascular memory state."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "interaction_emergence",
+          "parent_relation": "The target mapping uses a fixed linear cardiac contribution cardiac_delivery_gain*S, so the pressure-producing effect of a change in autonomic drive has the same slope at low and high arterial pressure when R is held fixed.",
+          "child_relation": "Replace the fixed cardiac autonomic gain with a pressure-dependent effectiveness so the contribution of S to dP_dt weakens as P rises, creating a P-by-S interaction in the target mapping.",
+          "affected_inputs": [
+            "P",
+            "S"
+          ],
+          "observable_effect": "For the same increase in S, dP_dt rises more strongly at lower P than at higher P, beyond the runoff term alone."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "cardiac_inflow_parent",
+            "expression": "cardiac_delivery_baseline + cardiac_delivery_gain*S",
+            "role": "Parent autonomically controlled arterial inflow contribution"
+          },
+          {
+            "name": "runoff_load",
+            "expression": "P/(peripheral_resistance_baseline + peripheral_resistance_gain*R)",
+            "role": "Pressure-driven peripheral runoff opposing inflow"
+          },
+          {
+            "name": "baroreflex_regime",
+            "expression": "(P - pressure_setpoint)/baroreflex_pressure_scale",
+            "role": "Pressure regime determining whether observations probe low-pressure or high-pressure autonomic conditions"
+          }
+        ],
+        "activation_condition": "Observable when trajectories span a moderate pressure range around and above the setpoint so that P varies enough to change cardiac ejection effectiveness, while S is still away from 0 and 1 and R is not the only changing pathway.",
+        "train_hidden_contrast": "Within training trajectories, low-P recovery segments and higher-P segments can show different dP_dt sensitivity to the same S level; in holdout, the same mechanism extends this contrast to larger pressure excursions without changing background conditions.",
+        "continuation_path": "Recover the parent by taking the pressure dependence of cardiac autonomic effectiveness to zero, yielding a constant gain from S to cardiac delivery.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "pairwise",
+        "scope_symbols": [
+          "P",
+          "S"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "afterload-dependent attenuation of cardiac sympathetic efficacy",
+        "scientific_mechanism": "Pressure-dependent cardiac afterload reduces the effective conversion of autonomic drive into arterial inflow at higher mean arterial pressure.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This embedding is harder than a coefficient-only correction because the slope of dP_dt with respect to S is no longer constant: it varies with the observed pressure state P, so one shared gain cannot match both low-pressure and high-pressure sensitivities simultaneously.",
+        "taxonomy_match": "known",
+        "assumption_before": "Cardiac and vascular effects of autonomic drive are instantaneous relative to the modeled neural adjustment time.",
+        "assumption_after": "Autonomic cardiac effectiveness remains instantaneous but is reduced at higher arterial pressure through afterload-dependent gain modulation.",
+        "before_fragment": "(cardiac_delivery_baseline + cardiac_delivery_gain*S - P/(peripheral_resistance_baseline + peripheral_resistance_gain*R))/arterial_compliance",
+        "after_fragment": "(cardiac_delivery_baseline + cardiac_delivery_gain*S*exp(-P/cardiac_afterload_pressure_scale) - P/(peripheral_resistance_baseline + peripheral_resistance_gain*R))/arterial_compliance",
+        "parent_reduction": "As cardiac_afterload_pressure_scale becomes much larger than the encountered pressure range, exp(-P/cardiac_afterload_pressure_scale) approaches 1 and the parent expression is recovered.",
+        "observable_signature": "Along trajectories with comparable R and non-saturated S, the child predicts that the local sensitivity of dP_dt to S decreases with increasing P; equivalently, low-pressure segments show a larger positive cardiac-drive effect than high-pressure segments under the same background conditions. This changes the scored target mapping itself, not only auxiliary S or R trajectories.",
+        "shortcut_blocked": "Refitting a single parent cardiac_delivery_gain cannot create two different S-to-dP_dt slopes at different P when R is held similar, because the parent contribution from S is separable and linear. The runoff term already depends on P but does not modulate the coefficient multiplying S, so one parent parameter set cannot reproduce a systematic weakening of the S effect at higher pressure across the same observation protocol."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_threshold",
+        "response_change": {
+          "type": "threshold_surface",
+          "parent_relation": "The baroreflex command for S is a fixed logistic function of P alone, so the pressure at which autonomic drive is half-activated is constant and independent of recent pressure history.",
+          "child_relation": "Replace the fixed pressure half-activation with a slowly adaptive effective setpoint driven by recent pressure exposure, so the instantaneous P-to-dP_dt mapping depends on both current pressure and the history state of baroreflex resetting.",
+          "affected_inputs": [
+            "P",
+            "S"
+          ],
+          "observable_effect": "After a sustained pressure elevation or depression, the same instantaneous pressure P produces a different autonomic drive and therefore a different dP_dt than it does early in the trajectory; recovery weakens after prolonged exposure because the feedback threshold has shifted toward the experienced pressure."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "baro_cmd",
+            "expression": "1/(1 + exp((P - pressure_setpoint)/baroreflex_pressure_scale))",
+            "role": "Current parent baroreflex command with fixed half-activation pressure"
+          },
+          {
+            "name": "pressure_error",
+            "expression": "P - pressure_setpoint",
+            "role": "Distance from the fixed reflex threshold that controls parent feedback strength"
+          },
+          {
+            "name": "runoff_den",
+            "expression": "peripheral_resistance_baseline + peripheral_resistance_gain*R",
+            "role": "Instantaneous vascular runoff denominator through which altered autonomic feedback reaches dP_dt"
+          }
+        ],
+        "activation_condition": "Observable when pressure remains displaced from the nominal setpoint for a duration comparable to or longer than a plausible baroreflex resetting time, while P traverses a range of order baroreflex_pressure_scale so that threshold motion materially changes S.",
+        "train_hidden_contrast": "In training, early transients still resemble the parent because resetting is initially small; in longer or more prolonged deviations, holdout trajectories show that identical current P values reached after different exposure histories produce different dP_dt, extending the same threshold-shift mechanism rather than introducing a new regime.",
+        "continuation_path": "Recover the parent by taking the resetting time constant to infinity or the resetting gain to zero, which freezes the effective setpoint at pressure_setpoint.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A history-dependent moving baroreflex threshold cannot be represented with the existing Markov state set {P,S,R} without conflating instantaneous neural drive with slow reflex resetting; a separate state is needed to encode recent pressure exposure.",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "P",
+          "S",
+          "B"
+        ],
+        "structural_role": "feedback",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Short-term baroreflex resetting that shifts the effective half-activation pressure of autonomic drive",
+        "scientific_mechanism": "Slow baroreceptor and central reflex resetting shifts the effective pressure setpoint toward recently experienced arterial pressure, altering autonomic responsiveness during continued non-resting conditions.",
+        "embedding_pattern": "competing_processes",
+        "difficulty_rationale": "The added resetting state creates competition between the baseline threshold and exposure-driven threshold motion in different pressure-history regions, so one static logistic curve is replaced by a moving threshold surface. This cannot be mimicked by a coefficient-only correction because the target mapping changes with exposure history even at the same current pressure.",
+        "taxonomy_match": "known",
+        "assumption_before": "The pressure-sensitive feedback relation is smooth, monotone, and time invariant over the observation window.",
+        "assumption_after": "The effective baroreflex threshold resets slowly toward recent pressure exposure, making feedback history-dependent during sustained perturbations.",
+        "before_fragment": "(cardiac_delivery_baseline + cardiac_delivery_gain*S*exp(-P/cardiac_afterload_pressure_scale) - P/(peripheral_resistance_baseline + peripheral_resistance_gain*R))/arterial_compliance",
+        "after_fragment": "(cardiac_delivery_baseline + cardiac_delivery_gain*S*exp(-P/cardiac_afterload_pressure_scale) - P/(peripheral_resistance_baseline + peripheral_resistance_gain*R))/arterial_compliance",
+        "parent_reduction": "Taking baroreflex_resetting_gain to zero or baroreflex_resetting_time_constant to infinity keeps B at zero so the effective threshold remains pressure_setpoint and the parent system is recovered.",
+        "observable_signature": "Under the same fixed background conditions and same initial P,S,R, early in a pressure excursion the child nearly matches the parent, but after sustained elevation or depression the shifted threshold causes identical current P values to map to different S and therefore different dP_dt. The change is visible in the scored target because the P equation depends on S, and S now depends on both P and the resetting state B rather than on P alone.",
+        "shortcut_blocked": "A single parent parameter set can choose only one static pressure_setpoint and one static baroreflex_pressure_scale, so it cannot reproduce both early strong correction and later weakened correction for the same current P after different exposure durations. Refitting all parent parameters changes only one fixed logistic command curve and cannot generate the required history-dependent family of P-to-dP_dt mappings across these admissible conditions."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_threshold",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The autonomic command driving S is a symmetric logistic function of the shifted pressure error P-(pressure_setpoint+B), so dP_dt inherits one fixed baroreflex sensitivity scale around a single midpoint.",
+          "child_relation": "Replace the symmetric logistic pressure-command relation with an asymmetric pressure-response shape using the same states and parameters, so dP_dt changes more sharply on one side of the effective setpoint than the other while remaining monotone nonincreasing in pressure.",
+          "affected_inputs": [
+            "P",
+            "B",
+            "S"
+          ],
+          "observable_effect": "During comparable excursions below versus above the effective setpoint, pressure recovery and overshoot damping become unequal: one side shows steeper autonomic recruitment per mmHg than the other, which changes the local curvature of dP_dt versus pressure along the observed trajectory."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "effective_pressure_error",
+            "expression": "P - (pressure_setpoint + B)",
+            "role": "Signed baroreflex error relative to the slowly reset operating point"
+          },
+          {
+            "name": "cardiac_inflow_term",
+            "expression": "cardiac_delivery_baseline + cardiac_delivery_gain*S*exp(-P/cardiac_afterload_pressure_scale)",
+            "role": "Pressure-dependent arterial inflow contributed by baseline and autonomically augmented cardiac delivery"
+          },
+          {
+            "name": "runoff_term",
+            "expression": "P/(peripheral_resistance_baseline + peripheral_resistance_gain*R)",
+            "role": "Peripheral runoff load opposing pressure elevation"
+          }
+        ],
+        "activation_condition": "Observable when trajectories pass through both moderate hypotensive and hypertensive deviations relative to pressure_setpoint+B, with pressure excursions of order baroreflex_pressure_scale so the command nonlinearity is sampled on both sides rather than only infinitesimally near equilibrium.",
+        "train_hidden_contrast": "In training, asymmetric recovery is already visible in transients that traverse the effective setpoint neighborhood; in holdout, larger but still admissible deviations extend the same one-sided steepness difference, revealing curvature that a symmetric one-scale logistic cannot match with one shared parameter set.",
+        "continuation_path": "The child reduces to the parent in the symmetry-restoring limit where the modified pressure-command shape becomes the original logistic with one shared baroreflex_pressure_scale on both sides of the effective setpoint.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "P",
+          "B",
+          "S"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Asymmetric baroreflex pressure-to-command transduction",
+        "scientific_mechanism": "Short-term arterial baroreflex signaling can show unequal gain on hypotensive versus hypertensive sides because receptor firing saturation and central efferent recruitment are not perfectly symmetric around the operating point.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the effective logistic slope now depends on the evolving signed pressure error, so the same parameter set produces different local curvature above and below the reset setpoint rather than a uniform rescaling.",
+        "taxonomy_match": "provisional",
+        "assumption_before": "The pressure-sensitive feedback relation is smooth, monotone, and time invariant over the observation window, with a symmetric logistic shape around a single midpoint and one shared pressure scale.",
+        "assumption_after": "The baroreflex remains smooth and monotone but its pressure sensitivity varies with signed effective pressure error, producing asymmetric steepness about the reset setpoint.",
+        "before_fragment": "(cardiac_delivery_baseline + cardiac_delivery_gain*S*exp(-P/cardiac_afterload_pressure_scale) - P/(peripheral_resistance_baseline + peripheral_resistance_gain*R))/arterial_compliance",
+        "after_fragment": "(cardiac_delivery_baseline + cardiac_delivery_gain*S*exp(-P/cardiac_afterload_pressure_scale) - P/(peripheral_resistance_baseline + peripheral_resistance_gain*R))/arterial_compliance",
+        "parent_reduction": "baroreflex_asymmetry_gain = 0",
+        "observable_signature": "The scored target expression keeps the same algebraic dependence on S and R, but along trajectories that sample both signs of P-(pressure_setpoint+B), the successor produces unequal dP_dt-versus-P curvature on the two sides because the S command law uses a state-dependent pressure scale. This is observable for deviations on the order of baroreflex_pressure_scale with posture, blood volume, metabolic demand, and hormones held fixed.",
+        "shortcut_blocked": "Refitting the parent's single baroreflex_pressure_scale can match only one average steepness, not simultaneously the steeper hypotensive recruitment and flatter hypertensive suppression or vice versa across both sides of the effective setpoint with one shared parameter set. The change is therefore not absorbable by global coefficient retuning when both sides of the command curve are observed."
+      }
+    ]
+  },
+  "finalization": {
+    "mode": "candidate",
+    "accepted_generations": 5,
+    "novelty": {
+      "answer": "NOT_EVALUATED"
+    },
+    "total_points": 5000,
+    "evaluation_status": "not_evaluated"
+  }
+}

@@ -1,0 +1,362 @@
+{
+  "base_id": "m2_epidemiology_and_disease_dynamics_20260917_002",
+  "generation": 5,
+  "operation": "change_assumption",
+  "model_family": "ode",
+  "equation_type": "ode_system",
+  "target_symbol": "dC_dt",
+  "expression": "progression_rate*C_latent - clearance_rate*C*I_late/((late_half_saturation*(1 + inflow_clearance_modulation*progression_rate*C_latent/(late_half_saturation + progression_rate*C_latent)))*(1 + C/late_half_saturation) + I_late)*(late_half_saturation + C)/(late_half_saturation + 2*C)",
+  "symbols": [
+    "dC_dt",
+    "t",
+    "L",
+    "C",
+    "I_late",
+    "C_latent",
+    "progression_rate",
+    "clearance_rate",
+    "stage_progression_rate",
+    "late_half_saturation",
+    "inflow_clearance_modulation"
+  ],
+  "symbol_descriptions": [
+    "Instantaneous rate of change of the observed contagious cohort size",
+    "Time over the observation interval [0, 30]",
+    "Number of infected cohort members in the earlier latent, not-yet-competent substage",
+    "Number of infected cohort members currently in the observed contagious stage",
+    "Number of infected cohort members in the later contagious substage that accumulates before full clearance",
+    "Number of infected cohort members in the matured latent substage that has become eligible to enter the observed contagious stage",
+    "Constant nonnegative per-capita rate governing progression between adjacent latent maturation stages and from matured latency into contagiousness",
+    "Maximum nonnegative per-capita clearance rate from the observed contagious pool once later-stage occupancy is substantial",
+    "Constant nonnegative per-capita rate of progression from the observed contagious stage to the later contagious substage",
+    "Positive occupancy scale governing saturation of late-stage clearance activation and burden-dependent modulation",
+    "Nonnegative strength by which latent-to-contagious inflow raises the effective late-stage clearance activation threshold"
+  ],
+  "symbol_properties": [
+    "O",
+    "V",
+    "S",
+    "S",
+    "S",
+    "S",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P"
+  ],
+  "new_symbol_range_suggestions": {
+    "inflow_clearance_modulation": "[0, 10]"
+  },
+  "derivation_notes": "The fixed half-saturation assumption is relaxed by allowing strong contemporaneous latent inflow, measured by progression_rate*C_latent, to raise the effective occupancy scale needed for late-stage-driven clearance activation. The modulation is saturating and dimensionless, so the parent law is recovered when inflow_clearance_modulation is zero.",
+  "change_summary": "The clearance activation threshold is no longer constant: it increases during periods of strong latent inflow and relaxes back as C_latent depletes. This directly changes the dC_dt mapping at fixed C and I_late, weakening early clearance and potentially delaying or broadening the contagious peak.",
+  "assumption_audit": {
+    "released_assumption": "Burden-dependent clearance activation uses a time-independent, inflow-independent half-saturation threshold.",
+    "outcome": "law_refinement",
+    "quantity": "late_half_saturation",
+    "quantity_role": "fixed_parameter",
+    "mechanism": "Rapid arrivals from matured latency can transiently dilute case recognition and withdrawal efficiency, so more later-stage occupancy is required to trigger the same effective removal from the observed contagious pool when latent inflow is high.",
+    "reference_condition": {
+      "inflow_clearance_modulation": 0.0
+    },
+    "parent_reduction": "Setting inflow_clearance_modulation to zero removes inflow conditioning of the activation threshold and exactly recovers the parent expression."
+  },
+  "add_term_audit": null,
+  "evolution_contract": {
+    "operation": "change_assumption",
+    "parent_shortcut": "single_threshold",
+    "response_change": {
+      "type": "interaction_emergence",
+      "parent_relation": "The clearance term depends on C and I_late through a single late_half_saturation scale, so the reduction in dC_dt is governed by one fixed occupancy threshold and cannot change shape with the latent inflow level except through current state magnitudes.",
+      "child_relation": "Make the burden-dependent clearance activation threshold itself depend on contemporaneous latent-to-contagious inflow pressure, so the effect of I_late on dC_dt is weaker during strong C_latent-driven arrivals and stronger once inflow subsides.",
+      "affected_inputs": [
+        "C_latent",
+        "C",
+        "I_late",
+        "late_half_saturation",
+        "progression_rate"
+      ],
+      "observable_effect": "At matched I_late and similar C, early times with high C_latent show less negative dC_dt than later times with depleted C_latent; this delays or broadens the contagious peak relative to the parent's single-threshold response."
+    },
+    "diagnostic_groups": [
+      {
+        "name": "latent_inflow_pressure",
+        "expression": "progression_rate*C_latent",
+        "role": "Instantaneous arrival flux into the observed contagious stage"
+      },
+      {
+        "name": "late_signal_ratio",
+        "expression": "I_late/(late_half_saturation + I_late)",
+        "role": "Normalized occupancy of the later contagious substage driving clearance activation"
+      },
+      {
+        "name": "burden_ratio",
+        "expression": "C/(late_half_saturation + C)",
+        "role": "Normalized observed contagious burden entering the existing saturation structure"
+      }
+    ],
+    "activation_condition": "Observable when progression_rate*C_latent is initially appreciable relative to clearance_rate*C and then declines over the observation window, so the same range of C and I_late is visited under both high- and low-inflow conditions.",
+    "train_hidden_contrast": "Within a single no-new-infections trajectory, the mechanism is visible because C_latent starts high and later depletes, extending the parent law from one fixed activation threshold to an inflow-conditioned threshold over time.",
+    "continuation_path": "Recover the parent by taking the inflow modulation strength to zero, so late_half_saturation becomes a constant again.",
+    "freedom_change": "none",
+    "promoted_symbol": null,
+    "promotion_reason": "",
+    "scope_kind": "state_coupling",
+    "scope_symbols": [
+      "C_latent",
+      "C",
+      "I_late",
+      "progression_rate",
+      "late_half_saturation"
+    ],
+    "structural_role": "modulation",
+    "domain_mechanism_id": "",
+    "domain_mechanism": "inflow-conditioned clearance activation",
+    "scientific_mechanism": "Rapid arrivals from matured latency can transiently dilute case recognition and withdrawal efficiency, so more later-stage occupancy is required to trigger the same effective removal from the observed contagious pool when latent inflow is high.",
+    "embedding_pattern": "multiplicative_modulation",
+    "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the clearance response surface now changes with latent inflow pressure, creating a state-dependent threshold that alters the shape of dC_dt over the same C and I_late range rather than merely rescaling removal uniformly.",
+    "taxonomy_match": "known",
+    "assumption_before": "Burden-dependent clearance activation uses a time-independent, inflow-independent half-saturation threshold.",
+    "assumption_after": "The effective late-stage clearance activation threshold increases monotonically with contemporaneous latent inflow pressure and relaxes as inflow subsides.",
+    "before_fragment": "progression_rate*C_latent - clearance_rate*C*I_late/(late_half_saturation*(1 + C/late_half_saturation) + I_late)*(late_half_saturation + C)/(late_half_saturation + 2*C)",
+    "after_fragment": "progression_rate*C_latent - clearance_rate*C*I_late/((late_half_saturation*(1 + inflow_clearance_modulation*progression_rate*C_latent/(late_half_saturation + progression_rate*C_latent)))*(1 + C/late_half_saturation) + I_late)*(late_half_saturation + C)/(late_half_saturation + 2*C)",
+    "parent_reduction": "Setting inflow_clearance_modulation to zero gives the exact parent fragment.",
+    "observable_signature": "Compared at similar C and I_late along the same trajectory, dC_dt is less negative when progression_rate*C_latent is high and becomes more negative after C_latent depletion, because the effective clearance activation threshold is temporarily elevated during strong inflow. The parent cannot produce this high-inflow versus low-inflow threshold shift since it maps C and I_late to one fixed clearance shape once parameters are chosen.",
+    "shortcut_blocked": "A single refitted parent parameter set cannot reproduce both weaker early and stronger late clearance activation at comparable C and I_late, because its one shared late_half_saturation imposes one response curve for the entire run. Retuning clearance_rate or late_half_saturation only rescales or shifts that single curve globally; it cannot create the child's inflow-conditioned interaction where the same C and I_late yield different clearance strength depending on C_latent."
+  },
+  "dimension_track": null,
+  "mechanism_profile": {
+    "allowed_structural_roles": [
+      "contribution",
+      "interaction",
+      "constraint",
+      "feedback",
+      "transition",
+      "timescale"
+    ],
+    "preferred_scopes": [
+      "unary",
+      "pairwise",
+      "state_coupling",
+      "time_forcing"
+    ],
+    "domain_mechanisms": [
+      {
+        "id": "density_dependent_transmission",
+        "description": "contact or transmission response changes with prevalence or density",
+        "operations": [
+          "add_term",
+          "change_assumption"
+        ]
+      },
+      {
+        "id": "behavioral_feedback",
+        "description": "risk response changes contact or control behavior",
+        "operations": [
+          "add_term"
+        ]
+      },
+      {
+        "id": "waning_immunity",
+        "description": "finite immunity duration or recovery transition",
+        "operations": [
+          "change_assumption"
+        ]
+      },
+      {
+        "id": "seasonal_forcing",
+        "description": "seasonally modulated exposure or transmission",
+        "operations": [
+          "change_assumption"
+        ]
+      }
+    ],
+    "profile_source": "subfield",
+    "ontology_schema_version": "1.0",
+    "taxonomy_schema_version": "1.0"
+  },
+  "evolution_plan": {
+    "operation": "change_assumption",
+    "parent_shortcut": "single_threshold",
+    "response_change": {
+      "type": "interaction_emergence",
+      "parent_relation": "The clearance term depends on C and I_late through a single late_half_saturation scale, so the reduction in dC_dt is governed by one fixed occupancy threshold and cannot change shape with the latent inflow level except through current state magnitudes.",
+      "child_relation": "Make the burden-dependent clearance activation threshold itself depend on contemporaneous latent-to-contagious inflow pressure, so the effect of I_late on dC_dt is weaker during strong C_latent-driven arrivals and stronger once inflow subsides.",
+      "affected_inputs": [
+        "C_latent",
+        "C",
+        "I_late",
+        "late_half_saturation",
+        "progression_rate"
+      ],
+      "observable_effect": "At matched I_late and similar C, early times with high C_latent show less negative dC_dt than later times with depleted C_latent; this delays or broadens the contagious peak relative to the parent's single-threshold response."
+    },
+    "diagnostic_groups": [
+      {
+        "name": "latent_inflow_pressure",
+        "expression": "progression_rate*C_latent",
+        "role": "Instantaneous arrival flux into the observed contagious stage"
+      },
+      {
+        "name": "late_signal_ratio",
+        "expression": "I_late/(late_half_saturation + I_late)",
+        "role": "Normalized occupancy of the later contagious substage driving clearance activation"
+      },
+      {
+        "name": "burden_ratio",
+        "expression": "C/(late_half_saturation + C)",
+        "role": "Normalized observed contagious burden entering the existing saturation structure"
+      }
+    ],
+    "activation_condition": "Observable when progression_rate*C_latent is initially appreciable relative to clearance_rate*C and then declines over the observation window, so the same range of C and I_late is visited under both high- and low-inflow conditions.",
+    "train_hidden_contrast": "Within a single no-new-infections trajectory, the mechanism is visible because C_latent starts high and later depletes, extending the parent law from one fixed activation threshold to an inflow-conditioned threshold over time.",
+    "continuation_path": "Recover the parent by taking the inflow modulation strength to zero, so late_half_saturation becomes a constant again.",
+    "freedom_change": "none",
+    "promoted_symbol": null,
+    "promotion_reason": "",
+    "gap_statement": "The current model assumes that symptom recognition or withdrawal efficiency is controlled by a fixed occupancy scale even when the contagious pool is being replenished rapidly from latency, ignoring the realistic masking or delay of clearance activation during strong incoming flow.",
+    "baseline_assumption": "Burden-dependent clearance activation uses a time-independent, inflow-independent half-saturation threshold.",
+    "scientific_mechanism": "Rapid arrivals from matured latency can transiently dilute case recognition and withdrawal efficiency, so more later-stage occupancy is required to trigger the same effective removal from the observed contagious pool when latent inflow is high.",
+    "affected_symbols": [
+      "C_latent",
+      "C",
+      "I_late",
+      "progression_rate",
+      "late_half_saturation"
+    ],
+    "rationale": "A realistic next refinement is to relax the parent's fixed-threshold assumption for clearance activation rather than add a wholly new compartment. Varying condition: the endogenous latent inflow pressure progression_rate*C_latent changes over time under the existing initial conditions, while the biological interpretation of C, I_late, and the no-new-infections protocol is held fixed. Parent contrast: for any given C and I_late, the parent maps those states to one unique clearance contribution because late_half_saturation is constant. Child contrast: the same C and I_late can produce a different dC_dt depending on whether C_latent is still large, because high inflow shifts the effective activation scale upward and weakens removal. This changes the scored target mapping itself, not only auxiliary trajectories, since dC_dt directly gains dependence on C_latent beyond the existing linear inflow term. The effect is admissible when the trajectory spans an early high-inflow regime and a later low-inflow regime; under those conditions a single refitted parent parameter set cannot reproduce both weaker early and stronger late clearance activation at comparable C and I_late, because its one shared threshold fixes one response shape across the whole run. If latent inflow is always negligible, the refinement becomes practically unidentifiable and the parent is recovered."
+  },
+  "selected_embedding_pattern": {
+    "description": "Use a declared condition to modulate the strength of an existing process.",
+    "difficulty_level": 6,
+    "operations": [
+      "add_term",
+      "change_assumption"
+    ],
+    "model_families": [
+      "static",
+      "ode"
+    ],
+    "minimum_active_quantities": 2,
+    "weight": 15,
+    "id": "multiplicative_modulation"
+  },
+  "ode_system": {
+    "time_symbol": "t",
+    "target_state": "C",
+    "states": [
+      {
+        "symbol": "L",
+        "rhs": "-progression_rate*L",
+        "initial_condition": 500.0,
+        "description": "Number of infected cohort members in the earlier latent, not-yet-competent substage"
+      },
+      {
+        "symbol": "C",
+        "rhs": "progression_rate*C_latent - clearance_rate*C*I_late/((late_half_saturation*(1 + inflow_clearance_modulation*progression_rate*C_latent/(late_half_saturation + progression_rate*C_latent)))*(1 + C/late_half_saturation) + I_late)*(late_half_saturation + C)/(late_half_saturation + 2*C)",
+        "initial_condition": 0.0,
+        "description": "Number of infected cohort members currently in the observed contagious stage"
+      },
+      {
+        "symbol": "I_late",
+        "rhs": "stage_progression_rate*C - clearance_rate*I_late",
+        "initial_condition": 0.0,
+        "description": "Number of infected cohort members in the later contagious substage that accumulates before full clearance"
+      },
+      {
+        "symbol": "C_latent",
+        "rhs": "progression_rate*L - progression_rate*C_latent",
+        "initial_condition": 0.0,
+        "description": "Number of infected cohort members in the matured latent substage that has become eligible to enter the observed contagious stage"
+      }
+    ]
+  },
+  "scenario_text": "Track a cohort of already infected people as they pass from a latent state into a contagious state and then cease being contagious. No new infections enter the cohort during observation, so the dynamics isolate disease-stage progression from transmission. The target is the rate of change of the contagious group, which reflects both arrivals from latency and departures from contagiousness. Constant progression and clearance hazards produce a delayed peak in contagious prevalence.",
+  "freedom_change": "none",
+  "promoted_symbol": null,
+  "promotion_reason": "",
+  "parent_shortcut": "single_threshold",
+  "response_change": {
+    "type": "interaction_emergence",
+    "parent_relation": "The clearance term depends on C and I_late through a single late_half_saturation scale, so the reduction in dC_dt is governed by one fixed occupancy threshold and cannot change shape with the latent inflow level except through current state magnitudes.",
+    "child_relation": "Make the burden-dependent clearance activation threshold itself depend on contemporaneous latent-to-contagious inflow pressure, so the effect of I_late on dC_dt is weaker during strong C_latent-driven arrivals and stronger once inflow subsides.",
+    "affected_inputs": [
+      "C_latent",
+      "C",
+      "I_late",
+      "late_half_saturation",
+      "progression_rate"
+    ],
+    "observable_effect": "At matched I_late and similar C, early times with high C_latent show less negative dC_dt than later times with depleted C_latent; this delays or broadens the contagious peak relative to the parent's single-threshold response."
+  },
+  "diagnostic_groups": [
+    {
+      "name": "latent_inflow_pressure",
+      "expression": "progression_rate*C_latent",
+      "role": "Instantaneous arrival flux into the observed contagious stage"
+    },
+    {
+      "name": "late_signal_ratio",
+      "expression": "I_late/(late_half_saturation + I_late)",
+      "role": "Normalized occupancy of the later contagious substage driving clearance activation"
+    },
+    {
+      "name": "burden_ratio",
+      "expression": "C/(late_half_saturation + C)",
+      "role": "Normalized observed contagious burden entering the existing saturation structure"
+    }
+  ],
+  "activation_condition": "Observable when progression_rate*C_latent is initially appreciable relative to clearance_rate*C and then declines over the observation window, so the same range of C and I_late is visited under both high- and low-inflow conditions.",
+  "train_hidden_contrast": "Within a single no-new-infections trajectory, the mechanism is visible because C_latent starts high and later depletes, extending the parent law from one fixed activation threshold to an inflow-conditioned threshold over time.",
+  "continuation_path": "Recover the parent by taking the inflow modulation strength to zero, so late_half_saturation becomes a constant again.",
+  "dependent_variable": {
+    "symbol": "dC_dt",
+    "description": "Instantaneous rate of change of the observed contagious cohort size"
+  },
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "description": "Time over the observation interval [0, 30]"
+    }
+  ],
+  "state_variables": [
+    {
+      "symbol": "L",
+      "description": "Number of infected cohort members in the earlier latent, not-yet-competent substage"
+    },
+    {
+      "symbol": "C",
+      "description": "Number of infected cohort members currently in the observed contagious stage"
+    },
+    {
+      "symbol": "I_late",
+      "description": "Number of infected cohort members in the later contagious substage that accumulates before full clearance"
+    },
+    {
+      "symbol": "C_latent",
+      "description": "Number of infected cohort members in the matured latent substage that has become eligible to enter the observed contagious stage"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "progression_rate",
+      "description": "Constant nonnegative per-capita rate governing progression between adjacent latent maturation stages and from matured latency into contagiousness"
+    },
+    {
+      "symbol": "clearance_rate",
+      "description": "Maximum nonnegative per-capita clearance rate from the observed contagious pool once later-stage occupancy is substantial"
+    },
+    {
+      "symbol": "stage_progression_rate",
+      "description": "Constant nonnegative per-capita rate of progression from the observed contagious stage to the later contagious substage"
+    },
+    {
+      "symbol": "late_half_saturation",
+      "description": "Positive occupancy scale governing saturation of late-stage clearance activation and burden-dependent modulation"
+    },
+    {
+      "symbol": "inflow_clearance_modulation",
+      "description": "Nonnegative strength by which latent-to-contagious inflow raises the effective late-stage clearance activation threshold"
+    }
+  ]
+}

@@ -1,0 +1,244 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "u",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        40.0
+      ],
+      "n_points": 401,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "gravity",
+      "value": 9.81
+    },
+    {
+      "symbol": "wavenumber",
+      "value": 1.2
+    },
+    {
+      "symbol": "linear_damping_rate",
+      "value": 0.08
+    },
+    {
+      "symbol": "quadratic_damping_rate",
+      "value": 0.12
+    },
+    {
+      "symbol": "velocity_transition_scale",
+      "value": 0.08
+    },
+    {
+      "symbol": "finite_amplitude_stiffening",
+      "value": 80.0
+    },
+    {
+      "symbol": "depth_relaxation_rate",
+      "value": 2.0
+    },
+    {
+      "symbol": "depth_saturation_scale",
+      "value": 0.12
+    },
+    {
+      "symbol": "geometry_drag_sensitivity",
+      "value": 0.8
+    },
+    {
+      "symbol": "shape_lag_relaxation_rate",
+      "value": 3.0
+    },
+    {
+      "symbol": "dynamic_stiffness_phase_sensitivity",
+      "value": 0.4
+    }
+  ],
+  "benchmark_output": "du_dt",
+  "benchmark_target_state": "u",
+  "observed_variables": [
+    "t",
+    "eta",
+    "u",
+    "depth_compression",
+    "shape_lag"
+  ],
+  "rhs_for_integrator": "-gravity * wavenumber * eta * (1 + finite_amplitude_stiffening * depth_compression * (1 + dynamic_stiffness_phase_sensitivity * shape_lag / depth_saturation_scale)) - linear_damping_rate * u - quadratic_damping_rate * (1 + geometry_drag_sensitivity * depth_compression / depth_saturation_scale**2) * u * Abs(u) / (velocity_transition_scale + Abs(u))",
+  "state_variables": [
+    "eta",
+    "u",
+    "depth_compression",
+    "shape_lag"
+  ],
+  "state_rhs": [
+    "u",
+    "-gravity * wavenumber * eta * (1 + finite_amplitude_stiffening * depth_compression * (1 + dynamic_stiffness_phase_sensitivity * shape_lag / depth_saturation_scale)) - linear_damping_rate * u - quadratic_damping_rate * (1 + geometry_drag_sensitivity * depth_compression / depth_saturation_scale**2) * u * Abs(u) / (velocity_transition_scale + Abs(u))",
+    "depth_relaxation_rate * (depth_saturation_scale * Abs(eta) * tanh(Abs(eta) / depth_saturation_scale) - depth_compression)",
+    "shape_lag_relaxation_rate * (u - shape_lag)"
+  ],
+  "initial_conditions": {
+    "eta": 0.04,
+    "u": 0.1,
+    "depth_compression": 0.0,
+    "shape_lag": 0.0
+  },
+  "sanity_expectations": [
+    "The trajectory should show damped oscillations in eta and u with repeated sign changes rather than monotone relaxation, because gravity*wavenumber dominates the weak linear damping.",
+    "Early cycles should decay faster than late cycles: when |u| is near or above velocity_transition_scale, the nonlinear drag term is appreciable; as |u| falls well below that scale, dissipation approaches the weaker near-linear regime.",
+    "depth_compression should remain nonnegative, relax toward depth_saturation_scale*Abs(eta)*tanh(Abs(eta)/depth_saturation_scale), and stay on the order of eta^2 for small excursions while bending below unbounded quadratic growth at larger |eta|.",
+    "Because geometry_drag_sensitivity > 0, episodes with similar |u| but larger depth_compression should experience stronger sign-opposing nonlinear damping than low-compression episodes.",
+    "shape_lag should remain bounded and lag u with a comparable timescale; with dynamic_stiffness_phase_sensitivity > 0, the restoring acceleration at similar eta and depth_compression should split modestly by the sign/history encoded in shape_lag, producing weak within-cycle hysteresis relative to the parent law.",
+    "The chosen parameters are not in a parent-recovery limit: quadratic_damping_rate is nonzero, velocity_transition_scale is inside the reachable speed range, finite_amplitude_stiffening is nonzero, geometry_drag_sensitivity is nonzero, and dynamic_stiffness_phase_sensitivity is nonzero, so all recorded child mechanisms are at least weakly active."
+  ],
+  "role_corrections": [
+    "du_dt: claimed-output/target derivative -> derivative of dependent state u (confirmed as target derivative, not sampled independent variable)",
+    "t: claimed-input/time axis -> independent variable V (confirmed)",
+    "eta: claimed-dynamic state -> dynamic state variable V (confirmed)",
+    "u: claimed-dynamic state -> dependent variable and dynamic state V (confirmed)",
+    "depth_compression: claimed-dynamic state -> dynamic state variable V (confirmed)",
+    "shape_lag: claimed-dynamic state -> dynamic state variable V (confirmed)",
+    "gravity: claimed-parameter -> parameter P (confirmed)",
+    "wavenumber: claimed-parameter -> parameter P (confirmed)",
+    "linear_damping_rate: claimed-parameter -> parameter P (confirmed)",
+    "quadratic_damping_rate: claimed-parameter -> parameter P (confirmed)",
+    "velocity_transition_scale: claimed-parameter -> parameter P (confirmed)",
+    "finite_amplitude_stiffening: claimed-parameter -> parameter P (confirmed)",
+    "depth_relaxation_rate: claimed-parameter -> parameter P (confirmed)",
+    "depth_saturation_scale: claimed-parameter -> parameter P (confirmed)",
+    "geometry_drag_sensitivity: claimed-parameter -> parameter P (confirmed)",
+    "shape_lag_relaxation_rate: claimed-parameter -> parameter P (confirmed)",
+    "dynamic_stiffness_phase_sensitivity: claimed-parameter -> parameter P (confirmed)"
+  ],
+  "rationale": "The supplied typed ODE contract is preserved exactly as required: a four-state autonomous ODE system sampled only along time, with u as the target_state. Label audit agrees with the contract and with structure: t is the sole independent variable; eta, u, depth_compression, and shape_lag are dynamic states; all listed coefficient symbols are fixed parameters. Parameter values are chosen to keep the motion underdamped and finite while making the intended mechanisms observable in one unforced decay record. With gravity*wavenumber ≈ 11.8 s^-2, the small-amplitude oscillation rate is O(3.4 s^-1), so a 0–40 s window captures many cycles and clear envelope decay. The transition scale velocity_transition_scale = 0.08 m/s is close to the inherited initial |u| = 0.1 m/s, so the nonlinear drag branch is active early but not driven immediately into a deep asymptote. quadratic_damping_rate = 0.12 s^-1 together with linear_damping_rate = 0.08 s^-1 yields visibly stronger early decay than late-time weak-motion decay, exposing the amplitude-dependent damping contrast without overdamping the wave. finite_amplitude_stiffening = 80 m^-2 and depth_saturation_scale = 0.12 m make the finite-depth restoring correction non-negligible at the inherited initial excursion eta = 0.04 m: the compression target depth_saturation_scale*|eta|*tanh(|eta|/depth_saturation_scale) is about 0.0015 m^2, close to eta^2 but already beginning to bend away from the pure cubic parent for larger reachable excursions. depth_relaxation_rate = 2.0 s^-1 is comparable to but somewhat below the linear oscillation frequency, so depth_compression follows the excursion geometry with visible lag yet remains bounded. geometry_drag_sensitivity = 0.8 gives an appreciable but not dominant compression-dependent modulation of nonlinear drag when depth_compression becomes a noticeable fraction of depth_saturation_scale^2. shape_lag_relaxation_rate = 3.0 s^-1 is comparable to the oscillation rate, supporting a bounded within-cycle signed lag, and dynamic_stiffness_phase_sensitivity = 0.4 keeps the restoring multiplier 1 + dynamic_stiffness_phase_sensitivity*shape_lag/depth_saturation_scale weak-to-moderately perturbed and expected to remain positive over admissible trajectories, consistent with the supplied guidance. The chosen point was checked and gives a finite real acceleration. No noise is added; exact trajectories are to be generated from the inherited system.",
+  "coverage_report": {},
+  "inactive_mechanisms": [],
+  "target_variance": {},
+  "parent_absorption_report": {},
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_CDOw4NvtEIlAvQArMxwFGYZg"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "-gravity * wavenumber * eta * (1 + finite_amplitude_stiffening * depth_compression * (1 + dynamic_stiffness_phase_sensitivity * shape_lag / depth_saturation_scale)) - linear_damping_rate * u - quadratic_damping_rate * (1 + geometry_drag_sensitivity * depth_compression / depth_saturation_scale**2) * u * Abs(u) / (velocity_transition_scale + Abs(u))",
+        "target_symbol": "u"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "depth_compression",
+          "depth_saturation_scale",
+          "dynamic_stiffness_phase_sensitivity",
+          "eta",
+          "finite_amplitude_stiffening",
+          "geometry_drag_sensitivity",
+          "gravity",
+          "linear_damping_rate",
+          "quadratic_damping_rate",
+          "shape_lag",
+          "u",
+          "velocity_transition_scale",
+          "wavenumber"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": false,
+        "explicit_solution_preview": null,
+        "classification_hint": "implicit_or_explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_h9KeWPkHrAjCVFow3CxtAk05"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "-gravity * wavenumber * eta * (1 + finite_amplitude_stiffening * depth_compression * (1 + dynamic_stiffness_phase_sensitivity * shape_lag / depth_saturation_scale)) - linear_damping_rate * u - quadratic_damping_rate * (1 + geometry_drag_sensitivity * depth_compression / depth_saturation_scale**2) * u * Abs(u) / (velocity_transition_scale + Abs(u))",
+        "target_symbol": "u",
+        "assignments": {
+          "gravity": 9.81,
+          "wavenumber": 1.2,
+          "linear_damping_rate": 0.08,
+          "quadratic_damping_rate": 0.12,
+          "velocity_transition_scale": 0.08,
+          "finite_amplitude_stiffening": 80.0,
+          "depth_relaxation_rate": 2.0,
+          "depth_saturation_scale": 0.12,
+          "geometry_drag_sensitivity": 0.8,
+          "shape_lag_relaxation_rate": 3.0,
+          "dynamic_stiffness_phase_sensitivity": 0.4,
+          "eta": 0.04,
+          "u": 0.1,
+          "depth_compression": 0.0,
+          "shape_lag": 0.0
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": -0.4855466666666667,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_CN78Wk1XEZ49FHGUVaC9vBnp"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_aGnaRwqQkr8yvK78l0cI9A1W"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 4
+}

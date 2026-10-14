@@ -1,0 +1,3 @@
+Ground truth: v_translation = v_max*(A**(n_A*(1 + delta_nAG*G**n_G/(K_G**n_G + G**n_G)))/((K_A/(1 + gamma_GA*G**n_G/(K_G**n_G + G**n_G)))**(n_A*(1 + delta_nAG*G**n_G/(K_G**n_G + G**n_G))) + A**(n_A*(1 + delta_nAG*G**n_G/(K_G**n_G + G**n_G))) + beta_AG*(1 + eta_A2*A**n_A/(K_A2**n_A + A**n_A))*(K_A/(1 + gamma_GA*G**n_G/(K_G**n_G + G**n_G)))**(n_A*(1 + delta_nAG*G**n_G/(K_G**n_G + G**n_G)))/(K_G**n_G + G**n_G)))*(G**n_G/(K_G**n_G + G**n_G + alpha_AG*K_G**n_G/(K_A**n_A + A**n_A)))
+
+Fixed parameters: {'v_max': 1.0, 'K_A': 1.0, 'K_G': 1.0, 'n_A': 2.0, 'n_G': 2.0, 'alpha_AG': 2.0, 'beta_AG': 1.5, 'gamma_GA': 2.0, 'delta_nAG': 1.2, 'eta_A2': 1.5, 'K_A2': 2.5}

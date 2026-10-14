@@ -1,0 +1,385 @@
+{
+  "base_id": "m2_physiology_and_homeostasis_20260921_002",
+  "generation": 5,
+  "operation": "change_assumption",
+  "model_family": "ode",
+  "equation_type": "ode_system",
+  "target_symbol": "dP_a_dt",
+  "expression": "(P_set + autonomic_pressure_gain*w*(1 + (pressure_efficacy_error_gain*(P_set - P_a))/(1 + Abs(pressure_efficacy_error_gain*(P_set - P_a)))) - P_a)/pressure_time_constant",
+  "symbols": [
+    "dP_a_dt",
+    "t",
+    "P_a",
+    "u",
+    "v",
+    "w",
+    "P_set",
+    "u_baseline",
+    "autonomic_pressure_gain",
+    "pressure_time_constant",
+    "autonomic_time_constant",
+    "baroreflex_sensitivity",
+    "pressure_efficacy_error_gain",
+    "slow_support_weight",
+    "slow_autonomic_time_constant",
+    "hemodynamic_transduction_time_constant"
+  ],
+  "symbol_descriptions": [
+    "Instantaneous rate of change of mean arterial pressure during short-term autonomic recovery",
+    "time",
+    "Mean arterial pressure in mmHg",
+    "Normalized fast autonomic effector tone supporting prompt cardiac pressure support",
+    "Normalized slower autonomic effector tone representing delayed vasomotor support",
+    "Realized downstream hemodynamic support after finite autonomic-to-pressure transduction",
+    "Fixed arterial-pressure set point in mmHg",
+    "Baseline autonomic tone at the pressure set point, constrained between zero and one",
+    "Mid-range increase in supported arterial pressure per unit realized autonomic support before saturation compresses the response",
+    "Positive pressure-compartment response time",
+    "Positive fast autonomic effector relaxation time",
+    "Positive baroreflex sensitivity to pressure error, in inverse mmHg",
+    "Pressure-error scale governing how autonomic pressure-support efficacy increases and then saturates with pressure deviation, in inverse mmHg",
+    "Relative contribution of the slow autonomic support channel to pressure support",
+    "Positive relaxation time of the slower autonomic support channel",
+    "Positive time constant for downstream mechanical/vascular realization of recruited autonomic support"
+  ],
+  "symbol_properties": [
+    "O",
+    "V",
+    "S",
+    "S",
+    "S",
+    "S",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P"
+  ],
+  "new_symbol_range_suggestions": {
+    "w": "-1 to 1",
+    "hemodynamic_transduction_time_constant": "positive, smaller than or comparable to a few pressure_time_constant values"
+  },
+  "derivation_notes": "The parent assumed recruited autonomic tone alters pressure support immediately once u and v change. Here that combined support first enters a downstream realized-support state w that relaxes toward the instantaneous neural support, capturing finite electromechanical and vasomotor transduction; its initial condition is set to the baseline zero-deviation support so the added branch is dynamically consistent and non-degenerate after perturbation.",
+  "change_summary": "A finite hemodynamic transduction lag was added between autonomic recruitment and realized pressure support. This creates an extra phase lag in dP_a_dt relative to u and v, especially when autonomic recruitment is fast compared with pressure evolution.",
+  "assumption_audit": {
+    "released_assumption": "Autonomic modulation of cardiac and vascular support acts on the pressure equation without any additional downstream dynamic lag beyond the u and v state kinetics.",
+    "outcome": "state_augmentation",
+    "quantity": "w",
+    "quantity_role": "internal_state",
+    "mechanism": "Finite electromechanical and vascular smooth-muscle transduction causes recruited autonomic tone to be realized as effective pressure support only after a short delay, adding phase lag and smoothing to pressure recovery.",
+    "reference_condition": {},
+    "parent_reduction": "As hemodynamic_transduction_time_constant -> 0, w tracks ((u - u_baseline)*(1 - (u - u_baseline)**2)) + slow_support_weight*(v - u_baseline)*(1 - (v - u_baseline)**2) quasi-instantly and the parent pressure law is recovered."
+  },
+  "add_term_audit": null,
+  "evolution_contract": {
+    "operation": "change_assumption",
+    "parent_shortcut": "single_phase",
+    "response_change": {
+      "type": "phase_shift",
+      "parent_relation": "The target mapping uses the current fast and slow autonomic tones instantaneously: dP_a_dt depends only on the present weighted support from u and v at the current pressure, so pressure support has no additional transduction lag beyond the u and v dynamics themselves.",
+      "child_relation": "Introduce a finite downstream hemodynamic transduction state so the effect of recruited autonomic tone on pressure support is delayed and smoothed before reaching dP_a_dt, creating an additional phase lag between baroreflex recruitment and pressure restoration.",
+      "affected_inputs": [
+        "P_a",
+        "u",
+        "v"
+      ],
+      "observable_effect": "For matched early u and v recruitment after a brief pressure perturbation, the child shows a later pressure-support peak and more delayed pressure turning point or deeper transient undershoot/overshoot than the parent, especially when autonomic recruitment is fast relative to vascular-pressure transduction."
+    },
+    "diagnostic_groups": [
+      {
+        "name": "tone_support_parent",
+        "expression": "((u - u_baseline)*(1 - (u - u_baseline)**2)) + slow_support_weight*(v - u_baseline)*(1 - (v - u_baseline)**2)",
+        "role": "Instantaneous combined autonomic support signal in the parent"
+      },
+      {
+        "name": "pressure_error",
+        "expression": "P_set - P_a",
+        "role": "Baroreflex driving error and pressure-dependence coordinate"
+      },
+      {
+        "name": "timescale_ratio",
+        "expression": "autonomic_time_constant/pressure_time_constant",
+        "role": "Relative speed of fast autonomic recruitment versus pressure-compartment response"
+      }
+    ],
+    "activation_condition": "Most visible when autonomic recruitment is not much slower than pressure evolution, i.e. autonomic_time_constant comparable to or smaller than pressure_time_constant, and the perturbation is large enough that u and/or v move appreciably away from u_baseline while remaining within their admissible bounded range.",
+    "train_hidden_contrast": "In training, the same mechanism appears as a modest delay between tone recruitment and pressure recovery; in holdout with faster autonomic recruitment or slightly larger perturbations, the extra transduction lag produces a stronger phase separation and altered oscillation timing that the instantaneous parent mapping cannot match with one shared parameter set.",
+    "continuation_path": "Recover the parent law in the limit of vanishing transduction lag, where the added downstream support state tracks the instantaneous combined support from u and v arbitrarily fast.",
+    "freedom_change": "add_state",
+    "promoted_symbol": null,
+    "promotion_reason": "A genuine downstream effector-to-hemodynamic lag is dynamic memory, not a static rescaling of existing terms. Existing states u and v already represent neural effector recruitment, so capturing delayed mechanical/vascular realization of that recruitment requires one additional state rather than only refitting fixed gains or time constants.",
+    "scope_kind": "memory",
+    "scope_symbols": [
+      "P_a",
+      "u",
+      "v",
+      "w"
+    ],
+    "structural_role": "feedback",
+    "domain_mechanism_id": "",
+    "domain_mechanism": "downstream autonomic-to-hemodynamic transduction lag",
+    "scientific_mechanism": "Finite electromechanical and vascular smooth-muscle transduction causes recruited autonomic tone to be realized as effective pressure support only after a short delay, adding phase lag and smoothing to pressure recovery.",
+    "embedding_pattern": "competing_processes",
+    "difficulty_rationale": "The new state inserts dynamic memory between observed autonomic recruitment and pressure change, so dP_a_dt is no longer an instantaneous algebraic function of P_a, u, and v alone. This is structurally harder than a coefficient correction because it creates a separate lagged support process that competes with immediate pressure runoff in different phases of recovery.",
+    "taxonomy_match": "known",
+    "assumption_before": "Autonomic modulation of cardiac and vascular support acts on the pressure equation without any additional downstream dynamic lag beyond the u and v state kinetics.",
+    "assumption_after": "Recruited autonomic support must pass through a finite downstream transduction state before affecting pressure.",
+    "before_fragment": "(P_set + autonomic_pressure_gain*(((u - u_baseline)*(1 - (u - u_baseline)**2)) + slow_support_weight*(v - u_baseline)*(1 - (v - u_baseline)**2))*(1 + (pressure_efficacy_error_gain*(P_set - P_a))/(1 + Abs(pressure_efficacy_error_gain*(P_set - P_a)))) - P_a)/pressure_time_constant",
+    "after_fragment": "(P_set + autonomic_pressure_gain*w*(1 + (pressure_efficacy_error_gain*(P_set - P_a))/(1 + Abs(pressure_efficacy_error_gain*(P_set - P_a)))) - P_a)/pressure_time_constant",
+    "parent_reduction": "As hemodynamic_transduction_time_constant -> 0, w equals ((u - u_baseline)*(1 - (u - u_baseline)**2)) + slow_support_weight*(v - u_baseline)*(1 - (v - u_baseline)**2) and the parent expression is recovered.",
+    "observable_signature": "Compared at the same observed P_a, u, and v during recovery, the child can produce smaller early pressure support and later delayed support because w lags the instantaneous combined tone signal. This phase separation is observable when autonomic recruitment is fast enough that u and v move before realized support fully develops.",
+    "shortcut_blocked": "A single refit of parent gains or time constants can shift overall response speed or amplitude but cannot create an independent lag between observed tone trajectories and dP_a_dt across both slower- and faster-recruitment conditions. Because the parent target mapping is instantaneous in P_a, u, and v, any dataset showing the same local P_a, u, and v but different dP_a_dt due to lagged realized support is structurally incompatible with one shared parent parameter set."
+  },
+  "dimension_track": null,
+  "mechanism_profile": {
+    "allowed_structural_roles": [
+      "response_law",
+      "modulation",
+      "constraint",
+      "feedback",
+      "timescale",
+      "transport_balance"
+    ],
+    "preferred_scopes": [
+      "unary",
+      "pairwise",
+      "state_coupling",
+      "memory"
+    ],
+    "domain_mechanisms": [
+      {
+        "id": "homeostatic_feedback",
+        "description": "negative feedback around a physiological set point",
+        "operations": [
+          "add_term"
+        ]
+      },
+      {
+        "id": "finite_reserve_capacity",
+        "description": "finite storage, transport, or organ capacity",
+        "operations": [
+          "add_term",
+          "change_assumption"
+        ]
+      },
+      {
+        "id": "delayed_regulatory_response",
+        "description": "finite regulatory response time",
+        "operations": [
+          "change_assumption"
+        ]
+      }
+    ],
+    "profile_source": "subfield",
+    "ontology_schema_version": "1.0",
+    "taxonomy_schema_version": "1.0"
+  },
+  "evolution_plan": {
+    "operation": "change_assumption",
+    "parent_shortcut": "single_phase",
+    "response_change": {
+      "type": "phase_shift",
+      "parent_relation": "The target mapping uses the current fast and slow autonomic tones instantaneously: dP_a_dt depends only on the present weighted support from u and v at the current pressure, so pressure support has no additional transduction lag beyond the u and v dynamics themselves.",
+      "child_relation": "Introduce a finite downstream hemodynamic transduction state so the effect of recruited autonomic tone on pressure support is delayed and smoothed before reaching dP_a_dt, creating an additional phase lag between baroreflex recruitment and pressure restoration.",
+      "affected_inputs": [
+        "P_a",
+        "u",
+        "v"
+      ],
+      "observable_effect": "For matched early u and v recruitment after a brief pressure perturbation, the child shows a later pressure-support peak and more delayed pressure turning point or deeper transient undershoot/overshoot than the parent, especially when autonomic recruitment is fast relative to vascular-pressure transduction."
+    },
+    "diagnostic_groups": [
+      {
+        "name": "tone_support_parent",
+        "expression": "((u - u_baseline)*(1 - (u - u_baseline)**2)) + slow_support_weight*(v - u_baseline)*(1 - (v - u_baseline)**2)",
+        "role": "Instantaneous combined autonomic support signal in the parent"
+      },
+      {
+        "name": "pressure_error",
+        "expression": "P_set - P_a",
+        "role": "Baroreflex driving error and pressure-dependence coordinate"
+      },
+      {
+        "name": "timescale_ratio",
+        "expression": "autonomic_time_constant/pressure_time_constant",
+        "role": "Relative speed of fast autonomic recruitment versus pressure-compartment response"
+      }
+    ],
+    "activation_condition": "Most visible when autonomic recruitment is not much slower than pressure evolution, i.e. autonomic_time_constant comparable to or smaller than pressure_time_constant, and the perturbation is large enough that u and/or v move appreciably away from u_baseline while remaining within their admissible bounded range.",
+    "train_hidden_contrast": "In training, the same mechanism appears as a modest delay between tone recruitment and pressure recovery; in holdout with faster autonomic recruitment or slightly larger perturbations, the extra transduction lag produces a stronger phase separation and altered oscillation timing that the instantaneous parent mapping cannot match with one shared parameter set.",
+    "continuation_path": "Recover the parent law in the limit of vanishing transduction lag, where the added downstream support state tracks the instantaneous combined support from u and v arbitrarily fast.",
+    "freedom_change": "add_state",
+    "promoted_symbol": null,
+    "promotion_reason": "A genuine downstream effector-to-hemodynamic lag is dynamic memory, not a static rescaling of existing terms. Existing states u and v already represent neural effector recruitment, so capturing delayed mechanical/vascular realization of that recruitment requires one additional state rather than only refitting fixed gains or time constants.",
+    "gap_statement": "The model assumes autonomic effector recruitment changes pressure support instantaneously once u and v have changed, omitting finite peripheral/cardiovascular transduction delay between recruited tone and realized pressure support.",
+    "baseline_assumption": "Autonomic modulation of cardiac and vascular support acts on the pressure equation without any additional downstream dynamic lag beyond the u and v state kinetics.",
+    "scientific_mechanism": "Finite electromechanical and vascular smooth-muscle transduction causes recruited autonomic tone to be realized as effective pressure support only after a short delay, adding phase lag and smoothing to pressure recovery.",
+    "affected_symbols": [
+      "P_a",
+      "u",
+      "v",
+      "pressure_time_constant",
+      "autonomic_time_constant",
+      "slow_autonomic_time_constant",
+      "slow_support_weight",
+      "autonomic_pressure_gain"
+    ],
+    "rationale": "A realistic next refinement is to relax the parent's instantaneous effector-to-pressure assumption. In the parent, once u and v are known, the scored target dP_a_dt is fixed immediately by their current weighted support and current pressure; this is a single-phase mapping from autonomic recruitment to pressure change. Vary the relative speed of autonomic recruitment to pressure evolution by considering admissible conditions where autonomic_time_constant is smaller versus larger relative to pressure_time_constant, while holding the set point, baseline tone, and pressure-support nonlinearities fixed. Under fast recruitment, physiology allows u to rise promptly while realized vascular/cardiac mechanical support still builds over a short delay. Then the child would show pressure recovery that lags behind tone recruitment, with a later pressure minimum or later rebound than the parent predicts from the same observed u and v. This changes the target mapping itself, not merely auxiliary trajectories, because dP_a_dt at a given time is no longer determined solely by the instantaneous values of P_a, u, and v through the parent algebraic support law. A single refit of existing parent parameters can shift overall speed or gain, but it cannot simultaneously preserve the observed u and v trajectories and create an additional independent phase lag from tone to pressure support across both slower and faster recruitment regimes. The effect is scientifically admissible for brief perturbation recovery, remains bounded if the added transduction is relaxing, and vanishes continuously when the transduction lag tends to zero."
+  },
+  "selected_embedding_pattern": {
+    "description": "Introduce a gain or loss that competes with an existing process in different state regions.",
+    "difficulty_level": 7,
+    "operations": [
+      "add_term",
+      "change_assumption"
+    ],
+    "model_families": [
+      "static",
+      "ode"
+    ],
+    "minimum_active_quantities": 1,
+    "weight": 12,
+    "id": "competing_processes"
+  },
+  "ode_system": {
+    "time_symbol": "t",
+    "target_state": "P_a",
+    "states": [
+      {
+        "symbol": "P_a",
+        "rhs": "(P_set + autonomic_pressure_gain*w*(1 + (pressure_efficacy_error_gain*(P_set - P_a))/(1 + Abs(pressure_efficacy_error_gain*(P_set - P_a)))) - P_a)/pressure_time_constant",
+        "initial_condition": 120.0,
+        "description": "Mean arterial pressure in mmHg"
+      },
+      {
+        "symbol": "u",
+        "rhs": "((u_baseline - u) + baroreflex_sensitivity*(P_set - P_a)*u*(1 - u))/autonomic_time_constant",
+        "initial_condition": 0.5,
+        "description": "Normalized fast autonomic effector tone supporting prompt cardiac pressure support"
+      },
+      {
+        "symbol": "v",
+        "rhs": "((u_baseline - v) + baroreflex_sensitivity*(P_set - P_a)*v*(1 - v))/slow_autonomic_time_constant",
+        "initial_condition": 0.5,
+        "description": "Normalized slower autonomic effector tone representing delayed vasomotor support"
+      },
+      {
+        "symbol": "w",
+        "rhs": "((((u - u_baseline)*(1 - (u - u_baseline)**2)) + slow_support_weight*(v - u_baseline)*(1 - (v - u_baseline)**2)) - w)/hemodynamic_transduction_time_constant",
+        "initial_condition": 0.0,
+        "description": "Realized downstream hemodynamic support after finite autonomic-to-pressure transduction"
+      }
+    ]
+  },
+  "scenario_text": "Follow arterial pressure and a lumped autonomic effector tone after a brief pressure perturbation. Pressure changes through the mismatch between cardiac delivery and peripheral runoff, while pressure-sensitive autonomic feedback adjusts cardiac and vascular support toward a fixed set point. The finite response time of autonomic tone can produce a damped oscillatory recovery rather than an instantaneous return. Blood volume, respiratory forcing, and slower renal and hormonal regulation are treated as fixed background conditions.",
+  "freedom_change": "add_state",
+  "promoted_symbol": null,
+  "promotion_reason": "A genuine downstream effector-to-hemodynamic lag is dynamic memory, not a static rescaling of existing terms. Existing states u and v already represent neural effector recruitment, so capturing delayed mechanical/vascular realization of that recruitment requires one additional state rather than only refitting fixed gains or time constants.",
+  "parent_shortcut": "single_phase",
+  "response_change": {
+    "type": "phase_shift",
+    "parent_relation": "The target mapping uses the current fast and slow autonomic tones instantaneously: dP_a_dt depends only on the present weighted support from u and v at the current pressure, so pressure support has no additional transduction lag beyond the u and v dynamics themselves.",
+    "child_relation": "Introduce a finite downstream hemodynamic transduction state so the effect of recruited autonomic tone on pressure support is delayed and smoothed before reaching dP_a_dt, creating an additional phase lag between baroreflex recruitment and pressure restoration.",
+    "affected_inputs": [
+      "P_a",
+      "u",
+      "v"
+    ],
+    "observable_effect": "For matched early u and v recruitment after a brief pressure perturbation, the child shows a later pressure-support peak and more delayed pressure turning point or deeper transient undershoot/overshoot than the parent, especially when autonomic recruitment is fast relative to vascular-pressure transduction."
+  },
+  "diagnostic_groups": [
+    {
+      "name": "tone_support_parent",
+      "expression": "((u - u_baseline)*(1 - (u - u_baseline)**2)) + slow_support_weight*(v - u_baseline)*(1 - (v - u_baseline)**2)",
+      "role": "Instantaneous combined autonomic support signal in the parent"
+    },
+    {
+      "name": "pressure_error",
+      "expression": "P_set - P_a",
+      "role": "Baroreflex driving error and pressure-dependence coordinate"
+    },
+    {
+      "name": "timescale_ratio",
+      "expression": "autonomic_time_constant/pressure_time_constant",
+      "role": "Relative speed of fast autonomic recruitment versus pressure-compartment response"
+    }
+  ],
+  "activation_condition": "Most visible when autonomic recruitment is not much slower than pressure evolution, i.e. autonomic_time_constant comparable to or smaller than pressure_time_constant, and the perturbation is large enough that u and/or v move appreciably away from u_baseline while remaining within their admissible bounded range.",
+  "train_hidden_contrast": "In training, the same mechanism appears as a modest delay between tone recruitment and pressure recovery; in holdout with faster autonomic recruitment or slightly larger perturbations, the extra transduction lag produces a stronger phase separation and altered oscillation timing that the instantaneous parent mapping cannot match with one shared parameter set.",
+  "continuation_path": "Recover the parent law in the limit of vanishing transduction lag, where the added downstream support state tracks the instantaneous combined support from u and v arbitrarily fast.",
+  "dependent_variable": {
+    "symbol": "dP_a_dt",
+    "description": "Instantaneous rate of change of mean arterial pressure during short-term autonomic recovery"
+  },
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "description": "time"
+    }
+  ],
+  "state_variables": [
+    {
+      "symbol": "P_a",
+      "description": "Mean arterial pressure in mmHg"
+    },
+    {
+      "symbol": "u",
+      "description": "Normalized fast autonomic effector tone supporting prompt cardiac pressure support"
+    },
+    {
+      "symbol": "v",
+      "description": "Normalized slower autonomic effector tone representing delayed vasomotor support"
+    },
+    {
+      "symbol": "w",
+      "description": "Realized downstream hemodynamic support after finite autonomic-to-pressure transduction"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "P_set",
+      "description": "Fixed arterial-pressure set point in mmHg"
+    },
+    {
+      "symbol": "u_baseline",
+      "description": "Baseline autonomic tone at the pressure set point, constrained between zero and one"
+    },
+    {
+      "symbol": "autonomic_pressure_gain",
+      "description": "Mid-range increase in supported arterial pressure per unit realized autonomic support before saturation compresses the response"
+    },
+    {
+      "symbol": "pressure_time_constant",
+      "description": "Positive pressure-compartment response time"
+    },
+    {
+      "symbol": "autonomic_time_constant",
+      "description": "Positive fast autonomic effector relaxation time"
+    },
+    {
+      "symbol": "baroreflex_sensitivity",
+      "description": "Positive baroreflex sensitivity to pressure error, in inverse mmHg"
+    },
+    {
+      "symbol": "pressure_efficacy_error_gain",
+      "description": "Pressure-error scale governing how autonomic pressure-support efficacy increases and then saturates with pressure deviation, in inverse mmHg"
+    },
+    {
+      "symbol": "slow_support_weight",
+      "description": "Relative contribution of the slow autonomic support channel to pressure support"
+    },
+    {
+      "symbol": "slow_autonomic_time_constant",
+      "description": "Positive relaxation time of the slower autonomic support channel"
+    },
+    {
+      "symbol": "hemodynamic_transduction_time_constant",
+      "description": "Positive time constant for downstream mechanical/vascular realization of recruited autonomic support"
+    }
+  ]
+}

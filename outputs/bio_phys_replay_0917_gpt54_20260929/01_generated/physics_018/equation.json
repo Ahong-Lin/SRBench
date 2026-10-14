@@ -1,0 +1,394 @@
+{
+  "base_id": "m2_fluid_dynamics_20280757_001",
+  "generation": 5,
+  "operation": "change_assumption",
+  "model_family": "ode",
+  "equation_type": "ode_system",
+  "target_symbol": "du_dt",
+  "expression": "-gravity * wavenumber * eta * (1 + finite_amplitude_stiffening * depth_compression * (1 + dynamic_stiffness_phase_sensitivity * shape_lag / depth_saturation_scale)) - linear_damping_rate * u - quadratic_damping_rate * (1 + geometry_drag_sensitivity * depth_compression / depth_saturation_scale**2) * u * Abs(u) / (velocity_transition_scale + Abs(u))",
+  "symbols": [
+    "du_dt",
+    "t",
+    "eta",
+    "u",
+    "depth_compression",
+    "shape_lag",
+    "gravity",
+    "wavenumber",
+    "linear_damping_rate",
+    "quadratic_damping_rate",
+    "velocity_transition_scale",
+    "finite_amplitude_stiffening",
+    "depth_relaxation_rate",
+    "depth_saturation_scale",
+    "geometry_drag_sensitivity",
+    "shape_lag_relaxation_rate",
+    "dynamic_stiffness_phase_sensitivity"
+  ],
+  "symbol_descriptions": [
+    "Time derivative of the depth-averaged wave velocity, in metres per square second",
+    "Time, in seconds",
+    "Free-surface displacement amplitude of the selected standing-wave mode, in metres",
+    "Depth-averaged velocity amplitude of the selected standing-wave mode, in metres per second",
+    "Finite-depth compression surrogate that tracks the saturating geometric contribution of wave excursion to restoring stiffness, in square metres",
+    "Signed dynamic free-surface shape-lag surrogate that tracks whether finite-depth geometry is building or relaxing relative to the current excursion, in metres",
+    "Gravitational acceleration, in metres per square second",
+    "Standing-wave mode wavenumber, in inverse metres",
+    "Linear viscous damping rate, in inverse seconds",
+    "Amplitude-dependent drag coefficient setting the baseline strength of the nonlinear damping contribution, in inverse seconds",
+    "Velocity scale at which the additional damping transitions from weak to strong activation, in metres per second",
+    "Coefficient setting the strength of the finite-amplitude restoring correction, in inverse square metres",
+    "Relaxation rate at which the compression surrogate follows the instantaneous excursion geometry, in inverse seconds",
+    "Excursion scale controlling saturation of the geometric compression surrogate, in metres",
+    "Dimensionless coefficient measuring how finite-depth compression amplifies the nonlinear drag strength",
+    "Relaxation rate governing how quickly the signed geometric lag follows the local excursion rate, in inverse seconds",
+    "Dimensionless coefficient setting how strongly signed geometric lag modulates the finite-amplitude restoring stiffness"
+  ],
+  "symbol_properties": [
+    "O",
+    "V",
+    "S",
+    "S",
+    "S",
+    "S",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P"
+  ],
+  "new_symbol_range_suggestions": {
+    "shape_lag": "signed lag amplitude typically bounded on the order of depth_saturation_scale, with observable activation when Abs(shape_lag) / depth_saturation_scale is small to moderate rather than negligible",
+    "shape_lag_relaxation_rate": "positive inverse-second rate; comparable to or somewhat faster than the oscillation rate for visible but bounded within-cycle phase lag",
+    "dynamic_stiffness_phase_sensitivity": "dimensionless coefficient of either sign with weak-to-moderate magnitude, typically small enough that 1 + dynamic_stiffness_phase_sensitivity * shape_lag / depth_saturation_scale remains positive over admissible trajectories"
+  },
+  "derivation_notes": "The quasi-static finite-amplitude stiffness correction is relaxed by introducing a signed geometric-lag state driven by the excursion rate u and relaxing on its own timescale. This lag modulates the existing restoring-stiffness coefficient, allowing the same eta and depth_compression to produce different acceleration during advancing versus retreating parts of the cycle while recovering the parent when the lag vanishes.",
+  "change_summary": "The nonlinear restoring coefficient now depends on a new signed shape-lag state, representing weak dynamic pressure/free-surface adjustment lag. This creates phase-dependent effective stiffness and within-cycle hysteresis in du_dt versus eta under finite-amplitude, not-overdamped oscillations.",
+  "assumption_audit": {
+    "released_assumption": "Finite-depth restoring correction is determined only by instantaneous displacement filtered through one magnitude-like compression surrogate, with no phase-dependent geometric memory beyond that scalar occupancy.",
+    "outcome": "state_augmentation",
+    "quantity": "shape_lag",
+    "quantity_role": "internal_state",
+    "mechanism": "A weak dynamic free-surface shape/pressure-adjustment lag can make the effective finite-amplitude restoring stiffness depend on whether the excursion is increasing or decreasing, while remaining unforced and bounded.",
+    "reference_condition": {
+      "shape_lag": 0.0
+    },
+    "parent_reduction": "The successor reduces to the parent when dynamic_stiffness_phase_sensitivity = 0, or when shape_lag is identically zero, or in the fast-equilibration/slow-motion limit where the signed lag becomes negligible."
+  },
+  "add_term_audit": null,
+  "evolution_contract": {
+    "operation": "change_assumption",
+    "parent_shortcut": "single_phase",
+    "response_change": {
+      "type": "phase_shift",
+      "parent_relation": "The restoring acceleration depends on eta and the lagged compression surrogate only, so for a given observed eta and depth_compression the stiffness correction is identical whether the surface excursion is growing or receding.",
+      "child_relation": "The finite-amplitude restoring correction will also depend on the sign and magnitude of the local excursion-rate state, creating a rate-dependent phase lag in effective stiffness so the same eta can produce different du_dt during advancing versus retreating motion.",
+      "affected_inputs": [
+        "eta",
+        "u",
+        "depth_compression"
+      ],
+      "observable_effect": "At matched eta and similar depth_compression, the acceleration becomes systematically different between portions of the cycle with positive versus negative excursion rate, producing asymmetric looping in du_dt against eta that the parent cannot generate."
+    },
+    "diagnostic_groups": [
+      {
+        "name": "restoring_core",
+        "expression": "gravity * wavenumber * eta",
+        "role": "Baseline hydrostatic standing-wave restoring acceleration scale"
+      },
+      {
+        "name": "compression_fraction",
+        "expression": "depth_compression / depth_saturation_scale**2",
+        "role": "Normalized finite-depth geometric compression level already used to stiffen and amplify drag"
+      },
+      {
+        "name": "velocity_ratio",
+        "expression": "Abs(u) / velocity_transition_scale",
+        "role": "Dimensionless wave-speed regime indicating when finite-rate effects are dynamically noticeable within a cycle"
+      }
+    ],
+    "activation_condition": "Observable when excursions are large enough that compression_fraction is non-negligible and the standing wave is not overdamped, so u remains appreciable during a cycle; then finite-depth geometry changes quickly enough that restoring response can differ between advancing and receding phases.",
+    "train_hidden_contrast": "In training the effect appears as modest within-cycle hysteresis once both compression_fraction and velocity_ratio reach order-unity influence; in holdout at somewhat larger but still bounded amplitudes the same mechanism strengthens the phase-dependent stiffness difference rather than introducing a different process.",
+    "continuation_path": "Recover the parent law in the limit of vanishing rate-dependent geometric lag, equivalently when the added excursion-rate influence is set to zero or when motion is slow compared with geometric relaxation so restoring stiffness depends only on eta through depth_compression.",
+    "freedom_change": "add_state",
+    "promoted_symbol": null,
+    "promotion_reason": "A distinct excursion-rate or memory state is needed because eta, u, and the existing depth_compression alone do not separately encode whether finite-depth geometry is currently building or relaxing at the same observed displacement. Without an added state, the target mapping remains single-phase in the observed variables.",
+    "scope_kind": "memory",
+    "scope_symbols": [
+      "eta",
+      "u",
+      "depth_compression",
+      "shape_lag"
+    ],
+    "structural_role": "modulation",
+    "domain_mechanism_id": "",
+    "domain_mechanism": "rate-dependent finite-depth restoring stiffness due to dynamic free-surface geometry lag",
+    "scientific_mechanism": "A weak dynamic free-surface shape/pressure-adjustment lag can make the effective finite-amplitude restoring stiffness depend on whether the excursion is increasing or decreasing, while remaining unforced and bounded.",
+    "embedding_pattern": "state_dependent_coefficient",
+    "difficulty_rationale": "This embedding is harder than a coefficient-only correction because the existing restoring term coefficient becomes state dependent through an additional internal memory coordinate, creating a multivalued phase relation in du_dt at the same observed displacement rather than a single global gain change.",
+    "taxonomy_match": "provisional",
+    "assumption_before": "Finite-depth restoring correction is determined only by instantaneous displacement filtered through one magnitude-like compression surrogate, with no phase-dependent geometric memory beyond that scalar occupancy.",
+    "assumption_after": "Finite-amplitude restoring stiffness is weakly modulated by a signed dynamic geometry-lag state driven by excursion rate and relaxing on its own timescale.",
+    "before_fragment": "-gravity * wavenumber * eta * (1 + finite_amplitude_stiffening * depth_compression) - linear_damping_rate * u - quadratic_damping_rate * (1 + geometry_drag_sensitivity * depth_compression / depth_saturation_scale**2) * u * Abs(u) / (velocity_transition_scale + Abs(u))",
+    "after_fragment": "-gravity * wavenumber * eta * (1 + finite_amplitude_stiffening * depth_compression * (1 + dynamic_stiffness_phase_sensitivity * shape_lag / depth_saturation_scale)) - linear_damping_rate * u - quadratic_damping_rate * (1 + geometry_drag_sensitivity * depth_compression / depth_saturation_scale**2) * u * Abs(u) / (velocity_transition_scale + Abs(u))",
+    "parent_reduction": "Set dynamic_stiffness_phase_sensitivity = 0, or shape_lag = 0, to recover the parent restoring law exactly.",
+    "observable_signature": "Conditional on the supplied states, the parent gives one restoring acceleration for each eta and depth_compression, whereas the child admits two systematically different du_dt values at similar eta and depth_compression depending on the sign and recent history encoded by shape_lag. The effect is visible as within-cycle hysteretic loops in du_dt versus eta when compression_fraction is appreciable and u is not negligible.",
+    "shortcut_blocked": "Refitting all parent parameters cannot reproduce this contrast with one shared parameter set because the parent target mapping is single-valued in eta, u, and depth_compression aside from drag, and its restoring contribution has no coordinate that distinguishes advancing from retreating geometry at matched eta and similar depth_compression. Changing damping or static stiffening only rescales or saturates the loop uniformly; it cannot create the phase-dependent restoring split without the added memory state."
+  },
+  "dimension_track": null,
+  "mechanism_profile": {
+    "allowed_structural_roles": [
+      "contribution",
+      "response_law",
+      "modulation",
+      "interaction",
+      "constraint",
+      "transition",
+      "feedback",
+      "heterogeneity",
+      "timescale",
+      "transport_balance"
+    ],
+    "preferred_scopes": [
+      "unary",
+      "pairwise",
+      "state_coupling",
+      "time_forcing"
+    ],
+    "domain_mechanisms": [
+      {
+        "id": "nonlinear_constitutive_response",
+        "description": "nonlinear constitutive or response law",
+        "operations": [
+          "add_term",
+          "change_assumption"
+        ]
+      },
+      {
+        "id": "coupled_field_or_force",
+        "description": "coupling to an already declared field, force, or state",
+        "operations": [
+          "add_term"
+        ]
+      },
+      {
+        "id": "finite_relaxation_or_threshold",
+        "description": "finite response time or physical threshold",
+        "operations": [
+          "change_assumption"
+        ]
+      }
+    ],
+    "profile_source": "subject_fallback",
+    "ontology_schema_version": "1.0",
+    "taxonomy_schema_version": "1.0"
+  },
+  "evolution_plan": {
+    "operation": "change_assumption",
+    "parent_shortcut": "single_phase",
+    "response_change": {
+      "type": "phase_shift",
+      "parent_relation": "The restoring acceleration depends on eta and the lagged compression surrogate only, so for a given observed eta and depth_compression the stiffness correction is identical whether the surface excursion is growing or receding.",
+      "child_relation": "The finite-amplitude restoring correction will also depend on the sign and magnitude of the local excursion-rate state, creating a rate-dependent phase lag in effective stiffness so the same eta can produce different du_dt during advancing versus retreating motion.",
+      "affected_inputs": [
+        "eta",
+        "u",
+        "depth_compression"
+      ],
+      "observable_effect": "At matched eta and similar depth_compression, the acceleration becomes systematically different between portions of the cycle with positive versus negative excursion rate, producing asymmetric looping in du_dt against eta that the parent cannot generate."
+    },
+    "diagnostic_groups": [
+      {
+        "name": "restoring_core",
+        "expression": "gravity * wavenumber * eta",
+        "role": "Baseline hydrostatic standing-wave restoring acceleration scale"
+      },
+      {
+        "name": "compression_fraction",
+        "expression": "depth_compression / depth_saturation_scale**2",
+        "role": "Normalized finite-depth geometric compression level already used to stiffen and amplify drag"
+      },
+      {
+        "name": "velocity_ratio",
+        "expression": "Abs(u) / velocity_transition_scale",
+        "role": "Dimensionless wave-speed regime indicating when finite-rate effects are dynamically noticeable within a cycle"
+      }
+    ],
+    "activation_condition": "Observable when excursions are large enough that compression_fraction is non-negligible and the standing wave is not overdamped, so u remains appreciable during a cycle; then finite-depth geometry changes quickly enough that restoring response can differ between advancing and receding phases.",
+    "train_hidden_contrast": "In training the effect appears as modest within-cycle hysteresis once both compression_fraction and velocity_ratio reach order-unity influence; in holdout at somewhat larger but still bounded amplitudes the same mechanism strengthens the phase-dependent stiffness difference rather than introducing a different process.",
+    "continuation_path": "Recover the parent law in the limit of vanishing rate-dependent geometric lag, equivalently when the added excursion-rate influence is set to zero or when motion is slow compared with geometric relaxation so restoring stiffness depends only on eta through depth_compression.",
+    "freedom_change": "add_state",
+    "promoted_symbol": null,
+    "promotion_reason": "A distinct excursion-rate or memory state is needed because eta, u, and the existing depth_compression alone do not separately encode whether finite-depth geometry is currently building or relaxing at the same observed displacement. Without an added state, the target mapping remains single-phase in the observed variables.",
+    "gap_statement": "The current model assumes finite-amplitude hydrostatic stiffening is quasi-static apart from the compression surrogate magnitude, omitting any dynamical lag of the free-surface geometry relative to the standing-wave excursion.",
+    "baseline_assumption": "Finite-depth restoring correction is determined only by instantaneous displacement filtered through one magnitude-like compression surrogate, with no phase-dependent geometric memory beyond that scalar occupancy.",
+    "scientific_mechanism": "A weak dynamic free-surface shape/pressure-adjustment lag can make the effective finite-amplitude restoring stiffness depend on whether the excursion is increasing or decreasing, while remaining unforced and bounded.",
+    "affected_symbols": [
+      "eta",
+      "u",
+      "depth_compression"
+    ],
+    "rationale": "A realistic next refinement is to relax the quasi-static assumption behind the nonlinear restoring correction. The parent already includes finite-amplitude stiffening, but it uses a single compression surrogate that depends only on excursion magnitude and relaxes monotonically toward a symmetric geometric target. Thus, conditional on the observed states eta and depth_compression, the restoring part of du_dt has one fixed phase relation: the same eta and depth_compression imply the same restoring correction regardless of whether the surface is moving toward or away from crest. Vary the oscillation amplitude so that finite-depth effects are visible, while holding gravity, wavenumber, and damping parameters fixed and keeping the same observation protocol over time. In that admissible regime, a child model with an added rate-memory state can produce a measurable contrast: during rapid excursion growth versus decay at similar eta, the effective stiffness differs, changing the local slope/loop structure of du_dt versus eta. A single refitted parent parameter set cannot reproduce this phase-dependent contrast across those conditions because its restoring mapping is single-valued in the supplied states and lacks any extra coordinate that distinguishes advancing from receding geometry. The refinement remains scientifically admissible because it modifies internal pressure-geometry adjustment without adding forcing, and can be taken weak so dissipation still dominates net energy decay."
+  },
+  "selected_embedding_pattern": {
+    "description": "Make the coefficient of an existing process depend on a declared quantity.",
+    "difficulty_level": 3,
+    "operations": [
+      "add_term",
+      "change_assumption"
+    ],
+    "model_families": [
+      "static",
+      "ode"
+    ],
+    "minimum_active_quantities": 1,
+    "weight": 14,
+    "id": "state_dependent_coefficient"
+  },
+  "ode_system": {
+    "time_symbol": "t",
+    "target_state": "u",
+    "states": [
+      {
+        "symbol": "eta",
+        "rhs": "u",
+        "initial_condition": 0.04,
+        "description": "Free-surface displacement amplitude of the selected standing-wave mode, in metres"
+      },
+      {
+        "symbol": "u",
+        "rhs": "-gravity * wavenumber * eta * (1 + finite_amplitude_stiffening * depth_compression * (1 + dynamic_stiffness_phase_sensitivity * shape_lag / depth_saturation_scale)) - linear_damping_rate * u - quadratic_damping_rate * (1 + geometry_drag_sensitivity * depth_compression / depth_saturation_scale**2) * u * Abs(u) / (velocity_transition_scale + Abs(u))",
+        "initial_condition": 0.1,
+        "description": "Depth-averaged velocity amplitude of the selected standing-wave mode, in metres per second"
+      },
+      {
+        "symbol": "depth_compression",
+        "rhs": "depth_relaxation_rate * (depth_saturation_scale * Abs(eta) * tanh(Abs(eta) / depth_saturation_scale) - depth_compression)",
+        "initial_condition": 0.0,
+        "description": "Finite-depth compression surrogate that follows excursion geometry and saturates the restoring stiffening contribution at larger amplitudes"
+      },
+      {
+        "symbol": "shape_lag",
+        "rhs": "shape_lag_relaxation_rate * (u - shape_lag)",
+        "initial_condition": 0.0,
+        "description": "Signed dynamic free-surface shape-lag surrogate that follows excursion-rate changes with finite relaxation, distinguishing advancing from retreating geometry"
+      }
+    ]
+  },
+  "scenario_text": "A small free-surface displacement in a long channel evolves as a damped standing wave. The benchmark jointly evolves the surface displacement and its associated depth-averaged velocity, with gravity and channel geometry held fixed. Pressure restoring motion produces repeated sign changes, while viscosity removes mechanical energy over time. Wave breaking, external forcing, and lateral modes are absent from the baseline system.",
+  "freedom_change": "add_state",
+  "promoted_symbol": null,
+  "promotion_reason": "A distinct excursion-rate or memory state is needed because eta, u, and the existing depth_compression alone do not separately encode whether finite-depth geometry is currently building or relaxing at the same observed displacement. Without an added state, the target mapping remains single-phase in the observed variables.",
+  "parent_shortcut": "single_phase",
+  "response_change": {
+    "type": "phase_shift",
+    "parent_relation": "The restoring acceleration depends on eta and the lagged compression surrogate only, so for a given observed eta and depth_compression the stiffness correction is identical whether the surface excursion is growing or receding.",
+    "child_relation": "The finite-amplitude restoring correction will also depend on the sign and magnitude of the local excursion-rate state, creating a rate-dependent phase lag in effective stiffness so the same eta can produce different du_dt during advancing versus retreating motion.",
+    "affected_inputs": [
+      "eta",
+      "u",
+      "depth_compression"
+    ],
+    "observable_effect": "At matched eta and similar depth_compression, the acceleration becomes systematically different between portions of the cycle with positive versus negative excursion rate, producing asymmetric looping in du_dt against eta that the parent cannot generate."
+  },
+  "diagnostic_groups": [
+    {
+      "name": "restoring_core",
+      "expression": "gravity * wavenumber * eta",
+      "role": "Baseline hydrostatic standing-wave restoring acceleration scale"
+    },
+    {
+      "name": "compression_fraction",
+      "expression": "depth_compression / depth_saturation_scale**2",
+      "role": "Normalized finite-depth geometric compression level already used to stiffen and amplify drag"
+    },
+    {
+      "name": "velocity_ratio",
+      "expression": "Abs(u) / velocity_transition_scale",
+      "role": "Dimensionless wave-speed regime indicating when finite-rate effects are dynamically noticeable within a cycle"
+    }
+  ],
+  "activation_condition": "Observable when excursions are large enough that compression_fraction is non-negligible and the standing wave is not overdamped, so u remains appreciable during a cycle; then finite-depth geometry changes quickly enough that restoring response can differ between advancing and receding phases.",
+  "train_hidden_contrast": "In training the effect appears as modest within-cycle hysteresis once both compression_fraction and velocity_ratio reach order-unity influence; in holdout at somewhat larger but still bounded amplitudes the same mechanism strengthens the phase-dependent stiffness difference rather than introducing a different process.",
+  "continuation_path": "Recover the parent law in the limit of vanishing rate-dependent geometric lag, equivalently when the added excursion-rate influence is set to zero or when motion is slow compared with geometric relaxation so restoring stiffness depends only on eta through depth_compression.",
+  "dependent_variable": {
+    "symbol": "du_dt",
+    "description": "Time derivative of the depth-averaged wave velocity, in metres per square second"
+  },
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "description": "Time, in seconds"
+    }
+  ],
+  "state_variables": [
+    {
+      "symbol": "eta",
+      "description": "Free-surface displacement amplitude of the selected standing-wave mode, in metres"
+    },
+    {
+      "symbol": "u",
+      "description": "Depth-averaged velocity amplitude of the selected standing-wave mode, in metres per second"
+    },
+    {
+      "symbol": "depth_compression",
+      "description": "Finite-depth compression surrogate that tracks the saturating geometric contribution of wave excursion to restoring stiffness, in square metres"
+    },
+    {
+      "symbol": "shape_lag",
+      "description": "Signed dynamic free-surface shape-lag surrogate that tracks whether finite-depth geometry is building or relaxing relative to the current excursion, in metres"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "gravity",
+      "description": "Gravitational acceleration, in metres per square second"
+    },
+    {
+      "symbol": "wavenumber",
+      "description": "Standing-wave mode wavenumber, in inverse metres"
+    },
+    {
+      "symbol": "linear_damping_rate",
+      "description": "Linear viscous damping rate, in inverse seconds"
+    },
+    {
+      "symbol": "quadratic_damping_rate",
+      "description": "Amplitude-dependent drag coefficient setting the baseline strength of the nonlinear damping contribution, in inverse seconds"
+    },
+    {
+      "symbol": "velocity_transition_scale",
+      "description": "Velocity scale at which the additional damping transitions from weak to strong activation, in metres per second"
+    },
+    {
+      "symbol": "finite_amplitude_stiffening",
+      "description": "Coefficient setting the strength of the finite-amplitude restoring correction, in inverse square metres"
+    },
+    {
+      "symbol": "depth_relaxation_rate",
+      "description": "Relaxation rate at which the compression surrogate follows the instantaneous excursion geometry, in inverse seconds"
+    },
+    {
+      "symbol": "depth_saturation_scale",
+      "description": "Excursion scale controlling saturation of the geometric compression surrogate, in metres"
+    },
+    {
+      "symbol": "geometry_drag_sensitivity",
+      "description": "Dimensionless coefficient measuring how finite-depth compression amplifies the nonlinear drag strength"
+    },
+    {
+      "symbol": "shape_lag_relaxation_rate",
+      "description": "Relaxation rate governing how quickly the signed geometric lag follows the local excursion rate, in inverse seconds"
+    },
+    {
+      "symbol": "dynamic_stiffness_phase_sensitivity",
+      "description": "Dimensionless coefficient setting how strongly signed geometric lag modulates the finite-amplitude restoring stiffness"
+    }
+  ]
+}

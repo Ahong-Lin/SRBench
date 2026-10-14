@@ -1,0 +1,217 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "x",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        2.5
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "recovery_time_constant",
+      "value": 0.8
+    },
+    {
+      "symbol": "facilitation_time_constant",
+      "value": 0.2
+    },
+    {
+      "symbol": "presynaptic_rate",
+      "value": 15.0
+    },
+    {
+      "symbol": "baseline_utilization",
+      "value": 0.25
+    },
+    {
+      "symbol": "fatigue_build_time_constant",
+      "value": 0.5
+    },
+    {
+      "symbol": "fatigue_recovery_time_constant",
+      "value": 1.2
+    },
+    {
+      "symbol": "release_site_reset_time_constant",
+      "value": 0.05
+    }
+  ],
+  "benchmark_output": "dx_dt",
+  "benchmark_target_state": "x",
+  "observed_variables": [
+    "t",
+    "x",
+    "u",
+    "replenishment_fatigue",
+    "release_site_occupancy"
+  ],
+  "rhs_for_integrator": "(1 - x)/(recovery_time_constant*(1 + replenishment_fatigue)) - presynaptic_rate*(1 - release_site_occupancy)*u*x**2/((1 + replenishment_fatigue)*(1 + baseline_utilization*replenishment_fatigue))",
+  "state_variables": [
+    "x",
+    "u",
+    "replenishment_fatigue",
+    "release_site_occupancy"
+  ],
+  "state_rhs": [
+    "(1 - x)/(recovery_time_constant*(1 + replenishment_fatigue)) - presynaptic_rate*(1 - release_site_occupancy)*u*x**2/((1 + replenishment_fatigue)*(1 + baseline_utilization*replenishment_fatigue))",
+    "(baseline_utilization - u)/facilitation_time_constant + presynaptic_rate*baseline_utilization*(1 - u)",
+    "presynaptic_rate*u*(1 - replenishment_fatigue)/fatigue_build_time_constant - replenishment_fatigue/fatigue_recovery_time_constant",
+    "presynaptic_rate*u*(1 - release_site_occupancy) - release_site_occupancy/release_site_reset_time_constant"
+  ],
+  "initial_conditions": {
+    "x": 0.8,
+    "u": 0.2,
+    "replenishment_fatigue": 0.0,
+    "release_site_occupancy": 0.0
+  },
+  "sanity_expectations": [
+    "All sampled quantities should remain finite and real for the chosen parameters.",
+    "At t=0, replenishment_fatigue=0 and release_site_occupancy=0, so the x-depletion branch initially matches the low-fatigue parent-reduction limit apart from the already-present x**2 nonlinearity.",
+    "Under sustained drive, u should rise above its initial value toward a facilitated level on the facilitation_time_constant scale, while release_site_occupancy and replenishment_fatigue increase from zero to nonzero values.",
+    "As replenishment_fatigue grows, the extra factor 1/(1 + baseline_utilization*replenishment_fatigue) should make the depletion contribution to dx/dt less negative than it would be under the parent equation with the same states; this contrast should be most visible in later, moderately fatigued portions of the trajectory rather than at onset.",
+    "Because release_site_reset_time_constant is short but finite, release_site_occupancy should transiently limit effective depletion at higher drive without pinning occupancy identically to zero.",
+    "x should show an initial decline from 0.8 under net depletion, then potentially partial slowing of decline or approach to a driven steady state as occupancy/fatigue modulation and recovery compete."
+  ],
+  "role_corrections": [
+    "dx_dt: claimed-output/target derivative -> target derivative expression (confirmed; scored quantity is x via its ODE RHS in the inherited system contract)",
+    "t: claimed-input/time axis -> independent variable (confirmed)",
+    "x: claimed-dynamic state -> dependent variable / state variable (confirmed)",
+    "u: claimed-dynamic state -> state variable (confirmed)",
+    "replenishment_fatigue: claimed-dynamic state -> state variable (confirmed)",
+    "release_site_occupancy: claimed-dynamic state -> state variable (confirmed)",
+    "recovery_time_constant: claimed-parameter -> parameter (confirmed)",
+    "facilitation_time_constant: claimed-parameter -> parameter (confirmed)",
+    "presynaptic_rate: claimed-parameter -> parameter (confirmed; fixed by explicit freedom decision and ODE contract)",
+    "baseline_utilization: claimed-parameter -> parameter (confirmed)",
+    "fatigue_build_time_constant: claimed-parameter -> parameter (confirmed)",
+    "fatigue_recovery_time_constant: claimed-parameter -> parameter (confirmed)",
+    "release_site_reset_time_constant: claimed-parameter -> parameter (confirmed)",
+    "equation type: explicit label from local expression -> ode_system (overridden by inherited typed ODE contract, which must be preserved exactly)"
+  ],
+  "rationale": "Preserving the provided ODE-system contract exactly as required: x is the target state, t is the only sampled axis, and all listed symbols remain fixed parameters. The chosen regime is sustained moderate-to-high presynaptic drive, not an extreme asymptote: presynaptic_rate=15 with fast facilitation buildup (0.2), finite replenishment-fatigue buildup/recovery (0.5, 1.2), and rapid but non-instantaneous release-site reset (0.05). This should drive the system from the initial low-fatigue, low-occupancy state into a visible transient where u rises above baseline, release_site_occupancy becomes non-negligible, and replenishment_fatigue accumulates enough for the extra denominator (1 + baseline_utilization*replenishment_fatigue) to matter without putting every sample deep into saturation. The 0 to 2.5 time window is long enough to capture early low-fatigue behavior, intermediate transition, and later sustained fatigued behavior, which directly exposes the recorded distinguishing condition: compare early versus later portions of the same maintained-rate trajectory at similar x or similar effective drive, where the child law predicts less-negative depletion than the parent due to selective extra fatigue attenuation on the depletion branch. Weak/inactive effect honestly noted: exactly at t=0, replenishment_fatigue and release_site_occupancy start at zero, so the added fatigue-specific modulation is initially inactive and the trajectory begins close to the parent reduction; the intended contrast appears only after the reachable states evolve under sustained drive.",
+  "coverage_report": {},
+  "inactive_mechanisms": [],
+  "target_variance": {},
+  "parent_absorption_report": {},
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_qBw15UoizPm4B3K5InrRWtsn"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "(1 - x)/(recovery_time_constant*(1 + replenishment_fatigue)) - presynaptic_rate*(1 - release_site_occupancy)*u*x**2/((1 + replenishment_fatigue)*(1 + baseline_utilization*replenishment_fatigue))",
+        "target_symbol": "dx_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "baseline_utilization",
+          "presynaptic_rate",
+          "recovery_time_constant",
+          "release_site_occupancy",
+          "replenishment_fatigue",
+          "u",
+          "x"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "-presynaptic_rate*u*x**2*(1 - release_site_occupancy)/((replenishment_fatigue + 1)*(baseline_utilization*replenishment_f"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_A3pyCGSVqVakc2fgxSOI7Ukx"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "(1 - x)/(recovery_time_constant*(1 + replenishment_fatigue)) - presynaptic_rate*(1 - release_site_occupancy)*u*x**2/((1 + replenishment_fatigue)*(1 + baseline_utilization*replenishment_fatigue))",
+        "target_symbol": "dx_dt",
+        "assignments": {
+          "x": 0.8,
+          "u": 0.2,
+          "replenishment_fatigue": 0.0,
+          "release_site_occupancy": 0.0,
+          "recovery_time_constant": 0.8,
+          "facilitation_time_constant": 0.2,
+          "presynaptic_rate": 15.0,
+          "baseline_utilization": 0.25,
+          "fatigue_build_time_constant": 0.5,
+          "fatigue_recovery_time_constant": 1.2,
+          "release_site_reset_time_constant": 0.05
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": -1.6700000000000004,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_nUwAQZGASDDa3FYgnMeQzJce"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_b4fIMe9seDzArrdFLcFdk72a"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 4
+}

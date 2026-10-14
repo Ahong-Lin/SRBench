@@ -1,0 +1,13 @@
+"""Exact ground truth. Private Harbor oracle solution."""
+import sympy
+
+FEATURES = ['P_O2', 'P50_O2', 'hemoglobin_variant_fraction', 'P_CO2']
+TARGET = 'S_O2'
+PARAMETERS = {'hill_coefficient': 1.4, 'adair_alpha2': 1.2, 'adair_alpha3': 0.9, 'variant_P50_ratio': 1.6, 'variant_hill_coefficient': 1.8, 'variant_adair_alpha2': 1.1, 'variant_adair_alpha3': 0.8, 'co2_affinity_shift': 0.004, 'variant_co2_affinity_shift': 0.006}
+_symbols = {name: sympy.Symbol(name) for name in ['P_O2', 'P50_O2', 'hemoglobin_variant_fraction', 'P_CO2', 'hill_coefficient', 'adair_alpha2', 'adair_alpha3', 'variant_P50_ratio', 'variant_hill_coefficient', 'variant_adair_alpha2', 'variant_adair_alpha3', 'co2_affinity_shift', 'variant_co2_affinity_shift', 'S_O2']}
+_expression = sympy.sympify('(1 - hemoglobin_variant_fraction)*(((P_O2/(P50_O2*(1 + co2_affinity_shift*P_CO2)))**hill_coefficient + adair_alpha2*(P_O2/(P50_O2*(1 + co2_affinity_shift*P_CO2)))**(2*hill_coefficient) + adair_alpha3*(P_O2/(P50_O2*(1 + co2_affinity_shift*P_CO2)))**(3*hill_coefficient) + (P_O2/(P50_O2*(1 + co2_affinity_shift*P_CO2)))**(4*hill_coefficient))/(1 + 4*(P_O2/(P50_O2*(1 + co2_affinity_shift*P_CO2)))**hill_coefficient + 6*adair_alpha2*(P_O2/(P50_O2*(1 + co2_affinity_shift*P_CO2)))**(2*hill_coefficient) + 4*adair_alpha3*(P_O2/(P50_O2*(1 + co2_affinity_shift*P_CO2)))**(3*hill_coefficient) + (P_O2/(P50_O2*(1 + co2_affinity_shift*P_CO2)))**(4*hill_coefficient))) + hemoglobin_variant_fraction*(((P_O2/(P50_O2*variant_P50_ratio*(1 + variant_co2_affinity_shift*P_CO2)))**variant_hill_coefficient + variant_adair_alpha2*(P_O2/(P50_O2*variant_P50_ratio*(1 + variant_co2_affinity_shift*P_CO2)))**(2*variant_hill_coefficient) + variant_adair_alpha3*(P_O2/(P50_O2*variant_P50_ratio*(1 + variant_co2_affinity_shift*P_CO2)))**(3*variant_hill_coefficient) + (P_O2/(P50_O2*variant_P50_ratio*(1 + variant_co2_affinity_shift*P_CO2)))**(4*variant_hill_coefficient))/(1 + 4*(P_O2/(P50_O2*variant_P50_ratio*(1 + variant_co2_affinity_shift*P_CO2)))**variant_hill_coefficient + 6*variant_adair_alpha2*(P_O2/(P50_O2*variant_P50_ratio*(1 + variant_co2_affinity_shift*P_CO2)))**(2*variant_hill_coefficient) + 4*variant_adair_alpha3*(P_O2/(P50_O2*variant_P50_ratio*(1 + variant_co2_affinity_shift*P_CO2)))**(3*variant_hill_coefficient) + (P_O2/(P50_O2*variant_P50_ratio*(1 + variant_co2_affinity_shift*P_CO2)))**(4*variant_hill_coefficient)))', locals=_symbols)
+_arguments = [_symbols[name] for name in FEATURES + list(PARAMETERS)]
+_function = sympy.lambdify(_arguments, _expression, modules="numpy")
+
+def law(rows):
+    return [{TARGET: float(_function(*[float(row[name]) for name in FEATURES], *PARAMETERS.values()))} for row in rows]

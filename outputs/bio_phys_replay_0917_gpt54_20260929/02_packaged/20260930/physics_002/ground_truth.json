@@ -1,0 +1,1653 @@
+{
+  "version": 7,
+  "spec": {
+    "equation_type": "ode_system",
+    "integrator": "integrate_system",
+    "dependent_variable": "T_A",
+    "independent_variables": [
+      {
+        "symbol": "t",
+        "range": [
+          0.0,
+          300.0
+        ],
+        "n_points": 301,
+        "scale": "linear"
+      }
+    ],
+    "parameters": [
+      {
+        "symbol": "heat_capacity_A",
+        "value": 100.0
+      },
+      {
+        "symbol": "heat_capacity_B",
+        "value": 120.0
+      },
+      {
+        "symbol": "thermal_conductance",
+        "value": 1.5
+      },
+      {
+        "symbol": "conductance_temp_coeff",
+        "value": 0.001
+      },
+      {
+        "symbol": "contrast_nonlinearity_coeff",
+        "value": 5e-05
+      },
+      {
+        "symbol": "conductance_relaxation_time",
+        "value": 25.0
+      }
+    ],
+    "benchmark_output": "dT_A_dt",
+    "benchmark_target_state": "T_A",
+    "observed_variables": [
+      "t",
+      "T_A",
+      "T_B",
+      "effective_conductance"
+    ],
+    "rhs_for_integrator": "effective_conductance*(T_B - T_A)/(heat_capacity_A*(1 + contrast_nonlinearity_coeff*(1 + conductance_temp_coeff*(T_A + T_B)/2)*(T_B - T_A)**2))",
+    "state_variables": [
+      "T_A",
+      "T_B",
+      "effective_conductance"
+    ],
+    "state_rhs": [
+      "effective_conductance*(T_B - T_A)/(heat_capacity_A*(1 + contrast_nonlinearity_coeff*(1 + conductance_temp_coeff*(T_A + T_B)/2)*(T_B - T_A)**2))",
+      "effective_conductance*(T_A - T_B)/(heat_capacity_B*(1 + contrast_nonlinearity_coeff*(1 + conductance_temp_coeff*(T_A + T_B)/2)*(T_B - T_A)**2))",
+      "(thermal_conductance*(1 + conductance_temp_coeff*(T_A + T_B)/2)*(1 + contrast_nonlinearity_coeff*(T_B - T_A)**2) - effective_conductance)/conductance_relaxation_time"
+    ],
+    "initial_conditions": {
+      "T_A": 400.0,
+      "T_B": 350.0,
+      "effective_conductance": 1.0
+    },
+    "sanity_expectations": [
+      "T_A should decrease monotonically from 400 K and T_B should increase monotonically from 350 K, approaching a common equilibrium temperature because exchange terms are antisymmetric and parameters keep conductance positive.",
+      "The energy proxy heat_capacity_A*T_A + heat_capacity_B*T_B should remain approximately constant along the numerical trajectory.",
+      "effective_conductance should initially increase from 1.0 toward its temperature-dependent quasi-equilibrium value, so the early magnitude of dT_A/dt should strengthen after release before eventually decaying as |T_B-T_A| shrinks.",
+      "Because the denominator contains contrast_nonlinearity_coeff*(1 + conductance_temp_coeff*(T_A+T_B)/2)*(T_B-T_A)^2, the normalized rate dT_A_dt/(T_B-T_A) should become less suppressed as equilibration proceeds and |T_B-T_A| decreases.",
+      "The mean-temperature modulation is active but moderate over the reachable states: the factor 1 + conductance_temp_coeff*(T_A+T_B)/2 should stay positive and vary only modestly across the trajectory, changing curvature rather than causing sign changes or blow-up."
+    ],
+    "role_corrections": [
+      "dT_A_dt: claimed-output/target derivative -> derivative target of dependent variable T_A (confirmed against contract; sampled output comes from the ODE system for T_A)",
+      "t: claimed-input/time axis -> independent variable V (confirmed)",
+      "T_A: claimed-dynamic state -> dynamic state / dependent variable (confirmed)",
+      "T_B: claimed-dynamic state -> dynamic state in coupled system (confirmed)",
+      "effective_conductance: claimed-dynamic state -> dynamic state in coupled system (confirmed; preserved by explicit freedom/contract)",
+      "heat_capacity_A: claimed-parameter -> parameter P (confirmed)",
+      "heat_capacity_B: claimed-parameter -> parameter P (confirmed)",
+      "thermal_conductance: claimed-parameter -> parameter P (confirmed)",
+      "conductance_temp_coeff: claimed-parameter -> parameter P (confirmed)",
+      "contrast_nonlinearity_coeff: claimed-parameter -> parameter P (confirmed)",
+      "conductance_relaxation_time: claimed-parameter -> parameter P (confirmed)"
+    ],
+    "rationale": "The provided typed ODE-system contract is preserved exactly as required. Although the target expression alone is algebraic in the supplied states, the explicit ODE SYSTEM CONTRACT and freedom metadata fix the experimental design: t is the sole sampled axis; T_A, T_B, and effective_conductance are dynamic states; all listed parameter symbols remain fixed parameters. Parameter values are chosen to keep the dynamics physical and visibly nontrivial without driving the system into pathological saturation. With T_A(0)=400 K and T_B(0)=350 K, the mean temperature is 375 K, so 1 + conductance_temp_coeff*(T_A+T_B)/2 ≈ 1.375, giving a noticeable but moderate mean-temperature modulation. The contrast factor at release is contrast_nonlinearity_coeff*(ΔT)^2 = 0.00005*2500 = 0.125, also moderate; thus the denominator in dT_A/dt is about 1.17 initially, so the contrast-saturation effect is active but not dominant and weakens as equilibration proceeds. The quasi-equilibrium conductance target for the effective_conductance state starts near thermal_conductance*(1+0.375)*(1+0.125) ≈ 2.32, while the inherited initial effective_conductance is 1.0, so the relaxation state has a clear transient memory effect rather than starting on its manifold. conductance_relaxation_time = 25 is chosen comparable to, but smaller than, the thermal equilibration time scale implied by heat capacities divided by conductance, making the lag observable early while still allowing substantial adaptation within the time window. The time range 0–300 with 301 points should capture the early conductance-relaxation transient, the mid-course change in normalized rate as contrast decays, and the late approach toward common temperature. This plan exposes the intended generation-5 distinction through reachable states within one trajectory family: as the isolated pair evolves, both contrast and mean temperature change, so the scored target samples a mean-temperature-modulated contrast-saturation law rather than a single global contrast curve. No noise is added.",
+    "coverage_report": {
+      "groups": [
+        {
+          "generation": 1,
+          "name": "delta_T",
+          "expression": "T_B - T_A",
+          "role": "driving temperature contrast for inter-body heat flow",
+          "train_range": [
+            -50.0,
+            -0.003012497999975494
+          ],
+          "hidden_range": [
+            -0.00300568421994285,
+            -0.0009713958279462531
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -50.0,
+            "max": -0.003012497999975494,
+            "q05": -37.69607525602702,
+            "median": -0.4918120796988319,
+            "q95": -0.005016069829434853,
+            "range": 49.996987502000025,
+            "robust_range": 37.691059186197585
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": -0.00300568421994285,
+            "max": -0.0009713958279462531,
+            "q05": -0.002840633260842651,
+            "median": -0.0017089529184204366,
+            "q95": -0.001027847693376316,
+            "range": 0.002034288391996597,
+            "robust_range": 0.001812785567466335
+          }
+        },
+        {
+          "generation": 1,
+          "name": "mean_T",
+          "expression": "(T_A + T_B)/2",
+          "role": "overall temperature level that can modulate contact conductance",
+          "train_range": [
+            372.72740965900005,
+            375.0
+          ],
+          "hidden_range": [
+            372.7273168816286,
+            372.72740934928277
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 372.72740965900005,
+            "max": 375.0,
+            "q05": 372.7275007304468,
+            "median": 372.74962782180455,
+            "q95": 374.4407306934558,
+            "range": 2.2725903409999546,
+            "robust_range": 1.7132299630089847
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 372.7273168816286,
+            "max": 372.72740934928277,
+            "q05": 372.7273194476225,
+            "median": 372.7273504069509,
+            "q95": 372.7274018469664,
+            "range": 9.246765415582558e-05,
+            "robust_range": 8.239934390985582e-05
+          }
+        },
+        {
+          "generation": 1,
+          "name": "pair_energy_proxy",
+          "expression": "heat_capacity_A*T_A + heat_capacity_B*T_B",
+          "role": "conserved total thermal energy proxy for the isolated pair",
+          "train_range": [
+            82000.0,
+            82000.00000000003
+          ],
+          "hidden_range": [
+            82000.0,
+            82000.00000000003
+          ],
+          "train_status": "inactive",
+          "hidden_status": "inactive",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 82000.0,
+            "max": 82000.00000000003,
+            "q05": 82000.0,
+            "median": 82000.00000000001,
+            "q95": 82000.00000000003,
+            "range": 2.9103830456733704e-11,
+            "robust_range": 2.9103830456733704e-11
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 82000.0,
+            "max": 82000.00000000003,
+            "q05": 82000.0,
+            "median": 82000.00000000001,
+            "q95": 82000.00000000003,
+            "range": 2.9103830456733704e-11,
+            "robust_range": 2.9103830456733704e-11
+          }
+        },
+        {
+          "generation": 2,
+          "name": "deltaT_sq",
+          "expression": "(T_B - T_A)**2",
+          "role": "Contrast magnitude used to detect departure from strictly linear transport",
+          "train_range": [
+            9.075144199856353e-06,
+            2500.0
+          ],
+          "hidden_range": [
+            9.436098545513866e-07,
+            9.03413763001346e-06
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 9.075144199856353e-06,
+            "max": 2500.0,
+            "q05": 2.5160962643258312e-05,
+            "median": 0.2418794314038225,
+            "q95": 1420.9942474584607,
+            "range": 2499.999990924856,
+            "robust_range": 1420.994222297498
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 9.436098545513866e-07,
+            "max": 9.03413763001346e-06,
+            "q05": 1.0564711373152786e-06,
+            "median": 2.9205238289771405e-06,
+            "q95": 8.06919928944911e-06,
+            "range": 8.090527775462074e-06,
+            "robust_range": 7.012728152133831e-06
+          }
+        },
+        {
+          "generation": 3,
+          "name": "mean_temp",
+          "expression": "(T_A + T_B)/2",
+          "role": "Current pair mean temperature controlling the equilibrium level of the effective link strength",
+          "train_range": [
+            372.72740965900005,
+            375.0
+          ],
+          "hidden_range": [
+            372.7273168816286,
+            372.72740934928277
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 372.72740965900005,
+            "max": 375.0,
+            "q05": 372.7275007304468,
+            "median": 372.74962782180455,
+            "q95": 374.4407306934558,
+            "range": 2.2725903409999546,
+            "robust_range": 1.7132299630089847
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 372.7273168816286,
+            "max": 372.72740934928277,
+            "q05": 372.7273194476225,
+            "median": 372.7273504069509,
+            "q95": 372.7274018469664,
+            "range": 9.246765415582558e-05,
+            "robust_range": 8.239934390985582e-05
+          }
+        },
+        {
+          "generation": 3,
+          "name": "temp_contrast",
+          "expression": "T_B - T_A",
+          "role": "Driving temperature difference for antisymmetric heat exchange",
+          "train_range": [
+            -50.0,
+            -0.003012497999975494
+          ],
+          "hidden_range": [
+            -0.00300568421994285,
+            -0.0009713958279462531
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -50.0,
+            "max": -0.003012497999975494,
+            "q05": -37.69607525602702,
+            "median": -0.4918120796988319,
+            "q95": -0.005016069829434853,
+            "range": 49.996987502000025,
+            "robust_range": 37.691059186197585
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": -0.00300568421994285,
+            "max": -0.0009713958279462531,
+            "q05": -0.002840633260842651,
+            "median": -0.0017089529184204366,
+            "q95": -0.001027847693376316,
+            "range": 0.002034288391996597,
+            "robust_range": 0.001812785567466335
+          }
+        },
+        {
+          "generation": 3,
+          "name": "contrast_sq",
+          "expression": "(T_B - T_A)**2",
+          "role": "Magnitude of nonlinear transport activation and indicator of regimes where conductance adaptation is most visible",
+          "train_range": [
+            9.075144199856353e-06,
+            2500.0
+          ],
+          "hidden_range": [
+            9.436098545513866e-07,
+            9.03413763001346e-06
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 9.075144199856353e-06,
+            "max": 2500.0,
+            "q05": 2.5160962643258312e-05,
+            "median": 0.2418794314038225,
+            "q95": 1420.9942474584607,
+            "range": 2499.999990924856,
+            "robust_range": 1420.994222297498
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 9.436098545513866e-07,
+            "max": 9.03413763001346e-06,
+            "q05": 1.0564711373152786e-06,
+            "median": 2.9205238289771405e-06,
+            "q95": 8.06919928944911e-06,
+            "range": 8.090527775462074e-06,
+            "robust_range": 7.012728152133831e-06
+          }
+        },
+        {
+          "generation": 4,
+          "name": "contrast_scale",
+          "expression": "contrast_nonlinearity_coeff*(T_B - T_A)**2",
+          "role": "dimensionless measure of departure from linear-response contrast range",
+          "train_range": [
+            4.5375720999281767e-10,
+            0.125
+          ],
+          "hidden_range": [
+            4.718049272756933e-11,
+            4.51706881500673e-10
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 4.5375720999281767e-10,
+            "max": 0.125,
+            "q05": 1.2580481321629158e-09,
+            "median": 1.2093971570191127e-05,
+            "q95": 0.07104971237292304,
+            "range": 0.12499999954624279,
+            "robust_range": 0.0710497111148749
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 4.718049272756933e-11,
+            "max": 4.51706881500673e-10,
+            "q05": 5.2823556865763925e-11,
+            "median": 1.4602619144885704e-10,
+            "q95": 4.034599644724555e-10,
+            "range": 4.045263887731037e-10,
+            "robust_range": 3.506364076066916e-10
+          }
+        },
+        {
+          "generation": 5,
+          "name": "mean_temperature",
+          "expression": "(T_A + T_B)/2",
+          "role": "pair average temperature controlling material transport regime",
+          "train_range": [
+            372.72740965900005,
+            375.0
+          ],
+          "hidden_range": [
+            372.7273168816286,
+            372.72740934928277
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 372.72740965900005,
+            "max": 375.0,
+            "q05": 372.7275007304468,
+            "median": 372.74962782180455,
+            "q95": 374.4407306934558,
+            "range": 2.2725903409999546,
+            "robust_range": 1.7132299630089847
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 372.7273168816286,
+            "max": 372.72740934928277,
+            "q05": 372.7273194476225,
+            "median": 372.7273504069509,
+            "q95": 372.7274018469664,
+            "range": 9.246765415582558e-05,
+            "robust_range": 8.239934390985582e-05
+          }
+        },
+        {
+          "generation": 5,
+          "name": "temperature_contrast",
+          "expression": "T_B - T_A",
+          "role": "driving force for mutual heat exchange",
+          "train_range": [
+            -50.0,
+            -0.003012497999975494
+          ],
+          "hidden_range": [
+            -0.00300568421994285,
+            -0.0009713958279462531
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -50.0,
+            "max": -0.003012497999975494,
+            "q05": -37.69607525602702,
+            "median": -0.4918120796988319,
+            "q95": -0.005016069829434853,
+            "range": 49.996987502000025,
+            "robust_range": 37.691059186197585
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": -0.00300568421994285,
+            "max": -0.0009713958279462531,
+            "q05": -0.002840633260842651,
+            "median": -0.0017089529184204366,
+            "q95": -0.001027847693376316,
+            "range": 0.002034288391996597,
+            "robust_range": 0.001812785567466335
+          }
+        },
+        {
+          "generation": 5,
+          "name": "normalized_exchange_rate",
+          "expression": "effective_conductance/(heat_capacity_A*(1 + contrast_nonlinearity_coeff*(T_B - T_A)**2))",
+          "role": "parent effective proportionality between contrast and body-A temperature rate",
+          "train_range": [
+            0.008888888888888889,
+            0.02059081588029617
+          ],
+          "hidden_range": [
+            0.020590816108612006,
+            0.020590881756094442
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.008888888888888889,
+            "max": 0.02059081588029617,
+            "q05": 0.014238809298144039,
+            "median": 0.02056762550836097,
+            "q95": 0.020590747181063927,
+            "range": 0.011701926991407282,
+            "robust_range": 0.0063519378829198885
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.020590816108612006,
+            "max": 0.020590881756094442,
+            "q05": 0.020590821625172475,
+            "median": 0.020590858648792752,
+            "q95": 0.02059088002828633,
+            "range": 6.564748243620411e-08,
+            "robust_range": 5.8403113855493016e-08
+          }
+        }
+      ],
+      "inactive_mechanisms": [
+        "pair_energy_proxy"
+      ],
+      "visible_mechanisms": [
+        "delta_T",
+        "mean_T",
+        "deltaT_sq",
+        "mean_temp",
+        "temp_contrast",
+        "contrast_sq",
+        "contrast_scale",
+        "mean_temperature",
+        "temperature_contrast",
+        "normalized_exchange_rate"
+      ],
+      "extended_mechanisms": [
+        "delta_T",
+        "mean_T",
+        "deltaT_sq",
+        "mean_temp",
+        "temp_contrast",
+        "contrast_sq",
+        "contrast_scale",
+        "mean_temperature",
+        "temperature_contrast",
+        "normalized_exchange_rate"
+      ]
+    },
+    "inactive_mechanisms": [
+      "pair_energy_proxy"
+    ],
+    "target_variance": {
+      "train": {
+        "n": 4500,
+        "variance": 0.02653726866381067,
+        "range": 0.5248860552038517
+      },
+      "hidden": {
+        "n": 500,
+        "variance": 1.438764898780782e-10,
+        "range": 4.1887594411727204e-05
+      }
+    },
+    "parent_absorption_report": {
+      "status": "ok",
+      "n_points": 512,
+      "fixed_parent_normalized_rmse": 2.0538800968695643,
+      "refit": {
+        "status": "not_run",
+        "reason": "no free parent parameters"
+      },
+      "interpretation": "<1e-3 nearly absorbed; 1e-3..1e-2 weak; >1e-2 visible structure"
+    },
+    "noise": 0.0,
+    "_trace": [
+      {
+        "turn": 1,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "analyze_expression",
+            "id": "call_Fdp8IVyTegQy9KyTIUJRUeDs"
+          }
+        ]
+      },
+      {
+        "tool": "analyze_expression",
+        "input": {
+          "expression": "effective_conductance*(T_B - T_A)/(heat_capacity_A*(1 + contrast_nonlinearity_coeff*(1 + conductance_temp_coeff*(T_A + T_B)/2)*(T_B - T_A)**2))",
+          "target_symbol": "dT_A_dt"
+        },
+        "result": {
+          "ok": true,
+          "free_symbols": [
+            "T_A",
+            "T_B",
+            "conductance_temp_coeff",
+            "contrast_nonlinearity_coeff",
+            "effective_conductance",
+            "heat_capacity_A"
+          ],
+          "functions_of": {},
+          "target_function_calls": [],
+          "delayed_target_calls": [],
+          "ungoverned_functions": [],
+          "derivatives": [],
+          "max_derivative_order": 0,
+          "integral_kernels": [],
+          "explicitly_solvable_for_target": true,
+          "explicit_solution_preview": [
+            "effective_conductance*(-T_A + T_B)/((heat_capacity_A*(contrast_nonlinearity_coeff*(-T_A + T_B)**2*(conductance_temp_coef"
+          ],
+          "classification_hint": "explicit",
+          "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+        }
+      },
+      {
+        "turn": 2,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "check_substitution",
+            "id": "call_GkNcnuOoZxP75JWI6l8Dfwzd"
+          }
+        ]
+      },
+      {
+        "tool": "check_substitution",
+        "input": {
+          "expression": "effective_conductance*(T_B - T_A)/(heat_capacity_A*(1 + contrast_nonlinearity_coeff*(1 + conductance_temp_coeff*(T_A + T_B)/2)*(T_B - T_A)**2))",
+          "target_symbol": "dT_A_dt",
+          "assignments": {
+            "T_A": 400,
+            "T_B": 350,
+            "effective_conductance": 1.0,
+            "heat_capacity_A": 100,
+            "conductance_temp_coeff": 0.001,
+            "contrast_nonlinearity_coeff": 5e-05
+          }
+        },
+        "result": {
+          "ok": true,
+          "value_real": -0.42666666666666675,
+          "value_imag": 0.0,
+          "is_finite": true,
+          "is_real": true,
+          "verdict": "ok",
+          "residual_free_symbols": []
+        }
+      },
+      {
+        "turn": 3,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "emit_data_gen_spec",
+            "id": "call_7bQuFzVoVVQyYjsJi5ujfKjn"
+          }
+        ]
+      },
+      {
+        "tool": "emit_data_gen_spec",
+        "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+      },
+      {
+        "turn": 4,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "emit_data_gen_spec",
+            "id": "call_gcCQrFOQe41QmlMpmfEyqrcB"
+          }
+        ]
+      },
+      {
+        "tool": "emit_data_gen_spec",
+        "accepted": true
+      }
+    ],
+    "_provider": "openai",
+    "_num_turns": 4,
+    "discipline": "physics",
+    "scenario_text": "Two finite thermal bodies begin at independently specified uniform temperatures and exchange heat only with each other. Their heat capacities and mutual thermal conductance are fixed, and the pair is isolated from the surroundings. The target is the instantaneous rate of change of the first body's temperature while both temperatures are evolved jointly. Linear transport driven by the temperature difference causes monotonic equilibration with an exponentially decaying temperature contrast.",
+    "record_id": "m2_statistical_mechanics_and_thermodynamics_20280757_002",
+    "generation": 5,
+    "_n_total": 5000,
+    "mechanism_observation_history": [
+      {
+        "generation": 1,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The target slope is proportional to the instantaneous temperature difference with one constant gain thermal_conductance/heat_capacity_A, so for fixed heat capacities all trajectories differ only by a rescaled contrast.",
+            "child_relation": "Retain heat flow driven by T_B-T_A but let the mutual conductance depend on temperature level, e.g. stronger coupling at higher absolute temperatures, so the target depends on both contrast and mean temperature.",
+            "affected_inputs": [
+              "T_A",
+              "T_B",
+              "thermal_conductance"
+            ],
+            "observable_effect": "For runs with the same temperature difference but different mean temperature, the parent predicts the same dT_A_dt while the child predicts faster equilibration at higher mean temperature; this appears as different early-time slope and non-exponential contrast decay curvature across such conditions."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "delta_T",
+              "expression": "T_B - T_A",
+              "role": "driving temperature contrast for inter-body heat flow"
+            },
+            {
+              "name": "mean_T",
+              "expression": "(T_A + T_B)/2",
+              "role": "overall temperature level that can modulate contact conductance"
+            },
+            {
+              "name": "pair_energy_proxy",
+              "expression": "heat_capacity_A*T_A + heat_capacity_B*T_B",
+              "role": "conserved total thermal energy proxy for the isolated pair"
+            }
+          ],
+          "activation_condition": "Observable when admissible experiments span a temperature range large enough that contact properties vary with absolute temperature while both bodies remain well mixed and positive in temperature; especially compare cases with similar |T_B-T_A| but different mean_T.",
+          "train_hidden_contrast": "Within training, varying initial temperatures changes both delta_T and mean_T; in holdout, the same temperature-dependent conductance extends to unseen temperature levels, revealing curvature beyond a single shared exponential rate.",
+          "continuation_path": "Recover the parent law in the limit of temperature-independent conductance, i.e. vanishing conductance temperature sensitivity over the explored range.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The model assumes the thermal contact conductance is constant, omitting realistic temperature dependence of interfacial or radiative-assisted heat transfer strength.",
+          "baseline_assumption": "The thermal conductance between the bodies is constant and has no time delay.",
+          "scientific_mechanism": "Temperature-dependent mutual conductance of the thermal link, while preserving antisymmetric energy exchange between the two isolated bodies.",
+          "affected_symbols": [
+            "T_A",
+            "T_B",
+            "thermal_conductance"
+          ],
+          "rationale": "A realistic next refinement is to relax the constant-conductance assumption rather than add a new reservoir or state, because the same exchange process is already present but idealized. Hold fixed heat_capacity_A and heat_capacity_B and compare trajectories generated from different initial temperature levels. In the parent, dT_A_dt depends only on delta_T through one shared gain, so two conditions with equal delta_T but different mean_T must have identical target values and the same exponential relaxation rate after parameter refit. In the child, conductance varies with temperature level, so the mapping from observed states to dT_A_dt changes directly: higher mean_T can produce a larger magnitude slope even at the same delta_T, and the contrast decay is no longer exactly single-rate exponential. This is observable under the actual protocol because T_A and T_B are supplied evolving states. The refinement remains scientifically admissible if conductance stays positive, ensuring heat still flows to reduce |T_B-T_A|, pair energy remains conserved by equal-and-opposite exchange terms, and positive temperatures are maintained. Limitations: if all experiments stay in a very narrow temperature band, the effect may be too small and the parent may remain adequate."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The target slope is proportional to the instantaneous temperature difference with one constant gain thermal_conductance/heat_capacity_A, so for fixed heat capacities all trajectories differ only by a rescaled contrast.",
+            "child_relation": "Retain heat flow driven by T_B-T_A but let the mutual conductance depend on temperature level, e.g. stronger coupling at higher absolute temperatures, so the target depends on both contrast and mean temperature.",
+            "affected_inputs": [
+              "T_A",
+              "T_B",
+              "thermal_conductance"
+            ],
+            "observable_effect": "For runs with the same temperature difference but different mean temperature, the parent predicts the same dT_A_dt while the child predicts faster equilibration at higher mean temperature; this appears as different early-time slope and non-exponential contrast decay curvature across such conditions."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "delta_T",
+              "expression": "T_B - T_A",
+              "role": "driving temperature contrast for inter-body heat flow"
+            },
+            {
+              "name": "mean_T",
+              "expression": "(T_A + T_B)/2",
+              "role": "overall temperature level that can modulate contact conductance"
+            },
+            {
+              "name": "pair_energy_proxy",
+              "expression": "heat_capacity_A*T_A + heat_capacity_B*T_B",
+              "role": "conserved total thermal energy proxy for the isolated pair"
+            }
+          ],
+          "activation_condition": "Observable when admissible experiments span a temperature range large enough that contact properties vary with absolute temperature while both bodies remain well mixed and positive in temperature; especially compare cases with similar |T_B-T_A| but different mean_T.",
+          "train_hidden_contrast": "Within training, varying initial temperatures changes both delta_T and mean_T; in holdout, the same temperature-dependent conductance extends to unseen temperature levels, revealing curvature beyond a single shared exponential rate.",
+          "continuation_path": "Recover the parent law in the limit of temperature-independent conductance, i.e. vanishing conductance temperature sensitivity over the explored range.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "pairwise",
+          "scope_symbols": [
+            "T_A",
+            "T_B",
+            "thermal_conductance",
+            "conductance_temp_coeff"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "temperature-dependent thermal contact transport",
+          "scientific_mechanism": "Temperature-dependent mutual conductance of the thermal link, while preserving antisymmetric energy exchange between the two isolated bodies.",
+          "embedding_pattern": "state_dependent_coefficient",
+          "difficulty_rationale": "This embedding is harder than a coefficient-only correction because the effective exchange gain varies along the trajectory with the observed states, creating a target dependence on both temperature contrast and temperature level rather than one global proportionality constant.",
+          "taxonomy_match": "known",
+          "assumption_before": "The thermal conductance between the bodies is constant and has no time delay.",
+          "assumption_after": "The mutual conductance changes with the instantaneous mean temperature of the two bodies while remaining symmetric between the bodies.",
+          "before_fragment": "thermal_conductance*(T_B - T_A)/heat_capacity_A",
+          "after_fragment": "thermal_conductance*(1 + conductance_temp_coeff*(T_A + T_B)/2)*(T_B - T_A)/heat_capacity_A",
+          "parent_reduction": "Set conductance_temp_coeff = 0 to recover the parent exactly.",
+          "observable_signature": "With heat_capacity_A, heat_capacity_B, thermal_conductance, and conductance_temp_coeff fixed across runs, compare trajectories having similar delta_T but different mean_T. The parent gives identical dT_A_dt for equal delta_T, whereas the child gives larger magnitude dT_A_dt and faster early equilibration at higher mean_T; the contrast decay is therefore not described by one shared exponential rate.",
+          "shortcut_blocked": "A single refitted parent parameter thermal_conductance can match at most one effective gain over the dataset, but it cannot simultaneously reproduce equal-delta_T cases that differ systematically with mean_T because the parent target mapping lacks any dependence on mean_T. Matching auxiliary trajectories alone does not help here because the scored target dT_A_dt itself changes directly as a function of the supplied states T_A and T_B."
+        },
+        "range_suggestions": {
+          "conductance_temp_coeff": "small enough that 1 + conductance_temp_coeff*(T_A + T_B)/2 > 0 over the admissible temperature range; for positive-temperature experiments typically conductance_temp_coeff >= 0"
+        }
+      },
+      {
+        "generation": 2,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The target depends on the temperature difference through a single odd linear factor (T_B - T_A), scaled only by the pair mean temperature via the conductance prefactor.",
+            "child_relation": "Keep antisymmetric heat exchange but let the transfer law grow nonlinearly with temperature contrast, so the target is no longer proportional to a single global gain times (T_B - T_A); large contrasts produce disproportionately faster exchange than small contrasts at the same mean temperature.",
+            "affected_inputs": [
+              "T_A",
+              "T_B",
+              "thermal_conductance"
+            ],
+            "observable_effect": "When comparing trajectories with the same mean temperature but different initial temperature contrasts, the child predicts steeper early-time cooling/heating for the larger contrast and a stronger slowing as the contrast shrinks, beyond what any one refitted linear-difference law can match across both cases."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "delta_T",
+              "expression": "T_B - T_A",
+              "role": "Driving temperature contrast for mutual heat flow"
+            },
+            {
+              "name": "mean_T",
+              "expression": "(T_A + T_B)/2",
+              "role": "Average pair temperature controlling the existing conductance prefactor"
+            },
+            {
+              "name": "deltaT_sq",
+              "expression": "(T_B - T_A)**2",
+              "role": "Contrast magnitude used to detect departure from strictly linear transport"
+            }
+          ],
+          "activation_condition": "Observable when the admissible experiment spans a non-negligible range of |T_B - T_A| while keeping temperatures positive and the nonlinear correction small enough that heat still always flows from hot to cold; strongest at early times of high-contrast runs.",
+          "train_hidden_contrast": "In training, varying initial temperature differences already changes the target slope with contrast; in holdout, the same mechanism extends to larger or smaller contrasts at similar mean temperatures, revealing curvature in dT_A_dt versus delta_T rather than a single proportionality.",
+          "continuation_path": "Recover the parent law in the limit where the nonlinear contrast dependence tends to zero, so the exchange rate becomes strictly proportional to (T_B - T_A) with the existing mean-temperature conductance factor.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The current model assumes the heat flux is exactly linear in temperature difference at all admissible contrasts, so one shared gain controls both small- and large-contrast equilibration.",
+          "baseline_assumption": "Linear irreversible heat exchange driven by the instantaneous temperature difference remains valid over the full experimental contrast range.",
+          "scientific_mechanism": "Weakly nonlinear thermal transport across the mutual link, such as temperature-gradient-dependent effective transfer that remains antisymmetric and energy conserving but departs from exact linear-response behavior at larger temperature differences.",
+          "affected_symbols": [
+            "T_A",
+            "T_B",
+            "thermal_conductance",
+            "conductance_temp_coeff"
+          ],
+          "rationale": "A realistic next refinement is to relax the exact linear-response assumption for the dependence on temperature difference, not to add a new reservoir or environment. The parent target mapping is effectively a single-gain law in delta_T, with only mean temperature changing that gain. Hold fixed the pair mean temperature approximately and compare runs with different initial |T_B - T_A|. The parent predicts dT_A_dt proportional to delta_T with the same slope for all such runs after accounting for the mean-temperature prefactor. A child with weak nonlinear dependence on contrast changes this to a curved relationship: larger contrasts cool or warm body A disproportionately faster, while the law approaches the parent near equilibrium. This directly changes the scored target mapping, not merely an auxiliary trajectory. The effect is scientifically admissible when temperature differences are large enough that linear response is imperfect but still small enough to preserve monotonic relaxation, positive temperatures, and nondecreasing entropy. A single refit of the parent's existing parameters cannot reproduce both the near-equilibrium slope and the enhanced large-contrast exchange across those conditions, because its dependence on delta_T remains exactly linear for every parameter choice."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The target depends on the temperature difference through a single odd linear factor (T_B - T_A), scaled only by the pair mean temperature via the conductance prefactor.",
+            "child_relation": "Keep antisymmetric heat exchange but let the transfer law grow nonlinearly with temperature contrast, so the target is no longer proportional to a single global gain times (T_B - T_A); large contrasts produce disproportionately faster exchange than small contrasts at the same mean temperature.",
+            "affected_inputs": [
+              "T_A",
+              "T_B",
+              "thermal_conductance"
+            ],
+            "observable_effect": "When comparing trajectories with the same mean temperature but different initial temperature contrasts, the child predicts steeper early-time cooling/heating for the larger contrast and a stronger slowing as the contrast shrinks, beyond what any one refitted linear-difference law can match across both cases."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "delta_T",
+              "expression": "T_B - T_A",
+              "role": "Driving temperature contrast for mutual heat flow"
+            },
+            {
+              "name": "mean_T",
+              "expression": "(T_A + T_B)/2",
+              "role": "Average pair temperature controlling the existing conductance prefactor"
+            },
+            {
+              "name": "deltaT_sq",
+              "expression": "(T_B - T_A)**2",
+              "role": "Contrast magnitude used to detect departure from strictly linear transport"
+            }
+          ],
+          "activation_condition": "Observable when the admissible experiment spans a non-negligible range of |T_B - T_A| while keeping temperatures positive and the nonlinear correction small enough that heat still always flows from hot to cold; strongest at early times of high-contrast runs.",
+          "train_hidden_contrast": "In training, varying initial temperature differences already changes the target slope with contrast; in holdout, the same mechanism extends to larger or smaller contrasts at similar mean temperatures, revealing curvature in dT_A_dt versus delta_T rather than a single proportionality.",
+          "continuation_path": "Recover the parent law in the limit where the nonlinear contrast dependence tends to zero, so the exchange rate becomes strictly proportional to (T_B - T_A) with the existing mean-temperature conductance factor.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "pairwise",
+          "scope_symbols": [
+            "T_A",
+            "T_B"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Contrast-dependent mutual thermal transport",
+          "scientific_mechanism": "Weakly nonlinear thermal transport across the mutual link, such as temperature-gradient-dependent effective transfer that remains antisymmetric and energy conserving but departs from exact linear-response behavior at larger temperature differences.",
+          "embedding_pattern": "multiplicative_modulation",
+          "difficulty_rationale": "This embedding is harder than a coefficient-only correction because the new parameter changes the shape of the target dependence on temperature contrast, not just its overall scale. The multiplicative contrast term creates a cubic odd response in delta_T at fixed mean temperature, so one parameter set must account simultaneously for near-equilibrium slope and enhanced large-contrast exchange.",
+          "taxonomy_match": "known",
+          "assumption_before": "The heat-exchange law is exactly linear in temperature difference for all admissible contrasts.",
+          "assumption_after": "The mutual transfer coefficient is weakly modulated by temperature-contrast magnitude, producing nonlinear but still antisymmetric heat exchange.",
+          "before_fragment": "thermal_conductance*(1 + conductance_temp_coeff*(T_A + T_B)/2)*(T_B - T_A)/heat_capacity_A",
+          "after_fragment": "thermal_conductance*(1 + conductance_temp_coeff*(T_A + T_B)/2)*(1 + contrast_nonlinearity_coeff*(T_B - T_A)**2)*(T_B - T_A)/heat_capacity_A",
+          "parent_reduction": "Set contrast_nonlinearity_coeff = 0 to recover the parent expression exactly.",
+          "observable_signature": "At approximately fixed mean_T, plotting dT_A_dt against delta_T changes from a straight odd line in the parent to an odd curve whose magnitude grows faster than linearly with |delta_T| in the child. The effect is visible across trajectories initialized with different temperature contrasts and is strongest before the system nears equilibrium.",
+          "shortcut_blocked": "A single refit of thermal_conductance and conductance_temp_coeff cannot reproduce this contrast-dependent curvature because the parent remains exactly linear in delta_T for every parameter choice. Retuning can match either the near-equilibrium slope or the faster large-contrast exchange over the same mean-temperature range, but not both with one shared parameter set."
+        },
+        "range_suggestions": {
+          "contrast_nonlinearity_coeff": "small nonnegative value such that 1 + contrast_nonlinearity_coeff*(T_B - T_A)**2 stays of order unity over the admissible contrast range; e.g. contrast_nonlinearity_coeff*(DeltaT_max**2) <= 1"
+        }
+      },
+      {
+        "generation": 3,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "phase_shift",
+            "parent_relation": "The target dT_A_dt depends only on the instantaneous temperatures through an algebraic conductance factor, so once T_A and T_B are specified the heat-flow rate is single-valued and responds with no internal lag.",
+            "child_relation": "The mutual heat-transfer strength acquires its own finite relaxation dynamics, so dT_A_dt depends on T_A, T_B, and a slowly adapting effective conductance state; identical instantaneous temperatures can produce different rates depending on prior thermal history.",
+            "affected_inputs": [
+              "T_A",
+              "T_B",
+              "thermal_conductance"
+            ],
+            "observable_effect": "Early after release from the initial temperature contrast, the heat-exchange rate can lag behind the algebraic parent prediction, producing delayed onset or delayed strengthening of |dT_A_dt| relative to the same instantaneous temperature contrast later in the trajectory."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "mean_temp",
+              "expression": "(T_A + T_B)/2",
+              "role": "Current pair mean temperature controlling the equilibrium level of the effective link strength"
+            },
+            {
+              "name": "temp_contrast",
+              "expression": "T_B - T_A",
+              "role": "Driving temperature difference for antisymmetric heat exchange"
+            },
+            {
+              "name": "contrast_sq",
+              "expression": "(T_B - T_A)**2",
+              "role": "Magnitude of nonlinear transport activation and indicator of regimes where conductance adaptation is most visible"
+            }
+          ],
+          "activation_condition": "Observable when the link-adjustment timescale is not negligible compared with the thermal equilibration timescale, so the temperature contrast changes appreciably before the effective conductance finishes adapting; the initial nonzero contrast in the stated experiment is sufficient if that relaxation is comparable to the heat-exchange time.",
+          "train_hidden_contrast": "In training, moderate contrasts already reveal slight lag between contrast and heat-flow strength; in holdout, larger or more temperature-varying trajectories amplify the same memory effect, making the rate at a given instantaneous contrast depend more strongly on trajectory stage.",
+          "continuation_path": "Recover the parent law in the fast-relaxation limit where the effective conductance state instantaneously tracks its temperature-dependent equilibrium value, or equivalently when the adaptation time constant tends to zero.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "A finite response lag of the thermal link cannot be represented with only the existing temperature states and fixed parameters, because the current target is an instantaneous algebraic function of T_A and T_B. A separate state is needed to encode the link's internal nonequilibrium memory while preserving energy-conserving antisymmetric exchange.",
+          "gap_statement": "The current model assumes the mutual thermal conductance responds instantaneously to changing temperatures and contrast, omitting finite thermal-link equilibration or interfacial relaxation that can delay the actual heat-flow strength.",
+          "baseline_assumption": "The thermal conductance between the bodies is constant and has no time delay.",
+          "scientific_mechanism": "Finite-time relaxation of the effective interfacial or contact conductance toward a temperature- and contrast-dependent quasi-equilibrium value.",
+          "affected_symbols": [
+            "T_A",
+            "T_B",
+            "thermal_conductance",
+            "conductance_temp_coeff",
+            "contrast_nonlinearity_coeff"
+          ],
+          "rationale": "A realistic next refinement is to relax the parent's instantaneous-link assumption rather than adding an unrelated process, because the model already includes temperature-dependent and contrast-dependent transport but forces that transport to update with zero lag. Vary the stage of the same equilibration trajectory while holding fixed the instantaneous pair temperatures used for evaluation: in the parent, dT_A_dt is then uniquely determined by T_A and T_B, whereas with a relaxing conductance state the same instantaneous temperatures can yield different dT_A_dt depending on whether the link has already adapted. This is a true target-mapping change, not merely an auxiliary-state complication, because the scored derivative of T_A is altered at fixed observable temperatures. The contrast is admissible under the given initial-condition contract: starting from 400 K and 350 K, the nonzero initial temperature gap naturally drives a transient during which conductance adaptation can lag. A single refit of the parent parameters cannot reproduce both early-time suppressed/enhanced rates and later-time near-equilibrium rates at the same instantaneous temperature pair, because its mapping from (T_A,T_B) to dT_A_dt has no memory or phase freedom. The refinement remains scientifically consistent if the effective conductance stays positive and the exchange term remains antisymmetric, so total pair energy is conserved and heat still flows to reduce |T_A-T_B|."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "phase_shift",
+            "parent_relation": "The target dT_A_dt depends only on the instantaneous temperatures through an algebraic conductance factor, so once T_A and T_B are specified the heat-flow rate is single-valued and responds with no internal lag.",
+            "child_relation": "The mutual heat-transfer strength acquires its own finite relaxation dynamics, so dT_A_dt depends on T_A, T_B, and a slowly adapting effective conductance state; identical instantaneous temperatures can produce different rates depending on prior thermal history.",
+            "affected_inputs": [
+              "T_A",
+              "T_B",
+              "thermal_conductance"
+            ],
+            "observable_effect": "Early after release from the initial temperature contrast, the heat-exchange rate can lag behind the algebraic parent prediction, producing delayed onset or delayed strengthening of |dT_A_dt| relative to the same instantaneous temperature contrast later in the trajectory."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "mean_temp",
+              "expression": "(T_A + T_B)/2",
+              "role": "Current pair mean temperature controlling the equilibrium level of the effective link strength"
+            },
+            {
+              "name": "temp_contrast",
+              "expression": "T_B - T_A",
+              "role": "Driving temperature difference for antisymmetric heat exchange"
+            },
+            {
+              "name": "contrast_sq",
+              "expression": "(T_B - T_A)**2",
+              "role": "Magnitude of nonlinear transport activation and indicator of regimes where conductance adaptation is most visible"
+            }
+          ],
+          "activation_condition": "Observable when the link-adjustment timescale is not negligible compared with the thermal equilibration timescale, so the temperature contrast changes appreciably before the effective conductance finishes adapting; the initial nonzero contrast in the stated experiment is sufficient if that relaxation is comparable to the heat-exchange time.",
+          "train_hidden_contrast": "In training, moderate contrasts already reveal slight lag between contrast and heat-flow strength; in holdout, larger or more temperature-varying trajectories amplify the same memory effect, making the rate at a given instantaneous contrast depend more strongly on trajectory stage.",
+          "continuation_path": "Recover the parent law in the fast-relaxation limit where the effective conductance state instantaneously tracks its temperature-dependent equilibrium value, or equivalently when the adaptation time constant tends to zero.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "A finite response lag of the thermal link cannot be represented with only the existing temperature states and fixed parameters, because the current target is an instantaneous algebraic function of T_A and T_B. A separate state is needed to encode the link's internal nonequilibrium memory while preserving energy-conserving antisymmetric exchange.",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "T_A",
+            "T_B",
+            "effective_conductance"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "relaxing interfacial conductance in two-body heat exchange",
+          "scientific_mechanism": "Finite-time relaxation of the effective interfacial or contact conductance toward a temperature- and contrast-dependent quasi-equilibrium value.",
+          "embedding_pattern": "state_dependent_coefficient",
+          "difficulty_rationale": "This embedding is structurally harder than a coefficient-only correction because the coefficient of the existing exchange process becomes a dynamical state with memory. The target is therefore no longer a single algebraic surface over instantaneous temperatures, but a history-dependent response mediated by a lagging state-dependent coefficient.",
+          "taxonomy_match": "known",
+          "assumption_before": "The thermal conductance between the bodies is constant and has no time delay.",
+          "assumption_after": "The effective conductance relaxes over finite time toward the temperature- and contrast-dependent conductance implied by the parent law.",
+          "before_fragment": "thermal_conductance*(1 + conductance_temp_coeff*(T_A + T_B)/2)*(1 + contrast_nonlinearity_coeff*(T_B - T_A)**2)*(T_B - T_A)/heat_capacity_A",
+          "after_fragment": "effective_conductance*(T_B - T_A)/heat_capacity_A",
+          "parent_reduction": "In the limit conductance_relaxation_time -> 0, the conductance state becomes slaved to thermal_conductance*(1 + conductance_temp_coeff*(T_A + T_B)/2)*(1 + contrast_nonlinearity_coeff*(T_B - T_A)**2), recovering the parent expression.",
+          "observable_signature": "At fixed observed temperatures T_A and T_B, the parent predicts a unique dT_A_dt, whereas the child permits different dT_A_dt values at different stages of the same equilibration trajectory because effective_conductance can lag its quasi-equilibrium value. This target-mapping change is observable when conductance_relaxation_time is comparable to the thermal equilibration time and the initial 400 K to 350 K contrast drives appreciable temperature evolution before adaptation completes.",
+          "shortcut_blocked": "A single refit of the parent parameters cannot reproduce both early-time lagged heat-flow rates and later-time near-equilibrium rates at the same instantaneous temperature pair, because the parent mapping from (T_A, T_B) to dT_A_dt is memoryless and single-valued. Retuning thermal_conductance, conductance_temp_coeff, and contrast_nonlinearity_coeff only reshapes that static response surface and cannot generate trajectory-stage dependence without an added internal conductance state."
+        },
+        "range_suggestions": {
+          "effective_conductance": "positive and of order thermal_conductance; initialize away from its instantaneous quasi-equilibrium value by a modest factor to make lag observable while keeping the link physical",
+          "conductance_relaxation_time": "positive; memory is observable when comparable to the thermal equilibration timescale, while the parent is recovered when it is small relative to that timescale"
+        }
+      },
+      {
+        "generation": 4,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The target dT_A_dt is proportional to the instantaneous temperature difference times a single lagged conductance state, so after accounting for the existing conductance relaxation the heat current still responds linearly to the contrast sign and smoothly to its magnitude with no additional suppression near equilibrium.",
+            "child_relation": "Retain antisymmetric energy exchange but replace the weak contrast gain with a saturating contrast dependence of the mutual transfer law, so the target grows approximately linearly for small |T_B-T_A| and then bends toward a sublinear dependence at larger contrast.",
+            "affected_inputs": [
+              "T_A",
+              "T_B",
+              "effective_conductance",
+              "contrast_nonlinearity_coeff"
+            ],
+            "observable_effect": "When initial temperature contrast is varied while heat capacities and mean temperature are held fixed, the child predicts weaker-than-parent early-time cooling magnitude at the largest contrasts but nearly the same near-equilibrium slope; this appears directly in dT_A_dt, not only in the auxiliary conductance trajectory."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "delta_T",
+              "expression": "T_B - T_A",
+              "role": "driving temperature contrast setting the sign and scale of heat exchange"
+            },
+            {
+              "name": "mean_T",
+              "expression": "(T_A + T_B)/2",
+              "role": "pair mean temperature controlling the quasi-equilibrium conductance baseline"
+            },
+            {
+              "name": "contrast_scale",
+              "expression": "contrast_nonlinearity_coeff*(T_B - T_A)**2",
+              "role": "dimensionless measure of departure from linear-response contrast range"
+            }
+          ],
+          "activation_condition": "Observable when |contrast_nonlinearity_coeff|*(T_B-T_A)**2 is not negligible during the sampled trajectory, especially at early times before equilibration shrinks the contrast; the effect is weak near equilibrium.",
+          "train_hidden_contrast": "In training, moderate contrasts reveal slight bending away from linear-response scaling; in holdout, larger but still physical contrasts extend the same saturation trend, producing systematically smaller |dT_A_dt| than a single polynomial-gain parent fit would predict.",
+          "continuation_path": "Recover the parent law in the small-contrast limit |contrast_nonlinearity_coeff|*(T_B-T_A)**2 << 1, where the saturating transfer factor expands to 1 plus the existing weak quadratic correction.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The current model assumes the contrast-induced modification of heat transfer remains polynomial and unbounded with increasing temperature difference, which is an overly idealized continuation of weakly nonlinear response.",
+          "baseline_assumption": "The present mutual transfer law treats contrast dependence as a weak quadratic gain factor valid across the whole admissible contrast range.",
+          "scientific_mechanism": "Finite interfacial transport can enter a nonlinear-response regime where additional contrast does not keep amplifying conductance proportionally; instead the effective flux enhancement saturates because contact-limited transfer approaches a bounded nonequilibrium response.",
+          "affected_symbols": [
+            "T_A",
+            "T_B",
+            "effective_conductance",
+            "contrast_nonlinearity_coeff"
+          ],
+          "rationale": "A realistic next refinement is to relax the parent's weak-nonlinearity assumption rather than add a new process. The parent target mapping is effectively a single-phase response in temperature contrast: for fixed heat_capacity_A and a given effective_conductance state, dT_A_dt changes with one smooth polynomial-like gain in |T_B-T_A|. Vary the initial contrast between the bodies while holding heat capacities, thermal_conductance, conductance_relaxation_time, and the initial effective_conductance protocol fixed. Then compare early-time dT_A_dt versus |T_B-T_A| at similar mean temperature. The child predicts curvature change: near equilibrium it matches the parent, but at larger admissible contrast the magnitude of dT_A_dt increases more slowly because the contrast enhancement saturates instead of continuing as an unbounded quadratic gain. This is directly a changed target mapping, not merely a change in the auxiliary conductance trajectory, because the transfer law entering dT_A_dt itself is altered. The effect is scientifically admissible provided temperatures stay positive and contrasts are large enough that the dimensionless contrast measure is order one before decaying. A single parent parameter set cannot reproduce both the near-equilibrium slope and the high-contrast suppression across those conditions, because its polynomial contrast factor has the wrong curvature sign at large contrast once fitted to the small-contrast regime."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The target dT_A_dt is proportional to the instantaneous temperature difference times a single lagged conductance state, so after accounting for the existing conductance relaxation the heat current still responds linearly to the contrast sign and smoothly to its magnitude with no additional suppression near equilibrium.",
+            "child_relation": "Retain antisymmetric energy exchange but replace the weak contrast gain with a saturating contrast dependence of the mutual transfer law, so the target grows approximately linearly for small |T_B-T_A| and then bends toward a sublinear dependence at larger contrast.",
+            "affected_inputs": [
+              "T_A",
+              "T_B",
+              "effective_conductance",
+              "contrast_nonlinearity_coeff"
+            ],
+            "observable_effect": "When initial temperature contrast is varied while heat capacities and mean temperature are held fixed, the child predicts weaker-than-parent early-time cooling magnitude at the largest contrasts but nearly the same near-equilibrium slope; this appears directly in dT_A_dt, not only in the auxiliary conductance trajectory."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "delta_T",
+              "expression": "T_B - T_A",
+              "role": "driving temperature contrast setting the sign and scale of heat exchange"
+            },
+            {
+              "name": "mean_T",
+              "expression": "(T_A + T_B)/2",
+              "role": "pair mean temperature controlling the quasi-equilibrium conductance baseline"
+            },
+            {
+              "name": "contrast_scale",
+              "expression": "contrast_nonlinearity_coeff*(T_B - T_A)**2",
+              "role": "dimensionless measure of departure from linear-response contrast range"
+            }
+          ],
+          "activation_condition": "Observable when |contrast_nonlinearity_coeff|*(T_B-T_A)**2 is not negligible during the sampled trajectory, especially at early times before equilibration shrinks the contrast; the effect is weak near equilibrium.",
+          "train_hidden_contrast": "In training, moderate contrasts reveal slight bending away from linear-response scaling; in holdout, larger but still physical contrasts extend the same saturation trend, producing systematically smaller |dT_A_dt| than a single polynomial-gain parent fit would predict.",
+          "continuation_path": "Recover the parent law in the small-contrast limit |contrast_nonlinearity_coeff|*(T_B-T_A)**2 << 1, where the saturating transfer factor expands to 1 plus the existing weak quadratic correction.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "pairwise",
+          "scope_symbols": [
+            "T_A",
+            "T_B",
+            "effective_conductance",
+            "contrast_nonlinearity_coeff"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "saturating nonequilibrium interfacial heat transfer",
+          "scientific_mechanism": "Finite interfacial transport can enter a nonlinear-response regime where additional contrast does not keep amplifying conductance proportionally; instead the effective flux enhancement saturates because contact-limited transfer approaches a bounded nonequilibrium response.",
+          "embedding_pattern": "state_dependent_coefficient",
+          "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the coefficient of the existing transport process now depends nonlinearly on the instantaneous temperature contrast, changing curvature of the target mapping across conditions while preserving the same state set.",
+          "taxonomy_match": "known",
+          "assumption_before": "The present mutual transfer law treats contrast dependence as a weak quadratic gain factor valid across the whole admissible contrast range.",
+          "assumption_after": "The contrast dependence of the mutual transfer law saturates at larger temperature differences, producing sublinear growth of heat-current magnitude with |T_B-T_A|.",
+          "before_fragment": "effective_conductance*(T_B - T_A)/heat_capacity_A",
+          "after_fragment": "effective_conductance*(T_B - T_A)/(heat_capacity_A*(1 + contrast_nonlinearity_coeff*(T_B - T_A)**2))",
+          "parent_reduction": "When contrast_nonlinearity_coeff*(T_B - T_A)**2 is negligible, the denominator approaches 1 and the child reduces to the parent target law.",
+          "observable_signature": "Across trajectories with the same mean temperature and heat capacities but different initial contrast, early-time |dT_A_dt| versus |T_B-T_A| shows near-linear behavior close to equilibrium and then bends downward at larger contrast; the parent keeps a single-phase proportional response to contrast through effective_conductance and cannot produce that direct suppression in the scored target.",
+          "shortcut_blocked": "Refitting one parent parameter set cannot match both the near-equilibrium slope and the large-contrast suppression because the parent target expression is exactly linear in T_B-T_A for fixed observed effective_conductance, whereas the child inserts a contrast-dependent denominator directly into dT_A_dt. Adjusting thermal_conductance, conductance_temp_coeff, or conductance_relaxation_time only reshapes the auxiliary effective_conductance trajectory and cannot reproduce the same instantaneous downward curvature of the scored mapping across contrasts when effective_conductance is already an observed state supplied to the solver."
+        },
+        "range_suggestions": {}
+      },
+      {
+        "generation": 5,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "At fixed effective_conductance, the target depends on temperature contrast only through an odd flux divided by 1 + contrast_nonlinearity_coeff*(T_B - T_A)**2, so the mean temperature affects dT_A_dt only as a multiplicative gain through the conductance state target.",
+            "child_relation": "Retain antisymmetric exchange but let the transport nonlinearity itself depend on the pair mean temperature, so the contrast-response curvature of dT_A_dt changes with both T_B - T_A and (T_A + T_B)/2 rather than being a single shared contrast-saturation shape scaled by conductance alone.",
+            "affected_inputs": [
+              "T_A",
+              "T_B",
+              "effective_conductance",
+              "conductance_temp_coeff",
+              "contrast_nonlinearity_coeff"
+            ],
+            "observable_effect": "Across trajectories with similar instantaneous contrast but different pair mean temperatures, the normalized cooling rate dT_A_dt/(T_B-T_A) bends differently with contrast; hotter pairs can show earlier or later sublinear saturation than cooler pairs, not just a uniform rescaling."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "mean_temperature",
+              "expression": "(T_A + T_B)/2",
+              "role": "pair average temperature controlling material transport regime"
+            },
+            {
+              "name": "temperature_contrast",
+              "expression": "T_B - T_A",
+              "role": "driving force for mutual heat exchange"
+            },
+            {
+              "name": "normalized_exchange_rate",
+              "expression": "effective_conductance/(heat_capacity_A*(1 + contrast_nonlinearity_coeff*(T_B - T_A)**2))",
+              "role": "parent effective proportionality between contrast and body-A temperature rate"
+            }
+          ],
+          "activation_condition": "Observable when the admissible experiment spans a non-negligible mean-temperature range such that |conductance_temp_coeff*(T_A + T_B)/2| is not tiny, and when the contrast is large enough that contrast_nonlinearity_coeff*(T_B - T_A)^2 is O(1) over part of the trajectory.",
+          "train_hidden_contrast": "In training, varying mean temperature mainly changes overall exchange speed through conductance. In holdout, with larger simultaneous contrast and shifted mean temperature, the same mechanism also changes the curvature of the contrast-response, revealing a non-separable mean-temperature-by-contrast interaction.",
+          "continuation_path": "Recover the parent by taking the mean-temperature dependence of the contrast-saturation law to zero, so the denominator returns to 1 + contrast_nonlinearity_coeff*(T_B - T_A)^2 and only the conductance state carries mean-temperature dependence.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The current model assumes a single fixed contrast-saturation scale for nonlinear heat transfer, independent of the absolute temperature level of the two bodies.",
+          "baseline_assumption": "The coefficient setting departure from linear-response transport is constant over the full temperature range and does not vary with the pair mean temperature.",
+          "scientific_mechanism": "Temperature-dependent interfacial transport nonlinearity: phonon/contact or radiative-mixed transfer can make the onset of sublinear contrast response shift with the absolute temperature level even while exchange remains antisymmetric and energy conserving.",
+          "affected_symbols": [
+            "T_A",
+            "T_B",
+            "effective_conductance",
+            "contrast_nonlinearity_coeff",
+            "conductance_temp_coeff"
+          ],
+          "rationale": "A realistic next refinement is to relax the parent's separability between mean-temperature effects and contrast-saturation effects. In the parent, if effective_conductance is observed, the scored target mapping from supplied states to dT_A_dt has one shared contrast curvature set only by contrast_nonlinearity_coeff; changing mean temperature changes amplitude through effective_conductance but not the shape of rate-versus-contrast. Hold heat capacities fixed and compare portions of trajectories with similar instantaneous |T_B-T_A| but different (T_A+T_B)/2, reachable because the bodies cool/warm toward equilibrium while the conductance state also evolves. The child would allow the saturation scale itself to shift with mean temperature, changing the local slope and curvature of dT_A_dt versus contrast at equal effective_conductance. A single refit of the parent cannot reproduce both earlier saturation at one mean temperature and later saturation at another, because its denominator uses one global contrast scale and its mean-temperature influence is only a multiplicative conductance factor. This refinement remains admissible because it preserves antisymmetric exchange and can be implemented without adding a new state; limitation: if the sampled temperature range is too narrow or contrasts remain very small, the effect is weak and may collapse back to the parent."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "At fixed effective_conductance, the target depends on temperature contrast only through an odd flux divided by 1 + contrast_nonlinearity_coeff*(T_B - T_A)**2, so the mean temperature affects dT_A_dt only as a multiplicative gain through the conductance state target.",
+            "child_relation": "Retain antisymmetric exchange but let the transport nonlinearity itself depend on the pair mean temperature, so the contrast-response curvature of dT_A_dt changes with both T_B - T_A and (T_A + T_B)/2 rather than being a single shared contrast-saturation shape scaled by conductance alone.",
+            "affected_inputs": [
+              "T_A",
+              "T_B",
+              "effective_conductance",
+              "conductance_temp_coeff",
+              "contrast_nonlinearity_coeff"
+            ],
+            "observable_effect": "Across trajectories with similar instantaneous contrast but different pair mean temperatures, the normalized cooling rate dT_A_dt/(T_B-T_A) bends differently with contrast; hotter pairs can show earlier or later sublinear saturation than cooler pairs, not just a uniform rescaling."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "mean_temperature",
+              "expression": "(T_A + T_B)/2",
+              "role": "pair average temperature controlling material transport regime"
+            },
+            {
+              "name": "temperature_contrast",
+              "expression": "T_B - T_A",
+              "role": "driving force for mutual heat exchange"
+            },
+            {
+              "name": "normalized_exchange_rate",
+              "expression": "effective_conductance/(heat_capacity_A*(1 + contrast_nonlinearity_coeff*(T_B - T_A)**2))",
+              "role": "parent effective proportionality between contrast and body-A temperature rate"
+            }
+          ],
+          "activation_condition": "Observable when the admissible experiment spans a non-negligible mean-temperature range such that |conductance_temp_coeff*(T_A + T_B)/2| is not tiny, and when the contrast is large enough that contrast_nonlinearity_coeff*(T_B - T_A)^2 is O(1) over part of the trajectory.",
+          "train_hidden_contrast": "In training, varying mean temperature mainly changes overall exchange speed through conductance. In holdout, with larger simultaneous contrast and shifted mean temperature, the same mechanism also changes the curvature of the contrast-response, revealing a non-separable mean-temperature-by-contrast interaction.",
+          "continuation_path": "Recover the parent by taking the mean-temperature dependence of the contrast-saturation law to zero, so the denominator returns to 1 + contrast_nonlinearity_coeff*(T_B - T_A)^2 and only the conductance state carries mean-temperature dependence.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "T_A",
+            "T_B",
+            "effective_conductance"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "mean-temperature modulation of nonlinear inter-body heat-transfer saturation",
+          "scientific_mechanism": "Temperature-dependent interfacial transport nonlinearity: phonon/contact or radiative-mixed transfer can make the onset of sublinear contrast response shift with the absolute temperature level even while exchange remains antisymmetric and energy conserving.",
+          "embedding_pattern": "multiplicative_modulation",
+          "difficulty_rationale": "This is structurally harder than a coefficient-only correction because mean temperature now changes the denominator's contrast curvature, creating a non-separable interaction between average temperature and contrast rather than a simple gain rescaling of the same contrast-response shape.",
+          "taxonomy_match": "known",
+          "assumption_before": "The coefficient setting departure from linear-response transport is constant over the full temperature range and does not vary with the pair mean temperature.",
+          "assumption_after": "The contrast-saturation strength is modulated by the pair mean temperature, shifting the onset of sublinear transfer with absolute temperature level.",
+          "before_fragment": "effective_conductance*(T_B - T_A)/(heat_capacity_A*(1 + contrast_nonlinearity_coeff*(T_B - T_A)**2))",
+          "after_fragment": "effective_conductance*(T_B - T_A)/(heat_capacity_A*(1 + contrast_nonlinearity_coeff*(1 + conductance_temp_coeff*(T_A + T_B)/2)*(T_B - T_A)**2))",
+          "parent_reduction": "Setting conductance_temp_coeff = 0 in the target law recovers the parent expression exactly.",
+          "observable_signature": "Compare trajectory segments where effective_conductance and |T_B - T_A| are similar but (T_A + T_B)/2 differs within the admissible range. The parent predicts the same normalized contrast curvature up to amplitude scaling, whereas the child predicts different bending of dT_A_dt versus contrast because the saturation denominator itself changes with mean temperature.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce both earlier saturation at one mean temperature and later saturation at another when effective_conductance is supplied, because the parent target mapping has one global contrast-saturation scale and mean temperature enters only through multiplicative conductance. Refitting contrast_nonlinearity_coeff or conductance_temp_coeff merely rescales one shared curve; it cannot make the curve shape conditional on mean temperature across the same dataset."
+        },
+        "range_suggestions": {}
+      }
+    ],
+    "evolution_provenance": {
+      "dimension_track": null,
+      "mechanism_profile": {
+        "allowed_structural_roles": [
+          "contribution",
+          "response_law",
+          "modulation",
+          "interaction",
+          "constraint",
+          "transition",
+          "feedback",
+          "heterogeneity",
+          "timescale",
+          "transport_balance"
+        ],
+        "preferred_scopes": [
+          "unary",
+          "pairwise",
+          "state_coupling",
+          "time_forcing"
+        ],
+        "domain_mechanisms": [
+          {
+            "id": "nonlinear_constitutive_response",
+            "description": "nonlinear constitutive or response law",
+            "operations": [
+              "add_term",
+              "change_assumption"
+            ]
+          },
+          {
+            "id": "coupled_field_or_force",
+            "description": "coupling to an already declared field, force, or state",
+            "operations": [
+              "add_term"
+            ]
+          },
+          {
+            "id": "finite_relaxation_or_threshold",
+            "description": "finite response time or physical threshold",
+            "operations": [
+              "change_assumption"
+            ]
+          }
+        ],
+        "profile_source": "subject_fallback",
+        "ontology_schema_version": "1.0",
+        "taxonomy_schema_version": "1.0"
+      },
+      "baseline_mechanisms": [
+        "Linear irreversible heat exchange driven by the instantaneous temperature difference.",
+        "Thermal energy storage in each body through its fixed heat capacity."
+      ],
+      "baseline_assumptions": [
+        "Each body remains internally equilibrated at a single temperature.",
+        "The pair is perfectly insulated from the external environment.",
+        "Both heat capacities are constant over the temperature range.",
+        "The thermal conductance between the bodies is constant and has no time delay."
+      ],
+      "scientific_constraints": [
+        "Total thermal energy of the isolated pair must be conserved.",
+        "Entropy of the pair must not decrease during spontaneous equilibration.",
+        "Heat transfer must reduce the magnitude of the temperature difference.",
+        "Both absolute temperatures must remain positive."
+      ],
+      "refinement_agenda": [
+        "Add heat leakage to an external thermal bath.",
+        "Allow temperature-dependent heat capacities or conductance.",
+        "Introduce a finite interfacial thermal storage state.",
+        "Include nonlinear transport at large temperature differences.",
+        "Relax internal equilibrium by resolving temperature gradients within each body."
+      ],
+      "evolution_contracts": [
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The target slope is proportional to the instantaneous temperature difference with one constant gain thermal_conductance/heat_capacity_A, so for fixed heat capacities all trajectories differ only by a rescaled contrast.",
+            "child_relation": "Retain heat flow driven by T_B-T_A but let the mutual conductance depend on temperature level, e.g. stronger coupling at higher absolute temperatures, so the target depends on both contrast and mean temperature.",
+            "affected_inputs": [
+              "T_A",
+              "T_B",
+              "thermal_conductance"
+            ],
+            "observable_effect": "For runs with the same temperature difference but different mean temperature, the parent predicts the same dT_A_dt while the child predicts faster equilibration at higher mean temperature; this appears as different early-time slope and non-exponential contrast decay curvature across such conditions."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "delta_T",
+              "expression": "T_B - T_A",
+              "role": "driving temperature contrast for inter-body heat flow"
+            },
+            {
+              "name": "mean_T",
+              "expression": "(T_A + T_B)/2",
+              "role": "overall temperature level that can modulate contact conductance"
+            },
+            {
+              "name": "pair_energy_proxy",
+              "expression": "heat_capacity_A*T_A + heat_capacity_B*T_B",
+              "role": "conserved total thermal energy proxy for the isolated pair"
+            }
+          ],
+          "activation_condition": "Observable when admissible experiments span a temperature range large enough that contact properties vary with absolute temperature while both bodies remain well mixed and positive in temperature; especially compare cases with similar |T_B-T_A| but different mean_T.",
+          "train_hidden_contrast": "Within training, varying initial temperatures changes both delta_T and mean_T; in holdout, the same temperature-dependent conductance extends to unseen temperature levels, revealing curvature beyond a single shared exponential rate.",
+          "continuation_path": "Recover the parent law in the limit of temperature-independent conductance, i.e. vanishing conductance temperature sensitivity over the explored range.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "pairwise",
+          "scope_symbols": [
+            "T_A",
+            "T_B",
+            "thermal_conductance",
+            "conductance_temp_coeff"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "temperature-dependent thermal contact transport",
+          "scientific_mechanism": "Temperature-dependent mutual conductance of the thermal link, while preserving antisymmetric energy exchange between the two isolated bodies.",
+          "embedding_pattern": "state_dependent_coefficient",
+          "difficulty_rationale": "This embedding is harder than a coefficient-only correction because the effective exchange gain varies along the trajectory with the observed states, creating a target dependence on both temperature contrast and temperature level rather than one global proportionality constant.",
+          "taxonomy_match": "known",
+          "assumption_before": "The thermal conductance between the bodies is constant and has no time delay.",
+          "assumption_after": "The mutual conductance changes with the instantaneous mean temperature of the two bodies while remaining symmetric between the bodies.",
+          "before_fragment": "thermal_conductance*(T_B - T_A)/heat_capacity_A",
+          "after_fragment": "thermal_conductance*(1 + conductance_temp_coeff*(T_A + T_B)/2)*(T_B - T_A)/heat_capacity_A",
+          "parent_reduction": "Set conductance_temp_coeff = 0 to recover the parent exactly.",
+          "observable_signature": "With heat_capacity_A, heat_capacity_B, thermal_conductance, and conductance_temp_coeff fixed across runs, compare trajectories having similar delta_T but different mean_T. The parent gives identical dT_A_dt for equal delta_T, whereas the child gives larger magnitude dT_A_dt and faster early equilibration at higher mean_T; the contrast decay is therefore not described by one shared exponential rate.",
+          "shortcut_blocked": "A single refitted parent parameter thermal_conductance can match at most one effective gain over the dataset, but it cannot simultaneously reproduce equal-delta_T cases that differ systematically with mean_T because the parent target mapping lacks any dependence on mean_T. Matching auxiliary trajectories alone does not help here because the scored target dT_A_dt itself changes directly as a function of the supplied states T_A and T_B."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The target depends on the temperature difference through a single odd linear factor (T_B - T_A), scaled only by the pair mean temperature via the conductance prefactor.",
+            "child_relation": "Keep antisymmetric heat exchange but let the transfer law grow nonlinearly with temperature contrast, so the target is no longer proportional to a single global gain times (T_B - T_A); large contrasts produce disproportionately faster exchange than small contrasts at the same mean temperature.",
+            "affected_inputs": [
+              "T_A",
+              "T_B",
+              "thermal_conductance"
+            ],
+            "observable_effect": "When comparing trajectories with the same mean temperature but different initial temperature contrasts, the child predicts steeper early-time cooling/heating for the larger contrast and a stronger slowing as the contrast shrinks, beyond what any one refitted linear-difference law can match across both cases."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "delta_T",
+              "expression": "T_B - T_A",
+              "role": "Driving temperature contrast for mutual heat flow"
+            },
+            {
+              "name": "mean_T",
+              "expression": "(T_A + T_B)/2",
+              "role": "Average pair temperature controlling the existing conductance prefactor"
+            },
+            {
+              "name": "deltaT_sq",
+              "expression": "(T_B - T_A)**2",
+              "role": "Contrast magnitude used to detect departure from strictly linear transport"
+            }
+          ],
+          "activation_condition": "Observable when the admissible experiment spans a non-negligible range of |T_B - T_A| while keeping temperatures positive and the nonlinear correction small enough that heat still always flows from hot to cold; strongest at early times of high-contrast runs.",
+          "train_hidden_contrast": "In training, varying initial temperature differences already changes the target slope with contrast; in holdout, the same mechanism extends to larger or smaller contrasts at similar mean temperatures, revealing curvature in dT_A_dt versus delta_T rather than a single proportionality.",
+          "continuation_path": "Recover the parent law in the limit where the nonlinear contrast dependence tends to zero, so the exchange rate becomes strictly proportional to (T_B - T_A) with the existing mean-temperature conductance factor.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "pairwise",
+          "scope_symbols": [
+            "T_A",
+            "T_B"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Contrast-dependent mutual thermal transport",
+          "scientific_mechanism": "Weakly nonlinear thermal transport across the mutual link, such as temperature-gradient-dependent effective transfer that remains antisymmetric and energy conserving but departs from exact linear-response behavior at larger temperature differences.",
+          "embedding_pattern": "multiplicative_modulation",
+          "difficulty_rationale": "This embedding is harder than a coefficient-only correction because the new parameter changes the shape of the target dependence on temperature contrast, not just its overall scale. The multiplicative contrast term creates a cubic odd response in delta_T at fixed mean temperature, so one parameter set must account simultaneously for near-equilibrium slope and enhanced large-contrast exchange.",
+          "taxonomy_match": "known",
+          "assumption_before": "The heat-exchange law is exactly linear in temperature difference for all admissible contrasts.",
+          "assumption_after": "The mutual transfer coefficient is weakly modulated by temperature-contrast magnitude, producing nonlinear but still antisymmetric heat exchange.",
+          "before_fragment": "thermal_conductance*(1 + conductance_temp_coeff*(T_A + T_B)/2)*(T_B - T_A)/heat_capacity_A",
+          "after_fragment": "thermal_conductance*(1 + conductance_temp_coeff*(T_A + T_B)/2)*(1 + contrast_nonlinearity_coeff*(T_B - T_A)**2)*(T_B - T_A)/heat_capacity_A",
+          "parent_reduction": "Set contrast_nonlinearity_coeff = 0 to recover the parent expression exactly.",
+          "observable_signature": "At approximately fixed mean_T, plotting dT_A_dt against delta_T changes from a straight odd line in the parent to an odd curve whose magnitude grows faster than linearly with |delta_T| in the child. The effect is visible across trajectories initialized with different temperature contrasts and is strongest before the system nears equilibrium.",
+          "shortcut_blocked": "A single refit of thermal_conductance and conductance_temp_coeff cannot reproduce this contrast-dependent curvature because the parent remains exactly linear in delta_T for every parameter choice. Retuning can match either the near-equilibrium slope or the faster large-contrast exchange over the same mean-temperature range, but not both with one shared parameter set."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "phase_shift",
+            "parent_relation": "The target dT_A_dt depends only on the instantaneous temperatures through an algebraic conductance factor, so once T_A and T_B are specified the heat-flow rate is single-valued and responds with no internal lag.",
+            "child_relation": "The mutual heat-transfer strength acquires its own finite relaxation dynamics, so dT_A_dt depends on T_A, T_B, and a slowly adapting effective conductance state; identical instantaneous temperatures can produce different rates depending on prior thermal history.",
+            "affected_inputs": [
+              "T_A",
+              "T_B",
+              "thermal_conductance"
+            ],
+            "observable_effect": "Early after release from the initial temperature contrast, the heat-exchange rate can lag behind the algebraic parent prediction, producing delayed onset or delayed strengthening of |dT_A_dt| relative to the same instantaneous temperature contrast later in the trajectory."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "mean_temp",
+              "expression": "(T_A + T_B)/2",
+              "role": "Current pair mean temperature controlling the equilibrium level of the effective link strength"
+            },
+            {
+              "name": "temp_contrast",
+              "expression": "T_B - T_A",
+              "role": "Driving temperature difference for antisymmetric heat exchange"
+            },
+            {
+              "name": "contrast_sq",
+              "expression": "(T_B - T_A)**2",
+              "role": "Magnitude of nonlinear transport activation and indicator of regimes where conductance adaptation is most visible"
+            }
+          ],
+          "activation_condition": "Observable when the link-adjustment timescale is not negligible compared with the thermal equilibration timescale, so the temperature contrast changes appreciably before the effective conductance finishes adapting; the initial nonzero contrast in the stated experiment is sufficient if that relaxation is comparable to the heat-exchange time.",
+          "train_hidden_contrast": "In training, moderate contrasts already reveal slight lag between contrast and heat-flow strength; in holdout, larger or more temperature-varying trajectories amplify the same memory effect, making the rate at a given instantaneous contrast depend more strongly on trajectory stage.",
+          "continuation_path": "Recover the parent law in the fast-relaxation limit where the effective conductance state instantaneously tracks its temperature-dependent equilibrium value, or equivalently when the adaptation time constant tends to zero.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "A finite response lag of the thermal link cannot be represented with only the existing temperature states and fixed parameters, because the current target is an instantaneous algebraic function of T_A and T_B. A separate state is needed to encode the link's internal nonequilibrium memory while preserving energy-conserving antisymmetric exchange.",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "T_A",
+            "T_B",
+            "effective_conductance"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "relaxing interfacial conductance in two-body heat exchange",
+          "scientific_mechanism": "Finite-time relaxation of the effective interfacial or contact conductance toward a temperature- and contrast-dependent quasi-equilibrium value.",
+          "embedding_pattern": "state_dependent_coefficient",
+          "difficulty_rationale": "This embedding is structurally harder than a coefficient-only correction because the coefficient of the existing exchange process becomes a dynamical state with memory. The target is therefore no longer a single algebraic surface over instantaneous temperatures, but a history-dependent response mediated by a lagging state-dependent coefficient.",
+          "taxonomy_match": "known",
+          "assumption_before": "The thermal conductance between the bodies is constant and has no time delay.",
+          "assumption_after": "The effective conductance relaxes over finite time toward the temperature- and contrast-dependent conductance implied by the parent law.",
+          "before_fragment": "thermal_conductance*(1 + conductance_temp_coeff*(T_A + T_B)/2)*(1 + contrast_nonlinearity_coeff*(T_B - T_A)**2)*(T_B - T_A)/heat_capacity_A",
+          "after_fragment": "effective_conductance*(T_B - T_A)/heat_capacity_A",
+          "parent_reduction": "In the limit conductance_relaxation_time -> 0, the conductance state becomes slaved to thermal_conductance*(1 + conductance_temp_coeff*(T_A + T_B)/2)*(1 + contrast_nonlinearity_coeff*(T_B - T_A)**2), recovering the parent expression.",
+          "observable_signature": "At fixed observed temperatures T_A and T_B, the parent predicts a unique dT_A_dt, whereas the child permits different dT_A_dt values at different stages of the same equilibration trajectory because effective_conductance can lag its quasi-equilibrium value. This target-mapping change is observable when conductance_relaxation_time is comparable to the thermal equilibration time and the initial 400 K to 350 K contrast drives appreciable temperature evolution before adaptation completes.",
+          "shortcut_blocked": "A single refit of the parent parameters cannot reproduce both early-time lagged heat-flow rates and later-time near-equilibrium rates at the same instantaneous temperature pair, because the parent mapping from (T_A, T_B) to dT_A_dt is memoryless and single-valued. Retuning thermal_conductance, conductance_temp_coeff, and contrast_nonlinearity_coeff only reshapes that static response surface and cannot generate trajectory-stage dependence without an added internal conductance state."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The target dT_A_dt is proportional to the instantaneous temperature difference times a single lagged conductance state, so after accounting for the existing conductance relaxation the heat current still responds linearly to the contrast sign and smoothly to its magnitude with no additional suppression near equilibrium.",
+            "child_relation": "Retain antisymmetric energy exchange but replace the weak contrast gain with a saturating contrast dependence of the mutual transfer law, so the target grows approximately linearly for small |T_B-T_A| and then bends toward a sublinear dependence at larger contrast.",
+            "affected_inputs": [
+              "T_A",
+              "T_B",
+              "effective_conductance",
+              "contrast_nonlinearity_coeff"
+            ],
+            "observable_effect": "When initial temperature contrast is varied while heat capacities and mean temperature are held fixed, the child predicts weaker-than-parent early-time cooling magnitude at the largest contrasts but nearly the same near-equilibrium slope; this appears directly in dT_A_dt, not only in the auxiliary conductance trajectory."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "delta_T",
+              "expression": "T_B - T_A",
+              "role": "driving temperature contrast setting the sign and scale of heat exchange"
+            },
+            {
+              "name": "mean_T",
+              "expression": "(T_A + T_B)/2",
+              "role": "pair mean temperature controlling the quasi-equilibrium conductance baseline"
+            },
+            {
+              "name": "contrast_scale",
+              "expression": "contrast_nonlinearity_coeff*(T_B - T_A)**2",
+              "role": "dimensionless measure of departure from linear-response contrast range"
+            }
+          ],
+          "activation_condition": "Observable when |contrast_nonlinearity_coeff|*(T_B-T_A)**2 is not negligible during the sampled trajectory, especially at early times before equilibration shrinks the contrast; the effect is weak near equilibrium.",
+          "train_hidden_contrast": "In training, moderate contrasts reveal slight bending away from linear-response scaling; in holdout, larger but still physical contrasts extend the same saturation trend, producing systematically smaller |dT_A_dt| than a single polynomial-gain parent fit would predict.",
+          "continuation_path": "Recover the parent law in the small-contrast limit |contrast_nonlinearity_coeff|*(T_B-T_A)**2 << 1, where the saturating transfer factor expands to 1 plus the existing weak quadratic correction.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "pairwise",
+          "scope_symbols": [
+            "T_A",
+            "T_B",
+            "effective_conductance",
+            "contrast_nonlinearity_coeff"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "saturating nonequilibrium interfacial heat transfer",
+          "scientific_mechanism": "Finite interfacial transport can enter a nonlinear-response regime where additional contrast does not keep amplifying conductance proportionally; instead the effective flux enhancement saturates because contact-limited transfer approaches a bounded nonequilibrium response.",
+          "embedding_pattern": "state_dependent_coefficient",
+          "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the coefficient of the existing transport process now depends nonlinearly on the instantaneous temperature contrast, changing curvature of the target mapping across conditions while preserving the same state set.",
+          "taxonomy_match": "known",
+          "assumption_before": "The present mutual transfer law treats contrast dependence as a weak quadratic gain factor valid across the whole admissible contrast range.",
+          "assumption_after": "The contrast dependence of the mutual transfer law saturates at larger temperature differences, producing sublinear growth of heat-current magnitude with |T_B-T_A|.",
+          "before_fragment": "effective_conductance*(T_B - T_A)/heat_capacity_A",
+          "after_fragment": "effective_conductance*(T_B - T_A)/(heat_capacity_A*(1 + contrast_nonlinearity_coeff*(T_B - T_A)**2))",
+          "parent_reduction": "When contrast_nonlinearity_coeff*(T_B - T_A)**2 is negligible, the denominator approaches 1 and the child reduces to the parent target law.",
+          "observable_signature": "Across trajectories with the same mean temperature and heat capacities but different initial contrast, early-time |dT_A_dt| versus |T_B-T_A| shows near-linear behavior close to equilibrium and then bends downward at larger contrast; the parent keeps a single-phase proportional response to contrast through effective_conductance and cannot produce that direct suppression in the scored target.",
+          "shortcut_blocked": "Refitting one parent parameter set cannot match both the near-equilibrium slope and the large-contrast suppression because the parent target expression is exactly linear in T_B-T_A for fixed observed effective_conductance, whereas the child inserts a contrast-dependent denominator directly into dT_A_dt. Adjusting thermal_conductance, conductance_temp_coeff, or conductance_relaxation_time only reshapes the auxiliary effective_conductance trajectory and cannot reproduce the same instantaneous downward curvature of the scored mapping across contrasts when effective_conductance is already an observed state supplied to the solver."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "At fixed effective_conductance, the target depends on temperature contrast only through an odd flux divided by 1 + contrast_nonlinearity_coeff*(T_B - T_A)**2, so the mean temperature affects dT_A_dt only as a multiplicative gain through the conductance state target.",
+            "child_relation": "Retain antisymmetric exchange but let the transport nonlinearity itself depend on the pair mean temperature, so the contrast-response curvature of dT_A_dt changes with both T_B - T_A and (T_A + T_B)/2 rather than being a single shared contrast-saturation shape scaled by conductance alone.",
+            "affected_inputs": [
+              "T_A",
+              "T_B",
+              "effective_conductance",
+              "conductance_temp_coeff",
+              "contrast_nonlinearity_coeff"
+            ],
+            "observable_effect": "Across trajectories with similar instantaneous contrast but different pair mean temperatures, the normalized cooling rate dT_A_dt/(T_B-T_A) bends differently with contrast; hotter pairs can show earlier or later sublinear saturation than cooler pairs, not just a uniform rescaling."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "mean_temperature",
+              "expression": "(T_A + T_B)/2",
+              "role": "pair average temperature controlling material transport regime"
+            },
+            {
+              "name": "temperature_contrast",
+              "expression": "T_B - T_A",
+              "role": "driving force for mutual heat exchange"
+            },
+            {
+              "name": "normalized_exchange_rate",
+              "expression": "effective_conductance/(heat_capacity_A*(1 + contrast_nonlinearity_coeff*(T_B - T_A)**2))",
+              "role": "parent effective proportionality between contrast and body-A temperature rate"
+            }
+          ],
+          "activation_condition": "Observable when the admissible experiment spans a non-negligible mean-temperature range such that |conductance_temp_coeff*(T_A + T_B)/2| is not tiny, and when the contrast is large enough that contrast_nonlinearity_coeff*(T_B - T_A)^2 is O(1) over part of the trajectory.",
+          "train_hidden_contrast": "In training, varying mean temperature mainly changes overall exchange speed through conductance. In holdout, with larger simultaneous contrast and shifted mean temperature, the same mechanism also changes the curvature of the contrast-response, revealing a non-separable mean-temperature-by-contrast interaction.",
+          "continuation_path": "Recover the parent by taking the mean-temperature dependence of the contrast-saturation law to zero, so the denominator returns to 1 + contrast_nonlinearity_coeff*(T_B - T_A)^2 and only the conductance state carries mean-temperature dependence.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "T_A",
+            "T_B",
+            "effective_conductance"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "mean-temperature modulation of nonlinear inter-body heat-transfer saturation",
+          "scientific_mechanism": "Temperature-dependent interfacial transport nonlinearity: phonon/contact or radiative-mixed transfer can make the onset of sublinear contrast response shift with the absolute temperature level even while exchange remains antisymmetric and energy conserving.",
+          "embedding_pattern": "multiplicative_modulation",
+          "difficulty_rationale": "This is structurally harder than a coefficient-only correction because mean temperature now changes the denominator's contrast curvature, creating a non-separable interaction between average temperature and contrast rather than a simple gain rescaling of the same contrast-response shape.",
+          "taxonomy_match": "known",
+          "assumption_before": "The coefficient setting departure from linear-response transport is constant over the full temperature range and does not vary with the pair mean temperature.",
+          "assumption_after": "The contrast-saturation strength is modulated by the pair mean temperature, shifting the onset of sublinear transfer with absolute temperature level.",
+          "before_fragment": "effective_conductance*(T_B - T_A)/(heat_capacity_A*(1 + contrast_nonlinearity_coeff*(T_B - T_A)**2))",
+          "after_fragment": "effective_conductance*(T_B - T_A)/(heat_capacity_A*(1 + contrast_nonlinearity_coeff*(1 + conductance_temp_coeff*(T_A + T_B)/2)*(T_B - T_A)**2))",
+          "parent_reduction": "Setting conductance_temp_coeff = 0 in the target law recovers the parent expression exactly.",
+          "observable_signature": "Compare trajectory segments where effective_conductance and |T_B - T_A| are similar but (T_A + T_B)/2 differs within the admissible range. The parent predicts the same normalized contrast curvature up to amplitude scaling, whereas the child predicts different bending of dT_A_dt versus contrast because the saturation denominator itself changes with mean temperature.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce both earlier saturation at one mean temperature and later saturation at another when effective_conductance is supplied, because the parent target mapping has one global contrast-saturation scale and mean temperature enters only through multiplicative conductance. Refitting contrast_nonlinearity_coeff or conductance_temp_coeff merely rescales one shared curve; it cannot make the curve shape conditional on mean temperature across the same dataset."
+        }
+      ]
+    },
+    "finalization": {
+      "mode": "candidate",
+      "accepted_generations": 5,
+      "novelty": {
+        "answer": "NOT_EVALUATED"
+      },
+      "total_points": 5000,
+      "evaluation_status": "not_evaluated"
+    }
+  },
+  "contract": {
+    "features": [
+      "t",
+      "T_A",
+      "T_B",
+      "effective_conductance"
+    ],
+    "target": "dT_A_dt",
+    "family": "ode",
+    "expression": "effective_conductance*(T_B - T_A)/(heat_capacity_A*(1 + contrast_nonlinearity_coeff*(1 + conductance_temp_coeff*(T_A + T_B)/2)*(T_B - T_A)**2))",
+    "parameters": {
+      "heat_capacity_A": 100.0,
+      "heat_capacity_B": 120.0,
+      "thermal_conductance": 1.5,
+      "conductance_temp_coeff": 0.001,
+      "contrast_nonlinearity_coeff": 5e-05,
+      "conductance_relaxation_time": 25.0
+    },
+    "implicit_branch": null
+  }
+}

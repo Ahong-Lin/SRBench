@@ -1,0 +1,13 @@
+"""Exact ground truth. Private Harbor oracle solution."""
+import sympy
+
+FEATURES = ['V', 'S_ext']
+TARGET = 'm_inf'
+PARAMETERS = {'m_lower': 0.02, 'm_upper': 0.98, 'V_half': -30.0, 'k_activation': 8.0, 'curvature_scale': 0.003, 'threshold_shift_max': 20.0, 'S_half': 1.0, 'steepness_screening_max': 0.5, 'subpopulation_weight': 0.28, 'subpopulation_shift_ratio': 0.45, 'occupancy_redistribution_max': 1.4}
+_symbols = {name: sympy.Symbol(name) for name in ['V', 'S_ext', 'm_lower', 'm_upper', 'V_half', 'k_activation', 'curvature_scale', 'threshold_shift_max', 'S_half', 'steepness_screening_max', 'subpopulation_weight', 'subpopulation_shift_ratio', 'occupancy_redistribution_max', 'm_inf']}
+_expression = sympy.sympify('m_lower + (m_upper - m_lower)*((1 - subpopulation_weight*(1 + occupancy_redistribution_max*S_ext/(S_half + S_ext))/(1 + occupancy_redistribution_max*subpopulation_weight*S_ext/(S_half + S_ext)))/(1 + exp(-(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext)))/(k_activation*(1 + steepness_screening_max*S_ext/(S_half + S_ext))*(1 + curvature_scale*(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext))))))) + (subpopulation_weight*(1 + occupancy_redistribution_max*S_ext/(S_half + S_ext))/(1 + occupancy_redistribution_max*subpopulation_weight*S_ext/(S_half + S_ext)))/(1 + exp(-(V - (V_half + subpopulation_shift_ratio*threshold_shift_max*S_ext/(S_half + S_ext)))/(k_activation*(1 + steepness_screening_max*S_ext/(S_half + S_ext))*(1 + curvature_scale*(V - (V_half + subpopulation_shift_ratio*threshold_shift_max*S_ext/(S_half + S_ext))))))))', locals=_symbols)
+_arguments = [_symbols[name] for name in FEATURES + list(PARAMETERS)]
+_function = sympy.lambdify(_arguments, _expression, modules="numpy")
+
+def law(rows):
+    return [{TARGET: float(_function(*[float(row[name]) for name in FEATURES], *PARAMETERS.values()))} for row in rows]

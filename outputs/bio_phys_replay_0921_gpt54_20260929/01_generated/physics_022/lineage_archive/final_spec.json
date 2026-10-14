@@ -1,0 +1,1658 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "T1",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        1500.0
+      ],
+      "n_points": 400,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "heat_capacity_1",
+      "value": 8000.0
+    },
+    {
+      "symbol": "heat_capacity_2",
+      "value": 12000.0
+    },
+    {
+      "symbol": "contact_conductance",
+      "value": 120.0
+    },
+    {
+      "symbol": "conductance_deltaT_scale",
+      "value": 60.0
+    },
+    {
+      "symbol": "mean_temperature_conductance_coeff",
+      "value": 0.0015
+    },
+    {
+      "symbol": "conductance_reference_temperature",
+      "value": 350.0
+    },
+    {
+      "symbol": "heat_capacity_1_temperature_coeff",
+      "value": 0.001
+    },
+    {
+      "symbol": "heat_capacity_1_reference_temperature",
+      "value": 350.0
+    },
+    {
+      "symbol": "body1_contact_temperature_coeff",
+      "value": 0.0008
+    }
+  ],
+  "benchmark_output": "dT1_dt",
+  "benchmark_target_state": "T1",
+  "observed_variables": [
+    "t",
+    "T1",
+    "T2"
+  ],
+  "rhs_for_integrator": "contact_conductance*(1 + mean_temperature_conductance_coeff*((T1 + T2)/2 - conductance_reference_temperature))*(1 + body1_contact_temperature_coeff*(T1 - heat_capacity_1_reference_temperature))*(tanh(Abs(T2 - T1)/conductance_deltaT_scale))**2*(T2 - T1)/(heat_capacity_1*(1 + heat_capacity_1_temperature_coeff*(T1 - heat_capacity_1_reference_temperature)))",
+  "state_variables": [
+    "T1",
+    "T2"
+  ],
+  "state_rhs": [
+    "contact_conductance*(1 + mean_temperature_conductance_coeff*((T1 + T2)/2 - conductance_reference_temperature))*(1 + body1_contact_temperature_coeff*(T1 - heat_capacity_1_reference_temperature))*(tanh(Abs(T2 - T1)/conductance_deltaT_scale))**2*(T2 - T1)/(heat_capacity_1*(1 + heat_capacity_1_temperature_coeff*(T1 - heat_capacity_1_reference_temperature)))",
+    "contact_conductance*(1 + mean_temperature_conductance_coeff*((T1 + T2)/2 - conductance_reference_temperature))*(1 + body1_contact_temperature_coeff*(T1 - heat_capacity_1_reference_temperature))*(tanh(Abs(T1 - T2)/conductance_deltaT_scale))**2*(T1 - T2)/heat_capacity_2"
+  ],
+  "initial_conditions": {
+    "T1": 420.0,
+    "T2": 280.0
+  },
+  "sanity_expectations": [
+    "At t=0, dT1/dt should be negative and dT2/dt positive because T1>T2, so heat flows from body 1 to body 2.",
+    "The weighted mean temperature (heat_capacity_1*T1 + heat_capacity_2*T2)/(heat_capacity_1 + heat_capacity_2) should remain approximately constant along the numerical trajectory.",
+    "|T2-T1| should decrease toward 0, and the late-time approach should be noticeably slower than a parent model with a single tanh factor because the present law uses tanh(|DeltaT|/conductance_deltaT_scale)^2.",
+    "When |T2-T1| is still well above about 60 K, the squared tanh factor should be close to 1 and exchange should be relatively strong; once |T2-T1| falls below order 60 K, |dT1/dt| should bend downward more sharply.",
+    "The denominator factor 1 + heat_capacity_1_temperature_coeff*(T1 - heat_capacity_1_reference_temperature) and the numerator correction factors should stay positive over the trajectory, so the solution should remain finite and real without sign-flip pathologies."
+  ],
+  "role_corrections": [
+    "dT1_dt: claimed-output/target derivative -> derived target rate for state T1 (confirmed by expression; dataset dependent variable remains T1 under inherited ODE contract)",
+    "t: claimed-input/time axis -> independent variable/time axis (confirmed)",
+    "T1: claimed-dynamic state -> dynamic state and dependent variable target_state (confirmed)",
+    "T2: claimed-dynamic state -> dynamic state in the coupled ODE system, not an independent sampled axis (confirmed)",
+    "heat_capacity_1: claimed-parameter -> parameter (confirmed)",
+    "heat_capacity_2: claimed-parameter -> parameter (confirmed via inherited ODE contract)",
+    "contact_conductance: claimed-parameter -> parameter (confirmed)",
+    "conductance_deltaT_scale: claimed-parameter -> parameter (confirmed)",
+    "mean_temperature_conductance_coeff: claimed-parameter -> parameter (confirmed)",
+    "conductance_reference_temperature: claimed-parameter -> parameter (confirmed)",
+    "heat_capacity_1_temperature_coeff: claimed-parameter -> parameter (confirmed)",
+    "heat_capacity_1_reference_temperature: claimed-parameter -> parameter (confirmed)",
+    "body1_contact_temperature_coeff: claimed-parameter -> parameter (confirmed)"
+  ],
+  "rationale": "The provided typed contract is preserved exactly: this is a coupled first-order ODE system in time with target state T1, sampled only along t. The initial condition already provides a strong but not extreme temperature contrast, |T2-T1|=140 K. Choosing conductance_deltaT_scale=60 K makes that contrast only a few times the transition scale, so the trajectory should move from a moderately saturated large-contrast regime into the intended stronger near-equilibrium suppression regime from the squared tanh factor. This directly exposes the generation-5 distinguishing behavior in the reachable states of this single inherited trajectory: early exchange is appreciable, but as |T2-T1| drops below order 60 K the target rate should weaken more sharply than under the parent single-tanh law. The mean-temperature conductance coefficient, body-1 numerator-side conductance coefficient, and body-1 heat-capacity temperature coefficient are all kept small and positive so they remain scientifically admissible, stay active over the trajectory, and do not overwhelm the contrast-shape mechanism. Reference temperatures are placed near the middle of the expected temperature band so the multiplicative corrections remain near order unity and positive. Unequal but same-order heat capacities produce a realistic equilibration timescale and a final common temperature in the interior of the operating window. The 0 to 1500 time window with 400 linear samples should capture early transient exchange, the crossover where |DeltaT| becomes comparable to the conductance scale, and the slower final approach to equilibrium. Labels are exact ODE outputs with no observation noise.",
+  "coverage_report": {
+    "groups": [
+      {
+        "generation": 1,
+        "name": "delta_T",
+        "expression": "T2 - T1",
+        "role": "instantaneous thermodynamic driving difference for inter-body heat flow",
+        "train_range": [
+          -140.0,
+          -7.59879623897217
+        ],
+        "hidden_range": [
+          -7.595336666529079,
+          -7.190816718339306
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": -140.0,
+          "max": -7.59879623897217,
+          "q05": -44.65702421706073,
+          "median": -10.999399798029089,
+          "q95": -7.806364263207633,
+          "range": 132.40120376102783,
+          "robust_range": 36.850659953853096
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": -7.595336666529079,
+          "max": -7.190816718339306,
+          "q05": -7.573478003704679,
+          "median": -7.384833108317679,
+          "q95": -7.209537473514004,
+          "range": 0.40451994818977255,
+          "robust_range": 0.36394053019067485
+        }
+      },
+      {
+        "generation": 1,
+        "name": "abs_delta_T",
+        "expression": "Abs(T2 - T1)",
+        "role": "magnitude of the contact nonequilibrium that can modulate effective conductance",
+        "train_range": [
+          7.59879623897217,
+          140.0
+        ],
+        "hidden_range": [
+          7.190816718339306,
+          7.595336666529079
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 7.59879623897217,
+          "max": 140.0,
+          "q05": 7.806364263207632,
+          "median": 10.999399798029089,
+          "q95": 44.65702421706068,
+          "range": 132.40120376102783,
+          "robust_range": 36.85065995385305
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 7.190816718339306,
+          "max": 7.595336666529079,
+          "q05": 7.209537473514004,
+          "median": 7.384833108317679,
+          "q95": 7.573478003704679,
+          "range": 0.40451994818977255,
+          "robust_range": 0.36394053019067485
+        }
+      },
+      {
+        "generation": 1,
+        "name": "energy_weighted_mean",
+        "expression": "(heat_capacity_1*T1 + heat_capacity_2*T2)/(heat_capacity_1 + heat_capacity_2)",
+        "role": "conserved mean temperature for the isolated two-body system",
+        "train_range": [
+          336.0,
+          336.97999917050265
+        ],
+        "hidden_range": [
+          336.96478971351297,
+          336.96562742576276
+        ],
+        "train_status": "inactive",
+        "hidden_status": "inactive",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 336.0,
+          "max": 336.97999917050265,
+          "q05": 336.9422412276239,
+          "median": 336.97039457551057,
+          "q95": 336.9796535856704,
+          "range": 0.9799991705026514,
+          "robust_range": 0.03741235804648113
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 336.96478971351297,
+          "max": 336.96562742576276,
+          "q05": 336.9648290070577,
+          "median": 336.96519446598245,
+          "q95": 336.9655827671598,
+          "range": 0.0008377122497904566,
+          "robust_range": 0.0007537601020999318
+        }
+      },
+      {
+        "generation": 2,
+        "name": "abs_gap_over_scale",
+        "expression": "Abs(T2 - T1)/conductance_deltaT_scale",
+        "role": "parent conductance activation coordinate",
+        "train_range": [
+          0.1266466039828695,
+          2.3333333333333335
+        ],
+        "hidden_range": [
+          0.11984694530565511,
+          0.12658894444215132
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.1266466039828695,
+          "max": 2.3333333333333335,
+          "q05": 0.13010607105346053,
+          "median": 0.18332332996715148,
+          "q95": 0.7442837369510115,
+          "range": 2.206686729350464,
+          "robust_range": 0.614177665897551
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.11984694530565511,
+          "max": 0.12658894444215132,
+          "q05": 0.12015895789190006,
+          "median": 0.12308055180529465,
+          "q95": 0.12622463339507797,
+          "range": 0.006741999136496216,
+          "robust_range": 0.006065675503177909
+        }
+      },
+      {
+        "generation": 2,
+        "name": "mean_T",
+        "expression": "(T1 + T2)/2",
+        "role": "absolute contact temperature level that can modify interfacial transfer efficiency",
+        "train_range": [
+          337.7255141113677,
+          350.0
+        ],
+        "hidden_range": [
+          337.6838713853469,
+          337.7251610924157
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 337.7255141113677,
+          "max": 350.0,
+          "q05": 337.74669141030927,
+          "median": 338.0716744263804,
+          "q95": 341.40794364933,
+          "range": 12.274485888632285,
+          "robust_range": 3.661252239020712
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 337.6838713853469,
+          "max": 337.7251610924157,
+          "q05": 337.6857827544091,
+          "median": 337.70367777681423,
+          "q95": 337.7229305675302,
+          "range": 0.041289707068813186,
+          "robust_range": 0.03714781312112336
+        }
+      },
+      {
+        "generation": 3,
+        "name": "body1_temperature_level",
+        "expression": "T1",
+        "role": "state coordinate along which body-1 thermal inertia would vary under the refinement",
+        "train_range": [
+          341.52491223085383,
+          420.0
+        ],
+        "hidden_range": [
+          341.27927974451654,
+          341.52282942568024
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 341.52491223085383,
+          "max": 420.0,
+          "q05": 341.64987354191305,
+          "median": 343.57137432539497,
+          "q95": 363.73645575786037,
+          "range": 78.47508776914617,
+          "robust_range": 22.086582215947317
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 341.27927974451654,
+          "max": 341.52282942568024,
+          "q05": 341.2905514911661,
+          "median": 341.3960943309731,
+          "q95": 341.5096695693826,
+          "range": 0.24354968116369946,
+          "robust_range": 0.2191180782164679
+        }
+      },
+      {
+        "generation": 4,
+        "name": "deltaT",
+        "expression": "T2 - T1",
+        "role": "driving temperature difference and heat-flow direction",
+        "train_range": [
+          -140.0,
+          -7.59879623897217
+        ],
+        "hidden_range": [
+          -7.595336666529079,
+          -7.190816718339306
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": -140.0,
+          "max": -7.59879623897217,
+          "q05": -44.65702421706073,
+          "median": -10.999399798029089,
+          "q95": -7.806364263207633,
+          "range": 132.40120376102783,
+          "robust_range": 36.850659953853096
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": -7.595336666529079,
+          "max": -7.190816718339306,
+          "q05": -7.573478003704679,
+          "median": -7.384833108317679,
+          "q95": -7.209537473514004,
+          "range": 0.40451994818977255,
+          "robust_range": 0.36394053019067485
+        }
+      },
+      {
+        "generation": 4,
+        "name": "Tmean",
+        "expression": "(T1 + T2)/2",
+        "role": "current mean contact temperature already used by the parent conductance law",
+        "train_range": [
+          337.7255141113677,
+          350.0
+        ],
+        "hidden_range": [
+          337.6838713853469,
+          337.7251610924157
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 337.7255141113677,
+          "max": 350.0,
+          "q05": 337.74669141030927,
+          "median": 338.0716744263804,
+          "q95": 341.40794364933,
+          "range": 12.274485888632285,
+          "robust_range": 3.661252239020712
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 337.6838713853469,
+          "max": 337.7251610924157,
+          "q05": 337.6857827544091,
+          "median": 337.70367777681423,
+          "q95": 337.7229305675302,
+          "range": 0.041289707068813186,
+          "robust_range": 0.03714781312112336
+        }
+      },
+      {
+        "generation": 4,
+        "name": "T1_offset",
+        "expression": "T1 - heat_capacity_1_reference_temperature",
+        "role": "body-1 absolute temperature shift indicating whether body-1-side contact properties depart from reference",
+        "train_range": [
+          -8.475087769146171,
+          70.0
+        ],
+        "hidden_range": [
+          -8.720720255483457,
+          -8.477170574319757
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": -8.475087769146171,
+          "max": 70.0,
+          "q05": -8.350126458086924,
+          "median": -6.42862567460503,
+          "q95": 13.736455757860341,
+          "range": 78.47508776914617,
+          "robust_range": 22.086582215947267
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": -8.720720255483457,
+          "max": -8.477170574319757,
+          "q05": -8.709448508833898,
+          "median": -8.603905669026915,
+          "q95": -8.49033043061741,
+          "range": 0.24354968116369946,
+          "robust_range": 0.21911807821648743
+        }
+      },
+      {
+        "generation": 5,
+        "name": "abs_deltaT_scaled",
+        "expression": "Abs(T2 - T1)/conductance_deltaT_scale",
+        "role": "dimensionless proximity-to-equilibrium coordinate controlling weak-coupling onset",
+        "train_range": [
+          0.1266466039828695,
+          2.3333333333333335
+        ],
+        "hidden_range": [
+          0.11984694530565511,
+          0.12658894444215132
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.1266466039828695,
+          "max": 2.3333333333333335,
+          "q05": 0.13010607105346053,
+          "median": 0.18332332996715148,
+          "q95": 0.7442837369510115,
+          "range": 2.206686729350464,
+          "robust_range": 0.614177665897551
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.11984694530565511,
+          "max": 0.12658894444215132,
+          "q05": 0.12015895789190006,
+          "median": 0.12308055180529465,
+          "q95": 0.12622463339507797,
+          "range": 0.006741999136496216,
+          "robust_range": 0.006065675503177909
+        }
+      },
+      {
+        "generation": 5,
+        "name": "meanT",
+        "expression": "(T1 + T2)/2 - conductance_reference_temperature",
+        "role": "mean contact temperature offset already modulating baseline conductance",
+        "train_range": [
+          -12.274485888632285,
+          0.0
+        ],
+        "hidden_range": [
+          -12.31612861465311,
+          -12.274838907584297
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": -12.274485888632285,
+          "max": 0.0,
+          "q05": -12.253308589690741,
+          "median": -11.928325573619588,
+          "q95": -8.59205635067,
+          "range": 12.274485888632285,
+          "robust_range": 3.661252239020742
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": -12.31612861465311,
+          "max": -12.274838907584297,
+          "q05": -12.31421724559092,
+          "median": -12.296322223185769,
+          "q95": -12.277069432469778,
+          "range": 0.041289707068813186,
+          "robust_range": 0.03714781312114113
+        }
+      }
+    ],
+    "inactive_mechanisms": [
+      "energy_weighted_mean"
+    ],
+    "visible_mechanisms": [
+      "delta_T",
+      "abs_delta_T",
+      "abs_gap_over_scale",
+      "mean_T",
+      "body1_temperature_level",
+      "deltaT",
+      "Tmean",
+      "T1_offset",
+      "abs_deltaT_scaled",
+      "meanT"
+    ],
+    "extended_mechanisms": [
+      "delta_T",
+      "abs_delta_T",
+      "abs_gap_over_scale",
+      "mean_T",
+      "body1_temperature_level",
+      "deltaT",
+      "Tmean",
+      "T1_offset",
+      "abs_deltaT_scaled",
+      "meanT"
+    ]
+  },
+  "inactive_mechanisms": [
+    "energy_weighted_mean"
+  ],
+  "target_variance": {
+    "train": {
+      "n": 384,
+      "variance": 0.04989811937713907,
+      "range": 1.994234107212619
+    },
+    "hidden": {
+      "n": 128,
+      "variance": 6.035380711412996e-09,
+      "range": 0.00026730322624109507
+    }
+  },
+  "parent_absorption_report": {
+    "status": "ok",
+    "n_points": 512,
+    "fixed_parent_normalized_rmse": 26.86750057581592,
+    "refit": {
+      "status": "not_run",
+      "reason": "no free parent parameters"
+    },
+    "interpretation": "<1e-3 nearly absorbed; 1e-3..1e-2 weak; >1e-2 visible structure"
+  },
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_rmyNX5RRVhSkVcFVjrvmzvih"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "contact_conductance*(1 + mean_temperature_conductance_coeff*((T1 + T2)/2 - conductance_reference_temperature))*(1 + body1_contact_temperature_coeff*(T1 - heat_capacity_1_reference_temperature))*(tanh(Abs(T2 - T1)/conductance_deltaT_scale))**2*(T2 - T1)/(heat_capacity_1*(1 + heat_capacity_1_temperature_coeff*(T1 - heat_capacity_1_reference_temperature)))",
+        "target_symbol": "dT1_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "T1",
+          "T2",
+          "body1_contact_temperature_coeff",
+          "conductance_deltaT_scale",
+          "conductance_reference_temperature",
+          "contact_conductance",
+          "heat_capacity_1",
+          "heat_capacity_1_reference_temperature",
+          "heat_capacity_1_temperature_coeff",
+          "mean_temperature_conductance_coeff"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "contact_conductance*(-T1 + T2)*(body1_contact_temperature_coeff*(T1 - heat_capacity_1_reference_temperature) + 1)*(mean_"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_PzVncw1vaq0MJ5RSeuq2PLkS"
+        },
+        {
+          "name": "check_substitution",
+          "id": "call_4xsjs7wb8XKBxaLfHaxobHbz"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "contact_conductance*(1 + mean_temperature_conductance_coeff*((T1 + T2)/2 - conductance_reference_temperature))*(1 + body1_contact_temperature_coeff*(T1 - heat_capacity_1_reference_temperature))*(tanh(Abs(T2 - T1)/conductance_deltaT_scale))**2*(T2 - T1)/(heat_capacity_1*(1 + heat_capacity_1_temperature_coeff*(T1 - heat_capacity_1_reference_temperature)))",
+        "target_symbol": "dT1_dt",
+        "assignments": {
+          "T1": 420,
+          "T2": 280,
+          "heat_capacity_1": 8000,
+          "heat_capacity_2": 12000,
+          "contact_conductance": 120,
+          "conductance_deltaT_scale": 60,
+          "mean_temperature_conductance_coeff": 0.0015,
+          "conductance_reference_temperature": 350,
+          "heat_capacity_1_temperature_coeff": 0.001,
+          "heat_capacity_1_reference_temperature": 350,
+          "body1_contact_temperature_coeff": 0.0008
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": -1.9960126640226385,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "contact_conductance*(1 + mean_temperature_conductance_coeff*((T1 + T2)/2 - conductance_reference_temperature))*(1 + body1_contact_temperature_coeff*(T1 - heat_capacity_1_reference_temperature))*(tanh(Abs(T2 - T1)/conductance_deltaT_scale))**2*(T2 - T1)/(heat_capacity_1*(1 + heat_capacity_1_temperature_coeff*(T1 - heat_capacity_1_reference_temperature)))",
+        "target_symbol": "dT1_dt",
+        "assignments": {
+          "T1": 350,
+          "T2": 360,
+          "heat_capacity_1": 8000,
+          "heat_capacity_2": 12000,
+          "contact_conductance": 120,
+          "conductance_deltaT_scale": 60,
+          "mean_temperature_conductance_coeff": 0.0015,
+          "conductance_reference_temperature": 350,
+          "heat_capacity_1_temperature_coeff": 0.001,
+          "heat_capacity_1_reference_temperature": 350,
+          "body1_contact_temperature_coeff": 0.0008
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": 0.004121383672616093,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_Oeq3i8JEWdrirRn8X9SoFVRV"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_r0vQ1282jurXzzm3XmtQT3mJ"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 4,
+  "discipline": "physics",
+  "scenario_text": "Consider two finite thermal bodies placed in contact inside an otherwise isolated enclosure. Energy transfer across the contact causes both temperatures to evolve until they coincide, while the bodies remain internally uniform. The target is the instantaneous temperature-change rate of the first body along the coupled trajectory. Heat capacities and contact conductance are fixed baseline properties.",
+  "record_id": "m2_statistical_mechanics_and_thermodynamics_20280761_002",
+  "generation": 5,
+  "_n_total": 5000,
+  "mechanism_observation_history": [
+    {
+      "generation": 1,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The target rate dT1_dt is a constant-gain linear function of the instantaneous temperature difference, dT1_dt = (contact_conductance/heat_capacity_1)*(T2 - T1).",
+          "child_relation": "Retain contact-driven exchange but relax the constant-conductance assumption so the gain depends on the current temperature contrast, making dT1_dt a nonlinear odd function of (T2 - T1) whose magnitude grows faster at larger contrasts while preserving heat-flow direction.",
+          "affected_inputs": [
+            "T1",
+            "T2",
+            "contact_conductance"
+          ],
+          "observable_effect": "Across trajectories with the same bodies but different initial temperature separations, the larger-separation case relaxes disproportionately faster early on than predicted by any single constant conductance, while near equilibrium the response approaches the parent linear law."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "delta_T",
+            "expression": "T2 - T1",
+            "role": "instantaneous thermodynamic driving difference for inter-body heat flow"
+          },
+          {
+            "name": "abs_delta_T",
+            "expression": "Abs(T2 - T1)",
+            "role": "magnitude of the contact nonequilibrium that can modulate effective conductance"
+          },
+          {
+            "name": "energy_weighted_mean",
+            "expression": "(heat_capacity_1*T1 + heat_capacity_2*T2)/(heat_capacity_1 + heat_capacity_2)",
+            "role": "conserved mean temperature for the isolated two-body system"
+          }
+        ],
+        "activation_condition": "Observable when the admissible experiment spans small and moderate temperature differences so that |T2 - T1| is not negligible compared with the scale over which contact conductance changes, while both bodies remain well mixed and the contact remains passive.",
+        "train_hidden_contrast": "In training, varying the initial temperature gap already changes the early-time slope of T1 beyond simple proportional scaling; in holdout with even larger but still physically admissible gaps, the same contrast extends as stronger initial relaxation curvature toward the same conserved mean.",
+        "continuation_path": "Recover the parent law in the limit of temperature-independent conductance, equivalently when the conductance-modulation scale is very large relative to |T2 - T1| over all observed trajectories.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The model treats thermal contact conductance as constant even when the temperature drop across the interface changes substantially, omitting a common source of nonlinear heat-transfer strength.",
+        "baseline_assumption": "The contact conductance is constant.",
+        "scientific_mechanism": "Temperature-difference-dependent effective thermal contact conductance at the interface, arising from realistic contact physics or transfer coefficients that vary with contact temperature conditions.",
+        "affected_symbols": [
+          "T1",
+          "T2",
+          "contact_conductance"
+        ],
+        "rationale": "A natural next refinement is to relax the idealization of constant contact conductance rather than add a new process. The parent target mapping uses a single fixed gain from temperature difference to dT1_dt, so every trajectory differs only by the current value of T2 - T1. Holding heat capacities fixed and preserving isolation, if one compares admissible runs with different initial temperature separations, the parent predicts the same normalized slope dT1_dt/(T2 - T1) at all times. In contrast, with temperature-dependent conductance, that normalized slope changes with |T2 - T1|: large separations produce stronger initial heat exchange and faster early curvature of T1(t), while small separations revert toward the parent linear behavior. This changes the scored target mapping directly because dT1_dt at a given observed (T1,T2) depends nonlinearly on the separation, not merely through auxiliary hidden dynamics. The effect is scientifically admissible whenever the interface transfer coefficient varies appreciably across the temperature-drop range sampled; if the sampled range is too narrow, the refinement may be hard to distinguish and the parent becomes an adequate approximation."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The target rate dT1_dt is a constant-gain linear function of the instantaneous temperature difference, dT1_dt = (contact_conductance/heat_capacity_1)*(T2 - T1).",
+          "child_relation": "Retain contact-driven exchange but relax the constant-conductance assumption so the gain depends on the current temperature contrast, making dT1_dt a nonlinear odd function of (T2 - T1) whose magnitude grows faster at larger contrasts while preserving heat-flow direction.",
+          "affected_inputs": [
+            "T1",
+            "T2",
+            "contact_conductance"
+          ],
+          "observable_effect": "Across trajectories with the same bodies but different initial temperature separations, the larger-separation case relaxes disproportionately faster early on than predicted by any single constant conductance, while near equilibrium the response approaches the parent linear law."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "delta_T",
+            "expression": "T2 - T1",
+            "role": "instantaneous thermodynamic driving difference for inter-body heat flow"
+          },
+          {
+            "name": "abs_delta_T",
+            "expression": "Abs(T2 - T1)",
+            "role": "magnitude of the contact nonequilibrium that can modulate effective conductance"
+          },
+          {
+            "name": "energy_weighted_mean",
+            "expression": "(heat_capacity_1*T1 + heat_capacity_2*T2)/(heat_capacity_1 + heat_capacity_2)",
+            "role": "conserved mean temperature for the isolated two-body system"
+          }
+        ],
+        "activation_condition": "Observable when the admissible experiment spans small and moderate temperature differences so that |T2 - T1| is not negligible compared with the scale over which contact conductance changes, while both bodies remain well mixed and the contact remains passive.",
+        "train_hidden_contrast": "In training, varying the initial temperature gap already changes the early-time slope of T1 beyond simple proportional scaling; in holdout with even larger but still physically admissible gaps, the same contrast extends as stronger initial relaxation curvature toward the same conserved mean.",
+        "continuation_path": "Recover the parent law in the limit of temperature-independent conductance, equivalently when the conductance-modulation scale is very large relative to |T2 - T1| over all observed trajectories.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "pairwise",
+        "scope_symbols": [
+          "T1",
+          "T2"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "nonlinear passive thermal contact transport",
+        "scientific_mechanism": "Temperature-difference-dependent effective thermal contact conductance at the interface, arising from realistic contact physics or transfer coefficients that vary with contact temperature conditions.",
+        "embedding_pattern": "saturating_or_thresholded",
+        "difficulty_rationale": "This embedding is harder than a coefficient-only correction because the target gain changes with the observed state difference through a bounded nonlinear transition scale, so one parameter set must explain both near-equilibrium weak coupling and large-contrast stronger coupling within one law.",
+        "taxonomy_match": "known",
+        "assumption_before": "The contact conductance is constant.",
+        "assumption_after": "The effective contact conductance depends on the instantaneous temperature difference and saturates to a finite large-contrast limit.",
+        "before_fragment": "contact_conductance*(T2 - T1)/heat_capacity_1",
+        "after_fragment": "contact_conductance*tanh(Abs(T2 - T1)/conductance_deltaT_scale)*(T2 - T1)/heat_capacity_1",
+        "parent_reduction": "The successor reduces to the parent when conductance_deltaT_scale is very small relative to Abs(T2 - T1) throughout the observed data, making tanh(Abs(T2 - T1)/conductance_deltaT_scale) effectively 1.",
+        "observable_signature": "The parent target mapping has a constant normalized slope dT1_dt/(T2 - T1)=contact_conductance/heat_capacity_1 whenever T1!=T2. In the child, the normalized slope becomes contact_conductance*tanh(Abs(T2 - T1)/conductance_deltaT_scale)/heat_capacity_1, so it is smaller near equilibrium and approaches the parent value at larger separations; thus runs with different initial gaps show different early relaxation curvature even though they still converge to the same conserved mean temperature.",
+        "shortcut_blocked": "A single refitted parent conductance cannot reproduce both the reduced near-equilibrium normalized slope and the stronger large-gap normalized slope across admissible trajectories, because the parent enforces one constant ratio between dT1_dt and (T2 - T1) for all observed separations. Matching large-gap behavior would overpredict late-time relaxation near equilibrium, while matching near-equilibrium behavior would underpredict early-time exchange at larger gaps."
+      },
+      "range_suggestions": {
+        "conductance_deltaT_scale": "positive; comparable to the admissible magnitude range of Abs(T2 - T1), e.g. from small fractions of the initial gap up to several times that gap"
+      }
+    },
+    {
+      "generation": 2,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The target dT1_dt depends on temperature difference only through a single odd saturating factor tanh(Abs(T2-T1)/conductance_deltaT_scale)*(T2-T1), so after fixing parameters the same gap magnitude gives the same conductance regardless of the absolute temperature level.",
+          "child_relation": "Refine the already-present contact-transfer law so the effective conductance depends on both the gap and the mean contact temperature, making dT1_dt a non-separable function of DeltaT=T2-T1 and the common temperature level.",
+          "affected_inputs": [
+            "T1",
+            "T2"
+          ],
+          "observable_effect": "For two trajectory segments with similar |T2-T1| but different mean temperature (hot-hot versus cold-cold), the child predicts different heat-transfer rates, whereas the parent predicts the same rate up to the sign set by T2-T1."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "delta_T",
+            "expression": "T2 - T1",
+            "role": "driving temperature difference and heat-flow direction"
+          },
+          {
+            "name": "abs_gap_over_scale",
+            "expression": "Abs(T2 - T1)/conductance_deltaT_scale",
+            "role": "parent conductance activation coordinate"
+          },
+          {
+            "name": "mean_T",
+            "expression": "(T1 + T2)/2",
+            "role": "absolute contact temperature level that can modify interfacial transfer efficiency"
+          }
+        ],
+        "activation_condition": "Observable when the admissible temperature range spans appreciable variation in mean temperature while |T2-T1| visits overlapping values across that range; e.g. early hot trajectories and later cooler trajectories both pass through comparable gaps.",
+        "train_hidden_contrast": "Within training, the mechanism already appears because the system cools/warms through a range of mean temperatures while the gap shrinks. In holdout, the same dependence extends to trajectories starting at different absolute levels but similar initial gaps.",
+        "continuation_path": "In the limit of negligible mean-temperature dependence, or over a narrow temperature window where mean_T is effectively constant, the child reduces to the parent law.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The current model treats the contact conductance transition as a function only of temperature difference magnitude, omitting plausible dependence of interfacial heat transfer on the absolute temperature level of the contacting bodies.",
+        "baseline_assumption": "The contact conductance is constant apart from its existing dependence on |T2-T1|; specifically, it does not vary with the mean contact temperature.",
+        "scientific_mechanism": "Temperature-dependent interfacial transfer coefficient or thermal boundary conductance, which commonly changes with material properties and transport coefficients evaluated near the contact temperature.",
+        "affected_symbols": [
+          "T1",
+          "T2",
+          "contact_conductance",
+          "conductance_deltaT_scale"
+        ],
+        "rationale": "A realistic next refinement is to relax the parent's single-gain assumption for the contact law without adding a new process. Hold heat capacities fixed and compare times or trajectory segments where the gap magnitude |T2-T1| is similar, but the mean temperature (T1+T2)/2 differs. The parent target mapping gives essentially the same conductance factor at those matched gaps because only |T2-T1| enters the nonlinearity. A child law with mean-temperature-dependent conductance changes the slope/curvature of dT1_dt versus DeltaT across absolute temperature levels: the same gap can relax faster at higher mean temperature if the interface becomes more conductive there, or slower if the opposite trend holds. This contrast is scientifically admissible in the current isolated two-body experiment because the evolving trajectory naturally samples decreasing mean temperature while still visiting a continuum of gap values. A single refit of the parent parameters cannot reproduce systematic rate differences at matched gap but different mean temperature, except approximately over a narrow temperature window where the omitted dependence is weak; that narrow-window limit is the continuation path back to the parent."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The target dT1_dt depends on temperature difference only through a single odd saturating factor tanh(Abs(T2-T1)/conductance_deltaT_scale)*(T2-T1), so after fixing parameters the same gap magnitude gives the same conductance regardless of the absolute temperature level.",
+          "child_relation": "Refine the already-present contact-transfer law so the effective conductance depends on both the gap and the mean contact temperature, making dT1_dt a non-separable function of DeltaT=T2-T1 and the common temperature level.",
+          "affected_inputs": [
+            "T1",
+            "T2"
+          ],
+          "observable_effect": "For two trajectory segments with similar |T2-T1| but different mean temperature (hot-hot versus cold-cold), the child predicts different heat-transfer rates, whereas the parent predicts the same rate up to the sign set by T2-T1."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "delta_T",
+            "expression": "T2 - T1",
+            "role": "driving temperature difference and heat-flow direction"
+          },
+          {
+            "name": "abs_gap_over_scale",
+            "expression": "Abs(T2 - T1)/conductance_deltaT_scale",
+            "role": "parent conductance activation coordinate"
+          },
+          {
+            "name": "mean_T",
+            "expression": "(T1 + T2)/2",
+            "role": "absolute contact temperature level that can modify interfacial transfer efficiency"
+          }
+        ],
+        "activation_condition": "Observable when the admissible temperature range spans appreciable variation in mean temperature while |T2-T1| visits overlapping values across that range; e.g. early hot trajectories and later cooler trajectories both pass through comparable gaps.",
+        "train_hidden_contrast": "Within training, the mechanism already appears because the system cools/warms through a range of mean temperatures while the gap shrinks. In holdout, the same dependence extends to trajectories starting at different absolute levels but similar initial gaps.",
+        "continuation_path": "In the limit of negligible mean-temperature dependence, or over a narrow temperature window where mean_T is effectively constant, the child reduces to the parent law.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "pairwise",
+        "scope_symbols": [
+          "T1",
+          "T2"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "temperature-dependent interfacial conductance",
+        "scientific_mechanism": "Temperature-dependent interfacial transfer coefficient or thermal boundary conductance, which commonly changes with material properties and transport coefficients evaluated near the contact temperature.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the coefficient now varies along the trajectory with the already-supplied states, so the target depends jointly on gap and mean temperature rather than on a single fixed gain multiplying the same parent shape.",
+        "taxonomy_match": "known",
+        "assumption_before": "The contact conductance is constant apart from its existing dependence on |T2-T1|; specifically, it does not vary with the mean contact temperature.",
+        "assumption_after": "The effective contact conductance also varies with the mean contact temperature through a state-dependent coefficient multiplying the existing transfer law.",
+        "before_fragment": "contact_conductance*tanh(Abs(T2 - T1)/conductance_deltaT_scale)*(T2 - T1)/heat_capacity_1",
+        "after_fragment": "contact_conductance*(1 + mean_temperature_conductance_coeff*((T1 + T2)/2 - conductance_reference_temperature))*tanh(Abs(T2 - T1)/conductance_deltaT_scale)*(T2 - T1)/heat_capacity_1",
+        "parent_reduction": "Setting mean_temperature_conductance_coeff = 0, or operating over a narrow mean-temperature window around conductance_reference_temperature, recovers the parent mapping.",
+        "observable_signature": "Compare trajectory segments where delta_T = T2 - T1 has similar magnitude but mean_T = (T1 + T2)/2 differs. The parent predicts the same dT1_dt/((T2 - T1)/heat_capacity_1) at matched |delta_T|, while the child predicts a systematic increase or decrease with mean_T through the factor 1 + mean_temperature_conductance_coeff*(mean_T - conductance_reference_temperature).",
+        "shortcut_blocked": "A single refit of contact_conductance and conductance_deltaT_scale cannot create systematic rate differences at matched |T2-T1| across different mean-temperature levels, because the parent target mapping is separable into a fixed parameter set times a function of gap alone. Only over a narrow temperature window where mean-temperature dependence is negligible could parameter retuning approximate the child."
+      },
+      "range_suggestions": {
+        "mean_temperature_conductance_coeff": "small enough that 1 + mean_temperature_conductance_coeff*((T1 + T2)/2 - conductance_reference_temperature) stays positive over the admissible temperature range; e.g. magnitude on the order of the inverse temperature span",
+        "conductance_reference_temperature": "within the admissible mean-temperature range of the experiment; commonly near the midpoint of expected (T1 + T2)/2 values"
+      }
+    },
+    {
+      "generation": 3,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The heat-transfer rate is an instantaneous odd function of the current temperature difference, scaled only by mean temperature and a single near-equilibrium saturation law, so the target slope versus |T2-T1| has one fixed shape for all admissible states.",
+          "child_relation": "Retain passive conductive exchange but relax the constant-heat-capacity assumption so the target is divided by a temperature-dependent effective heat capacity of body 1, making the same interfacial heat flux produce different temperature-rate magnitudes and curvature along the trajectory as T1 changes.",
+          "affected_inputs": [
+            "T1",
+            "T2",
+            "heat_capacity_1"
+          ],
+          "observable_effect": "Holding the same initial temperature contrast scale but comparing trajectory segments at lower versus higher T1, the child predicts different |dT1_dt| sensitivity because body 1 warms or cools with a changing thermal inertia; the parent can only rescale all segments by one constant heat_capacity_1."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "delta_T",
+            "expression": "T2 - T1",
+            "role": "driving temperature difference setting heat-flow direction and near-equilibrium suppression"
+          },
+          {
+            "name": "mean_T",
+            "expression": "(T1 + T2)/2",
+            "role": "contact-temperature coordinate already modulating conductance"
+          },
+          {
+            "name": "body1_temperature_level",
+            "expression": "T1",
+            "role": "state coordinate along which body-1 thermal inertia would vary under the refinement"
+          }
+        ],
+        "activation_condition": "Observable when T1 spans a nontrivial temperature range over the experiment and the material composing body 1 has appreciable but not sign-changing heat-capacity variation across that span; weakest if T1 stays in a narrow interval or the heat capacity is effectively constant.",
+        "train_hidden_contrast": "In training, early high-contrast and later near-equilibrium segments already sample different T1 levels along the same relaxation trajectory; in holdout, larger or shifted initial temperature offsets extend the same state-dependent inertia effect over a wider T1 range.",
+        "continuation_path": "Recover the parent by taking the temperature dependence of body-1 heat capacity to zero, so the effective heat capacity reduces to the constant heat_capacity_1.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The current model assumes body 1 stores energy with a constant total heat capacity even when its temperature changes substantially, omitting realistic temperature dependence of thermal inertia.",
+        "baseline_assumption": "Each body has a constant heat capacity.",
+        "scientific_mechanism": "Temperature-dependent heat capacity of body 1, causing the same conserved interfacial heat flux to generate different temperature-change rates at different body-1 temperatures.",
+        "affected_symbols": [
+          "T1",
+          "T2",
+          "heat_capacity_1"
+        ],
+        "rationale": "A realistic next refinement is to relax the constant-heat-capacity assumption for body 1 rather than add a new transfer pathway. The parent target mapping from observed states to dT1_dt is effectively one-phase: once mean-temperature conductance and the tanh transition are specified, all remaining variation is divided by a single constant heat_capacity_1. Vary T1 along the actual coupled trajectory while holding the same conductance law and energy-exchange mechanism fixed. Then compare target slopes at similar heat-flux conditions but different absolute T1 levels. The child predicts that if body 1 has larger heat capacity at higher T1, then the same interfacial flux yields a smaller |dT1_dt| there; if its heat capacity decreases, the opposite occurs. A single refit of the parent cannot reproduce this state-dependent curvature change across those conditions because changing heat_capacity_1 only applies one global gain to all target values. This refinement remains scientifically admissible: total energy can still be conserved by using the same heat flux in both body equations with temperature-dependent state-to-temperature conversion, heat still flows hot to cold, and positivity is preserved for admissible positive heat capacities. Limitation: if the admissible temperature span is narrow or the material heat capacity is nearly constant, the contrast may be weak."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The heat-transfer rate is an instantaneous odd function of the current temperature difference, scaled only by mean temperature and a single near-equilibrium saturation law, so the target slope versus |T2-T1| has one fixed shape for all admissible states.",
+          "child_relation": "Retain passive conductive exchange but relax the constant-heat-capacity assumption so the target is divided by a temperature-dependent effective heat capacity of body 1, making the same interfacial heat flux produce different temperature-rate magnitudes and curvature along the trajectory as T1 changes.",
+          "affected_inputs": [
+            "T1",
+            "T2",
+            "heat_capacity_1"
+          ],
+          "observable_effect": "Holding the same initial temperature contrast scale but comparing trajectory segments at lower versus higher T1, the child predicts different |dT1_dt| sensitivity because body 1 warms or cools with a changing thermal inertia; the parent can only rescale all segments by one constant heat_capacity_1."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "delta_T",
+            "expression": "T2 - T1",
+            "role": "driving temperature difference setting heat-flow direction and near-equilibrium suppression"
+          },
+          {
+            "name": "mean_T",
+            "expression": "(T1 + T2)/2",
+            "role": "contact-temperature coordinate already modulating conductance"
+          },
+          {
+            "name": "body1_temperature_level",
+            "expression": "T1",
+            "role": "state coordinate along which body-1 thermal inertia would vary under the refinement"
+          }
+        ],
+        "activation_condition": "Observable when T1 spans a nontrivial temperature range over the experiment and the material composing body 1 has appreciable but not sign-changing heat-capacity variation across that span; weakest if T1 stays in a narrow interval or the heat capacity is effectively constant.",
+        "train_hidden_contrast": "In training, early high-contrast and later near-equilibrium segments already sample different T1 levels along the same relaxation trajectory; in holdout, larger or shifted initial temperature offsets extend the same state-dependent inertia effect over a wider T1 range.",
+        "continuation_path": "Recover the parent by taking the temperature dependence of body-1 heat capacity to zero, so the effective heat capacity reduces to the constant heat_capacity_1.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "T1",
+          "T2",
+          "heat_capacity_1"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "temperature-dependent thermal inertia",
+        "scientific_mechanism": "Temperature-dependent heat capacity of body 1, causing the same conserved interfacial heat flux to generate different temperature-change rates at different body-1 temperatures.",
+        "embedding_pattern": "multiplicative_modulation",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the existing heat-transfer process is modulated by a state-dependent denominator, so the target mapping changes shape along the trajectory instead of receiving one global gain adjustment.",
+        "taxonomy_match": "known",
+        "assumption_before": "Each body has a constant heat capacity.",
+        "assumption_after": "Body 1 has a temperature-dependent effective heat capacity while the contact heat-flux law remains unchanged.",
+        "before_fragment": "contact_conductance*(1 + mean_temperature_conductance_coeff*((T1 + T2)/2 - conductance_reference_temperature))*tanh(Abs(T2 - T1)/conductance_deltaT_scale)*(T2 - T1)/heat_capacity_1",
+        "after_fragment": "contact_conductance*(1 + mean_temperature_conductance_coeff*((T1 + T2)/2 - conductance_reference_temperature))*tanh(Abs(T2 - T1)/conductance_deltaT_scale)*(T2 - T1)/(heat_capacity_1*(1 + heat_capacity_1_temperature_coeff*(T1 - heat_capacity_1_reference_temperature)))",
+        "parent_reduction": "Setting heat_capacity_1_temperature_coeff = 0 recovers the parent exactly.",
+        "observable_signature": "Relative to the parent, the successor predicts that trajectory segments with similar delta_T and mean_T but different T1 levels have systematically different |dT1_dt| because the denominator varies with T1. This target-mapping change is observable when body 1 traverses a broad enough temperature interval for the heat-capacity modulation to matter.",
+        "shortcut_blocked": "A single refit of the parent parameters cannot reproduce this contrast across those conditions because heat_capacity_1 is only a global constant multiplier in the denominator, while the child introduces explicit T1-dependent modulation of the target. Refitting contact_conductance or the conductance-temperature terms also cannot absorb it without simultaneously distorting the shared heat-flux dependence on mean_T and |T2-T1|."
+      },
+      "range_suggestions": {
+        "heat_capacity_1_temperature_coeff": "small enough that 1 + heat_capacity_1_temperature_coeff*(T1 - heat_capacity_1_reference_temperature) stays positive over the admissible T1 range; typically magnitude on the order of the inverse body-1 temperature span",
+        "heat_capacity_1_reference_temperature": "within the admissible temperature range of body 1, commonly near the midpoint of expected T1 values"
+      }
+    },
+    {
+      "generation": 4,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The target dT1_dt is proportional to a single instantaneous contact law depending only on mean temperature and |T2-T1|, so for fixed T1 the dependence on T2 enters through one smooth saturating factor times (T2-T1).",
+          "child_relation": "Retain passive contact exchange but let the effective conductance also depend on body-1 temperature through a material-state factor, so the same instantaneous temperature difference produces different dT1_dt values at low versus high T1 beyond what the existing heat-capacity denominator alone can capture.",
+          "affected_inputs": [
+            "T1",
+            "T2",
+            "contact_conductance"
+          ],
+          "observable_effect": "Along trajectories with similar instantaneous temperature difference but different absolute T1 levels, the target rate acquires additional curvature versus T1 because the numerator as well as the denominator becomes temperature dependent."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "deltaT",
+            "expression": "T2 - T1",
+            "role": "driving temperature difference and heat-flow direction"
+          },
+          {
+            "name": "Tmean",
+            "expression": "(T1 + T2)/2",
+            "role": "current mean contact temperature already used by the parent conductance law"
+          },
+          {
+            "name": "T1_offset",
+            "expression": "T1 - heat_capacity_1_reference_temperature",
+            "role": "body-1 absolute temperature shift indicating whether body-1-side contact properties depart from reference"
+          }
+        ],
+        "activation_condition": "Observable when body 1 traverses a nontrivial temperature span so that body-1-side interfacial properties vary appreciably across the experiment, while |T2-T1| remains large enough that the contact term is not suppressed near equilibrium by tanh(|T2-T1|/conductance_deltaT_scale).",
+        "train_hidden_contrast": "In training, early-time hot-body cooling and later-time near-equilibrium segments already sample different T1 levels; in holdout, trajectories spanning a wider absolute T1 range strengthen the same contrast between equal deltaT states occurring at different T1.",
+        "continuation_path": "Recover the parent law when the new body-1-side conductance-temperature sensitivity is set to zero, or over a narrow T1 range where that factor is approximately constant.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The current model assumes the interfacial transfer coefficient depends only on mean contact temperature and temperature contrast, omitting the realistic possibility that the body-1-side surface or near-interface transport properties change with that body's own temperature.",
+        "baseline_assumption": "A single mean-temperature refinement is sufficient to describe contact conductance across the entire trajectory.",
+        "scientific_mechanism": "Body-specific temperature dependence of interfacial conductance, such as temperature-varying surface compliance, oxide/contact quality, or near-surface transport in body 1, modifies the heat flux even at the same mean temperature and temperature difference.",
+        "affected_symbols": [
+          "T1",
+          "T2",
+          "contact_conductance",
+          "heat_capacity_1_reference_temperature"
+        ],
+        "rationale": "The parent target mapping has a single-phase conductance law: once mean temperature and |T2-T1| are fixed, all remaining T1 dependence of dT1_dt comes only through the body-1 heat-capacity denominator. A realistic next refinement is to relax that idealization by allowing the conductance numerator itself to vary with T1, reflecting body-1-side interface physics. Vary condition: compare portions of admissible trajectories with similar instantaneous deltaT but different absolute T1, while holding the existing parameters fixed. Parent prediction: after accounting for the existing mean-temperature factor, the flux-side numerator does not distinguish whether the same deltaT occurs when body 1 is relatively hot or cooler, except indirectly through Tmean. Child prediction: the same deltaT and similar Tmean can yield systematically different dT1_dt because body-1 temperature directly changes the interfacial transfer strength. This is a genuine target-mapping change, not merely an auxiliary-trajectory modification, because dT1_dt itself changes as a function of observed states T1 and T2. The effect is scientifically admissible when body 1 experiences a broad enough temperature excursion and is strongest away from the near-equilibrium region where the existing tanh factor suppresses all flux. If the body-1-side sensitivity is negligible or the explored T1 window is narrow, the parent remains an adequate approximation."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The target dT1_dt is proportional to a single instantaneous contact law depending only on mean temperature and |T2-T1|, so for fixed T1 the dependence on T2 enters through one smooth saturating factor times (T2-T1).",
+          "child_relation": "Retain passive contact exchange but let the effective conductance also depend on body-1 temperature through a material-state factor, so the same instantaneous temperature difference produces different dT1_dt values at low versus high T1 beyond what the existing heat-capacity denominator alone can capture.",
+          "affected_inputs": [
+            "T1",
+            "T2",
+            "contact_conductance"
+          ],
+          "observable_effect": "Along trajectories with similar instantaneous temperature difference but different absolute T1 levels, the target rate acquires additional curvature versus T1 because the numerator as well as the denominator becomes temperature dependent."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "deltaT",
+            "expression": "T2 - T1",
+            "role": "driving temperature difference and heat-flow direction"
+          },
+          {
+            "name": "Tmean",
+            "expression": "(T1 + T2)/2",
+            "role": "current mean contact temperature already used by the parent conductance law"
+          },
+          {
+            "name": "T1_offset",
+            "expression": "T1 - heat_capacity_1_reference_temperature",
+            "role": "body-1 absolute temperature shift indicating whether body-1-side contact properties depart from reference"
+          }
+        ],
+        "activation_condition": "Observable when body 1 traverses a nontrivial temperature span so that body-1-side interfacial properties vary appreciably across the experiment, while |T2-T1| remains large enough that the contact term is not suppressed near equilibrium by tanh(|T2-T1|/conductance_deltaT_scale).",
+        "train_hidden_contrast": "In training, early-time hot-body cooling and later-time near-equilibrium segments already sample different T1 levels; in holdout, trajectories spanning a wider absolute T1 range strengthen the same contrast between equal deltaT states occurring at different T1.",
+        "continuation_path": "Recover the parent law when the new body-1-side conductance-temperature sensitivity is set to zero, or over a narrow T1 range where that factor is approximately constant.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "pairwise",
+        "scope_symbols": [
+          "T1",
+          "T2"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "temperature-dependent interfacial conductance on body 1 side",
+        "scientific_mechanism": "Body-specific temperature dependence of interfacial conductance, such as temperature-varying surface compliance, oxide/contact quality, or near-surface transport in body 1, modifies the heat flux even at the same mean temperature and temperature difference.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the conductance multiplier now varies along the trajectory with T1, changing the shape of the target mapping over state space rather than uniformly rescaling it.",
+        "taxonomy_match": "known",
+        "assumption_before": "The interfacial transfer coefficient depends only on mean contact temperature and temperature contrast, aside from the separate body-1 heat-capacity correction.",
+        "assumption_after": "The interfacial transfer coefficient also carries a body-1-specific temperature factor that modulates heat transfer strength.",
+        "before_fragment": "contact_conductance*(1 + mean_temperature_conductance_coeff*((T1 + T2)/2 - conductance_reference_temperature))*tanh(Abs(T2 - T1)/conductance_deltaT_scale)*(T2 - T1)/(heat_capacity_1*(1 + heat_capacity_1_temperature_coeff*(T1 - heat_capacity_1_reference_temperature)))",
+        "after_fragment": "contact_conductance*(1 + mean_temperature_conductance_coeff*((T1 + T2)/2 - conductance_reference_temperature))*(1 + body1_contact_temperature_coeff*(T1 - heat_capacity_1_reference_temperature))*tanh(Abs(T2 - T1)/conductance_deltaT_scale)*(T2 - T1)/(heat_capacity_1*(1 + heat_capacity_1_temperature_coeff*(T1 - heat_capacity_1_reference_temperature)))",
+        "parent_reduction": "Set body1_contact_temperature_coeff = 0 to recover the parent exactly.",
+        "observable_signature": "For trajectory segments where deltaT is similar and the tanh factor is active, but T1 differs substantially, the child predicts systematic changes in dT1_dt from the numerator-side conductance modulation, not just from the existing heat-capacity denominator. This appears as additional curvature of dT1_dt versus T1 at comparable deltaT and similar Tmean.",
+        "shortcut_blocked": "A single refit of the parent parameters cannot generally reproduce this contrast across a broad T1 range because the parent places all body-1-specific absolute-temperature dependence only in the denominator, whereas the child introduces independent T1 dependence in the conductance numerator. Retuning contact_conductance or mean_temperature_conductance_coeff gives mainly global or Tmean-linked rescaling, and retuning heat_capacity_1_temperature_coeff changes only the denominator branch; one shared parent parameter set therefore cannot match both low-T1 and high-T1 equal-deltaT rate ratios when numerator-side T1 modulation is present."
+      },
+      "range_suggestions": {
+        "body1_contact_temperature_coeff": "small enough that 1 + body1_contact_temperature_coeff*(T1 - heat_capacity_1_reference_temperature) stays positive over the admissible T1 range; typically magnitude on the order of the inverse body-1 temperature span"
+      }
+    },
+    {
+      "generation": 5,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The interfacial heat flux is an odd, effectively single-regime function of temperature difference: tanh(Abs(T2 - T1)/conductance_deltaT_scale)*(T2 - T1), so after accounting for the mean-temperature and body-1 factors the target depends on |T2-T1| through one fixed saturation shape.",
+          "child_relation": "Replace the near-equilibrium conductance transition with a stronger low-contrast suppression consistent with diffusive constriction/microcontact effects, so the target becomes more strongly curved in |T2-T1| near equilibrium while recovering the parent large-contrast behavior at higher |T2-T1|.",
+          "affected_inputs": [
+            "T1",
+            "T2",
+            "conductance_deltaT_scale"
+          ],
+          "observable_effect": "Holding the same initial temperatures and parameters except for the new shape refinement, late-time relaxation near T1≈T2 is slower than the parent predicts, while early-time large-contrast cooling remains close to the parent law."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "deltaT",
+            "expression": "T2 - T1",
+            "role": "driving temperature difference setting heat-flow direction and contrast magnitude"
+          },
+          {
+            "name": "abs_deltaT_scaled",
+            "expression": "Abs(T2 - T1)/conductance_deltaT_scale",
+            "role": "dimensionless proximity-to-equilibrium coordinate controlling weak-coupling onset"
+          },
+          {
+            "name": "meanT",
+            "expression": "(T1 + T2)/2 - conductance_reference_temperature",
+            "role": "mean contact temperature offset already modulating baseline conductance"
+          }
+        ],
+        "activation_condition": "Observable when |T2-T1| becomes small compared with conductance_deltaT_scale during the trajectory; the refinement is most visible in the late-stage approach to equilibrium, while for |T2-T1| much larger than conductance_deltaT_scale both models nearly coincide.",
+        "train_hidden_contrast": "In training, the mechanism already affects segments of trajectories that pass from large contrast into near-equilibrium; in holdout it extends the same contrast by changing how sharply the target bends downward as |T2-T1|/conductance_deltaT_scale falls below order unity.",
+        "continuation_path": "Recover the parent law in the limit where the refined near-equilibrium suppression exponent/shape parameter takes its parent value, or equivalently where the added curvature correction tends to zero so the original tanh-based transition is restored.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The current model assumes one fixed tanh-shaped crossover from weak to strong contact coupling, which imposes a single near-equilibrium curvature for dT1/dt as a function of temperature contrast.",
+        "baseline_assumption": "The temperature-difference-dependent conductance reduction has a fixed tanh crossover shape with one universal low-contrast scaling.",
+        "scientific_mechanism": "Real thermal contact often shows a sharper-than-tanh collapse of effective conductance near zero temperature contrast because only a subset of microcontacts or transport channels remain effective close to equilibrium; this changes the low-contrast constitutive shape without introducing a new energy store.",
+        "affected_symbols": [
+          "T1",
+          "T2",
+          "conductance_deltaT_scale"
+        ],
+        "rationale": "A realistic next refinement is to relax the idealized single-shape assumption in the existing temperature-difference-dependent conductance. The parent already includes a weak-coupling-to-strong-coupling transition, but it fixes the target mapping dT1/dt versus T1,T2 to one tanh-based phase across the whole trajectory. Vary the instantaneous contrast |T2-T1| along the observed relaxation while holding the same state definitions, energy-conserving two-body setting, and existing mean-temperature/body-1 modifiers fixed. Then compare early times with large |T2-T1| to late times when |T2-T1| is small relative to conductance_deltaT_scale. The child predicts that dT1/dt falls off more steeply near equilibrium than the parent, producing extra curvature in the target mapping and a slower final temperature approach, yet it remains consistent with positive entropy production and correct heat-flow direction because the flux still has the sign of T2-T1. This is a change to the scored target mapping itself, not merely to an auxiliary trajectory, since dT1/dt at the same observed T1,T2 is altered near equilibrium. No new state or input is needed because the omitted effect is a constitutive-shape refinement of an already modeled process, not a missing hidden reservoir. A single refit of the parent's existing amplitudes and scales cannot generally reproduce both the preserved large-contrast behavior and the sharper low-contrast suppression across admissible trajectories, because changing contact_conductance rescales all contrasts and changing conductance_deltaT_scale shifts one onset scale but does not supply an independent near-zero curvature shape."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The interfacial heat flux is an odd, effectively single-regime function of temperature difference: tanh(Abs(T2 - T1)/conductance_deltaT_scale)*(T2 - T1), so after accounting for the mean-temperature and body-1 factors the target depends on |T2-T1| through one fixed saturation shape.",
+          "child_relation": "Replace the near-equilibrium conductance transition with a stronger low-contrast suppression consistent with diffusive constriction/microcontact effects, so the target becomes more strongly curved in |T2-T1| near equilibrium while recovering the parent large-contrast behavior at higher |T2-T1|.",
+          "affected_inputs": [
+            "T1",
+            "T2",
+            "conductance_deltaT_scale"
+          ],
+          "observable_effect": "Holding the same initial temperatures and parameters except for the new shape refinement, late-time relaxation near T1≈T2 is slower than the parent predicts, while early-time large-contrast cooling remains close to the parent law."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "deltaT",
+            "expression": "T2 - T1",
+            "role": "driving temperature difference setting heat-flow direction and contrast magnitude"
+          },
+          {
+            "name": "abs_deltaT_scaled",
+            "expression": "Abs(T2 - T1)/conductance_deltaT_scale",
+            "role": "dimensionless proximity-to-equilibrium coordinate controlling weak-coupling onset"
+          },
+          {
+            "name": "meanT",
+            "expression": "(T1 + T2)/2 - conductance_reference_temperature",
+            "role": "mean contact temperature offset already modulating baseline conductance"
+          }
+        ],
+        "activation_condition": "Observable when |T2-T1| becomes small compared with conductance_deltaT_scale during the trajectory; the refinement is most visible in the late-stage approach to equilibrium, while for |T2-T1| much larger than conductance_deltaT_scale both models nearly coincide.",
+        "train_hidden_contrast": "In training, the mechanism already affects segments of trajectories that pass from large contrast into near-equilibrium; in holdout it extends the same contrast by changing how sharply the target bends downward as |T2-T1|/conductance_deltaT_scale falls below order unity.",
+        "continuation_path": "Recover the parent law in the limit where the refined near-equilibrium suppression exponent/shape parameter takes its parent value, or equivalently where the added curvature correction tends to zero so the original tanh-based transition is restored.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "T1",
+          "T2"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "temperature-contrast-dependent thermal contact suppression",
+        "scientific_mechanism": "Real thermal contact often shows a sharper-than-tanh collapse of effective conductance near zero temperature contrast because only a subset of microcontacts or transport channels remain effective close to equilibrium; this changes the low-contrast constitutive shape without introducing a new energy store.",
+        "embedding_pattern": "state_coupling",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the target now depends on T1 and T2 through a changed nonlinear contrast-shape, not just a rescaled amplitude or shifted single threshold. The squared activation preserves the large-contrast limit while independently altering near-zero curvature, which a one-scale tanh parent cannot emulate with one shared parameter set.",
+        "taxonomy_match": "known",
+        "assumption_before": "The temperature-difference-dependent conductance reduction has a fixed tanh crossover shape with one universal low-contrast scaling.",
+        "assumption_after": "The near-equilibrium contact activation is more strongly suppressed than tanh predicts, consistent with microcontact/channel deactivation, while the same large-contrast conductance limit is retained.",
+        "before_fragment": "contact_conductance*(1 + mean_temperature_conductance_coeff*((T1 + T2)/2 - conductance_reference_temperature))*(1 + body1_contact_temperature_coeff*(T1 - heat_capacity_1_reference_temperature))*tanh(Abs(T2 - T1)/conductance_deltaT_scale)*(T2 - T1)/(heat_capacity_1*(1 + heat_capacity_1_temperature_coeff*(T1 - heat_capacity_1_reference_temperature)))",
+        "after_fragment": "contact_conductance*(1 + mean_temperature_conductance_coeff*((T1 + T2)/2 - conductance_reference_temperature))*(1 + body1_contact_temperature_coeff*(T1 - heat_capacity_1_reference_temperature))*(tanh(Abs(T2 - T1)/conductance_deltaT_scale))**2*(T2 - T1)/(heat_capacity_1*(1 + heat_capacity_1_temperature_coeff*(T1 - heat_capacity_1_reference_temperature)))",
+        "parent_reduction": "The parent is recovered by replacing the refined suppression factor (tanh(Abs(T2 - T1)/conductance_deltaT_scale))**2 with tanh(Abs(T2 - T1)/conductance_deltaT_scale), i.e. restoring the original single-shape crossover.",
+        "observable_signature": "Along the same two-body relaxation trajectory, compare segments with large and small |T2-T1|. At large |T2-T1|/conductance_deltaT_scale the child and parent give nearly the same dT1/dt, but once |T2-T1|/conductance_deltaT_scale falls below order unity the child predicts a distinctly smaller |dT1/dt| and a slower final approach to T1=T2. This is a direct change in the scored mapping from observed T1,T2 to dT1/dt, not merely a change in an auxiliary state.",
+        "shortcut_blocked": "A single parent parameter refit cannot reproduce both regimes across the same admissible trajectories: changing contact_conductance rescales the whole curve, and changing conductance_deltaT_scale shifts the crossover location but still leaves one fixed tanh near-zero curvature. The child preserves the high-contrast asymptote while imposing stronger low-contrast suppression, so one shared parent parameter set cannot match both the early-time and late-time target responses simultaneously."
+      },
+      "range_suggestions": {}
+    }
+  ],
+  "evolution_provenance": {
+    "dimension_track": null,
+    "mechanism_profile": {
+      "allowed_structural_roles": [
+        "contribution",
+        "response_law",
+        "modulation",
+        "interaction",
+        "constraint",
+        "transition",
+        "feedback",
+        "heterogeneity",
+        "timescale",
+        "transport_balance"
+      ],
+      "preferred_scopes": [
+        "unary",
+        "pairwise",
+        "state_coupling",
+        "time_forcing"
+      ],
+      "domain_mechanisms": [
+        {
+          "id": "nonlinear_constitutive_response",
+          "description": "nonlinear constitutive or response law",
+          "operations": [
+            "add_term",
+            "change_assumption"
+          ]
+        },
+        {
+          "id": "coupled_field_or_force",
+          "description": "coupling to an already declared field, force, or state",
+          "operations": [
+            "add_term"
+          ]
+        },
+        {
+          "id": "finite_relaxation_or_threshold",
+          "description": "finite response time or physical threshold",
+          "operations": [
+            "change_assumption"
+          ]
+        }
+      ],
+      "profile_source": "subject_fallback",
+      "ontology_schema_version": "1.0",
+      "taxonomy_schema_version": "1.0"
+    },
+    "baseline_mechanisms": [
+      "Passive energy exchange driven by the temperature difference",
+      "Thermal energy accumulation in each finite body"
+    ],
+    "baseline_assumptions": [
+      "Each body has a constant heat capacity.",
+      "Each body remains spatially isothermal.",
+      "The contact conductance is constant.",
+      "The enclosure exchanges no heat with its surroundings."
+    ],
+    "scientific_constraints": [
+      "Total thermal energy is conserved.",
+      "Entropy production from the contact is nonnegative.",
+      "Heat flows from higher temperature toward lower temperature.",
+      "Positive initial temperatures remain positive."
+    ],
+    "refinement_agenda": [
+      "Allow heat capacities to vary with temperature.",
+      "Make contact conductance temperature dependent.",
+      "Add weak heat leakage to a fixed-temperature environment.",
+      "Resolve internal temperature gradients by adding thermal compartments."
+    ],
+    "evolution_contracts": [
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The target rate dT1_dt is a constant-gain linear function of the instantaneous temperature difference, dT1_dt = (contact_conductance/heat_capacity_1)*(T2 - T1).",
+          "child_relation": "Retain contact-driven exchange but relax the constant-conductance assumption so the gain depends on the current temperature contrast, making dT1_dt a nonlinear odd function of (T2 - T1) whose magnitude grows faster at larger contrasts while preserving heat-flow direction.",
+          "affected_inputs": [
+            "T1",
+            "T2",
+            "contact_conductance"
+          ],
+          "observable_effect": "Across trajectories with the same bodies but different initial temperature separations, the larger-separation case relaxes disproportionately faster early on than predicted by any single constant conductance, while near equilibrium the response approaches the parent linear law."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "delta_T",
+            "expression": "T2 - T1",
+            "role": "instantaneous thermodynamic driving difference for inter-body heat flow"
+          },
+          {
+            "name": "abs_delta_T",
+            "expression": "Abs(T2 - T1)",
+            "role": "magnitude of the contact nonequilibrium that can modulate effective conductance"
+          },
+          {
+            "name": "energy_weighted_mean",
+            "expression": "(heat_capacity_1*T1 + heat_capacity_2*T2)/(heat_capacity_1 + heat_capacity_2)",
+            "role": "conserved mean temperature for the isolated two-body system"
+          }
+        ],
+        "activation_condition": "Observable when the admissible experiment spans small and moderate temperature differences so that |T2 - T1| is not negligible compared with the scale over which contact conductance changes, while both bodies remain well mixed and the contact remains passive.",
+        "train_hidden_contrast": "In training, varying the initial temperature gap already changes the early-time slope of T1 beyond simple proportional scaling; in holdout with even larger but still physically admissible gaps, the same contrast extends as stronger initial relaxation curvature toward the same conserved mean.",
+        "continuation_path": "Recover the parent law in the limit of temperature-independent conductance, equivalently when the conductance-modulation scale is very large relative to |T2 - T1| over all observed trajectories.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "pairwise",
+        "scope_symbols": [
+          "T1",
+          "T2"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "nonlinear passive thermal contact transport",
+        "scientific_mechanism": "Temperature-difference-dependent effective thermal contact conductance at the interface, arising from realistic contact physics or transfer coefficients that vary with contact temperature conditions.",
+        "embedding_pattern": "saturating_or_thresholded",
+        "difficulty_rationale": "This embedding is harder than a coefficient-only correction because the target gain changes with the observed state difference through a bounded nonlinear transition scale, so one parameter set must explain both near-equilibrium weak coupling and large-contrast stronger coupling within one law.",
+        "taxonomy_match": "known",
+        "assumption_before": "The contact conductance is constant.",
+        "assumption_after": "The effective contact conductance depends on the instantaneous temperature difference and saturates to a finite large-contrast limit.",
+        "before_fragment": "contact_conductance*(T2 - T1)/heat_capacity_1",
+        "after_fragment": "contact_conductance*tanh(Abs(T2 - T1)/conductance_deltaT_scale)*(T2 - T1)/heat_capacity_1",
+        "parent_reduction": "The successor reduces to the parent when conductance_deltaT_scale is very small relative to Abs(T2 - T1) throughout the observed data, making tanh(Abs(T2 - T1)/conductance_deltaT_scale) effectively 1.",
+        "observable_signature": "The parent target mapping has a constant normalized slope dT1_dt/(T2 - T1)=contact_conductance/heat_capacity_1 whenever T1!=T2. In the child, the normalized slope becomes contact_conductance*tanh(Abs(T2 - T1)/conductance_deltaT_scale)/heat_capacity_1, so it is smaller near equilibrium and approaches the parent value at larger separations; thus runs with different initial gaps show different early relaxation curvature even though they still converge to the same conserved mean temperature.",
+        "shortcut_blocked": "A single refitted parent conductance cannot reproduce both the reduced near-equilibrium normalized slope and the stronger large-gap normalized slope across admissible trajectories, because the parent enforces one constant ratio between dT1_dt and (T2 - T1) for all observed separations. Matching large-gap behavior would overpredict late-time relaxation near equilibrium, while matching near-equilibrium behavior would underpredict early-time exchange at larger gaps."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The target dT1_dt depends on temperature difference only through a single odd saturating factor tanh(Abs(T2-T1)/conductance_deltaT_scale)*(T2-T1), so after fixing parameters the same gap magnitude gives the same conductance regardless of the absolute temperature level.",
+          "child_relation": "Refine the already-present contact-transfer law so the effective conductance depends on both the gap and the mean contact temperature, making dT1_dt a non-separable function of DeltaT=T2-T1 and the common temperature level.",
+          "affected_inputs": [
+            "T1",
+            "T2"
+          ],
+          "observable_effect": "For two trajectory segments with similar |T2-T1| but different mean temperature (hot-hot versus cold-cold), the child predicts different heat-transfer rates, whereas the parent predicts the same rate up to the sign set by T2-T1."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "delta_T",
+            "expression": "T2 - T1",
+            "role": "driving temperature difference and heat-flow direction"
+          },
+          {
+            "name": "abs_gap_over_scale",
+            "expression": "Abs(T2 - T1)/conductance_deltaT_scale",
+            "role": "parent conductance activation coordinate"
+          },
+          {
+            "name": "mean_T",
+            "expression": "(T1 + T2)/2",
+            "role": "absolute contact temperature level that can modify interfacial transfer efficiency"
+          }
+        ],
+        "activation_condition": "Observable when the admissible temperature range spans appreciable variation in mean temperature while |T2-T1| visits overlapping values across that range; e.g. early hot trajectories and later cooler trajectories both pass through comparable gaps.",
+        "train_hidden_contrast": "Within training, the mechanism already appears because the system cools/warms through a range of mean temperatures while the gap shrinks. In holdout, the same dependence extends to trajectories starting at different absolute levels but similar initial gaps.",
+        "continuation_path": "In the limit of negligible mean-temperature dependence, or over a narrow temperature window where mean_T is effectively constant, the child reduces to the parent law.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "pairwise",
+        "scope_symbols": [
+          "T1",
+          "T2"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "temperature-dependent interfacial conductance",
+        "scientific_mechanism": "Temperature-dependent interfacial transfer coefficient or thermal boundary conductance, which commonly changes with material properties and transport coefficients evaluated near the contact temperature.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the coefficient now varies along the trajectory with the already-supplied states, so the target depends jointly on gap and mean temperature rather than on a single fixed gain multiplying the same parent shape.",
+        "taxonomy_match": "known",
+        "assumption_before": "The contact conductance is constant apart from its existing dependence on |T2-T1|; specifically, it does not vary with the mean contact temperature.",
+        "assumption_after": "The effective contact conductance also varies with the mean contact temperature through a state-dependent coefficient multiplying the existing transfer law.",
+        "before_fragment": "contact_conductance*tanh(Abs(T2 - T1)/conductance_deltaT_scale)*(T2 - T1)/heat_capacity_1",
+        "after_fragment": "contact_conductance*(1 + mean_temperature_conductance_coeff*((T1 + T2)/2 - conductance_reference_temperature))*tanh(Abs(T2 - T1)/conductance_deltaT_scale)*(T2 - T1)/heat_capacity_1",
+        "parent_reduction": "Setting mean_temperature_conductance_coeff = 0, or operating over a narrow mean-temperature window around conductance_reference_temperature, recovers the parent mapping.",
+        "observable_signature": "Compare trajectory segments where delta_T = T2 - T1 has similar magnitude but mean_T = (T1 + T2)/2 differs. The parent predicts the same dT1_dt/((T2 - T1)/heat_capacity_1) at matched |delta_T|, while the child predicts a systematic increase or decrease with mean_T through the factor 1 + mean_temperature_conductance_coeff*(mean_T - conductance_reference_temperature).",
+        "shortcut_blocked": "A single refit of contact_conductance and conductance_deltaT_scale cannot create systematic rate differences at matched |T2-T1| across different mean-temperature levels, because the parent target mapping is separable into a fixed parameter set times a function of gap alone. Only over a narrow temperature window where mean-temperature dependence is negligible could parameter retuning approximate the child."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The heat-transfer rate is an instantaneous odd function of the current temperature difference, scaled only by mean temperature and a single near-equilibrium saturation law, so the target slope versus |T2-T1| has one fixed shape for all admissible states.",
+          "child_relation": "Retain passive conductive exchange but relax the constant-heat-capacity assumption so the target is divided by a temperature-dependent effective heat capacity of body 1, making the same interfacial heat flux produce different temperature-rate magnitudes and curvature along the trajectory as T1 changes.",
+          "affected_inputs": [
+            "T1",
+            "T2",
+            "heat_capacity_1"
+          ],
+          "observable_effect": "Holding the same initial temperature contrast scale but comparing trajectory segments at lower versus higher T1, the child predicts different |dT1_dt| sensitivity because body 1 warms or cools with a changing thermal inertia; the parent can only rescale all segments by one constant heat_capacity_1."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "delta_T",
+            "expression": "T2 - T1",
+            "role": "driving temperature difference setting heat-flow direction and near-equilibrium suppression"
+          },
+          {
+            "name": "mean_T",
+            "expression": "(T1 + T2)/2",
+            "role": "contact-temperature coordinate already modulating conductance"
+          },
+          {
+            "name": "body1_temperature_level",
+            "expression": "T1",
+            "role": "state coordinate along which body-1 thermal inertia would vary under the refinement"
+          }
+        ],
+        "activation_condition": "Observable when T1 spans a nontrivial temperature range over the experiment and the material composing body 1 has appreciable but not sign-changing heat-capacity variation across that span; weakest if T1 stays in a narrow interval or the heat capacity is effectively constant.",
+        "train_hidden_contrast": "In training, early high-contrast and later near-equilibrium segments already sample different T1 levels along the same relaxation trajectory; in holdout, larger or shifted initial temperature offsets extend the same state-dependent inertia effect over a wider T1 range.",
+        "continuation_path": "Recover the parent by taking the temperature dependence of body-1 heat capacity to zero, so the effective heat capacity reduces to the constant heat_capacity_1.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "T1",
+          "T2",
+          "heat_capacity_1"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "temperature-dependent thermal inertia",
+        "scientific_mechanism": "Temperature-dependent heat capacity of body 1, causing the same conserved interfacial heat flux to generate different temperature-change rates at different body-1 temperatures.",
+        "embedding_pattern": "multiplicative_modulation",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the existing heat-transfer process is modulated by a state-dependent denominator, so the target mapping changes shape along the trajectory instead of receiving one global gain adjustment.",
+        "taxonomy_match": "known",
+        "assumption_before": "Each body has a constant heat capacity.",
+        "assumption_after": "Body 1 has a temperature-dependent effective heat capacity while the contact heat-flux law remains unchanged.",
+        "before_fragment": "contact_conductance*(1 + mean_temperature_conductance_coeff*((T1 + T2)/2 - conductance_reference_temperature))*tanh(Abs(T2 - T1)/conductance_deltaT_scale)*(T2 - T1)/heat_capacity_1",
+        "after_fragment": "contact_conductance*(1 + mean_temperature_conductance_coeff*((T1 + T2)/2 - conductance_reference_temperature))*tanh(Abs(T2 - T1)/conductance_deltaT_scale)*(T2 - T1)/(heat_capacity_1*(1 + heat_capacity_1_temperature_coeff*(T1 - heat_capacity_1_reference_temperature)))",
+        "parent_reduction": "Setting heat_capacity_1_temperature_coeff = 0 recovers the parent exactly.",
+        "observable_signature": "Relative to the parent, the successor predicts that trajectory segments with similar delta_T and mean_T but different T1 levels have systematically different |dT1_dt| because the denominator varies with T1. This target-mapping change is observable when body 1 traverses a broad enough temperature interval for the heat-capacity modulation to matter.",
+        "shortcut_blocked": "A single refit of the parent parameters cannot reproduce this contrast across those conditions because heat_capacity_1 is only a global constant multiplier in the denominator, while the child introduces explicit T1-dependent modulation of the target. Refitting contact_conductance or the conductance-temperature terms also cannot absorb it without simultaneously distorting the shared heat-flux dependence on mean_T and |T2-T1|."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The target dT1_dt is proportional to a single instantaneous contact law depending only on mean temperature and |T2-T1|, so for fixed T1 the dependence on T2 enters through one smooth saturating factor times (T2-T1).",
+          "child_relation": "Retain passive contact exchange but let the effective conductance also depend on body-1 temperature through a material-state factor, so the same instantaneous temperature difference produces different dT1_dt values at low versus high T1 beyond what the existing heat-capacity denominator alone can capture.",
+          "affected_inputs": [
+            "T1",
+            "T2",
+            "contact_conductance"
+          ],
+          "observable_effect": "Along trajectories with similar instantaneous temperature difference but different absolute T1 levels, the target rate acquires additional curvature versus T1 because the numerator as well as the denominator becomes temperature dependent."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "deltaT",
+            "expression": "T2 - T1",
+            "role": "driving temperature difference and heat-flow direction"
+          },
+          {
+            "name": "Tmean",
+            "expression": "(T1 + T2)/2",
+            "role": "current mean contact temperature already used by the parent conductance law"
+          },
+          {
+            "name": "T1_offset",
+            "expression": "T1 - heat_capacity_1_reference_temperature",
+            "role": "body-1 absolute temperature shift indicating whether body-1-side contact properties depart from reference"
+          }
+        ],
+        "activation_condition": "Observable when body 1 traverses a nontrivial temperature span so that body-1-side interfacial properties vary appreciably across the experiment, while |T2-T1| remains large enough that the contact term is not suppressed near equilibrium by tanh(|T2-T1|/conductance_deltaT_scale).",
+        "train_hidden_contrast": "In training, early-time hot-body cooling and later-time near-equilibrium segments already sample different T1 levels; in holdout, trajectories spanning a wider absolute T1 range strengthen the same contrast between equal deltaT states occurring at different T1.",
+        "continuation_path": "Recover the parent law when the new body-1-side conductance-temperature sensitivity is set to zero, or over a narrow T1 range where that factor is approximately constant.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "pairwise",
+        "scope_symbols": [
+          "T1",
+          "T2"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "temperature-dependent interfacial conductance on body 1 side",
+        "scientific_mechanism": "Body-specific temperature dependence of interfacial conductance, such as temperature-varying surface compliance, oxide/contact quality, or near-surface transport in body 1, modifies the heat flux even at the same mean temperature and temperature difference.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the conductance multiplier now varies along the trajectory with T1, changing the shape of the target mapping over state space rather than uniformly rescaling it.",
+        "taxonomy_match": "known",
+        "assumption_before": "The interfacial transfer coefficient depends only on mean contact temperature and temperature contrast, aside from the separate body-1 heat-capacity correction.",
+        "assumption_after": "The interfacial transfer coefficient also carries a body-1-specific temperature factor that modulates heat transfer strength.",
+        "before_fragment": "contact_conductance*(1 + mean_temperature_conductance_coeff*((T1 + T2)/2 - conductance_reference_temperature))*tanh(Abs(T2 - T1)/conductance_deltaT_scale)*(T2 - T1)/(heat_capacity_1*(1 + heat_capacity_1_temperature_coeff*(T1 - heat_capacity_1_reference_temperature)))",
+        "after_fragment": "contact_conductance*(1 + mean_temperature_conductance_coeff*((T1 + T2)/2 - conductance_reference_temperature))*(1 + body1_contact_temperature_coeff*(T1 - heat_capacity_1_reference_temperature))*tanh(Abs(T2 - T1)/conductance_deltaT_scale)*(T2 - T1)/(heat_capacity_1*(1 + heat_capacity_1_temperature_coeff*(T1 - heat_capacity_1_reference_temperature)))",
+        "parent_reduction": "Set body1_contact_temperature_coeff = 0 to recover the parent exactly.",
+        "observable_signature": "For trajectory segments where deltaT is similar and the tanh factor is active, but T1 differs substantially, the child predicts systematic changes in dT1_dt from the numerator-side conductance modulation, not just from the existing heat-capacity denominator. This appears as additional curvature of dT1_dt versus T1 at comparable deltaT and similar Tmean.",
+        "shortcut_blocked": "A single refit of the parent parameters cannot generally reproduce this contrast across a broad T1 range because the parent places all body-1-specific absolute-temperature dependence only in the denominator, whereas the child introduces independent T1 dependence in the conductance numerator. Retuning contact_conductance or mean_temperature_conductance_coeff gives mainly global or Tmean-linked rescaling, and retuning heat_capacity_1_temperature_coeff changes only the denominator branch; one shared parent parameter set therefore cannot match both low-T1 and high-T1 equal-deltaT rate ratios when numerator-side T1 modulation is present."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The interfacial heat flux is an odd, effectively single-regime function of temperature difference: tanh(Abs(T2 - T1)/conductance_deltaT_scale)*(T2 - T1), so after accounting for the mean-temperature and body-1 factors the target depends on |T2-T1| through one fixed saturation shape.",
+          "child_relation": "Replace the near-equilibrium conductance transition with a stronger low-contrast suppression consistent with diffusive constriction/microcontact effects, so the target becomes more strongly curved in |T2-T1| near equilibrium while recovering the parent large-contrast behavior at higher |T2-T1|.",
+          "affected_inputs": [
+            "T1",
+            "T2",
+            "conductance_deltaT_scale"
+          ],
+          "observable_effect": "Holding the same initial temperatures and parameters except for the new shape refinement, late-time relaxation near T1≈T2 is slower than the parent predicts, while early-time large-contrast cooling remains close to the parent law."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "deltaT",
+            "expression": "T2 - T1",
+            "role": "driving temperature difference setting heat-flow direction and contrast magnitude"
+          },
+          {
+            "name": "abs_deltaT_scaled",
+            "expression": "Abs(T2 - T1)/conductance_deltaT_scale",
+            "role": "dimensionless proximity-to-equilibrium coordinate controlling weak-coupling onset"
+          },
+          {
+            "name": "meanT",
+            "expression": "(T1 + T2)/2 - conductance_reference_temperature",
+            "role": "mean contact temperature offset already modulating baseline conductance"
+          }
+        ],
+        "activation_condition": "Observable when |T2-T1| becomes small compared with conductance_deltaT_scale during the trajectory; the refinement is most visible in the late-stage approach to equilibrium, while for |T2-T1| much larger than conductance_deltaT_scale both models nearly coincide.",
+        "train_hidden_contrast": "In training, the mechanism already affects segments of trajectories that pass from large contrast into near-equilibrium; in holdout it extends the same contrast by changing how sharply the target bends downward as |T2-T1|/conductance_deltaT_scale falls below order unity.",
+        "continuation_path": "Recover the parent law in the limit where the refined near-equilibrium suppression exponent/shape parameter takes its parent value, or equivalently where the added curvature correction tends to zero so the original tanh-based transition is restored.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "T1",
+          "T2"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "temperature-contrast-dependent thermal contact suppression",
+        "scientific_mechanism": "Real thermal contact often shows a sharper-than-tanh collapse of effective conductance near zero temperature contrast because only a subset of microcontacts or transport channels remain effective close to equilibrium; this changes the low-contrast constitutive shape without introducing a new energy store.",
+        "embedding_pattern": "state_coupling",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the target now depends on T1 and T2 through a changed nonlinear contrast-shape, not just a rescaled amplitude or shifted single threshold. The squared activation preserves the large-contrast limit while independently altering near-zero curvature, which a one-scale tanh parent cannot emulate with one shared parameter set.",
+        "taxonomy_match": "known",
+        "assumption_before": "The temperature-difference-dependent conductance reduction has a fixed tanh crossover shape with one universal low-contrast scaling.",
+        "assumption_after": "The near-equilibrium contact activation is more strongly suppressed than tanh predicts, consistent with microcontact/channel deactivation, while the same large-contrast conductance limit is retained.",
+        "before_fragment": "contact_conductance*(1 + mean_temperature_conductance_coeff*((T1 + T2)/2 - conductance_reference_temperature))*(1 + body1_contact_temperature_coeff*(T1 - heat_capacity_1_reference_temperature))*tanh(Abs(T2 - T1)/conductance_deltaT_scale)*(T2 - T1)/(heat_capacity_1*(1 + heat_capacity_1_temperature_coeff*(T1 - heat_capacity_1_reference_temperature)))",
+        "after_fragment": "contact_conductance*(1 + mean_temperature_conductance_coeff*((T1 + T2)/2 - conductance_reference_temperature))*(1 + body1_contact_temperature_coeff*(T1 - heat_capacity_1_reference_temperature))*(tanh(Abs(T2 - T1)/conductance_deltaT_scale))**2*(T2 - T1)/(heat_capacity_1*(1 + heat_capacity_1_temperature_coeff*(T1 - heat_capacity_1_reference_temperature)))",
+        "parent_reduction": "The parent is recovered by replacing the refined suppression factor (tanh(Abs(T2 - T1)/conductance_deltaT_scale))**2 with tanh(Abs(T2 - T1)/conductance_deltaT_scale), i.e. restoring the original single-shape crossover.",
+        "observable_signature": "Along the same two-body relaxation trajectory, compare segments with large and small |T2-T1|. At large |T2-T1|/conductance_deltaT_scale the child and parent give nearly the same dT1/dt, but once |T2-T1|/conductance_deltaT_scale falls below order unity the child predicts a distinctly smaller |dT1/dt| and a slower final approach to T1=T2. This is a direct change in the scored mapping from observed T1,T2 to dT1/dt, not merely a change in an auxiliary state.",
+        "shortcut_blocked": "A single parent parameter refit cannot reproduce both regimes across the same admissible trajectories: changing contact_conductance rescales the whole curve, and changing conductance_deltaT_scale shifts the crossover location but still leaves one fixed tanh near-zero curvature. The child preserves the high-contrast asymptote while imposing stronger low-contrast suppression, so one shared parent parameter set cannot match both the early-time and late-time target responses simultaneously."
+      }
+    ]
+  },
+  "finalization": {
+    "mode": "candidate",
+    "accepted_generations": 5,
+    "novelty": {
+      "answer": "NOT_EVALUATED"
+    },
+    "total_points": 5000,
+    "evaluation_status": "not_evaluated"
+  }
+}

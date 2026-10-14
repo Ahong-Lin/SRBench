@@ -1,0 +1,1757 @@
+{
+  "version": 7,
+  "spec": {
+    "equation_type": "ode_system",
+    "integrator": "integrate_system",
+    "dependent_variable": "T_c",
+    "independent_variables": [
+      {
+        "symbol": "t",
+        "range": [
+          0.0,
+          120.0
+        ],
+        "n_points": 301,
+        "scale": "linear"
+      }
+    ],
+    "parameters": [
+      {
+        "symbol": "basal_heat_production",
+        "value": 8.0
+      },
+      {
+        "symbol": "environmental_heat_transfer_coefficient",
+        "value": 1.2
+      },
+      {
+        "symbol": "ambient_temperature",
+        "value": 25.0
+      },
+      {
+        "symbol": "thermoregulatory_feedback_gain",
+        "value": 10.0
+      },
+      {
+        "symbol": "core_temperature_set_point",
+        "value": 37.0
+      },
+      {
+        "symbol": "effective_heat_capacity",
+        "value": 60.0
+      },
+      {
+        "symbol": "feedback_recruitment_temperature_scale",
+        "value": 0.5
+      },
+      {
+        "symbol": "heat_capacity_temperature_sensitivity",
+        "value": 0.3
+      },
+      {
+        "symbol": "effector_adjustment_time_constant",
+        "value": 12.0
+      },
+      {
+        "symbol": "effector_kinetic_asymmetry",
+        "value": 0.45
+      }
+    ],
+    "benchmark_output": "dT_c_dt",
+    "benchmark_target_state": "T_c",
+    "observed_variables": [
+      "t",
+      "T_c",
+      "effector_recruitment_state"
+    ],
+    "rhs_for_integrator": "(basal_heat_production - environmental_heat_transfer_coefficient*(T_c - ambient_temperature) - thermoregulatory_feedback_gain*effector_recruitment_state*(feedback_recruitment_temperature_scale*tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)))/(effective_heat_capacity*(1 + heat_capacity_temperature_sensitivity*((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)**2))",
+    "state_variables": [
+      "T_c",
+      "effector_recruitment_state"
+    ],
+    "state_rhs": [
+      "(basal_heat_production - environmental_heat_transfer_coefficient*(T_c - ambient_temperature) - thermoregulatory_feedback_gain*effector_recruitment_state*(feedback_recruitment_temperature_scale*tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)))/(effective_heat_capacity*(1 + heat_capacity_temperature_sensitivity*((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)**2))",
+      "(tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale) - effector_recruitment_state)/(effector_adjustment_time_constant*(1 - effector_kinetic_asymmetry*tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)))"
+    ],
+    "initial_conditions": {
+      "T_c": 37.0,
+      "effector_recruitment_state": 0.0
+    },
+    "sanity_expectations": [
+      "At t=0, dT_c/dt is negative because basal_heat_production < environmental_heat_transfer_coefficient*(T_c-ambient_temperature) and effector_recruitment_state starts at 0; the trajectory initially cools below set point.",
+      "effector_recruitment_state should lag behind tanh((T_c-core_temperature_set_point)/feedback_recruitment_temperature_scale), approaching a negative value only after T_c has already fallen below the set point.",
+      "Because effector_adjustment_time_constant is not tiny, early-time cooling is closer to passive environmental cooling, with stronger corrective feedback appearing later at similar T_c values.",
+      "The heat-capacity denominator remains positive and near order effective_heat_capacity throughout mild excursions; no blow-up or complex values should occur.",
+      "With effector_kinetic_asymmetry=0.45 and the inherited initial condition, the dataset mainly probes the below-set-point branch of asymmetric recruitment timing; a full above-vs-below asymmetry comparison is weak or absent unless the trajectory crosses the set point later.",
+      "If sampled states reach |T_c-core_temperature_set_point| of order 0.5 C, both tanh recruitment curvature and the state-dependent heat-capacity modulation become visibly active rather than collapsing to their linear limits."
+    ],
+    "role_corrections": [
+      "dT_c_dt: claimed-output/target derivative -> derivative of dependent variable T_c (confirmed by contract; solved state is T_c, not an independent sampled variable)",
+      "t: claimed-input/time axis -> independent variable/time axis (confirmed by ODE system contract)",
+      "T_c: claimed-dynamic state -> dependent variable and state variable (confirmed)",
+      "effector_recruitment_state: claimed-dynamic state -> auxiliary state variable (confirmed)",
+      "basal_heat_production: claimed-parameter -> parameter (confirmed)",
+      "environmental_heat_transfer_coefficient: claimed-parameter -> parameter (confirmed)",
+      "ambient_temperature: claimed-parameter -> parameter (confirmed)",
+      "thermoregulatory_feedback_gain: claimed-parameter -> parameter (confirmed)",
+      "core_temperature_set_point: claimed-parameter -> parameter (confirmed)",
+      "effective_heat_capacity: claimed-parameter -> parameter (confirmed)",
+      "feedback_recruitment_temperature_scale: claimed-parameter -> parameter (confirmed)",
+      "heat_capacity_temperature_sensitivity: claimed-parameter -> parameter (confirmed)",
+      "effector_adjustment_time_constant: claimed-parameter -> parameter (confirmed)",
+      "effector_kinetic_asymmetry: claimed-parameter -> parameter (confirmed within suggested -0.9 to 0.9 range)"
+    ],
+    "rationale": "Preserving the supplied validated ODE-system contract, this dataset should be generated by integrating the two-state system over a recovery window long enough to show delayed thermoeffector recruitment and the sign-dependent kinetics encoded by effector_kinetic_asymmetry. The chosen 0–120 min window with 301 points resolves the early lag phase and the later relaxation. Parameter values keep the denominator positive and moderate over mild physiological excursions, avoid immediate parent-limit collapse, and keep the recruitment nonlinearity active around sub-degree temperature errors because feedback_recruitment_temperature_scale=0.5 C makes order-0.5 C deviations relevant. heat_capacity_temperature_sensitivity=0.3 gives visible but not dominating state-dependent thermal storage. effector_adjustment_time_constant=12 min keeps recruitment delay observable relative to core thermal relaxation. effector_kinetic_asymmetry=0.45 stays within the suggested admissible range and creates a real asymmetry in recruitment timing without risking denominator singularity in the effector-state equation, since 1-0.45*tanh(.) remains positive. Because the inherited initial condition is exactly T_c=core_temperature_set_point and effector_recruitment_state=0, the trajectory starts at the set point with zero recruitment signal; thus the sign-dependent kinetic asymmetry is initially inactive and only becomes observable if the net heat balance moves T_c away from set point. The chosen basal heat production and ambient heat loss do that immediately: at t=0 the net flux is slightly cooling, so the system moves below set point, activating the negative-error branch and then delayed recruitment. This means the present dataset exposes delayed feedback and the below-set-point side of the asymmetric kinetics, but not a full cross-sign comparison unless the trajectory later crosses the set point; that limitation is imposed by the inherited initial state and should be documented rather than repaired. No noise is added; outputs are exact numerical integration results.",
+    "coverage_report": {
+      "groups": [
+        {
+          "generation": 1,
+          "name": "temp_error",
+          "expression": "T_c - core_temperature_set_point",
+          "role": "Signed thermoregulatory error driving corrective response",
+          "train_range": [
+            -3.039141383507399,
+            0.0
+          ],
+          "hidden_range": [
+            -3.1614974624845544,
+            -3.0393975785682485
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -3.039141383507399,
+            "max": 0.0,
+            "q05": -2.9802054092715577,
+            "median": -2.276715687264531,
+            "q95": -0.5100124115893078,
+            "range": 3.039141383507399,
+            "robust_range": 2.47019299768225
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": -3.1614974624845544,
+            "max": -3.0393975785682485,
+            "q05": -3.1556479591997357,
+            "median": -3.1018321445267922,
+            "q95": -3.045773769915386,
+            "range": 0.12209988391630588,
+            "robust_range": 0.10987418928434955
+          }
+        },
+        {
+          "generation": 1,
+          "name": "env_gradient",
+          "expression": "T_c - ambient_temperature",
+          "role": "Core-to-ambient thermal gradient for passive heat loss",
+          "train_range": [
+            8.960858616492601,
+            12.0
+          ],
+          "hidden_range": [
+            8.838502537515446,
+            8.960602421431751
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 8.960858616492601,
+            "max": 12.0,
+            "q05": 9.019794590728443,
+            "median": 9.72328431273547,
+            "q95": 11.489987588410692,
+            "range": 3.039141383507399,
+            "robust_range": 2.4701929976822488
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 8.838502537515446,
+            "max": 8.960602421431751,
+            "q05": 8.844352040800265,
+            "median": 8.898167855473208,
+            "q95": 8.954226230084615,
+            "range": 0.12209988391630588,
+            "robust_range": 0.10987418928434955
+          }
+        },
+        {
+          "generation": 1,
+          "name": "net_linear_restoring",
+          "expression": "(environmental_heat_transfer_coefficient + thermoregulatory_feedback_gain)/effective_heat_capacity",
+          "role": "Parent combined linear relaxation rate",
+          "train_range": [
+            0.18666666666666665,
+            0.18666666666666665
+          ],
+          "hidden_range": [
+            0.18666666666666665,
+            0.18666666666666665
+          ],
+          "train_status": "inactive",
+          "hidden_status": "inactive",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.18666666666666665,
+            "max": 0.18666666666666665,
+            "q05": 0.18666666666666665,
+            "median": 0.18666666666666665,
+            "q95": 0.18666666666666665,
+            "range": 0.0,
+            "robust_range": 0.0
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.18666666666666665,
+            "max": 0.18666666666666665,
+            "q05": 0.18666666666666665,
+            "median": 0.18666666666666665,
+            "q95": 0.18666666666666665,
+            "range": 0.0,
+            "robust_range": 0.0
+          }
+        },
+        {
+          "generation": 2,
+          "name": "thermal_error",
+          "expression": "T_c - core_temperature_set_point",
+          "role": "Distance from the thermoregulatory operating point",
+          "train_range": [
+            -3.039141383507399,
+            0.0
+          ],
+          "hidden_range": [
+            -3.1614974624845544,
+            -3.0393975785682485
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -3.039141383507399,
+            "max": 0.0,
+            "q05": -2.9802054092715577,
+            "median": -2.276715687264531,
+            "q95": -0.5100124115893078,
+            "range": 3.039141383507399,
+            "robust_range": 2.47019299768225
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": -3.1614974624845544,
+            "max": -3.0393975785682485,
+            "q05": -3.1556479591997357,
+            "median": -3.1018321445267922,
+            "q95": -3.045773769915386,
+            "range": 0.12209988391630588,
+            "robust_range": 0.10987418928434955
+          }
+        },
+        {
+          "generation": 2,
+          "name": "net_heat_flux_parent",
+          "expression": "basal_heat_production - environmental_heat_transfer_coefficient*(T_c - ambient_temperature) - thermoregulatory_feedback_gain*tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)*(T_c - core_temperature_set_point)",
+          "role": "Parent net heat storage flux before division by heat capacity",
+          "train_range": [
+            -33.144124837830574,
+            -6.381984440623582
+          ],
+          "hidden_range": [
+            -34.22097404170988,
+            -33.146379654554934
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -33.144124837830574,
+            "max": -6.381984440623582,
+            "q05": -32.62541120833177,
+            "median": -26.430048755295108,
+            "q95": -9.714451870430842,
+            "range": 26.76214039720699,
+            "robust_range": 22.910959337900927
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": -34.22097404170988,
+            "max": -33.146379654554934,
+            "q05": -34.16949397782296,
+            "median": -33.69586923506265,
+            "q95": -33.202497519996705,
+            "range": 1.0745943871549457,
+            "robust_range": 0.9669964578262551
+          }
+        },
+        {
+          "generation": 2,
+          "name": "ambient_core_gradient",
+          "expression": "T_c - ambient_temperature",
+          "role": "Environmental cooling or warming drive",
+          "train_range": [
+            8.960858616492601,
+            12.0
+          ],
+          "hidden_range": [
+            8.838502537515446,
+            8.960602421431751
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 8.960858616492601,
+            "max": 12.0,
+            "q05": 9.019794590728443,
+            "median": 9.72328431273547,
+            "q95": 11.489987588410692,
+            "range": 3.039141383507399,
+            "robust_range": 2.4701929976822488
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 8.838502537515446,
+            "max": 8.960602421431751,
+            "q05": 8.844352040800265,
+            "median": 8.898167855473208,
+            "q95": 8.954226230084615,
+            "range": 0.12209988391630588,
+            "robust_range": 0.10987418928434955
+          }
+        },
+        {
+          "generation": 3,
+          "name": "normalized_error",
+          "expression": "(T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale",
+          "role": "dimensionless recruitment coordinate setting the nonlinear feedback regime",
+          "train_range": [
+            -6.078282767014798,
+            0.0
+          ],
+          "hidden_range": [
+            -6.322994924969109,
+            -6.078795157136497
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -6.078282767014798,
+            "max": 0.0,
+            "q05": -5.9604108185431155,
+            "median": -4.553431374529062,
+            "q95": -1.0200248231786155,
+            "range": 6.078282767014798,
+            "robust_range": 4.9403859953645
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": -6.322994924969109,
+            "max": -6.078795157136497,
+            "q05": -6.3112959183994715,
+            "median": -6.2036642890535845,
+            "q95": -6.091547539830772,
+            "range": 0.24419976783261177,
+            "robust_range": 0.2197483785686991
+          }
+        },
+        {
+          "generation": 3,
+          "name": "passive_loss",
+          "expression": "environmental_heat_transfer_coefficient*(T_c - ambient_temperature)",
+          "role": "temperature-driven environmental heat exchange already present in the parent",
+          "train_range": [
+            10.75303033979112,
+            14.399999999999999
+          ],
+          "hidden_range": [
+            10.606203045018534,
+            10.752722905718102
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 10.75303033979112,
+            "max": 14.399999999999999,
+            "q05": 10.82375350887413,
+            "median": 11.667941175282563,
+            "q95": 13.78798510609283,
+            "range": 3.646969660208878,
+            "robust_range": 2.964231597218699
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 10.606203045018534,
+            "max": 10.752722905718102,
+            "q05": 10.613222448960318,
+            "median": 10.677801426567848,
+            "q95": 10.745071476101536,
+            "range": 0.14651986069956813,
+            "robust_range": 0.13184902714121804
+          }
+        },
+        {
+          "generation": 4,
+          "name": "core_error",
+          "expression": "T_c - core_temperature_set_point",
+          "role": "Signed thermal deviation driving thermoregulatory correction",
+          "train_range": [
+            -3.039141383507399,
+            0.0
+          ],
+          "hidden_range": [
+            -3.1614974624845544,
+            -3.0393975785682485
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -3.039141383507399,
+            "max": 0.0,
+            "q05": -2.9802054092715577,
+            "median": -2.276715687264531,
+            "q95": -0.5100124115893078,
+            "range": 3.039141383507399,
+            "robust_range": 2.47019299768225
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": -3.1614974624845544,
+            "max": -3.0393975785682485,
+            "q05": -3.1556479591997357,
+            "median": -3.1018321445267922,
+            "q95": -3.045773769915386,
+            "range": 0.12209988391630588,
+            "robust_range": 0.10987418928434955
+          }
+        },
+        {
+          "generation": 4,
+          "name": "feedback_drive_proxy",
+          "expression": "effector_recruitment_state*(T_c - core_temperature_set_point)",
+          "role": "Parent effective corrective drive entering the target mapping",
+          "train_range": [
+            0.0,
+            3.031360258995885
+          ],
+          "hidden_range": [
+            3.0316264802887303,
+            3.157423427806825
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0,
+            "max": 3.031360258995885,
+            "q05": 0.07406735798405897,
+            "median": 2.148256228746842,
+            "q95": 2.96981132084878,
+            "range": 3.031360258995885,
+            "robust_range": 2.895743962864721
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 3.0316264802887303,
+            "max": 3.157423427806825,
+            "q05": 3.0382487367409388,
+            "median": 3.0962022792749933,
+            "q95": 3.151439802618098,
+            "range": 0.1257969475180949,
+            "robust_range": 0.11319106587715932
+          }
+        },
+        {
+          "generation": 5,
+          "name": "temp_error",
+          "expression": "(T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale",
+          "role": "Normalized signed thermal deviation that determines whether warming or cooling effectors dominate",
+          "train_range": [
+            -6.078282767014798,
+            0.0
+          ],
+          "hidden_range": [
+            -6.322994924969109,
+            -6.078795157136497
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -6.078282767014798,
+            "max": 0.0,
+            "q05": -5.9604108185431155,
+            "median": -4.553431374529062,
+            "q95": -1.0200248231786155,
+            "range": 6.078282767014798,
+            "robust_range": 4.9403859953645
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": -6.322994924969109,
+            "max": -6.078795157136497,
+            "q05": -6.3112959183994715,
+            "median": -6.2036642890535845,
+            "q95": -6.091547539830772,
+            "range": 0.24419976783261177,
+            "robust_range": 0.2197483785686991
+          }
+        },
+        {
+          "generation": 5,
+          "name": "recruitment_gap",
+          "expression": "tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale) - effector_recruitment_state",
+          "role": "Distance between instantaneous drive and realized effector recruitment, which controls dynamic phase lag",
+          "train_range": [
+            -0.6453289797218632,
+            0.0
+          ],
+          "hidden_range": [
+            -0.0025462922815774336,
+            -0.001282199941771811
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -0.6453289797218632,
+            "max": 0.0,
+            "q05": -0.606388217568887,
+            "median": -0.0553592950866324,
+            "q95": -0.0034696320152091667,
+            "range": 0.6453289797218632,
+            "robust_range": 0.6029185855536778
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": -0.0025462922815774336,
+            "max": -0.001282199941771811,
+            "q05": -0.002460415072057931,
+            "median": -0.0018068359167097148,
+            "q95": -0.0013269383475751685,
+            "range": 0.0012640923398056225,
+            "robust_range": 0.0011334767244827624
+          }
+        },
+        {
+          "generation": 5,
+          "name": "delivered_feedback_flux",
+          "expression": "thermoregulatory_feedback_gain*effector_recruitment_state*(feedback_recruitment_temperature_scale*tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale))",
+          "role": "Current corrective heat-flux contribution delivered by the lagged effector pathway",
+          "train_range": [
+            0.0,
+            4.987146079321298
+          ],
+          "hidden_range": [
+            4.987163705649905,
+            4.993524633023783
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0,
+            "max": 4.987146079321298,
+            "q05": 0.5590323014610573,
+            "median": 4.716837926146612,
+            "q95": 4.982495183844015,
+            "range": 4.987146079321298,
+            "robust_range": 4.423462882382958
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 4.987163705649905,
+            "max": 4.993524633023783,
+            "q05": 4.987595727205394,
+            "median": 4.99088412463502,
+            "q95": 4.993299418654446,
+            "range": 0.006360927373877168,
+            "robust_range": 0.005703691449051362
+          }
+        }
+      ],
+      "inactive_mechanisms": [
+        "net_linear_restoring"
+      ],
+      "visible_mechanisms": [
+        "temp_error",
+        "env_gradient",
+        "thermal_error",
+        "net_heat_flux_parent",
+        "ambient_core_gradient",
+        "normalized_error",
+        "passive_loss",
+        "core_error",
+        "feedback_drive_proxy",
+        "temp_error",
+        "recruitment_gap",
+        "delivered_feedback_flux"
+      ],
+      "extended_mechanisms": [
+        "temp_error",
+        "env_gradient",
+        "thermal_error",
+        "net_heat_flux_parent",
+        "ambient_core_gradient",
+        "normalized_error",
+        "passive_loss",
+        "core_error",
+        "feedback_drive_proxy",
+        "temp_error",
+        "recruitment_gap",
+        "delivered_feedback_flux"
+      ]
+    },
+    "inactive_mechanisms": [
+      "net_linear_restoring"
+    ],
+    "target_variance": {
+      "train": {
+        "n": 4500,
+        "variance": 0.0004648201100893475,
+        "range": 0.09599084671216095
+      },
+      "hidden": {
+        "n": 500,
+        "variance": 7.166196464014065e-08,
+        "range": 0.0009260895493487901
+      }
+    },
+    "parent_absorption_report": {
+      "status": "ok",
+      "n_points": 512,
+      "fixed_parent_normalized_rmse": 0.0,
+      "refit": {
+        "status": "not_run",
+        "reason": "no free parent parameters"
+      },
+      "interpretation": "<1e-3 nearly absorbed; 1e-3..1e-2 weak; >1e-2 visible structure"
+    },
+    "noise": 0.0,
+    "_trace": [
+      {
+        "turn": 1,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "analyze_expression",
+            "id": "call_4a4g9xxPVBGK7urpnzElg1vB"
+          }
+        ]
+      },
+      {
+        "tool": "analyze_expression",
+        "input": {
+          "expression": "(basal_heat_production - environmental_heat_transfer_coefficient*(T_c - ambient_temperature) - thermoregulatory_feedback_gain*effector_recruitment_state*(feedback_recruitment_temperature_scale*tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)))/(effective_heat_capacity*(1 + heat_capacity_temperature_sensitivity*((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)**2))",
+          "target_symbol": "dT_c_dt"
+        },
+        "result": {
+          "ok": true,
+          "free_symbols": [
+            "T_c",
+            "ambient_temperature",
+            "basal_heat_production",
+            "core_temperature_set_point",
+            "effective_heat_capacity",
+            "effector_recruitment_state",
+            "environmental_heat_transfer_coefficient",
+            "feedback_recruitment_temperature_scale",
+            "heat_capacity_temperature_sensitivity",
+            "thermoregulatory_feedback_gain"
+          ],
+          "functions_of": {},
+          "target_function_calls": [],
+          "delayed_target_calls": [],
+          "ungoverned_functions": [],
+          "derivatives": [],
+          "max_derivative_order": 0,
+          "integral_kernels": [],
+          "explicitly_solvable_for_target": true,
+          "explicit_solution_preview": [
+            "(basal_heat_production - effector_recruitment_state*feedback_recruitment_temperature_scale*thermoregulatory_feedback_gai"
+          ],
+          "classification_hint": "explicit",
+          "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+        }
+      },
+      {
+        "turn": 2,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "check_substitution",
+            "id": "call_5rj4NEQAujdbg8oF4BXdolaW"
+          }
+        ]
+      },
+      {
+        "tool": "check_substitution",
+        "input": {
+          "expression": "(basal_heat_production - environmental_heat_transfer_coefficient*(T_c - ambient_temperature) - thermoregulatory_feedback_gain*effector_recruitment_state*(feedback_recruitment_temperature_scale*tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)))/(effective_heat_capacity*(1 + heat_capacity_temperature_sensitivity*((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)**2))",
+          "target_symbol": "dT_c_dt",
+          "assignments": {
+            "T_c": 37,
+            "effector_recruitment_state": 0,
+            "basal_heat_production": 8,
+            "environmental_heat_transfer_coefficient": 1.2,
+            "ambient_temperature": 25,
+            "thermoregulatory_feedback_gain": 10,
+            "core_temperature_set_point": 37,
+            "effective_heat_capacity": 60,
+            "feedback_recruitment_temperature_scale": 0.5,
+            "heat_capacity_temperature_sensitivity": 0.3
+          }
+        },
+        "result": {
+          "ok": true,
+          "value_real": -0.10666666666666666,
+          "value_imag": 0.0,
+          "is_finite": true,
+          "is_real": true,
+          "verdict": "ok",
+          "residual_free_symbols": []
+        }
+      },
+      {
+        "turn": 3,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "emit_data_gen_spec",
+            "id": "call_LEYBGYV449dJmLcAqityT5eN"
+          }
+        ]
+      },
+      {
+        "tool": "emit_data_gen_spec",
+        "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+      },
+      {
+        "turn": 4,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "emit_data_gen_spec",
+            "id": "call_PvrnPW8UHegv9V7gt4aaG0L4"
+          }
+        ]
+      },
+      {
+        "tool": "emit_data_gen_spec",
+        "accepted": true
+      }
+    ],
+    "_provider": "openai",
+    "_num_turns": 4,
+    "discipline": "biology",
+    "scenario_text": "Core body temperature is followed after a small thermal perturbation while ambient conditions and activity remain fixed. The target is the instantaneous rate of change of core temperature as metabolic heat production and thermoregulatory heat loss restore a stable operating temperature. The baseline response treats heat-storage capacity as constant and thermoeffector output as an immediate negative-feedback response. This produces a smooth relaxation without requiring skin temperature or effector activity as additional dynamic states.",
+    "record_id": "m2_physiology_and_homeostasis_20260917_001",
+    "generation": 5,
+    "_n_total": 5000,
+    "mechanism_observation_history": [
+      {
+        "generation": 1,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The target dT_c_dt is an affine linear function of core temperature error T_c-core_temperature_set_point with one constant thermoregulatory feedback gain, so the restorative slope is the same for small and larger deviations.",
+            "child_relation": "Keep the same negative-feedback pathway but relax the constant-gain assumption so feedback strength depends on the magnitude of T_c-core_temperature_set_point, producing a nonlinear temperature-error to dT_c_dt mapping.",
+            "affected_inputs": [
+              "T_c",
+              "thermoregulatory_feedback_gain",
+              "core_temperature_set_point"
+            ],
+            "observable_effect": "Across trajectories started at different initial thermal offsets under the same ambient conditions, larger positive deviations cool back disproportionately faster than predicted by a single linear restorative slope, while near-set-point relaxation remains close to the parent law."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "temp_error",
+              "expression": "T_c - core_temperature_set_point",
+              "role": "Signed thermoregulatory error driving corrective response"
+            },
+            {
+              "name": "env_gradient",
+              "expression": "T_c - ambient_temperature",
+              "role": "Core-to-ambient thermal gradient for passive heat loss"
+            },
+            {
+              "name": "net_linear_restoring",
+              "expression": "(environmental_heat_transfer_coefficient + thermoregulatory_feedback_gain)/effective_heat_capacity",
+              "role": "Parent combined linear relaxation rate"
+            }
+          ],
+          "activation_condition": "Observable when the initial perturbation is large enough that thermoeffector recruitment is no longer approximately linear in temperature error, yet still within the mild physiological range where one-compartment core temperature remains meaningful and feedback remains stabilizing.",
+          "train_hidden_contrast": "In training, modest perturbations may look nearly linear; in holdout with somewhat larger initial deviations but the same fixed ambient and activity conditions, the same mechanism manifests as stronger-than-linear restoration that bends the dT_c_dt versus T_c relation.",
+          "continuation_path": "Recover the parent by taking the nonlinear modulation of feedback gain to its linear small-signal limit so effective thermoregulatory gain is constant over the observed temperature range.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The current model assumes thermoregulatory corrective output is exactly proportional to core-temperature error over the whole admissible range, omitting amplitude-dependent recruitment of heat-loss effectors.",
+          "baseline_assumption": "Thermoregulatory effectors respond without delay and do not saturate in the baseline range.",
+          "scientific_mechanism": "Temperature-dependent recruitment of thermoeffector strength makes effective negative-feedback gain depend on the magnitude of core thermal deviation, even without adding delay or extra measured states.",
+          "affected_symbols": [
+            "T_c",
+            "thermoregulatory_feedback_gain",
+            "core_temperature_set_point"
+          ],
+          "rationale": "A realistic next refinement is to change the idealized constant-gain feedback assumption rather than add a wholly new process. The parent target mapping is a single-slope relaxation: with ambient_temperature, basal_heat_production, environmental_heat_transfer_coefficient, and effective_heat_capacity held fixed, varying only T_c changes dT_c_dt linearly. This implies that two perturbations of different size differ only by scale, so one shared parameter set predicts the same local restorative slope everywhere. Physiologically, mild deviations can recruit little additional effector output, while somewhat larger deviations recruit stronger vasomotor and evaporative or other heat-loss responses, making the restoring action increase nonlinearly with error magnitude. The resulting child changes the scored mapping itself, not merely an auxiliary trajectory: dT_c_dt as a function of observed T_c gains curvature. A concrete observable contrast is that trajectories starting farther above set point return faster than a linear extrapolation from small perturbations would predict, under the same fixed ambient conditions and activity. This is admissible when initial core offsets vary across experiments or samples; if all observations stay infinitesimally close to set point, the refinement will be hard to identify and the parent remains a good approximation."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The target dT_c_dt is an affine linear function of core temperature error T_c-core_temperature_set_point with one constant thermoregulatory feedback gain, so the restorative slope is the same for small and larger deviations.",
+            "child_relation": "Keep the same negative-feedback pathway but relax the constant-gain assumption so feedback strength depends on the magnitude of T_c-core_temperature_set_point, producing a nonlinear temperature-error to dT_c_dt mapping.",
+            "affected_inputs": [
+              "T_c",
+              "thermoregulatory_feedback_gain",
+              "core_temperature_set_point"
+            ],
+            "observable_effect": "Across trajectories started at different initial thermal offsets under the same ambient conditions, larger positive deviations cool back disproportionately faster than predicted by a single linear restorative slope, while near-set-point relaxation remains close to the parent law."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "temp_error",
+              "expression": "T_c - core_temperature_set_point",
+              "role": "Signed thermoregulatory error driving corrective response"
+            },
+            {
+              "name": "env_gradient",
+              "expression": "T_c - ambient_temperature",
+              "role": "Core-to-ambient thermal gradient for passive heat loss"
+            },
+            {
+              "name": "net_linear_restoring",
+              "expression": "(environmental_heat_transfer_coefficient + thermoregulatory_feedback_gain)/effective_heat_capacity",
+              "role": "Parent combined linear relaxation rate"
+            }
+          ],
+          "activation_condition": "Observable when the initial perturbation is large enough that thermoeffector recruitment is no longer approximately linear in temperature error, yet still within the mild physiological range where one-compartment core temperature remains meaningful and feedback remains stabilizing.",
+          "train_hidden_contrast": "In training, modest perturbations may look nearly linear; in holdout with somewhat larger initial deviations but the same fixed ambient and activity conditions, the same mechanism manifests as stronger-than-linear restoration that bends the dT_c_dt versus T_c relation.",
+          "continuation_path": "Recover the parent by taking the nonlinear modulation of feedback gain to its linear small-signal limit so effective thermoregulatory gain is constant over the observed temperature range.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "unary",
+          "scope_symbols": [
+            "T_c"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Amplitude-dependent recruitment of thermoregulatory effectors",
+          "scientific_mechanism": "Temperature-dependent recruitment of thermoeffector strength makes effective negative-feedback gain depend on the magnitude of core thermal deviation, even without adding delay or extra measured states.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the scored target mapping from observed T_c to dT_c_dt acquires curvature with a distinct near-set-point weak-response regime and a stronger finite high-error regime. No single constant gain can match both the local small-error slope and the faster restoration at larger deviations under one shared parameter set.",
+          "taxonomy_match": "known",
+          "assumption_before": "Thermoregulatory effectors respond without delay and do not saturate in the baseline range.",
+          "assumption_after": "Thermoregulatory effectors still respond immediately, but their recruited strength increases nonlinearly with temperature-error magnitude through a smooth saturating recruitment law.",
+          "before_fragment": "(basal_heat_production - environmental_heat_transfer_coefficient*(T_c - ambient_temperature) - thermoregulatory_feedback_gain*(T_c - core_temperature_set_point))/effective_heat_capacity",
+          "after_fragment": "(basal_heat_production - environmental_heat_transfer_coefficient*(T_c - ambient_temperature) - thermoregulatory_feedback_gain*tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)*(T_c - core_temperature_set_point))/effective_heat_capacity",
+          "parent_reduction": "When |T_c-core_temperature_set_point| is small relative to feedback_recruitment_temperature_scale over the observed range, tanh((T_c-core_temperature_set_point)/feedback_recruitment_temperature_scale) varies little and the law approaches a single approximately linear restorative relation after local refitting.",
+          "observable_signature": "With ambient_temperature, basal_heat_production, environmental_heat_transfer_coefficient, and effective_heat_capacity held fixed, plotting dT_c_dt against T_c shows an approximately linear relation near core_temperature_set_point but increasingly steeper cooling for larger positive T_c-core_temperature_set_point. This changes the scored target mapping itself, not only any hidden auxiliary trajectory, and is observable across experiments that differ in initial thermal offset while staying in the mild physiological range.",
+          "shortcut_blocked": "A single parent parameter set can only produce one affine dependence of dT_c_dt on T_c, so after matching near-set-point relaxation it necessarily underpredicts the stronger restoration seen at larger deviations, or after matching large-deviation recovery it overpredicts the local slope near the set point. This mismatch persists across trajectories with different initial offsets under the same ambient conditions because the child changes curvature of the target mapping rather than merely rescaling one coefficient."
+        },
+        "range_suggestions": {
+          "feedback_recruitment_temperature_scale": "positive, typically small-to-moderate relative to admissible core-temperature deviations; for mild physiology roughly 0.1 to 2 degrees Celsius"
+        }
+      },
+      {
+        "generation": 2,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "With fixed effective_heat_capacity, the same net heat flux always produces a temperature-rate change with constant conversion factor, so dT_c_dt is affine in net heat flux apart from the existing feedback nonlinearity.",
+            "child_relation": "Make effective thermal storage depend on core temperature so the same net heat flux yields different dT_c_dt at different T_c, changing the local slope and curvature of the T_c-to-dT_c_dt map even when ambient conditions and activity are fixed.",
+            "affected_inputs": [
+              "T_c",
+              "effective_heat_capacity"
+            ],
+            "observable_effect": "For comparable positive and negative thermal deviations around the set point, recovery becomes asymmetric in speed: regions with larger effective heat capacity show slower temperature-rate response to the same restoring heat flux magnitude."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "thermal_error",
+              "expression": "T_c - core_temperature_set_point",
+              "role": "Distance from the thermoregulatory operating point"
+            },
+            {
+              "name": "net_heat_flux_parent",
+              "expression": "basal_heat_production - environmental_heat_transfer_coefficient*(T_c - ambient_temperature) - thermoregulatory_feedback_gain*tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)*(T_c - core_temperature_set_point)",
+              "role": "Parent net heat storage flux before division by heat capacity"
+            },
+            {
+              "name": "ambient_core_gradient",
+              "expression": "T_c - ambient_temperature",
+              "role": "Environmental cooling or warming drive"
+            }
+          ],
+          "activation_condition": "Observable when admissible core-temperature excursions are large enough that temperature-dependent tissue heat storage is not negligible relative to the baseline effective_heat_capacity variation scale, while remaining in mild physiological ranges with positive total heat capacity.",
+          "train_hidden_contrast": "In training, small perturbations near set point can still look close to the parent law; in holdout with somewhat larger but still physiological excursions, the altered temperature-rate curvature appears as systematically slower or faster relaxation than any one constant-capacity fit predicts.",
+          "continuation_path": "Recover the parent by taking the temperature dependence of effective heat capacity to zero, giving a constant effective_heat_capacity.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The model assumes a constant conversion from net heat flux to core-temperature rate, omitting plausible temperature dependence of effective body heat storage over the perturbation range.",
+          "baseline_assumption": "Effective heat capacity is constant over the modeled range.",
+          "scientific_mechanism": "Temperature-dependent effective heat capacity from changing partition of stored heat among tissues and body water over mild thermal deviations.",
+          "affected_symbols": [
+            "T_c",
+            "effective_heat_capacity",
+            "core_temperature_set_point"
+          ],
+          "rationale": "The parent already contains restoring heat production/loss terms, but it enforces a single flux-to-temperature-rate gain through constant effective_heat_capacity. A realistic next refinement is to relax that assumption rather than add a new process. Vary the initial core-temperature perturbation amplitude while holding ambient_temperature, basal_heat_production, environmental_heat_transfer_coefficient, and thermoregulatory_feedback_gain fixed. In the parent, after accounting for the existing feedback nonlinearity, the same net restoring heat flux implies the same temperature-rate conversion everywhere because storage capacity is fixed. In the child, storage capacity changes with T_c, so the slope of dT_c_dt versus net heat flux depends on temperature, producing an observable curvature/asymmetry in relaxation across larger deviations. A single refit of the parent's existing parameters cannot generally match both near-set-point and farther-from-set-point recovery speeds when the discrepancy comes from denominator variation rather than only numerator feedback strength. This is scientifically admissible for mild physiology if the capacity modulation remains positive and moderate; if perturbations are extremely small, the effect collapses toward the parent and may be hard to identify."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "With fixed effective_heat_capacity, the same net heat flux always produces a temperature-rate change with constant conversion factor, so dT_c_dt is affine in net heat flux apart from the existing feedback nonlinearity.",
+            "child_relation": "Make effective thermal storage depend on core temperature so the same net heat flux yields different dT_c_dt at different T_c, changing the local slope and curvature of the T_c-to-dT_c_dt map even when ambient conditions and activity are fixed.",
+            "affected_inputs": [
+              "T_c",
+              "effective_heat_capacity"
+            ],
+            "observable_effect": "For comparable positive and negative thermal deviations around the set point, recovery becomes asymmetric in speed: regions with larger effective heat capacity show slower temperature-rate response to the same restoring heat flux magnitude."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "thermal_error",
+              "expression": "T_c - core_temperature_set_point",
+              "role": "Distance from the thermoregulatory operating point"
+            },
+            {
+              "name": "net_heat_flux_parent",
+              "expression": "basal_heat_production - environmental_heat_transfer_coefficient*(T_c - ambient_temperature) - thermoregulatory_feedback_gain*tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)*(T_c - core_temperature_set_point)",
+              "role": "Parent net heat storage flux before division by heat capacity"
+            },
+            {
+              "name": "ambient_core_gradient",
+              "expression": "T_c - ambient_temperature",
+              "role": "Environmental cooling or warming drive"
+            }
+          ],
+          "activation_condition": "Observable when admissible core-temperature excursions are large enough that temperature-dependent tissue heat storage is not negligible relative to the baseline effective_heat_capacity variation scale, while remaining in mild physiological ranges with positive total heat capacity.",
+          "train_hidden_contrast": "In training, small perturbations near set point can still look close to the parent law; in holdout with somewhat larger but still physiological excursions, the altered temperature-rate curvature appears as systematically slower or faster relaxation than any one constant-capacity fit predicts.",
+          "continuation_path": "Recover the parent by taking the temperature dependence of effective heat capacity to zero, giving a constant effective_heat_capacity.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "unary",
+          "scope_symbols": [
+            "T_c"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "temperature-dependent thermal storage",
+          "scientific_mechanism": "Temperature-dependent effective heat capacity from changing partition of stored heat among tissues and body water over mild thermal deviations.",
+          "embedding_pattern": "state_dependent_coefficient",
+          "difficulty_rationale": "This is harder than a coefficient-only correction because the coefficient converting net heat flux into temperature rate now varies with the evolving state T_c, changing local slope and curvature across the trajectory rather than globally rescaling the response.",
+          "taxonomy_match": "known",
+          "assumption_before": "Effective heat capacity is constant over the modeled range.",
+          "assumption_after": "Effective heat capacity increases smoothly with squared normalized deviation of core temperature from the set point while remaining positive over mild physiological excursions.",
+          "before_fragment": "(basal_heat_production - environmental_heat_transfer_coefficient*(T_c - ambient_temperature) - thermoregulatory_feedback_gain*tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)*(T_c - core_temperature_set_point))/effective_heat_capacity",
+          "after_fragment": "(basal_heat_production - environmental_heat_transfer_coefficient*(T_c - ambient_temperature) - thermoregulatory_feedback_gain*tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)*(T_c - core_temperature_set_point))/(effective_heat_capacity*(1 + heat_capacity_temperature_sensitivity*((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)**2))",
+          "parent_reduction": "The successor reduces to the parent when heat_capacity_temperature_sensitivity = 0, so the denominator becomes the constant effective_heat_capacity.",
+          "observable_signature": "Holding ambient_temperature, basal_heat_production, environmental_heat_transfer_coefficient, and thermoregulatory_feedback_gain fixed while varying initial perturbation amplitude, near-set-point trajectories remain close to the parent but larger admissible excursions show reduced |dT_c_dt| because the state-dependent denominator increases with |T_c - core_temperature_set_point|. This changes the scored target mapping itself, not only an auxiliary trajectory, by making the same parent net heat flux map to different temperature-rate magnitudes at different T_c values.",
+          "shortcut_blocked": "A single refit of the parent parameters cannot generally reproduce both small-error and larger-error recovery rates across these conditions because the parent has one constant flux-to-temperature-rate conversion factor. Retuning feedback gain or recruitment scale only changes the numerator's restoring flux law, whereas the child imposes denominator-driven state dependence so identical net_heat_flux_parent values can produce different dT_c_dt at different T_c."
+        },
+        "range_suggestions": {
+          "heat_capacity_temperature_sensitivity": "nonnegative, typically 0 to order 1 for mild physiology so effective_heat_capacity*(1 + heat_capacity_temperature_sensitivity*((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)**2) remains positive and only moderately varies over admissible excursions"
+        }
+      },
+      {
+        "generation": 3,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "phase_shift",
+            "parent_relation": "The thermoregulatory correction is an instantaneous static function of the current core-temperature error, so for any observed T_c the target dT_c_dt is uniquely determined with no dependence on recent thermal history.",
+            "child_relation": "The corrective thermoeffector drive is generated by a first-order lagged internal state that tracks core-temperature error, so the same observed T_c can yield different dT_c_dt depending on whether the system is early or late in recovery after the perturbation.",
+            "affected_inputs": [
+              "T_c",
+              "t",
+              "thermoregulatory_feedback_gain",
+              "core_temperature_set_point",
+              "feedback_recruitment_temperature_scale"
+            ],
+            "observable_effect": "After a step-like thermal perturbation, early-time relaxation is weaker than the parent predicts and later-time relaxation strengthens at similar T_c, creating hysteresis in the dT_c_dt versus T_c relationship."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "temp_error",
+              "expression": "T_c - core_temperature_set_point",
+              "role": "signed deviation from thermoregulatory set point that recruits corrective responses"
+            },
+            {
+              "name": "normalized_error",
+              "expression": "(T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale",
+              "role": "dimensionless recruitment coordinate setting the nonlinear feedback regime"
+            },
+            {
+              "name": "passive_loss",
+              "expression": "environmental_heat_transfer_coefficient*(T_c - ambient_temperature)",
+              "role": "temperature-driven environmental heat exchange already present in the parent"
+            }
+          ],
+          "activation_condition": "Observable when the perturbation is fast relative to thermoeffector adjustment, so the recovery timescale includes an initial interval where effector recruitment has not yet reached its quasi-steady level; strongest for moderate deviations with |T_c-core_temperature_set_point| on the order of feedback_recruitment_temperature_scale or larger.",
+          "train_hidden_contrast": "In training, mild perturbations may show only modest early-time flattening; in holdout with somewhat larger but still admissible excursions, the same lag produces a clearer delayed correction at similar T_c values, extending the same history-dependent mechanism rather than introducing a new branch.",
+          "continuation_path": "Recover the parent law in the limit of vanishing effector adjustment time constant, where the added state rapidly equilibrates to the parent's static recruitment function of T_c.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "A genuine response delay cannot be represented by refitting static gains in a one-state autonomous mapping because the target must then remain a single-valued function of T_c alone; an added state is needed to encode recent recruitment history.",
+          "gap_statement": "The model omits finite thermoeffector activation dynamics, treating heat-loss/heating feedback as immediate rather than gradually recruited after a temperature error appears.",
+          "baseline_assumption": "Thermoregulatory effectors respond without delay and do not saturate in the baseline range.",
+          "scientific_mechanism": "First-order lag in autonomic/vascular/sudomotor thermoeffector recruitment causing delayed negative feedback relative to core-temperature deviation.",
+          "affected_symbols": [
+            "T_c",
+            "thermoregulatory_feedback_gain",
+            "core_temperature_set_point",
+            "feedback_recruitment_temperature_scale"
+          ],
+          "rationale": "The parent maps current core temperature directly to dT_c_dt through passive exchange plus an instantaneous nonlinear feedback term, so at fixed ambient_temperature and unchanged parameters there is one recovery slope for each T_c. A realistic next refinement is to relax only the no-delay assumption by introducing a thermoeffector recruitment state that approaches the parent's tanh-based drive over time. Then, under the same fixed ambient conditions and preserved initial T_c contract, trajectories observed soon after a perturbation have weaker corrective feedback than trajectories later in recovery even at similar T_c. This changes the scored target mapping itself, not merely an auxiliary trajectory, because dT_c_dt is no longer determined by T_c alone. The contrast is admissible in the stated experiment whenever the perturbation is small-to-moderate but sufficiently rapid that core temperature changes before full effector recruitment occurs. A single refitted parameter set of the parent cannot reproduce both the initially shallow and later steeper relaxation at the same T_c, because its one-state autonomous form forbids history dependence."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "phase_shift",
+            "parent_relation": "The thermoregulatory correction is an instantaneous static function of the current core-temperature error, so for any observed T_c the target dT_c_dt is uniquely determined with no dependence on recent thermal history.",
+            "child_relation": "The corrective thermoeffector drive is generated by a first-order lagged internal state that tracks core-temperature error, so the same observed T_c can yield different dT_c_dt depending on whether the system is early or late in recovery after the perturbation.",
+            "affected_inputs": [
+              "T_c",
+              "t",
+              "thermoregulatory_feedback_gain",
+              "core_temperature_set_point",
+              "feedback_recruitment_temperature_scale"
+            ],
+            "observable_effect": "After a step-like thermal perturbation, early-time relaxation is weaker than the parent predicts and later-time relaxation strengthens at similar T_c, creating hysteresis in the dT_c_dt versus T_c relationship."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "temp_error",
+              "expression": "T_c - core_temperature_set_point",
+              "role": "signed deviation from thermoregulatory set point that recruits corrective responses"
+            },
+            {
+              "name": "normalized_error",
+              "expression": "(T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale",
+              "role": "dimensionless recruitment coordinate setting the nonlinear feedback regime"
+            },
+            {
+              "name": "passive_loss",
+              "expression": "environmental_heat_transfer_coefficient*(T_c - ambient_temperature)",
+              "role": "temperature-driven environmental heat exchange already present in the parent"
+            }
+          ],
+          "activation_condition": "Observable when the perturbation is fast relative to thermoeffector adjustment, so the recovery timescale includes an initial interval where effector recruitment has not yet reached its quasi-steady level; strongest for moderate deviations with |T_c-core_temperature_set_point| on the order of feedback_recruitment_temperature_scale or larger.",
+          "train_hidden_contrast": "In training, mild perturbations may show only modest early-time flattening; in holdout with somewhat larger but still admissible excursions, the same lag produces a clearer delayed correction at similar T_c values, extending the same history-dependent mechanism rather than introducing a new branch.",
+          "continuation_path": "Recover the parent law in the limit of vanishing effector adjustment time constant, where the added state rapidly equilibrates to the parent's static recruitment function of T_c.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "A genuine response delay cannot be represented by refitting static gains in a one-state autonomous mapping because the target must then remain a single-valued function of T_c alone; an added state is needed to encode recent recruitment history.",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "T_c",
+            "effector_recruitment_state"
+          ],
+          "structural_role": "feedback",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "lagged thermoeffector recruitment in thermal homeostasis",
+          "scientific_mechanism": "First-order lag in autonomic/vascular/sudomotor thermoeffector recruitment causing delayed negative feedback relative to core-temperature deviation.",
+          "embedding_pattern": "state_coupling",
+          "difficulty_rationale": "The successor is structurally harder because the scored target now depends jointly on current core temperature and a lagged internal recruitment state, breaking the parent's single-valued autonomous mapping from T_c to dT_c_dt and introducing recoverable hysteresis under the same fixed parameters.",
+          "taxonomy_match": "known",
+          "assumption_before": "Thermoregulatory effectors respond without delay and do not saturate in the baseline range.",
+          "assumption_after": "Thermoregulatory effectors are recruited with a finite first-order adjustment time, so feedback depends on both current temperature error and lagged recruitment state.",
+          "before_fragment": "(basal_heat_production - environmental_heat_transfer_coefficient*(T_c - ambient_temperature) - thermoregulatory_feedback_gain*tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)*(T_c - core_temperature_set_point))/(effective_heat_capacity*(1 + heat_capacity_temperature_sensitivity*((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)**2))",
+          "after_fragment": "(basal_heat_production - environmental_heat_transfer_coefficient*(T_c - ambient_temperature) - thermoregulatory_feedback_gain*effector_recruitment_state*(T_c - core_temperature_set_point))/(effective_heat_capacity*(1 + heat_capacity_temperature_sensitivity*((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)**2))",
+          "parent_reduction": "As effector_adjustment_time_constant approaches 0, effector_recruitment_state approaches tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale), restoring the parent expression.",
+          "observable_signature": "With ambient_temperature and all fixed parameters held constant, trajectories sampled early after a rapid perturbation show smaller-magnitude corrective dT_c_dt than later samples at similar T_c because effector_recruitment_state is still catching up. This directly changes the target mapping, not just an auxiliary trajectory, since dT_c_dt is no longer a unique function of T_c alone.",
+          "shortcut_blocked": "No single refit of the parent parameters can reproduce both early shallow and later steeper recovery at the same T_c under one shared parameter set, because the parent one-state autonomous law forces a single-valued dT_c_dt versus T_c curve with no memory or hysteresis."
+        },
+        "range_suggestions": {
+          "effector_recruitment_state": "dimensionless recruitment state, typically between -1 and 1 because it relaxes toward tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale); small initial perturbation experiments may start near 0",
+          "effector_adjustment_time_constant": "positive minutes; suggested range from much smaller than the core thermal relaxation timescale up to the same order, so delayed recruitment is observable without becoming effectively frozen"
+        }
+      },
+      {
+        "generation": 4,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "asymptotic_change",
+            "parent_relation": "The thermoregulatory feedback term scales approximately linearly with the lagged effector state times core-temperature error, so once recruitment is near its tanh limit the corrective heat-loss/heating strength still grows in proportion to |T_c-core_temperature_set_point|.",
+            "child_relation": "Replace the linear temperature-error dependence inside the thermoregulatory heat-loss term by a saturating dependence on core-temperature error, so corrective power increases near the set point but approaches a finite asymptote at larger deviations even when effector_recruitment_state is high.",
+            "affected_inputs": [
+              "T_c",
+              "effector_recruitment_state",
+              "core_temperature_set_point",
+              "feedback_recruitment_temperature_scale",
+              "thermoregulatory_feedback_gain"
+            ],
+            "observable_effect": "Across mild versus somewhat larger admissible core-temperature deviations under the same fixed ambient conditions, the child predicts weaker-than-linear additional cooling/heating at larger |T_c-core_temperature_set_point|, giving slower tail recovery than the parent after matching near-set-point slope."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "core_error",
+              "expression": "T_c - core_temperature_set_point",
+              "role": "Signed thermal deviation driving thermoregulatory correction"
+            },
+            {
+              "name": "normalized_error",
+              "expression": "(T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale",
+              "role": "Dimensionless distance from the feedback transition scale"
+            },
+            {
+              "name": "feedback_drive_proxy",
+              "expression": "effector_recruitment_state*(T_c - core_temperature_set_point)",
+              "role": "Parent effective corrective drive entering the target mapping"
+            }
+          ],
+          "activation_condition": "Observable when initial perturbations or transient deviations reach order one or larger in normalized_error while remaining in the mild thermoregulation regime; near the set point the child reduces to the parent-like local slope and the contrast is weak.",
+          "train_hidden_contrast": "In training on small perturbations both models can look similar because the saturating error law is locally linear. In holdout with somewhat larger but still physiologically admissible deviations at the same ambient temperature and activity, the child shows compressed corrective power and a flatter recovery tail.",
+          "continuation_path": "Recover the parent law in the limit where the new saturation scale for error-dependent thermoregulatory heat transfer becomes large compared with |T_c-core_temperature_set_point| over the observed domain.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The current model lets corrective thermoregulatory heat flow keep increasing proportionally with core-temperature error even after effector recruitment has already saturated, omitting finite actuator capacity in the delivered thermal correction.",
+          "baseline_assumption": "Thermoregulatory effectors respond without delay and do not saturate in the baseline range.",
+          "scientific_mechanism": "Autonomic and vascular/sudomotor effectors have finite heat-transfer and metabolic adjustment capacity, so recruited effectors cannot generate indefinitely increasing corrective heat flux as core-temperature error grows.",
+          "affected_symbols": [
+            "T_c",
+            "effector_recruitment_state",
+            "thermoregulatory_feedback_gain",
+            "core_temperature_set_point",
+            "feedback_recruitment_temperature_scale"
+          ],
+          "rationale": "A realistic next refinement is to relax the parent's effectively unbounded corrective-gain assumption in the target equation itself, not merely in an auxiliary state. The parent already includes delayed and saturating recruitment through effector_recruitment_state, but once that state is near plus or minus one, the scored mapping dT_c_dt still contains a single shared linear factor in T_c-core_temperature_set_point. Thus at fixed ambient_temperature, basal_heat_production, environmental_heat_transfer_coefficient, heat-capacity term, and effector lag parameters, the parent predicts that stronger thermal deviations always produce proportionally stronger corrective heat flux. The child instead makes the thermoregulatory heat-transfer contribution saturate with temperature error magnitude, creating an asymptotic change in the T_c to dT_c_dt mapping. The distinguishing condition is to compare trajectories started with small versus moderately larger core-temperature perturbations, while holding ambient conditions and activity fixed and using one shared parameter set. Near the set point both models can match because the saturating law is locally linear, but at larger admissible |T_c-core_temperature_set_point| the child predicts a compressed corrective term and therefore less steep additional cooling for hyperthermia or heating for hypothermia than the parent. This is observable directly in dT_c_dt versus T_c, so it changes the target mapping rather than only the hidden effector trajectory. No new state is necessary because the omitted effect is a static nonlinearity in already modeled thermoregulatory output, not a new memory process. The limitation is that if all observed perturbations remain very small relative to the saturation scale, the refinement may be practically unidentifiable and the parent could approximate it well."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "asymptotic_change",
+            "parent_relation": "The thermoregulatory feedback term scales approximately linearly with the lagged effector state times core-temperature error, so once recruitment is near its tanh limit the corrective heat-loss/heating strength still grows in proportion to |T_c-core_temperature_set_point|.",
+            "child_relation": "Replace the linear temperature-error dependence inside the thermoregulatory heat-loss term by a saturating dependence on core-temperature error, so corrective power increases near the set point but approaches a finite asymptote at larger deviations even when effector_recruitment_state is high.",
+            "affected_inputs": [
+              "T_c",
+              "effector_recruitment_state",
+              "core_temperature_set_point",
+              "feedback_recruitment_temperature_scale",
+              "thermoregulatory_feedback_gain"
+            ],
+            "observable_effect": "Across mild versus somewhat larger admissible core-temperature deviations under the same fixed ambient conditions, the child predicts weaker-than-linear additional cooling/heating at larger |T_c-core_temperature_set_point|, giving slower tail recovery than the parent after matching near-set-point slope."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "core_error",
+              "expression": "T_c - core_temperature_set_point",
+              "role": "Signed thermal deviation driving thermoregulatory correction"
+            },
+            {
+              "name": "normalized_error",
+              "expression": "(T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale",
+              "role": "Dimensionless distance from the feedback transition scale"
+            },
+            {
+              "name": "feedback_drive_proxy",
+              "expression": "effector_recruitment_state*(T_c - core_temperature_set_point)",
+              "role": "Parent effective corrective drive entering the target mapping"
+            }
+          ],
+          "activation_condition": "Observable when initial perturbations or transient deviations reach order one or larger in normalized_error while remaining in the mild thermoregulation regime; near the set point the child reduces to the parent-like local slope and the contrast is weak.",
+          "train_hidden_contrast": "In training on small perturbations both models can look similar because the saturating error law is locally linear. In holdout with somewhat larger but still physiologically admissible deviations at the same ambient temperature and activity, the child shows compressed corrective power and a flatter recovery tail.",
+          "continuation_path": "Recover the parent law in the limit where the new saturation scale for error-dependent thermoregulatory heat transfer becomes large compared with |T_c-core_temperature_set_point| over the observed domain.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "T_c",
+            "effector_recruitment_state",
+            "core_temperature_set_point",
+            "feedback_recruitment_temperature_scale",
+            "thermoregulatory_feedback_gain"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "finite-capacity thermoregulatory heat delivery",
+          "scientific_mechanism": "Autonomic and vascular/sudomotor effectors have finite heat-transfer and metabolic adjustment capacity, so recruited effectors cannot generate indefinitely increasing corrective heat flux as core-temperature error grows.",
+          "embedding_pattern": "multiplicative_modulation",
+          "difficulty_rationale": "This is harder than a coefficient-only correction because the feedback contribution now depends on a bounded nonlinear modulation of core-temperature error, changing the asymptotic shape of the target mapping while preserving the local near-set-point slope. A single retuned gain cannot simultaneously match small-error and moderate-error recovery rates when the correction changes from unbounded linear growth to bounded growth.",
+          "taxonomy_match": "known",
+          "assumption_before": "Thermoregulatory effectors respond without delay and do not saturate in the baseline range.",
+          "assumption_after": "Delivered thermoregulatory heat correction has finite capacity, so the error dependence of the feedback term saturates with increasing |T_c-core_temperature_set_point|.",
+          "before_fragment": "(basal_heat_production - environmental_heat_transfer_coefficient*(T_c - ambient_temperature) - thermoregulatory_feedback_gain*effector_recruitment_state*(T_c - core_temperature_set_point))/(effective_heat_capacity*(1 + heat_capacity_temperature_sensitivity*((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)**2))",
+          "after_fragment": "(basal_heat_production - environmental_heat_transfer_coefficient*(T_c - ambient_temperature) - thermoregulatory_feedback_gain*effector_recruitment_state*(feedback_recruitment_temperature_scale*tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)))/(effective_heat_capacity*(1 + heat_capacity_temperature_sensitivity*((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)**2))",
+          "parent_reduction": "For |(T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale| << 1 across the observed domain, tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale) ≈ (T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale, recovering the parent expression.",
+          "observable_signature": "Holding ambient_temperature, basal_heat_production, environmental_heat_transfer_coefficient, and all other parameters fixed, compare dT_c_dt versus T_c for small and moderately larger perturbation trajectories under one shared parameter set. Near T_c ≈ core_temperature_set_point the child and parent have similar slope, but once normalized_error reaches order one the child’s thermoregulatory contribution bends toward a finite magnitude, so recovery tails flatten relative to the parent's still linearly strengthening correction.",
+          "shortcut_blocked": "Refitting all parent parameters with one shared set cannot reproduce both regimes because the parent feedback term remains exactly proportional to effector_recruitment_state*(T_c - core_temperature_set_point) in the scored equation. Changing thermoregulatory_feedback_gain rescales the entire relation, and changing feedback_recruitment_temperature_scale only alters the effector-state trajectory and denominator normalization, not the parent's unbounded linear dependence of the target feedback contribution on core error once effector_recruitment_state is observed near saturation. Therefore the parent cannot simultaneously match the near-set-point slope and the compressed moderate-error corrective power under the stated fixed ambient conditions."
+        },
+        "range_suggestions": {}
+      },
+      {
+        "generation": 5,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "phase_shift",
+            "parent_relation": "The target dT_c_dt depends on temperature error through one lagged effector state with a single adjustment time constant, so cooling and warming corrections share the same temporal phase relative to T_c deviation.",
+            "child_relation": "Allow the existing effector_recruitment_state pathway to adapt with different effective kinetics for heating versus cooling recruitment, so the target mapping from current T_c and effector_recruitment_state to dT_c_dt acquires sign-dependent temporal phase in the corrective flux.",
+            "affected_inputs": [
+              "T_c",
+              "effector_recruitment_state",
+              "effector_adjustment_time_constant",
+              "core_temperature_set_point",
+              "feedback_recruitment_temperature_scale"
+            ],
+            "observable_effect": "For comparable positive versus negative core-temperature deviations from set point under the same ambient condition, the onset and relaxation of corrective heat flux become asymmetrically delayed, producing faster recovery on one side of set point and slower on the other even when steady recruitment magnitude is similar."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "temp_error",
+              "expression": "(T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale",
+              "role": "Normalized signed thermal deviation that determines whether warming or cooling effectors dominate"
+            },
+            {
+              "name": "recruitment_gap",
+              "expression": "tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale) - effector_recruitment_state",
+              "role": "Distance between instantaneous drive and realized effector recruitment, which controls dynamic phase lag"
+            },
+            {
+              "name": "delivered_feedback_flux",
+              "expression": "thermoregulatory_feedback_gain*effector_recruitment_state*(feedback_recruitment_temperature_scale*tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale))",
+              "role": "Current corrective heat-flux contribution delivered by the lagged effector pathway"
+            }
+          ],
+          "activation_condition": "Observable when initial perturbations or subsequent trajectories cross enough above and below the set point that normalized temperature error has both signs and magnitude not negligible relative to 1, while ambient temperature and activity remain fixed.",
+          "train_hidden_contrast": "In training, same-sign mild perturbations show a common apparent lag; in holdout with both warming and cooling excursions or larger cross-set-point relaxations, the sign-dependent lag produces asymmetric recovery timing not captured by one shared effector time constant.",
+          "continuation_path": "Recover the parent law when heating and cooling recruitment kinetics are equal, reducing the sign-dependent adjustment back to the original single effector_adjustment_time_constant.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The current model assumes a single autonomic/vascular recruitment timescale for all thermoegulatory directions, ignoring that effector engagement and withdrawal are often faster for one sign of thermal error than the other.",
+          "baseline_assumption": "Thermoregulatory effectors respond with one symmetric first-order lag regardless of whether core temperature is above or below the set point.",
+          "scientific_mechanism": "Direction-dependent thermoeffector recruitment kinetics arising from different physiological pathways for heat-loss versus heat-conservation/production responses.",
+          "affected_symbols": [
+            "T_c",
+            "effector_recruitment_state",
+            "effector_adjustment_time_constant",
+            "core_temperature_set_point",
+            "feedback_recruitment_temperature_scale"
+          ],
+          "rationale": "A realistic next refinement is to relax the symmetric-lag assumption already present in the effector pathway rather than adding an unrelated process. The parent target mapping uses one shared effector_adjustment_time_constant, so after refitting it can only impose one compromise phase lag between T_c deviation and delivered corrective heat flux across both warming and cooling trajectories. Under fixed ambient temperature and activity, if one compares recovery from a small positive temperature perturbation versus a small negative perturbation of similar magnitude, the parent predicts the same recruitment timing up to sign reversal, whereas the child allows asymmetric delay and therefore different early-time slopes and hysteresis in dT_c_dt at matched |T_c-core_temperature_set_point|. This is observable only when the sampled trajectory includes both signs of thermal deviation or crosses the set point; if all observations stay on one side, the refinement may be weakly identifiable and effectively collapse to the parent. Because the omitted feature changes the scored T_c dynamics through the timing of corrective heat flux, not merely an unobserved auxiliary path, it is a consequential target-mapping refinement."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "phase_shift",
+            "parent_relation": "The target dT_c_dt depends on temperature error through one lagged effector state with a single adjustment time constant, so cooling and warming corrections share the same temporal phase relative to T_c deviation.",
+            "child_relation": "Allow the existing effector_recruitment_state pathway to adapt with different effective kinetics for heating versus cooling recruitment, so the target mapping from current T_c and effector_recruitment_state to dT_c_dt acquires sign-dependent temporal phase in the corrective flux.",
+            "affected_inputs": [
+              "T_c",
+              "effector_recruitment_state",
+              "effector_adjustment_time_constant",
+              "core_temperature_set_point",
+              "feedback_recruitment_temperature_scale"
+            ],
+            "observable_effect": "For comparable positive versus negative core-temperature deviations from set point under the same ambient condition, the onset and relaxation of corrective heat flux become asymmetrically delayed, producing faster recovery on one side of set point and slower on the other even when steady recruitment magnitude is similar."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "temp_error",
+              "expression": "(T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale",
+              "role": "Normalized signed thermal deviation that determines whether warming or cooling effectors dominate"
+            },
+            {
+              "name": "recruitment_gap",
+              "expression": "tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale) - effector_recruitment_state",
+              "role": "Distance between instantaneous drive and realized effector recruitment, which controls dynamic phase lag"
+            },
+            {
+              "name": "delivered_feedback_flux",
+              "expression": "thermoregulatory_feedback_gain*effector_recruitment_state*(feedback_recruitment_temperature_scale*tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale))",
+              "role": "Current corrective heat-flux contribution delivered by the lagged effector pathway"
+            }
+          ],
+          "activation_condition": "Observable when initial perturbations or subsequent trajectories cross enough above and below the set point that normalized temperature error has both signs and magnitude not negligible relative to 1, while ambient temperature and activity remain fixed.",
+          "train_hidden_contrast": "In training, same-sign mild perturbations show a common apparent lag; in holdout with both warming and cooling excursions or larger cross-set-point relaxations, the sign-dependent lag produces asymmetric recovery timing not captured by one shared effector time constant.",
+          "continuation_path": "Recover the parent law when heating and cooling recruitment kinetics are equal, reducing the sign-dependent adjustment back to the original single effector_adjustment_time_constant.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "T_c",
+            "effector_recruitment_state"
+          ],
+          "structural_role": "timescale",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Direction-dependent recruitment timing in thermoregulatory effectors",
+          "scientific_mechanism": "Direction-dependent thermoeffector recruitment kinetics arising from different physiological pathways for heat-loss versus heat-conservation/production responses.",
+          "embedding_pattern": "multi_timescale",
+          "difficulty_rationale": "This embedding is harder than a coefficient correction because it changes the effective lag timescale as a function of signed thermal deviation, so one shared parameter set can no longer impose a single phase relation across both warming and cooling trajectories.",
+          "taxonomy_match": "known",
+          "assumption_before": "A single symmetric first-order effector adjustment time constant governs all thermoregulatory recruitment directions.",
+          "assumption_after": "The effective effector recruitment timescale depends on the sign of normalized temperature error, creating asymmetric temporal phase for warming versus cooling corrections.",
+          "before_fragment": "(basal_heat_production - environmental_heat_transfer_coefficient*(T_c - ambient_temperature) - thermoregulatory_feedback_gain*effector_recruitment_state*(feedback_recruitment_temperature_scale*tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)))/(effective_heat_capacity*(1 + heat_capacity_temperature_sensitivity*((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)**2))",
+          "after_fragment": "(basal_heat_production - environmental_heat_transfer_coefficient*(T_c - ambient_temperature) - thermoregulatory_feedback_gain*effector_recruitment_state*(feedback_recruitment_temperature_scale*tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)))/(effective_heat_capacity*(1 + heat_capacity_temperature_sensitivity*((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)**2))",
+          "parent_reduction": "Set effector_kinetic_asymmetry = 0.",
+          "observable_signature": "Under fixed ambient temperature and activity, trajectories that sample both T_c > core_temperature_set_point and T_c < core_temperature_set_point show different early-time dT_c_dt-versus-temperature hysteresis and recovery timing at matched absolute temperature error because the same effector pathway now relaxes faster for one sign of error than the other; this changes the target mapping, not only the hidden state path, through the delivered corrective flux term.",
+          "shortcut_blocked": "Retuning a single parent effector_adjustment_time_constant can only choose one compromise lag, so with one shared parameter set it cannot match both faster-above-set-point and slower-below-set-point recruitment timing across the same admissible fixed-environment protocol. The child introduces a sign-dependent phase law in the existing feedback branch, which cannot be absorbed by refitting the parent's symmetric kinetics unless observations remain entirely on one side of the set point."
+        },
+        "range_suggestions": {
+          "effector_kinetic_asymmetry": "-0.9 to 0.9"
+        }
+      }
+    ],
+    "evolution_provenance": {
+      "dimension_track": null,
+      "mechanism_profile": {
+        "allowed_structural_roles": [
+          "response_law",
+          "modulation",
+          "constraint",
+          "feedback",
+          "timescale",
+          "transport_balance"
+        ],
+        "preferred_scopes": [
+          "unary",
+          "pairwise",
+          "state_coupling",
+          "memory"
+        ],
+        "domain_mechanisms": [
+          {
+            "id": "homeostatic_feedback",
+            "description": "negative feedback around a physiological set point",
+            "operations": [
+              "add_term"
+            ]
+          },
+          {
+            "id": "finite_reserve_capacity",
+            "description": "finite storage, transport, or organ capacity",
+            "operations": [
+              "add_term",
+              "change_assumption"
+            ]
+          },
+          {
+            "id": "delayed_regulatory_response",
+            "description": "finite regulatory response time",
+            "operations": [
+              "change_assumption"
+            ]
+          }
+        ],
+        "profile_source": "subfield",
+        "ontology_schema_version": "1.0",
+        "taxonomy_schema_version": "1.0"
+      },
+      "baseline_mechanisms": [
+        "Basal internal heat production",
+        "Heat exchange with a fixed external environment",
+        "Immediate thermoregulatory negative feedback that increases corrective heat transfer with temperature error",
+        "Storage of net heat in a body compartment with fixed effective heat capacity"
+      ],
+      "baseline_assumptions": [
+        "Ambient temperature and physical activity remain constant.",
+        "The body is represented by one well-mixed core thermal compartment.",
+        "Effective heat capacity is constant over the modeled range.",
+        "Thermoregulatory effectors respond without delay and do not saturate in the baseline range."
+      ],
+      "scientific_constraints": [
+        "Core temperature must remain physically positive.",
+        "Feedback must oppose deviations from the stable operating temperature.",
+        "Net heat storage must have the same direction as the core-temperature change.",
+        "The baseline equilibrium must be locally stable."
+      ],
+      "refinement_agenda": [
+        "Add separate core and skin temperature states when peripheral thermal lag is evident.",
+        "Introduce activation thresholds and saturation for sweating and shivering.",
+        "Add a finite neural or effector response delay.",
+        "Allow metabolic heat production to vary with activity or fever signaling.",
+        "Include time-varying ambient temperature as an external forcing."
+      ],
+      "evolution_contracts": [
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The target dT_c_dt is an affine linear function of core temperature error T_c-core_temperature_set_point with one constant thermoregulatory feedback gain, so the restorative slope is the same for small and larger deviations.",
+            "child_relation": "Keep the same negative-feedback pathway but relax the constant-gain assumption so feedback strength depends on the magnitude of T_c-core_temperature_set_point, producing a nonlinear temperature-error to dT_c_dt mapping.",
+            "affected_inputs": [
+              "T_c",
+              "thermoregulatory_feedback_gain",
+              "core_temperature_set_point"
+            ],
+            "observable_effect": "Across trajectories started at different initial thermal offsets under the same ambient conditions, larger positive deviations cool back disproportionately faster than predicted by a single linear restorative slope, while near-set-point relaxation remains close to the parent law."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "temp_error",
+              "expression": "T_c - core_temperature_set_point",
+              "role": "Signed thermoregulatory error driving corrective response"
+            },
+            {
+              "name": "env_gradient",
+              "expression": "T_c - ambient_temperature",
+              "role": "Core-to-ambient thermal gradient for passive heat loss"
+            },
+            {
+              "name": "net_linear_restoring",
+              "expression": "(environmental_heat_transfer_coefficient + thermoregulatory_feedback_gain)/effective_heat_capacity",
+              "role": "Parent combined linear relaxation rate"
+            }
+          ],
+          "activation_condition": "Observable when the initial perturbation is large enough that thermoeffector recruitment is no longer approximately linear in temperature error, yet still within the mild physiological range where one-compartment core temperature remains meaningful and feedback remains stabilizing.",
+          "train_hidden_contrast": "In training, modest perturbations may look nearly linear; in holdout with somewhat larger initial deviations but the same fixed ambient and activity conditions, the same mechanism manifests as stronger-than-linear restoration that bends the dT_c_dt versus T_c relation.",
+          "continuation_path": "Recover the parent by taking the nonlinear modulation of feedback gain to its linear small-signal limit so effective thermoregulatory gain is constant over the observed temperature range.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "unary",
+          "scope_symbols": [
+            "T_c"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Amplitude-dependent recruitment of thermoregulatory effectors",
+          "scientific_mechanism": "Temperature-dependent recruitment of thermoeffector strength makes effective negative-feedback gain depend on the magnitude of core thermal deviation, even without adding delay or extra measured states.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the scored target mapping from observed T_c to dT_c_dt acquires curvature with a distinct near-set-point weak-response regime and a stronger finite high-error regime. No single constant gain can match both the local small-error slope and the faster restoration at larger deviations under one shared parameter set.",
+          "taxonomy_match": "known",
+          "assumption_before": "Thermoregulatory effectors respond without delay and do not saturate in the baseline range.",
+          "assumption_after": "Thermoregulatory effectors still respond immediately, but their recruited strength increases nonlinearly with temperature-error magnitude through a smooth saturating recruitment law.",
+          "before_fragment": "(basal_heat_production - environmental_heat_transfer_coefficient*(T_c - ambient_temperature) - thermoregulatory_feedback_gain*(T_c - core_temperature_set_point))/effective_heat_capacity",
+          "after_fragment": "(basal_heat_production - environmental_heat_transfer_coefficient*(T_c - ambient_temperature) - thermoregulatory_feedback_gain*tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)*(T_c - core_temperature_set_point))/effective_heat_capacity",
+          "parent_reduction": "When |T_c-core_temperature_set_point| is small relative to feedback_recruitment_temperature_scale over the observed range, tanh((T_c-core_temperature_set_point)/feedback_recruitment_temperature_scale) varies little and the law approaches a single approximately linear restorative relation after local refitting.",
+          "observable_signature": "With ambient_temperature, basal_heat_production, environmental_heat_transfer_coefficient, and effective_heat_capacity held fixed, plotting dT_c_dt against T_c shows an approximately linear relation near core_temperature_set_point but increasingly steeper cooling for larger positive T_c-core_temperature_set_point. This changes the scored target mapping itself, not only any hidden auxiliary trajectory, and is observable across experiments that differ in initial thermal offset while staying in the mild physiological range.",
+          "shortcut_blocked": "A single parent parameter set can only produce one affine dependence of dT_c_dt on T_c, so after matching near-set-point relaxation it necessarily underpredicts the stronger restoration seen at larger deviations, or after matching large-deviation recovery it overpredicts the local slope near the set point. This mismatch persists across trajectories with different initial offsets under the same ambient conditions because the child changes curvature of the target mapping rather than merely rescaling one coefficient."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "With fixed effective_heat_capacity, the same net heat flux always produces a temperature-rate change with constant conversion factor, so dT_c_dt is affine in net heat flux apart from the existing feedback nonlinearity.",
+            "child_relation": "Make effective thermal storage depend on core temperature so the same net heat flux yields different dT_c_dt at different T_c, changing the local slope and curvature of the T_c-to-dT_c_dt map even when ambient conditions and activity are fixed.",
+            "affected_inputs": [
+              "T_c",
+              "effective_heat_capacity"
+            ],
+            "observable_effect": "For comparable positive and negative thermal deviations around the set point, recovery becomes asymmetric in speed: regions with larger effective heat capacity show slower temperature-rate response to the same restoring heat flux magnitude."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "thermal_error",
+              "expression": "T_c - core_temperature_set_point",
+              "role": "Distance from the thermoregulatory operating point"
+            },
+            {
+              "name": "net_heat_flux_parent",
+              "expression": "basal_heat_production - environmental_heat_transfer_coefficient*(T_c - ambient_temperature) - thermoregulatory_feedback_gain*tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)*(T_c - core_temperature_set_point)",
+              "role": "Parent net heat storage flux before division by heat capacity"
+            },
+            {
+              "name": "ambient_core_gradient",
+              "expression": "T_c - ambient_temperature",
+              "role": "Environmental cooling or warming drive"
+            }
+          ],
+          "activation_condition": "Observable when admissible core-temperature excursions are large enough that temperature-dependent tissue heat storage is not negligible relative to the baseline effective_heat_capacity variation scale, while remaining in mild physiological ranges with positive total heat capacity.",
+          "train_hidden_contrast": "In training, small perturbations near set point can still look close to the parent law; in holdout with somewhat larger but still physiological excursions, the altered temperature-rate curvature appears as systematically slower or faster relaxation than any one constant-capacity fit predicts.",
+          "continuation_path": "Recover the parent by taking the temperature dependence of effective heat capacity to zero, giving a constant effective_heat_capacity.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "unary",
+          "scope_symbols": [
+            "T_c"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "temperature-dependent thermal storage",
+          "scientific_mechanism": "Temperature-dependent effective heat capacity from changing partition of stored heat among tissues and body water over mild thermal deviations.",
+          "embedding_pattern": "state_dependent_coefficient",
+          "difficulty_rationale": "This is harder than a coefficient-only correction because the coefficient converting net heat flux into temperature rate now varies with the evolving state T_c, changing local slope and curvature across the trajectory rather than globally rescaling the response.",
+          "taxonomy_match": "known",
+          "assumption_before": "Effective heat capacity is constant over the modeled range.",
+          "assumption_after": "Effective heat capacity increases smoothly with squared normalized deviation of core temperature from the set point while remaining positive over mild physiological excursions.",
+          "before_fragment": "(basal_heat_production - environmental_heat_transfer_coefficient*(T_c - ambient_temperature) - thermoregulatory_feedback_gain*tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)*(T_c - core_temperature_set_point))/effective_heat_capacity",
+          "after_fragment": "(basal_heat_production - environmental_heat_transfer_coefficient*(T_c - ambient_temperature) - thermoregulatory_feedback_gain*tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)*(T_c - core_temperature_set_point))/(effective_heat_capacity*(1 + heat_capacity_temperature_sensitivity*((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)**2))",
+          "parent_reduction": "The successor reduces to the parent when heat_capacity_temperature_sensitivity = 0, so the denominator becomes the constant effective_heat_capacity.",
+          "observable_signature": "Holding ambient_temperature, basal_heat_production, environmental_heat_transfer_coefficient, and thermoregulatory_feedback_gain fixed while varying initial perturbation amplitude, near-set-point trajectories remain close to the parent but larger admissible excursions show reduced |dT_c_dt| because the state-dependent denominator increases with |T_c - core_temperature_set_point|. This changes the scored target mapping itself, not only an auxiliary trajectory, by making the same parent net heat flux map to different temperature-rate magnitudes at different T_c values.",
+          "shortcut_blocked": "A single refit of the parent parameters cannot generally reproduce both small-error and larger-error recovery rates across these conditions because the parent has one constant flux-to-temperature-rate conversion factor. Retuning feedback gain or recruitment scale only changes the numerator's restoring flux law, whereas the child imposes denominator-driven state dependence so identical net_heat_flux_parent values can produce different dT_c_dt at different T_c."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "phase_shift",
+            "parent_relation": "The thermoregulatory correction is an instantaneous static function of the current core-temperature error, so for any observed T_c the target dT_c_dt is uniquely determined with no dependence on recent thermal history.",
+            "child_relation": "The corrective thermoeffector drive is generated by a first-order lagged internal state that tracks core-temperature error, so the same observed T_c can yield different dT_c_dt depending on whether the system is early or late in recovery after the perturbation.",
+            "affected_inputs": [
+              "T_c",
+              "t",
+              "thermoregulatory_feedback_gain",
+              "core_temperature_set_point",
+              "feedback_recruitment_temperature_scale"
+            ],
+            "observable_effect": "After a step-like thermal perturbation, early-time relaxation is weaker than the parent predicts and later-time relaxation strengthens at similar T_c, creating hysteresis in the dT_c_dt versus T_c relationship."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "temp_error",
+              "expression": "T_c - core_temperature_set_point",
+              "role": "signed deviation from thermoregulatory set point that recruits corrective responses"
+            },
+            {
+              "name": "normalized_error",
+              "expression": "(T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale",
+              "role": "dimensionless recruitment coordinate setting the nonlinear feedback regime"
+            },
+            {
+              "name": "passive_loss",
+              "expression": "environmental_heat_transfer_coefficient*(T_c - ambient_temperature)",
+              "role": "temperature-driven environmental heat exchange already present in the parent"
+            }
+          ],
+          "activation_condition": "Observable when the perturbation is fast relative to thermoeffector adjustment, so the recovery timescale includes an initial interval where effector recruitment has not yet reached its quasi-steady level; strongest for moderate deviations with |T_c-core_temperature_set_point| on the order of feedback_recruitment_temperature_scale or larger.",
+          "train_hidden_contrast": "In training, mild perturbations may show only modest early-time flattening; in holdout with somewhat larger but still admissible excursions, the same lag produces a clearer delayed correction at similar T_c values, extending the same history-dependent mechanism rather than introducing a new branch.",
+          "continuation_path": "Recover the parent law in the limit of vanishing effector adjustment time constant, where the added state rapidly equilibrates to the parent's static recruitment function of T_c.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "A genuine response delay cannot be represented by refitting static gains in a one-state autonomous mapping because the target must then remain a single-valued function of T_c alone; an added state is needed to encode recent recruitment history.",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "T_c",
+            "effector_recruitment_state"
+          ],
+          "structural_role": "feedback",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "lagged thermoeffector recruitment in thermal homeostasis",
+          "scientific_mechanism": "First-order lag in autonomic/vascular/sudomotor thermoeffector recruitment causing delayed negative feedback relative to core-temperature deviation.",
+          "embedding_pattern": "state_coupling",
+          "difficulty_rationale": "The successor is structurally harder because the scored target now depends jointly on current core temperature and a lagged internal recruitment state, breaking the parent's single-valued autonomous mapping from T_c to dT_c_dt and introducing recoverable hysteresis under the same fixed parameters.",
+          "taxonomy_match": "known",
+          "assumption_before": "Thermoregulatory effectors respond without delay and do not saturate in the baseline range.",
+          "assumption_after": "Thermoregulatory effectors are recruited with a finite first-order adjustment time, so feedback depends on both current temperature error and lagged recruitment state.",
+          "before_fragment": "(basal_heat_production - environmental_heat_transfer_coefficient*(T_c - ambient_temperature) - thermoregulatory_feedback_gain*tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)*(T_c - core_temperature_set_point))/(effective_heat_capacity*(1 + heat_capacity_temperature_sensitivity*((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)**2))",
+          "after_fragment": "(basal_heat_production - environmental_heat_transfer_coefficient*(T_c - ambient_temperature) - thermoregulatory_feedback_gain*effector_recruitment_state*(T_c - core_temperature_set_point))/(effective_heat_capacity*(1 + heat_capacity_temperature_sensitivity*((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)**2))",
+          "parent_reduction": "As effector_adjustment_time_constant approaches 0, effector_recruitment_state approaches tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale), restoring the parent expression.",
+          "observable_signature": "With ambient_temperature and all fixed parameters held constant, trajectories sampled early after a rapid perturbation show smaller-magnitude corrective dT_c_dt than later samples at similar T_c because effector_recruitment_state is still catching up. This directly changes the target mapping, not just an auxiliary trajectory, since dT_c_dt is no longer a unique function of T_c alone.",
+          "shortcut_blocked": "No single refit of the parent parameters can reproduce both early shallow and later steeper recovery at the same T_c under one shared parameter set, because the parent one-state autonomous law forces a single-valued dT_c_dt versus T_c curve with no memory or hysteresis."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "asymptotic_change",
+            "parent_relation": "The thermoregulatory feedback term scales approximately linearly with the lagged effector state times core-temperature error, so once recruitment is near its tanh limit the corrective heat-loss/heating strength still grows in proportion to |T_c-core_temperature_set_point|.",
+            "child_relation": "Replace the linear temperature-error dependence inside the thermoregulatory heat-loss term by a saturating dependence on core-temperature error, so corrective power increases near the set point but approaches a finite asymptote at larger deviations even when effector_recruitment_state is high.",
+            "affected_inputs": [
+              "T_c",
+              "effector_recruitment_state",
+              "core_temperature_set_point",
+              "feedback_recruitment_temperature_scale",
+              "thermoregulatory_feedback_gain"
+            ],
+            "observable_effect": "Across mild versus somewhat larger admissible core-temperature deviations under the same fixed ambient conditions, the child predicts weaker-than-linear additional cooling/heating at larger |T_c-core_temperature_set_point|, giving slower tail recovery than the parent after matching near-set-point slope."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "core_error",
+              "expression": "T_c - core_temperature_set_point",
+              "role": "Signed thermal deviation driving thermoregulatory correction"
+            },
+            {
+              "name": "normalized_error",
+              "expression": "(T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale",
+              "role": "Dimensionless distance from the feedback transition scale"
+            },
+            {
+              "name": "feedback_drive_proxy",
+              "expression": "effector_recruitment_state*(T_c - core_temperature_set_point)",
+              "role": "Parent effective corrective drive entering the target mapping"
+            }
+          ],
+          "activation_condition": "Observable when initial perturbations or transient deviations reach order one or larger in normalized_error while remaining in the mild thermoregulation regime; near the set point the child reduces to the parent-like local slope and the contrast is weak.",
+          "train_hidden_contrast": "In training on small perturbations both models can look similar because the saturating error law is locally linear. In holdout with somewhat larger but still physiologically admissible deviations at the same ambient temperature and activity, the child shows compressed corrective power and a flatter recovery tail.",
+          "continuation_path": "Recover the parent law in the limit where the new saturation scale for error-dependent thermoregulatory heat transfer becomes large compared with |T_c-core_temperature_set_point| over the observed domain.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "T_c",
+            "effector_recruitment_state",
+            "core_temperature_set_point",
+            "feedback_recruitment_temperature_scale",
+            "thermoregulatory_feedback_gain"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "finite-capacity thermoregulatory heat delivery",
+          "scientific_mechanism": "Autonomic and vascular/sudomotor effectors have finite heat-transfer and metabolic adjustment capacity, so recruited effectors cannot generate indefinitely increasing corrective heat flux as core-temperature error grows.",
+          "embedding_pattern": "multiplicative_modulation",
+          "difficulty_rationale": "This is harder than a coefficient-only correction because the feedback contribution now depends on a bounded nonlinear modulation of core-temperature error, changing the asymptotic shape of the target mapping while preserving the local near-set-point slope. A single retuned gain cannot simultaneously match small-error and moderate-error recovery rates when the correction changes from unbounded linear growth to bounded growth.",
+          "taxonomy_match": "known",
+          "assumption_before": "Thermoregulatory effectors respond without delay and do not saturate in the baseline range.",
+          "assumption_after": "Delivered thermoregulatory heat correction has finite capacity, so the error dependence of the feedback term saturates with increasing |T_c-core_temperature_set_point|.",
+          "before_fragment": "(basal_heat_production - environmental_heat_transfer_coefficient*(T_c - ambient_temperature) - thermoregulatory_feedback_gain*effector_recruitment_state*(T_c - core_temperature_set_point))/(effective_heat_capacity*(1 + heat_capacity_temperature_sensitivity*((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)**2))",
+          "after_fragment": "(basal_heat_production - environmental_heat_transfer_coefficient*(T_c - ambient_temperature) - thermoregulatory_feedback_gain*effector_recruitment_state*(feedback_recruitment_temperature_scale*tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)))/(effective_heat_capacity*(1 + heat_capacity_temperature_sensitivity*((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)**2))",
+          "parent_reduction": "For |(T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale| << 1 across the observed domain, tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale) ≈ (T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale, recovering the parent expression.",
+          "observable_signature": "Holding ambient_temperature, basal_heat_production, environmental_heat_transfer_coefficient, and all other parameters fixed, compare dT_c_dt versus T_c for small and moderately larger perturbation trajectories under one shared parameter set. Near T_c ≈ core_temperature_set_point the child and parent have similar slope, but once normalized_error reaches order one the child’s thermoregulatory contribution bends toward a finite magnitude, so recovery tails flatten relative to the parent's still linearly strengthening correction.",
+          "shortcut_blocked": "Refitting all parent parameters with one shared set cannot reproduce both regimes because the parent feedback term remains exactly proportional to effector_recruitment_state*(T_c - core_temperature_set_point) in the scored equation. Changing thermoregulatory_feedback_gain rescales the entire relation, and changing feedback_recruitment_temperature_scale only alters the effector-state trajectory and denominator normalization, not the parent's unbounded linear dependence of the target feedback contribution on core error once effector_recruitment_state is observed near saturation. Therefore the parent cannot simultaneously match the near-set-point slope and the compressed moderate-error corrective power under the stated fixed ambient conditions."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "phase_shift",
+            "parent_relation": "The target dT_c_dt depends on temperature error through one lagged effector state with a single adjustment time constant, so cooling and warming corrections share the same temporal phase relative to T_c deviation.",
+            "child_relation": "Allow the existing effector_recruitment_state pathway to adapt with different effective kinetics for heating versus cooling recruitment, so the target mapping from current T_c and effector_recruitment_state to dT_c_dt acquires sign-dependent temporal phase in the corrective flux.",
+            "affected_inputs": [
+              "T_c",
+              "effector_recruitment_state",
+              "effector_adjustment_time_constant",
+              "core_temperature_set_point",
+              "feedback_recruitment_temperature_scale"
+            ],
+            "observable_effect": "For comparable positive versus negative core-temperature deviations from set point under the same ambient condition, the onset and relaxation of corrective heat flux become asymmetrically delayed, producing faster recovery on one side of set point and slower on the other even when steady recruitment magnitude is similar."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "temp_error",
+              "expression": "(T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale",
+              "role": "Normalized signed thermal deviation that determines whether warming or cooling effectors dominate"
+            },
+            {
+              "name": "recruitment_gap",
+              "expression": "tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale) - effector_recruitment_state",
+              "role": "Distance between instantaneous drive and realized effector recruitment, which controls dynamic phase lag"
+            },
+            {
+              "name": "delivered_feedback_flux",
+              "expression": "thermoregulatory_feedback_gain*effector_recruitment_state*(feedback_recruitment_temperature_scale*tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale))",
+              "role": "Current corrective heat-flux contribution delivered by the lagged effector pathway"
+            }
+          ],
+          "activation_condition": "Observable when initial perturbations or subsequent trajectories cross enough above and below the set point that normalized temperature error has both signs and magnitude not negligible relative to 1, while ambient temperature and activity remain fixed.",
+          "train_hidden_contrast": "In training, same-sign mild perturbations show a common apparent lag; in holdout with both warming and cooling excursions or larger cross-set-point relaxations, the sign-dependent lag produces asymmetric recovery timing not captured by one shared effector time constant.",
+          "continuation_path": "Recover the parent law when heating and cooling recruitment kinetics are equal, reducing the sign-dependent adjustment back to the original single effector_adjustment_time_constant.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "T_c",
+            "effector_recruitment_state"
+          ],
+          "structural_role": "timescale",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Direction-dependent recruitment timing in thermoregulatory effectors",
+          "scientific_mechanism": "Direction-dependent thermoeffector recruitment kinetics arising from different physiological pathways for heat-loss versus heat-conservation/production responses.",
+          "embedding_pattern": "multi_timescale",
+          "difficulty_rationale": "This embedding is harder than a coefficient correction because it changes the effective lag timescale as a function of signed thermal deviation, so one shared parameter set can no longer impose a single phase relation across both warming and cooling trajectories.",
+          "taxonomy_match": "known",
+          "assumption_before": "A single symmetric first-order effector adjustment time constant governs all thermoregulatory recruitment directions.",
+          "assumption_after": "The effective effector recruitment timescale depends on the sign of normalized temperature error, creating asymmetric temporal phase for warming versus cooling corrections.",
+          "before_fragment": "(basal_heat_production - environmental_heat_transfer_coefficient*(T_c - ambient_temperature) - thermoregulatory_feedback_gain*effector_recruitment_state*(feedback_recruitment_temperature_scale*tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)))/(effective_heat_capacity*(1 + heat_capacity_temperature_sensitivity*((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)**2))",
+          "after_fragment": "(basal_heat_production - environmental_heat_transfer_coefficient*(T_c - ambient_temperature) - thermoregulatory_feedback_gain*effector_recruitment_state*(feedback_recruitment_temperature_scale*tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)))/(effective_heat_capacity*(1 + heat_capacity_temperature_sensitivity*((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)**2))",
+          "parent_reduction": "Set effector_kinetic_asymmetry = 0.",
+          "observable_signature": "Under fixed ambient temperature and activity, trajectories that sample both T_c > core_temperature_set_point and T_c < core_temperature_set_point show different early-time dT_c_dt-versus-temperature hysteresis and recovery timing at matched absolute temperature error because the same effector pathway now relaxes faster for one sign of error than the other; this changes the target mapping, not only the hidden state path, through the delivered corrective flux term.",
+          "shortcut_blocked": "Retuning a single parent effector_adjustment_time_constant can only choose one compromise lag, so with one shared parameter set it cannot match both faster-above-set-point and slower-below-set-point recruitment timing across the same admissible fixed-environment protocol. The child introduces a sign-dependent phase law in the existing feedback branch, which cannot be absorbed by refitting the parent's symmetric kinetics unless observations remain entirely on one side of the set point."
+        }
+      ]
+    },
+    "finalization": {
+      "mode": "candidate",
+      "accepted_generations": 5,
+      "novelty": {
+        "answer": "NOT_EVALUATED"
+      },
+      "total_points": 5000,
+      "evaluation_status": "not_evaluated"
+    }
+  },
+  "contract": {
+    "features": [
+      "t",
+      "T_c",
+      "effector_recruitment_state"
+    ],
+    "target": "dT_c_dt",
+    "family": "ode",
+    "expression": "(basal_heat_production - environmental_heat_transfer_coefficient*(T_c - ambient_temperature) - thermoregulatory_feedback_gain*effector_recruitment_state*(feedback_recruitment_temperature_scale*tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)))/(effective_heat_capacity*(1 + heat_capacity_temperature_sensitivity*((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)**2))",
+    "parameters": {
+      "basal_heat_production": 8.0,
+      "environmental_heat_transfer_coefficient": 1.2,
+      "ambient_temperature": 25.0,
+      "thermoregulatory_feedback_gain": 10.0,
+      "core_temperature_set_point": 37.0,
+      "effective_heat_capacity": 60.0,
+      "feedback_recruitment_temperature_scale": 0.5,
+      "heat_capacity_temperature_sensitivity": 0.3,
+      "effector_adjustment_time_constant": 12.0,
+      "effector_kinetic_asymmetry": 0.45
+    },
+    "implicit_branch": null
+  }
+}

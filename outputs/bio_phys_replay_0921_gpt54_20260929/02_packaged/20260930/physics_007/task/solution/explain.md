@@ -1,0 +1,3 @@
+Ground truth: dI_dt = -(Q + (polarization_coupling/(1 + (P_pol/polarization_saturation)**2))*P_pol/(1 + (P_pol/polarization_saturation)**2) + (slow_polarization_coupling/(1 + (P_slow/slow_polarization_saturation)**2))*P_slow/(1 + (P_slow/slow_polarization_saturation)**2))/(capacitance*(1 + (Q/charge_saturation)**2)*(inductance*(1 + (I/current_saturation)**2)))
+
+Fixed parameters: {'capacitance': 0.001, 'inductance': 0.001, 'charge_saturation': 0.002, 'current_saturation': 0.5, 'polarization_relaxation_time': 0.0012, 'polarization_coupling': 0.8, 'polarization_saturation': 0.0007, 'slow_polarization_relaxation_time': 0.004, 'slow_polarization_coupling': 0.4, 'slow_polarization_saturation': 0.00035}

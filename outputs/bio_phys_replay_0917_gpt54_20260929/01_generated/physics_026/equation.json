@@ -1,0 +1,395 @@
+{
+  "base_id": "m2_electromagnetism_20282741_000",
+  "generation": 5,
+  "operation": "change_assumption",
+  "model_family": "ode",
+  "equation_type": "ode_system",
+  "target_symbol": "di_dt",
+  "expression": "(q/(C*(1 + beta_C*tanh(alpha_T*T_res))) - R*(1 + tanh(alpha_T*T_res) + gamma_RT*tanh(alpha_T*T_res)**2 + eta_mem*tanh(alpha_T*T_mem)*tanh(alpha_T*T_res))*i)/L",
+  "symbols": [
+    "di_dt",
+    "t",
+    "q",
+    "i",
+    "T_res",
+    "T_mem",
+    "C",
+    "L",
+    "R",
+    "alpha_T",
+    "C_th",
+    "tau_th",
+    "beta_C",
+    "gamma_RT",
+    "tau_mem",
+    "k_mem",
+    "eta_mem"
+  ],
+  "symbol_descriptions": [
+    "instantaneous time derivative of the series-circuit current",
+    "time",
+    "charge stored on the capacitor",
+    "current circulating through the series circuit",
+    "resistor temperature rise above the reference environment",
+    "internal hotspot or latent thermal-memory temperature rise within the resistor body",
+    "reference capacitance at the reference temperature",
+    "inductance",
+    "baseline resistance at the reference temperature",
+    "temperature-rise scale factor governing nonlinear thermal property variation",
+    "effective thermal capacitance of the resistor",
+    "thermal relaxation time to the environment",
+    "dimensionless capacitance thermal-drift amplitude",
+    "dimensionless curvature coefficient for the resistor temperature-response law",
+    "relaxation time of the internal thermal-memory mode toward the bulk resistor temperature",
+    "coupling factor from bulk self-heating into the internal thermal-memory mode",
+    "dimensionless amplitude of thermal-memory modulation of resistance"
+  ],
+  "symbol_properties": [
+    "O",
+    "V",
+    "S",
+    "S",
+    "S",
+    "S",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P"
+  ],
+  "new_symbol_range_suggestions": {
+    "T_mem": "0 <= T_mem <= several times the typical T_res rise during strong self-heating",
+    "tau_mem": "positive and comparable to or modestly larger than the electrical ring-down time and/or tau_th",
+    "k_mem": "0 <= k_mem <= 1",
+    "eta_mem": "Abs(eta_mem) <= 1"
+  },
+  "derivation_notes": "The well-mixed resistor assumption is relaxed by introducing one internal thermal-memory mode T_mem that lags the bulk resistor temperature under Joule heating and cooling. This memory state modulates the resistance law multiplicatively with the existing T_res dependence, so the same bulk T_res can yield different damping during heating versus relaxation; T_mem starts at 0 because no prior heating implies no internal hotspot offset at discharge onset.",
+  "change_summary": "A latent internal thermal mode is added to capture hotspot relaxation inside the resistor. The damping term now depends on both T_res and T_mem through a multiplicative modulation, creating observable history dependence in di_dt at matched q, i, T_res.",
+  "assumption_audit": {
+    "released_assumption": "The resistor is thermally well-mixed, so one state T_res suffices and the resistance law is a single-valued function of T_res with no thermal history dependence.",
+    "outcome": "state_augmentation",
+    "quantity": "T_mem",
+    "quantity_role": "internal_state",
+    "mechanism": "Distributed resistor thermal mass can create an internal hotspot or latent temperature mode whose relaxation lags the bulk temperature rise, making resistance depend on both bulk temperature and recent heating history.",
+    "reference_condition": {},
+    "parent_reduction": "The successor reduces to the parent when eta_mem = 0, or when k_mem = 0 so the added state stays inactive, or in the fast-equilibration limit tau_mem -> 0 with T_mem tracking a zero-offset state."
+  },
+  "add_term_audit": null,
+  "evolution_contract": {
+    "operation": "change_assumption",
+    "parent_shortcut": "fixed_environment",
+    "response_change": {
+      "type": "interaction_emergence",
+      "parent_relation": "The instantaneous damping term depends on resistor temperature rise T_res alone, so for fixed q and i the target mapping di_dt is identical regardless of how quickly heat is removed to the environment except through the already-realized value of T_res.",
+      "child_relation": "Allow the resistor temperature-response law itself to depend on the ongoing cooling state through a dynamic thermal memory, so the same T_res can produce different instantaneous damping depending on whether the resistor is heating into or relaxing out of a hot state.",
+      "affected_inputs": [
+        "T_res",
+        "i",
+        "tau_th"
+      ],
+      "observable_effect": "During matched-current portions of the discharge, late-time damping becomes history-dependent: after a prior high-heating interval the effective resistance remains elevated relative to the parent at the same instantaneous T_res, changing di_dt curvature and envelope decay."
+    },
+    "diagnostic_groups": [
+      {
+        "name": "thermal_drive",
+        "expression": "(R*i**2)/C_th",
+        "role": "instantaneous Joule-heating source strength"
+      },
+      {
+        "name": "thermal_relax",
+        "expression": "T_res/tau_th",
+        "role": "instantaneous environmental cooling strength"
+      },
+      {
+        "name": "electro_thermal_ratio",
+        "expression": "((R*i**2)/C_th)/(T_res/tau_th + 1.0e-12)",
+        "role": "heating-versus-cooling regime indicator for whether thermal history effects can separate trajectories"
+      }
+    ],
+    "activation_condition": "Observable when resistor self-heating is strong enough that T_res reaches the nonlinear tanh regime and thermal relaxation is neither instantaneous nor negligible, i.e. discharge timescale comparable to tau_th so heating and cooling phases both occur within the recorded trajectory.",
+    "train_hidden_contrast": "In training, early high-current segments mainly probe heating-driven growth of T_res; in holdout, later lower-current segments after prior heating probe relaxation-driven memory at similar T_res values, revealing different di_dt at similar q, i, T_res coordinates if thermal history matters.",
+    "continuation_path": "Recover the parent by taking the added thermal-memory effect amplitude to zero or by making thermal equilibration effectively instantaneous so no history-dependent departure from the T_res-only law remains.",
+    "freedom_change": "add_state",
+    "promoted_symbol": null,
+    "promotion_reason": "A genuine thermal-memory correction cannot be represented from the existing state set if di_dt is constrained to depend only on q, i, and T_res. Distinguishing heating-versus-cooling history at the same T_res requires one additional dynamic state carrying unresolved internal thermal lag.",
+    "scope_kind": "state_coupling",
+    "scope_symbols": [
+      "T_res",
+      "T_mem",
+      "i"
+    ],
+    "structural_role": "modulation",
+    "domain_mechanism_id": "",
+    "domain_mechanism": "internal resistor hotspot memory modulating effective resistance",
+    "scientific_mechanism": "Distributed resistor thermal mass can create an internal hotspot or latent temperature mode whose relaxation lags the bulk temperature rise, making resistance depend on both bulk temperature and recent heating history.",
+    "embedding_pattern": "multiplicative_modulation",
+    "difficulty_rationale": "This is harder than a coefficient-only correction because the target mapping is no longer single-valued in q, i, T_res; an added dynamic state multiplicatively modulates an existing damping law, producing history-dependent separation at matched observed bulk temperature.",
+    "taxonomy_match": "known",
+    "assumption_before": "The resistor is thermally well-mixed, so one state T_res suffices and the resistance law is a single-valued function of T_res with no thermal history dependence.",
+    "assumption_after": "A latent internal resistor hotspot mode persists and multiplicatively modulates the temperature-dependent resistance, so damping depends on both bulk temperature and thermal memory.",
+    "before_fragment": "(q/(C*(1 + beta_C*tanh(alpha_T*T_res))) - R*(1 + tanh(alpha_T*T_res) + gamma_RT*tanh(alpha_T*T_res)**2)*i)/L",
+    "after_fragment": "(q/(C*(1 + beta_C*tanh(alpha_T*T_res))) - R*(1 + tanh(alpha_T*T_res) + gamma_RT*tanh(alpha_T*T_res)**2 + eta_mem*tanh(alpha_T*T_mem)*tanh(alpha_T*T_res))*i)/L",
+    "parent_reduction": "Set eta_mem = 0, or k_mem = 0 so T_mem remains on its zero-effect set, or take tau_mem -> 0 with vanishing memory departure to recover the parent law.",
+    "observable_signature": "At similar q, i, and T_res values reached during different parts of the same trajectory, di_dt differs systematically according to whether the resistor is coming off a previously hotter state or still building heat, with the separation strongest when both tanh(alpha_T*T_res) and tanh(alpha_T*T_mem) are appreciable.",
+    "shortcut_blocked": "A single parent parameter set cannot reproduce this effect because the parent makes di_dt a single-valued function of q, i, T_res. Refitting C, R, alpha_T, beta_C, gamma_RT, C_th, or tau_th changes the shared curve but cannot create hysteretic separation where the same supplied q, i, T_res map to different di_dt depending on unresolved thermal history."
+  },
+  "dimension_track": null,
+  "mechanism_profile": {
+    "allowed_structural_roles": [
+      "contribution",
+      "response_law",
+      "modulation",
+      "interaction",
+      "constraint",
+      "transition",
+      "feedback",
+      "heterogeneity",
+      "timescale",
+      "transport_balance"
+    ],
+    "preferred_scopes": [
+      "unary",
+      "pairwise",
+      "state_coupling",
+      "time_forcing"
+    ],
+    "domain_mechanisms": [
+      {
+        "id": "nonlinear_constitutive_response",
+        "description": "nonlinear constitutive or response law",
+        "operations": [
+          "add_term",
+          "change_assumption"
+        ]
+      },
+      {
+        "id": "coupled_field_or_force",
+        "description": "coupling to an already declared field, force, or state",
+        "operations": [
+          "add_term"
+        ]
+      },
+      {
+        "id": "finite_relaxation_or_threshold",
+        "description": "finite response time or physical threshold",
+        "operations": [
+          "change_assumption"
+        ]
+      }
+    ],
+    "profile_source": "subject_fallback",
+    "ontology_schema_version": "1.0",
+    "taxonomy_schema_version": "1.0"
+  },
+  "evolution_plan": {
+    "operation": "change_assumption",
+    "parent_shortcut": "fixed_environment",
+    "response_change": {
+      "type": "interaction_emergence",
+      "parent_relation": "The instantaneous damping term depends on resistor temperature rise T_res alone, so for fixed q and i the target mapping di_dt is identical regardless of how quickly heat is removed to the environment except through the already-realized value of T_res.",
+      "child_relation": "Allow the resistor temperature-response law itself to depend on the ongoing cooling state through a dynamic thermal memory, so the same T_res can produce different instantaneous damping depending on whether the resistor is heating into or relaxing out of a hot state.",
+      "affected_inputs": [
+        "T_res",
+        "i",
+        "tau_th"
+      ],
+      "observable_effect": "During matched-current portions of the discharge, late-time damping becomes history-dependent: after a prior high-heating interval the effective resistance remains elevated relative to the parent at the same instantaneous T_res, changing di_dt curvature and envelope decay."
+    },
+    "diagnostic_groups": [
+      {
+        "name": "thermal_drive",
+        "expression": "(R*i**2)/C_th",
+        "role": "instantaneous Joule-heating source strength"
+      },
+      {
+        "name": "thermal_relax",
+        "expression": "T_res/tau_th",
+        "role": "instantaneous environmental cooling strength"
+      },
+      {
+        "name": "electro_thermal_ratio",
+        "expression": "((R*i**2)/C_th)/(T_res/tau_th + 1.0e-12)",
+        "role": "heating-versus-cooling regime indicator for whether thermal history effects can separate trajectories"
+      }
+    ],
+    "activation_condition": "Observable when resistor self-heating is strong enough that T_res reaches the nonlinear tanh regime and thermal relaxation is neither instantaneous nor negligible, i.e. discharge timescale comparable to tau_th so heating and cooling phases both occur within the recorded trajectory.",
+    "train_hidden_contrast": "In training, early high-current segments mainly probe heating-driven growth of T_res; in holdout, later lower-current segments after prior heating probe relaxation-driven memory at similar T_res values, revealing different di_dt at similar q, i, T_res coordinates if thermal history matters.",
+    "continuation_path": "Recover the parent by taking the added thermal-memory effect amplitude to zero or by making thermal equilibration effectively instantaneous so no history-dependent departure from the T_res-only law remains.",
+    "freedom_change": "add_state",
+    "promoted_symbol": null,
+    "promotion_reason": "A genuine thermal-memory correction cannot be represented from the existing state set if di_dt is constrained to depend only on q, i, and T_res. Distinguishing heating-versus-cooling history at the same T_res requires one additional dynamic state carrying unresolved internal thermal lag.",
+    "gap_statement": "The parent assumes a single lumped resistor temperature completely determines the instantaneous resistance change, ignoring internal thermal lag or subcomponent temperature memory that can persist even when the measured or effective bulk T_res is the same.",
+    "baseline_assumption": "The resistor is thermally well-mixed, so one state T_res suffices and the resistance law is a single-valued function of T_res with no thermal history dependence.",
+    "scientific_mechanism": "Distributed resistor thermal mass can create an internal hotspot or latent temperature mode whose relaxation lags the bulk temperature rise, making resistance depend on both bulk temperature and recent heating history.",
+    "affected_symbols": [
+      "T_res",
+      "i",
+      "tau_th",
+      "C_th",
+      "R",
+      "alpha_T"
+    ],
+    "rationale": "A realistic next refinement is to relax the well-mixed thermal assumption rather than add an unrelated electrical parasitic. The parent target mapping is effectively fixed-environment with respect to thermal structure: once q, i, and T_res are supplied, di_dt is fully determined, so all thermal history enters only through the scalar T_res. In real self-heated resistors, internal hotspots can lag the bulk thermal state because heat diffuses across the component body over a finite time comparable to the discharge and cooling times. Vary the ratio of electrical discharge timescale to tau_th while holding component values and initial charge fixed. Then one can reach segments where q and i are similar and T_res is similar, but one trajectory is still relaxing from earlier stronger heating whereas another is still building heat. The child would allow different di_dt under those matched observed coordinates through a thermal-memory interaction, changing target-function complexity rather than merely altering an auxiliary trajectory. This is admissible when self-heating is appreciable and the trajectory spans both heating and relaxation; if heating is tiny or thermal diffusion is extremely fast, the effect collapses and the parent is recovered. A single refit of the parent parameters cannot reproduce a genuine loop or hysteresis in the mapping from supplied states to di_dt, because the parent remains a single-valued function of q, i, T_res."
+  },
+  "selected_embedding_pattern": {
+    "description": "Use a declared condition to modulate the strength of an existing process.",
+    "difficulty_level": 6,
+    "operations": [
+      "add_term",
+      "change_assumption"
+    ],
+    "model_families": [
+      "static",
+      "ode"
+    ],
+    "minimum_active_quantities": 2,
+    "weight": 15,
+    "id": "multiplicative_modulation"
+  },
+  "ode_system": {
+    "time_symbol": "t",
+    "target_state": "i",
+    "states": [
+      {
+        "symbol": "q",
+        "rhs": "-i",
+        "initial_condition": 0.0005,
+        "description": "charge stored on the capacitor"
+      },
+      {
+        "symbol": "i",
+        "rhs": "(q/(C*(1 + beta_C*tanh(alpha_T*T_res))) - R*(1 + tanh(alpha_T*T_res) + gamma_RT*tanh(alpha_T*T_res)**2 + eta_mem*tanh(alpha_T*T_mem)*tanh(alpha_T*T_res))*i)/L",
+        "initial_condition": 0.0,
+        "description": "current circulating through the series circuit"
+      },
+      {
+        "symbol": "T_res",
+        "rhs": "(R*i**2)/C_th - T_res/tau_th",
+        "initial_condition": 0.0,
+        "description": "resistor temperature rise above the reference environment"
+      },
+      {
+        "symbol": "T_mem",
+        "rhs": "k_mem*(R*i**2)/C_th - (T_mem - T_res)/tau_mem",
+        "initial_condition": 0.0,
+        "description": "internal hotspot or latent thermal-memory temperature rise within the resistor body"
+      }
+    ]
+  },
+  "scenario_text": "A charged capacitor is connected in series with an ideal inductor and a resistor, then allowed to discharge without an external source. The capacitor charge and loop current evolve together as electric-field energy and magnetic-field energy are exchanged while resistance removes energy from the circuit. The benchmark targets the instantaneous rate of change of current throughout the resulting damped oscillation. Capacitance, inductance, and resistance remain fixed across the recorded trajectory.",
+  "freedom_change": "add_state",
+  "promoted_symbol": null,
+  "promotion_reason": "A genuine thermal-memory correction cannot be represented from the existing state set if di_dt is constrained to depend only on q, i, and T_res. Distinguishing heating-versus-cooling history at the same T_res requires one additional dynamic state carrying unresolved internal thermal lag.",
+  "parent_shortcut": "fixed_environment",
+  "response_change": {
+    "type": "interaction_emergence",
+    "parent_relation": "The instantaneous damping term depends on resistor temperature rise T_res alone, so for fixed q and i the target mapping di_dt is identical regardless of how quickly heat is removed to the environment except through the already-realized value of T_res.",
+    "child_relation": "Allow the resistor temperature-response law itself to depend on the ongoing cooling state through a dynamic thermal memory, so the same T_res can produce different instantaneous damping depending on whether the resistor is heating into or relaxing out of a hot state.",
+    "affected_inputs": [
+      "T_res",
+      "i",
+      "tau_th"
+    ],
+    "observable_effect": "During matched-current portions of the discharge, late-time damping becomes history-dependent: after a prior high-heating interval the effective resistance remains elevated relative to the parent at the same instantaneous T_res, changing di_dt curvature and envelope decay."
+  },
+  "diagnostic_groups": [
+    {
+      "name": "thermal_drive",
+      "expression": "(R*i**2)/C_th",
+      "role": "instantaneous Joule-heating source strength"
+    },
+    {
+      "name": "thermal_relax",
+      "expression": "T_res/tau_th",
+      "role": "instantaneous environmental cooling strength"
+    },
+    {
+      "name": "electro_thermal_ratio",
+      "expression": "((R*i**2)/C_th)/(T_res/tau_th + 1.0e-12)",
+      "role": "heating-versus-cooling regime indicator for whether thermal history effects can separate trajectories"
+    }
+  ],
+  "activation_condition": "Observable when resistor self-heating is strong enough that T_res reaches the nonlinear tanh regime and thermal relaxation is neither instantaneous nor negligible, i.e. discharge timescale comparable to tau_th so heating and cooling phases both occur within the recorded trajectory.",
+  "train_hidden_contrast": "In training, early high-current segments mainly probe heating-driven growth of T_res; in holdout, later lower-current segments after prior heating probe relaxation-driven memory at similar T_res values, revealing different di_dt at similar q, i, T_res coordinates if thermal history matters.",
+  "continuation_path": "Recover the parent by taking the added thermal-memory effect amplitude to zero or by making thermal equilibration effectively instantaneous so no history-dependent departure from the T_res-only law remains.",
+  "dependent_variable": {
+    "symbol": "di_dt",
+    "description": "instantaneous time derivative of the series-circuit current"
+  },
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "description": "time"
+    }
+  ],
+  "state_variables": [
+    {
+      "symbol": "q",
+      "description": "charge stored on the capacitor"
+    },
+    {
+      "symbol": "i",
+      "description": "current circulating through the series circuit"
+    },
+    {
+      "symbol": "T_res",
+      "description": "resistor temperature rise above the reference environment"
+    },
+    {
+      "symbol": "T_mem",
+      "description": "internal hotspot or latent thermal-memory temperature rise within the resistor body"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "C",
+      "description": "reference capacitance at the reference temperature"
+    },
+    {
+      "symbol": "L",
+      "description": "inductance"
+    },
+    {
+      "symbol": "R",
+      "description": "baseline resistance at the reference temperature"
+    },
+    {
+      "symbol": "alpha_T",
+      "description": "temperature-rise scale factor governing nonlinear thermal property variation"
+    },
+    {
+      "symbol": "C_th",
+      "description": "effective thermal capacitance of the resistor"
+    },
+    {
+      "symbol": "tau_th",
+      "description": "thermal relaxation time to the environment"
+    },
+    {
+      "symbol": "beta_C",
+      "description": "dimensionless capacitance thermal-drift amplitude"
+    },
+    {
+      "symbol": "gamma_RT",
+      "description": "dimensionless curvature coefficient for the resistor temperature-response law"
+    },
+    {
+      "symbol": "tau_mem",
+      "description": "relaxation time of the internal thermal-memory mode toward the bulk resistor temperature"
+    },
+    {
+      "symbol": "k_mem",
+      "description": "coupling factor from bulk self-heating into the internal thermal-memory mode"
+    },
+    {
+      "symbol": "eta_mem",
+      "description": "dimensionless amplitude of thermal-memory modulation of resistance"
+    }
+  ]
+}

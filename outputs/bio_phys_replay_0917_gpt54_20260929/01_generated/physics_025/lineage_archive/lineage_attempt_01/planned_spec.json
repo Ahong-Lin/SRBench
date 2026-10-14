@@ -1,0 +1,237 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "v_x",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        20.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "particle_charge",
+      "value": 1.0
+    },
+    {
+      "symbol": "particle_mass",
+      "value": 1.0
+    },
+    {
+      "symbol": "electric_field_x",
+      "value": 0.35
+    },
+    {
+      "symbol": "signal_speed",
+      "value": 3.0
+    },
+    {
+      "symbol": "radiation_field_scale",
+      "value": 0.8
+    },
+    {
+      "symbol": "radiation_activation_rate",
+      "value": 0.12
+    },
+    {
+      "symbol": "radiation_relaxation_rate",
+      "value": 0.05
+    },
+    {
+      "symbol": "radiation_damping_capacity",
+      "value": 2.5
+    },
+    {
+      "symbol": "magnetic_relaxation_rate",
+      "value": 0.08
+    },
+    {
+      "symbol": "magnetic_screening_strength",
+      "value": 0.03
+    },
+    {
+      "symbol": "magnetic_field_equilibrium",
+      "value": 1.0
+    }
+  ],
+  "benchmark_output": "dv_x_dt",
+  "benchmark_target_state": "v_x",
+  "observed_variables": [
+    "t",
+    "v_x",
+    "v_y",
+    "radiation_damping_strength",
+    "magnetic_field_z"
+  ],
+  "rhs_for_integrator": "(particle_charge*(1 - v_x**2/signal_speed**2)/(particle_mass*(1 - (v_x**2 + v_y**2)/signal_speed**2)**(3/2)))*(electric_field_x + magnetic_field_z*v_y) - radiation_damping_strength*((electric_field_x + magnetic_field_z*v_y)**2/(1 + ((electric_field_x + magnetic_field_z*v_y)/radiation_field_scale)**2))*v_x",
+  "state_variables": [
+    "v_x",
+    "v_y",
+    "radiation_damping_strength",
+    "magnetic_field_z"
+  ],
+  "state_rhs": [
+    "(particle_charge*(1 - v_x**2/signal_speed**2)/(particle_mass*(1 - (v_x**2 + v_y**2)/signal_speed**2)**(3/2)))*(electric_field_x + magnetic_field_z*v_y) - radiation_damping_strength*((electric_field_x + magnetic_field_z*v_y)**2/(1 + ((electric_field_x + magnetic_field_z*v_y)/radiation_field_scale)**2))*v_x",
+    "-(particle_charge/(particle_mass*sqrt(1 - (v_x**2 + v_y**2)/signal_speed**2)))*magnetic_field_z*v_x",
+    "radiation_activation_rate*((electric_field_x + magnetic_field_z*v_y)**2/(1 + ((electric_field_x + magnetic_field_z*v_y)/radiation_field_scale)**2))*v_x**2*(1 - radiation_damping_strength/radiation_damping_capacity) - radiation_relaxation_rate*radiation_damping_strength",
+    "magnetic_relaxation_rate*(magnetic_field_equilibrium - magnetic_field_z) - magnetic_screening_strength*(v_x**2 + v_y**2)*magnetic_field_z"
+  ],
+  "initial_conditions": {
+    "v_x": 0.0,
+    "v_y": 0.0,
+    "radiation_damping_strength": 1.0,
+    "magnetic_field_z": 1.0
+  },
+  "sanity_expectations": [
+    "Because v_x(0)=v_y(0)=0 and magnetic_field_z(0)=1, the initial x-acceleration is positive: dv_x_dt(0)=particle_charge*electric_field_x/particle_mass > 0 for the chosen values, so v_x should initially increase from zero.",
+    "The trajectory should remain in the admissible relativistic region v_x^2 + v_y^2 < signal_speed^2 throughout integration; otherwise the RHS would approach a singularity and the run would be invalid.",
+    "radiation_damping_strength should stay nonnegative and typically rise above its initial value during sustained drive before being limited by radiation_damping_capacity; it should not grow without bound.",
+    "magnetic_field_z should tend to decrease below its equilibrium value once v_x^2+v_y^2 becomes appreciable because the screening term is nonnegative; with the chosen parameters it should vary gradually rather than instantaneously.",
+    "Relative to very early times, later portions of the same trajectory should show weaker x-acceleration at comparable instantaneous velocity scale because both the evolving damping state and screened magnetic state reduce the effective drive.",
+    "The anisotropic relativistic factor should be more suppressive when |v_x| becomes a larger share of total speed, so acceleration rolloff should strengthen as motion aligns more with x even before any extreme approach to signal_speed."
+  ],
+  "role_corrections": [
+    "dv_x_dt: claimed-output/target derivative -> target derivative within inherited ode_system contract (confirmed)",
+    "t: claimed-input/time axis -> independent variable/time axis (confirmed)",
+    "v_x: claimed-dynamic state -> dynamic state and dependent_variable/target_state (confirmed)",
+    "v_y: claimed-dynamic state -> dynamic state (confirmed)",
+    "radiation_damping_strength: claimed-dynamic state -> dynamic state (confirmed, preserved by explicit freedom decision and ODE contract)",
+    "magnetic_field_z: claimed-dynamic state -> dynamic state (confirmed, preserved by explicit freedom decision and ODE contract)",
+    "particle_charge: claimed-parameter -> parameter (confirmed)",
+    "particle_mass: claimed-parameter -> parameter (confirmed)",
+    "electric_field_x: claimed-parameter -> parameter (confirmed)",
+    "signal_speed: claimed-parameter -> parameter (confirmed)",
+    "radiation_field_scale: claimed-parameter -> parameter (confirmed)",
+    "radiation_activation_rate: claimed-parameter -> parameter (confirmed)",
+    "radiation_relaxation_rate: claimed-parameter -> parameter (confirmed)",
+    "radiation_damping_capacity: claimed-parameter -> parameter (confirmed)",
+    "magnetic_relaxation_rate: claimed-parameter -> parameter (confirmed)",
+    "magnetic_screening_strength: claimed-parameter -> parameter (confirmed)",
+    "magnetic_field_equilibrium: claimed-parameter -> parameter (confirmed)",
+    "Equation type: prior typed ode_system -> ode_system (confirmed; must inherit contract exactly despite standalone RHS appearing explicit)"
+  ],
+  "rationale": "The provided ODE-system contract must be preserved exactly, so the dataset should integrate the declared 4-state system over time only. Structural analysis of the displayed target RHS by itself looks explicit in dv_x_dt, but the record includes an explicit typed ODE-system contract and freedom_change='none'; therefore the declared dynamic states v_x, v_y, radiation_damping_strength, and magnetic_field_z are retained as states, while the listed parameter symbols are fixed constants. Parameter values are chosen to keep trajectories real and finite while exposing the intended mechanisms without pushing everything into immediate saturation or the near-parent limit. signal_speed=3.0 keeps the relativistic denominator safely positive from the zero-velocity initial state while still allowing mildly relativistic motion if the electric drive accelerates the particle appreciably. electric_field_x=0.35 with initial magnetic_field_z=1.0 gives sustained forcing strong enough to move the system away from the trivial initial equilibrium, but not so strong that speed should rush too close to signal_speed. radiation_field_scale=0.8 makes the drive magnitude |electric_field_x + magnetic_field_z*v_y| transition through the saturating radiation factor over accessible states rather than staying always tiny or always fully saturated. The initial radiation_damping_strength is inherited as 1.0; choosing radiation_activation_rate=0.12, radiation_relaxation_rate=0.05, and radiation_damping_capacity=2.5 allows observable buildup and bounded relaxation of the damping state over the observation window instead of freezing it. magnetic_relaxation_rate=0.08 with magnetic_screening_strength=0.03 and magnetic_field_equilibrium=1.0 makes magnetic_field_z evolve on a comparable but not ultrafast timescale, so screening/history effects can appear without immediate collapse of the field. The time window [0,20] with 300 points is long enough to reveal early-versus-late trajectory differences in the damping and magnetic states, while still being a moderate sampling density suitable for exact noiseless ODE data. A representative substitution check confirms the displayed RHS remains finite and real for these magnitudes.",
+  "coverage_report": {},
+  "inactive_mechanisms": [],
+  "target_variance": {},
+  "parent_absorption_report": {},
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_z3HLfFhEjThd7XcSeAeQ3Y4O"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "(particle_charge*(1 - v_x**2/signal_speed**2)/(particle_mass*(1 - (v_x**2 + v_y**2)/signal_speed**2)**(3/2)))*(electric_field_x + magnetic_field_z*v_y) - radiation_damping_strength*((electric_field_x + magnetic_field_z*v_y)**2/(1 + ((electric_field_x + magnetic_field_z*v_y)/radiation_field_scale)**2))*v_x",
+        "target_symbol": "dv_x_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "electric_field_x",
+          "magnetic_field_z",
+          "particle_charge",
+          "particle_mass",
+          "radiation_damping_strength",
+          "radiation_field_scale",
+          "signal_speed",
+          "v_x",
+          "v_y"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "particle_charge*(1 - v_x**2/(signal_speed**2))*(electric_field_x + magnetic_field_z*v_y)/((particle_mass*(1 - (v_x**2 + "
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_fp6iiMQcBBY0NmGp7vKs996e"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "(particle_charge*(1 - v_x**2/signal_speed**2)/(particle_mass*(1 - (v_x**2 + v_y**2)/signal_speed**2)**(3/2)))*(electric_field_x + magnetic_field_z*v_y) - radiation_damping_strength*((electric_field_x + magnetic_field_z*v_y)**2/(1 + ((electric_field_x + magnetic_field_z*v_y)/radiation_field_scale)**2))*v_x",
+        "target_symbol": "dv_x_dt",
+        "assignments": {
+          "particle_charge": 1,
+          "particle_mass": 1,
+          "electric_field_x": 0.35,
+          "signal_speed": 3,
+          "radiation_field_scale": 0.8,
+          "v_x": 0.4,
+          "v_y": 0.3,
+          "radiation_damping_strength": 1,
+          "magnetic_field_z": 1
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": 0.5642032234787842,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_EDQzdhEZycvWz8mVo05bj5YD"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_VMqHWvHCIYN43EkrLtQcoetM"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 4
+}

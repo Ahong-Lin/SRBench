@@ -1,0 +1,408 @@
+{
+  "base_id": "m2_physiology_and_homeostasis_20262905_000",
+  "generation": 5,
+  "operation": "change_assumption",
+  "model_family": "ode",
+  "equation_type": "ode_system",
+  "target_symbol": "dP_dt",
+  "expression": "(cardiac_delivery_baseline + cardiac_delivery_gain*S*exp(-P/cardiac_afterload_pressure_scale) - P/(peripheral_resistance_baseline + peripheral_resistance_gain*R))/arterial_compliance",
+  "symbols": [
+    "dP_dt",
+    "t",
+    "P",
+    "S",
+    "R",
+    "B",
+    "cardiac_delivery_baseline",
+    "cardiac_delivery_gain",
+    "peripheral_resistance_baseline",
+    "peripheral_resistance_gain",
+    "arterial_compliance",
+    "pressure_setpoint",
+    "baroreflex_pressure_scale",
+    "autonomic_time_constant",
+    "vascular_saturation_scale",
+    "vascular_time_constant",
+    "cardiac_afterload_pressure_scale",
+    "baroreflex_resetting_gain",
+    "baroreflex_resetting_time_constant",
+    "baroreflex_asymmetry_gain"
+  ],
+  "symbol_descriptions": [
+    "Instantaneous rate of change of mean arterial pressure in millimeters of mercury per second",
+    "Time in seconds",
+    "Mean arterial pressure in millimeters of mercury",
+    "Normalized autonomic vasomotor drive, with zero representing minimal drive and one representing maximal drive",
+    "Lagged vascular resistance recruitment effector driven by autonomic vasomotor command",
+    "Slow baroreflex resetting state that shifts the effective pressure setpoint toward recently experienced pressure",
+    "Cardiac delivery at minimal autonomic drive, constrained to be nonnegative",
+    "Increase in cardiac delivery per unit autonomic drive, constrained to be nonnegative",
+    "Peripheral resistance at minimal autonomic drive, constrained to be positive",
+    "Resistance recruitment gain multiplying the vascular effector, constrained to be nonnegative",
+    "Effective arterial compliance, constrained to be positive",
+    "Baseline pressure at which the autonomic feedback command equals one half before resetting",
+    "Positive pressure scale controlling baseline baroreflex sensitivity",
+    "Positive time constant for autonomic adjustment in seconds",
+    "Positive saturation scale controlling how quickly vasomotor resistance recruitment flattens with autonomic drive",
+    "Positive time constant for vascular smooth-muscle resistance recruitment in seconds",
+    "Positive pressure scale for afterload-induced attenuation of autonomic cardiac delivery effectiveness",
+    "Dimensionless gain controlling how strongly recent pressure exposure shifts the effective baroreflex setpoint",
+    "Positive time constant for slow baroreflex resetting in seconds",
+    "Dimensionless coefficient making baroreflex pressure sensitivity increase or decrease with signed pressure error, creating asymmetric command steepness about the effective setpoint"
+  ],
+  "symbol_properties": [
+    "O",
+    "V",
+    "S",
+    "S",
+    "S",
+    "S",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P"
+  ],
+  "new_symbol_range_suggestions": {
+    "baroreflex_asymmetry_gain": "approximately -1 to 1; values with 1 + baroreflex_asymmetry_gain*(P - (pressure_setpoint + B))/baroreflex_pressure_scale remaining positive over the sampled trajectory preserve a monotone nonincreasing command law"
+  },
+  "derivation_notes": "The parent assumed one symmetric pressure scale in the baroreflex command. Here that scale is allowed to vary linearly with the signed effective pressure error, so the command remains smooth and monotone over admissible trajectories but becomes steeper on one side of the reset setpoint than the other.",
+  "change_summary": "I refined the baroreflex feedback law by making its pressure-sensitivity coefficient state dependent through the effective pressure error. This changes the target mapping because the altered S trajectory directly modulates cardiac inflow in dP_dt and indirectly modulates runoff through R.",
+  "assumption_audit": {
+    "released_assumption": "The pressure-sensitive feedback relation uses one symmetric logistic pressure scale above and below the effective setpoint.",
+    "outcome": "law_refinement",
+    "quantity": null,
+    "quantity_role": "not_applicable",
+    "mechanism": "Short-term arterial baroreflex signaling can have unequal gain on hypotensive and hypertensive sides because receptor saturation and central efferent recruitment are not perfectly symmetric around the operating point.",
+    "reference_condition": {
+      "baroreflex_asymmetry_gain": 0.0
+    },
+    "parent_reduction": "Setting baroreflex_asymmetry_gain = 0 restores the original symmetric logistic command law and exactly recovers the parent system."
+  },
+  "add_term_audit": null,
+  "evolution_contract": {
+    "operation": "change_assumption",
+    "parent_shortcut": "single_threshold",
+    "response_change": {
+      "type": "curvature_change",
+      "parent_relation": "The autonomic command driving S is a symmetric logistic function of the shifted pressure error P-(pressure_setpoint+B), so dP_dt inherits one fixed baroreflex sensitivity scale around a single midpoint.",
+      "child_relation": "Replace the symmetric logistic pressure-command relation with an asymmetric pressure-response shape using the same states and parameters, so dP_dt changes more sharply on one side of the effective setpoint than the other while remaining monotone nonincreasing in pressure.",
+      "affected_inputs": [
+        "P",
+        "B",
+        "S"
+      ],
+      "observable_effect": "During comparable excursions below versus above the effective setpoint, pressure recovery and overshoot damping become unequal: one side shows steeper autonomic recruitment per mmHg than the other, which changes the local curvature of dP_dt versus pressure along the observed trajectory."
+    },
+    "diagnostic_groups": [
+      {
+        "name": "effective_pressure_error",
+        "expression": "P - (pressure_setpoint + B)",
+        "role": "Signed baroreflex error relative to the slowly reset operating point"
+      },
+      {
+        "name": "cardiac_inflow_term",
+        "expression": "cardiac_delivery_baseline + cardiac_delivery_gain*S*exp(-P/cardiac_afterload_pressure_scale)",
+        "role": "Pressure-dependent arterial inflow contributed by baseline and autonomically augmented cardiac delivery"
+      },
+      {
+        "name": "runoff_term",
+        "expression": "P/(peripheral_resistance_baseline + peripheral_resistance_gain*R)",
+        "role": "Peripheral runoff load opposing pressure elevation"
+      }
+    ],
+    "activation_condition": "Observable when trajectories pass through both moderate hypotensive and hypertensive deviations relative to pressure_setpoint+B, with pressure excursions of order baroreflex_pressure_scale so the command nonlinearity is sampled on both sides rather than only infinitesimally near equilibrium.",
+    "train_hidden_contrast": "In training, asymmetric recovery is already visible in transients that traverse the effective setpoint neighborhood; in holdout, larger but still admissible deviations extend the same one-sided steepness difference, revealing curvature that a symmetric one-scale logistic cannot match with one shared parameter set.",
+    "continuation_path": "The child reduces to the parent in the symmetry-restoring limit where the modified pressure-command shape becomes the original logistic with one shared baroreflex_pressure_scale on both sides of the effective setpoint.",
+    "freedom_change": "none",
+    "promoted_symbol": null,
+    "promotion_reason": "",
+    "scope_kind": "state_coupling",
+    "scope_symbols": [
+      "P",
+      "B",
+      "S"
+    ],
+    "structural_role": "response_law",
+    "domain_mechanism_id": "",
+    "domain_mechanism": "Asymmetric baroreflex pressure-to-command transduction",
+    "scientific_mechanism": "Short-term arterial baroreflex signaling can show unequal gain on hypotensive versus hypertensive sides because receptor firing saturation and central efferent recruitment are not perfectly symmetric around the operating point.",
+    "embedding_pattern": "state_dependent_coefficient",
+    "difficulty_rationale": "This is harder than a coefficient-only correction because the effective logistic slope now depends on the evolving signed pressure error, so the same parameter set produces different local curvature above and below the reset setpoint rather than a uniform rescaling.",
+    "taxonomy_match": "provisional",
+    "assumption_before": "The pressure-sensitive feedback relation is smooth, monotone, and time invariant over the observation window, with a symmetric logistic shape around a single midpoint and one shared pressure scale.",
+    "assumption_after": "The baroreflex remains smooth and monotone but its pressure sensitivity varies with signed effective pressure error, producing asymmetric steepness about the reset setpoint.",
+    "before_fragment": "(cardiac_delivery_baseline + cardiac_delivery_gain*S*exp(-P/cardiac_afterload_pressure_scale) - P/(peripheral_resistance_baseline + peripheral_resistance_gain*R))/arterial_compliance",
+    "after_fragment": "(cardiac_delivery_baseline + cardiac_delivery_gain*S*exp(-P/cardiac_afterload_pressure_scale) - P/(peripheral_resistance_baseline + peripheral_resistance_gain*R))/arterial_compliance",
+    "parent_reduction": "baroreflex_asymmetry_gain = 0",
+    "observable_signature": "The scored target expression keeps the same algebraic dependence on S and R, but along trajectories that sample both signs of P-(pressure_setpoint+B), the successor produces unequal dP_dt-versus-P curvature on the two sides because the S command law uses a state-dependent pressure scale. This is observable for deviations on the order of baroreflex_pressure_scale with posture, blood volume, metabolic demand, and hormones held fixed.",
+    "shortcut_blocked": "Refitting the parent's single baroreflex_pressure_scale can match only one average steepness, not simultaneously the steeper hypotensive recruitment and flatter hypertensive suppression or vice versa across both sides of the effective setpoint with one shared parameter set. The change is therefore not absorbable by global coefficient retuning when both sides of the command curve are observed."
+  },
+  "dimension_track": null,
+  "mechanism_profile": {
+    "allowed_structural_roles": [
+      "response_law",
+      "modulation",
+      "constraint",
+      "feedback",
+      "timescale",
+      "transport_balance"
+    ],
+    "preferred_scopes": [
+      "unary",
+      "pairwise",
+      "state_coupling",
+      "memory"
+    ],
+    "domain_mechanisms": [
+      {
+        "id": "homeostatic_feedback",
+        "description": "negative feedback around a physiological set point",
+        "operations": [
+          "add_term"
+        ]
+      },
+      {
+        "id": "finite_reserve_capacity",
+        "description": "finite storage, transport, or organ capacity",
+        "operations": [
+          "add_term",
+          "change_assumption"
+        ]
+      },
+      {
+        "id": "delayed_regulatory_response",
+        "description": "finite regulatory response time",
+        "operations": [
+          "change_assumption"
+        ]
+      }
+    ],
+    "profile_source": "subfield",
+    "ontology_schema_version": "1.0",
+    "taxonomy_schema_version": "1.0"
+  },
+  "evolution_plan": {
+    "operation": "change_assumption",
+    "parent_shortcut": "single_threshold",
+    "response_change": {
+      "type": "curvature_change",
+      "parent_relation": "The autonomic command driving S is a symmetric logistic function of the shifted pressure error P-(pressure_setpoint+B), so dP_dt inherits one fixed baroreflex sensitivity scale around a single midpoint.",
+      "child_relation": "Replace the symmetric logistic pressure-command relation with an asymmetric pressure-response shape using the same states and parameters, so dP_dt changes more sharply on one side of the effective setpoint than the other while remaining monotone nonincreasing in pressure.",
+      "affected_inputs": [
+        "P",
+        "B",
+        "S"
+      ],
+      "observable_effect": "During comparable excursions below versus above the effective setpoint, pressure recovery and overshoot damping become unequal: one side shows steeper autonomic recruitment per mmHg than the other, which changes the local curvature of dP_dt versus pressure along the observed trajectory."
+    },
+    "diagnostic_groups": [
+      {
+        "name": "effective_pressure_error",
+        "expression": "P - (pressure_setpoint + B)",
+        "role": "Signed baroreflex error relative to the slowly reset operating point"
+      },
+      {
+        "name": "cardiac_inflow_term",
+        "expression": "cardiac_delivery_baseline + cardiac_delivery_gain*S*exp(-P/cardiac_afterload_pressure_scale)",
+        "role": "Pressure-dependent arterial inflow contributed by baseline and autonomically augmented cardiac delivery"
+      },
+      {
+        "name": "runoff_term",
+        "expression": "P/(peripheral_resistance_baseline + peripheral_resistance_gain*R)",
+        "role": "Peripheral runoff load opposing pressure elevation"
+      }
+    ],
+    "activation_condition": "Observable when trajectories pass through both moderate hypotensive and hypertensive deviations relative to pressure_setpoint+B, with pressure excursions of order baroreflex_pressure_scale so the command nonlinearity is sampled on both sides rather than only infinitesimally near equilibrium.",
+    "train_hidden_contrast": "In training, asymmetric recovery is already visible in transients that traverse the effective setpoint neighborhood; in holdout, larger but still admissible deviations extend the same one-sided steepness difference, revealing curvature that a symmetric one-scale logistic cannot match with one shared parameter set.",
+    "continuation_path": "The child reduces to the parent in the symmetry-restoring limit where the modified pressure-command shape becomes the original logistic with one shared baroreflex_pressure_scale on both sides of the effective setpoint.",
+    "freedom_change": "none",
+    "promoted_symbol": null,
+    "promotion_reason": "",
+    "gap_statement": "The current model assumes baroreflex command has the same pressure sensitivity above and below the effective setpoint, omitting physiologically plausible asymmetry between depressor and pressor sides of the short-term reflex response.",
+    "baseline_assumption": "The pressure-sensitive feedback relation is smooth, monotone, and time invariant over the observation window, with a symmetric logistic shape around a single midpoint and one shared pressure scale.",
+    "scientific_mechanism": "Short-term arterial baroreflex signaling can show unequal gain on hypotensive versus hypertensive sides because receptor firing saturation and central efferent recruitment are not perfectly symmetric around the operating point.",
+    "affected_symbols": [
+      "P",
+      "S",
+      "B"
+    ],
+    "rationale": "A realistic next refinement is to relax the parent's symmetric baroreflex command assumption rather than adding a new process. The parent maps effective pressure error to autonomic command through one fixed logistic threshold and scale, so after parameter refitting it still predicts mirrored pressure sensitivity around pressure_setpoint+B. Holding posture, volume status, metabolic demand, and hormones fixed as required, vary only the trajectory's pressure excursion relative to the current effective setpoint. Then compare transients that spend time moderately below versus moderately above that setpoint. In the parent, the slope of the command curve as a function of P is determined by one shared scale, so the shape of dP_dt versus P near low-pressure recovery and high-pressure suppression remains constrained to be symmetric up to the downstream inflow/runoff nonlinearities already present. In the child, the same effective pressure error produces different reflex steepness on the two sides, changing the target mapping itself because S enters the dP_dt inflow term directly and also later influences runoff through R. This is observable when the trajectory actually samples both sides of the setpoint over pressure deviations comparable to baroreflex_pressure_scale; if observations remain confined to a tiny neighborhood on one side only, the contrast may be weak and partial refitting could mimic it locally. But across both sides with one shared parameter set, the parent cannot simultaneously reproduce unequal low-pressure recovery steepness and high-pressure damping curvature if the underlying command law remains symmetric."
+  },
+  "selected_embedding_pattern": {
+    "description": "Make the coefficient of an existing process depend on a declared quantity.",
+    "difficulty_level": 3,
+    "operations": [
+      "add_term",
+      "change_assumption"
+    ],
+    "model_families": [
+      "static",
+      "ode"
+    ],
+    "minimum_active_quantities": 1,
+    "weight": 14,
+    "id": "state_dependent_coefficient"
+  },
+  "ode_system": {
+    "time_symbol": "t",
+    "target_state": "P",
+    "states": [
+      {
+        "symbol": "P",
+        "rhs": "(cardiac_delivery_baseline + cardiac_delivery_gain*S*exp(-P/cardiac_afterload_pressure_scale) - P/(peripheral_resistance_baseline + peripheral_resistance_gain*R))/arterial_compliance",
+        "initial_condition": 100.0,
+        "description": "Mean arterial pressure in millimeters of mercury"
+      },
+      {
+        "symbol": "S",
+        "rhs": "(1/(1 + exp((P - (pressure_setpoint + B))/(baroreflex_pressure_scale*(1 + baroreflex_asymmetry_gain*(P - (pressure_setpoint + B))/baroreflex_pressure_scale)))) - S)/autonomic_time_constant",
+        "initial_condition": 0.5,
+        "description": "Normalized autonomic vasomotor drive, with zero representing minimal drive and one representing maximal drive"
+      },
+      {
+        "symbol": "R",
+        "rhs": "(vascular_saturation_scale*(1 - exp(-S/vascular_saturation_scale)) - R)/vascular_time_constant",
+        "initial_condition": 0.5,
+        "description": "Lagged vascular resistance recruitment effector driven by autonomic vasomotor command"
+      },
+      {
+        "symbol": "B",
+        "rhs": "(baroreflex_resetting_gain*(P - pressure_setpoint) - B)/baroreflex_resetting_time_constant",
+        "initial_condition": 0.0,
+        "description": "Slow baroreflex resetting state that shifts the effective baroreflex setpoint toward recently experienced pressure"
+      }
+    ]
+  },
+  "scenario_text": "Model short-term arterial pressure regulation after the circulation begins away from its resting operating point. Mean arterial pressure changes through the imbalance between cardiac delivery and peripheral runoff, while autonomic vasomotor drive is adjusted by pressure-sensitive feedback and relaxes toward a pressure-dependent command level. Posture, blood volume, metabolic demand, and circulating hormone levels remain fixed background conditions during the observation window. The scientific target is the instantaneous rate of change of mean arterial pressure along the coupled pressure-control trajectory.",
+  "freedom_change": "none",
+  "promoted_symbol": null,
+  "promotion_reason": "",
+  "parent_shortcut": "single_threshold",
+  "response_change": {
+    "type": "curvature_change",
+    "parent_relation": "The autonomic command driving S is a symmetric logistic function of the shifted pressure error P-(pressure_setpoint+B), so dP_dt inherits one fixed baroreflex sensitivity scale around a single midpoint.",
+    "child_relation": "Replace the symmetric logistic pressure-command relation with an asymmetric pressure-response shape using the same states and parameters, so dP_dt changes more sharply on one side of the effective setpoint than the other while remaining monotone nonincreasing in pressure.",
+    "affected_inputs": [
+      "P",
+      "B",
+      "S"
+    ],
+    "observable_effect": "During comparable excursions below versus above the effective setpoint, pressure recovery and overshoot damping become unequal: one side shows steeper autonomic recruitment per mmHg than the other, which changes the local curvature of dP_dt versus pressure along the observed trajectory."
+  },
+  "diagnostic_groups": [
+    {
+      "name": "effective_pressure_error",
+      "expression": "P - (pressure_setpoint + B)",
+      "role": "Signed baroreflex error relative to the slowly reset operating point"
+    },
+    {
+      "name": "cardiac_inflow_term",
+      "expression": "cardiac_delivery_baseline + cardiac_delivery_gain*S*exp(-P/cardiac_afterload_pressure_scale)",
+      "role": "Pressure-dependent arterial inflow contributed by baseline and autonomically augmented cardiac delivery"
+    },
+    {
+      "name": "runoff_term",
+      "expression": "P/(peripheral_resistance_baseline + peripheral_resistance_gain*R)",
+      "role": "Peripheral runoff load opposing pressure elevation"
+    }
+  ],
+  "activation_condition": "Observable when trajectories pass through both moderate hypotensive and hypertensive deviations relative to pressure_setpoint+B, with pressure excursions of order baroreflex_pressure_scale so the command nonlinearity is sampled on both sides rather than only infinitesimally near equilibrium.",
+  "train_hidden_contrast": "In training, asymmetric recovery is already visible in transients that traverse the effective setpoint neighborhood; in holdout, larger but still admissible deviations extend the same one-sided steepness difference, revealing curvature that a symmetric one-scale logistic cannot match with one shared parameter set.",
+  "continuation_path": "The child reduces to the parent in the symmetry-restoring limit where the modified pressure-command shape becomes the original logistic with one shared baroreflex_pressure_scale on both sides of the effective setpoint.",
+  "dependent_variable": {
+    "symbol": "dP_dt",
+    "description": "Instantaneous rate of change of mean arterial pressure in millimeters of mercury per second"
+  },
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "description": "Time in seconds"
+    }
+  ],
+  "state_variables": [
+    {
+      "symbol": "P",
+      "description": "Mean arterial pressure in millimeters of mercury"
+    },
+    {
+      "symbol": "S",
+      "description": "Normalized autonomic vasomotor drive, with zero representing minimal drive and one representing maximal drive"
+    },
+    {
+      "symbol": "R",
+      "description": "Lagged vascular resistance recruitment effector driven by autonomic vasomotor command"
+    },
+    {
+      "symbol": "B",
+      "description": "Slow baroreflex resetting state that shifts the effective pressure setpoint toward recently experienced pressure"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "cardiac_delivery_baseline",
+      "description": "Cardiac delivery at minimal autonomic drive, constrained to be nonnegative"
+    },
+    {
+      "symbol": "cardiac_delivery_gain",
+      "description": "Increase in cardiac delivery per unit autonomic drive, constrained to be nonnegative"
+    },
+    {
+      "symbol": "peripheral_resistance_baseline",
+      "description": "Peripheral resistance at minimal autonomic drive, constrained to be positive"
+    },
+    {
+      "symbol": "peripheral_resistance_gain",
+      "description": "Resistance recruitment gain multiplying the vascular effector, constrained to be nonnegative"
+    },
+    {
+      "symbol": "arterial_compliance",
+      "description": "Effective arterial compliance, constrained to be positive"
+    },
+    {
+      "symbol": "pressure_setpoint",
+      "description": "Baseline pressure at which the autonomic feedback command equals one half before resetting"
+    },
+    {
+      "symbol": "baroreflex_pressure_scale",
+      "description": "Positive pressure scale controlling baseline baroreflex sensitivity"
+    },
+    {
+      "symbol": "autonomic_time_constant",
+      "description": "Positive time constant for autonomic adjustment in seconds"
+    },
+    {
+      "symbol": "vascular_saturation_scale",
+      "description": "Positive saturation scale controlling how quickly vasomotor resistance recruitment flattens with autonomic drive"
+    },
+    {
+      "symbol": "vascular_time_constant",
+      "description": "Positive time constant for vascular smooth-muscle resistance recruitment in seconds"
+    },
+    {
+      "symbol": "cardiac_afterload_pressure_scale",
+      "description": "Positive pressure scale for afterload-induced attenuation of autonomic cardiac delivery effectiveness"
+    },
+    {
+      "symbol": "baroreflex_resetting_gain",
+      "description": "Dimensionless gain controlling how strongly recent pressure exposure shifts the effective baroreflex setpoint"
+    },
+    {
+      "symbol": "baroreflex_resetting_time_constant",
+      "description": "Positive time constant for slow baroreflex resetting in seconds"
+    },
+    {
+      "symbol": "baroreflex_asymmetry_gain",
+      "description": "Dimensionless coefficient making baroreflex pressure sensitivity increase or decrease with signed pressure error, creating asymmetric command steepness about the effective setpoint"
+    }
+  ]
+}

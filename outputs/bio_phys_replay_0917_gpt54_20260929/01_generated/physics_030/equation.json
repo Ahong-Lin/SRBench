@@ -1,0 +1,395 @@
+{
+  "base_id": "m2_statistical_mechanics_and_thermodynamics_20282741_000",
+  "generation": 5,
+  "operation": "change_assumption",
+  "model_family": "ode",
+  "equation_type": "ode_system",
+  "target_symbol": "dT_h_dt",
+  "expression": "-k_internal_hot*(T_h - T_h_interface)/(heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h/(hot_capacity_temp_scale + T_h)))",
+  "symbols": [
+    "dT_h_dt",
+    "t",
+    "T_h",
+    "T_c",
+    "g_contact",
+    "T_h_interface",
+    "contact_conductance",
+    "heat_capacity_h",
+    "heat_capacity_c",
+    "conductance_contrast_coeff",
+    "contact_adjustment_time",
+    "hot_capacity_temp_coeff",
+    "hot_capacity_temp_scale",
+    "cold_capacity_temp_coeff",
+    "cold_capacity_temp_scale",
+    "k_internal_hot",
+    "hot_interface_capacity_fraction"
+  ],
+  "symbol_descriptions": [
+    "Time derivative of the temperature of the body that is initially hotter",
+    "time",
+    "Uniform bulk temperature of the body that is initially hotter",
+    "Uniform temperature of the body that is initially colder",
+    "Effective thermal contact conductance that relaxes toward its contrast-dependent preferred value",
+    "Near-contact subregion temperature inside the initially hotter body",
+    "Baseline thermal contact conductance between the two bodies at small temperature contrast",
+    "Reference total heat capacity of the initially hotter body at low temperature",
+    "Reference total heat capacity of the initially colder body at low temperature",
+    "Sensitivity of preferred contact conductance to the instantaneous temperature difference magnitude",
+    "Relaxation time for the interfacial conductance to approach its contrast-dependent preferred value",
+    "Dimensionless amplitude of the hotter body's heat-capacity increase with temperature",
+    "Temperature scale setting saturation of the hotter body's heat-capacity variation",
+    "Dimensionless amplitude of the colder body's heat-capacity increase with temperature",
+    "Temperature scale setting saturation of the colder body's heat-capacity variation",
+    "Internal thermal conductance coupling the hotter body's near-contact subregion to its bulk",
+    "Fraction of the hotter body's reference heat capacity assigned to the near-contact subregion"
+  ],
+  "symbol_properties": [
+    "O",
+    "V",
+    "S",
+    "S",
+    "S",
+    "S",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P"
+  ],
+  "new_symbol_range_suggestions": {
+    "T_h_interface": "[300, 420]",
+    "k_internal_hot": "(0, 1000]",
+    "hot_interface_capacity_fraction": "(0, 1)"
+  },
+  "derivation_notes": "The hotter body is refined from a perfectly lumped node into a bulk node and a finite-capacity near-contact subregion linked by internal thermal conductance. The new state is initialized equal to the original hot-body temperature so the refinement starts from the parent's internally equilibrated preparation, after which interfacial extraction can transiently cool the interface faster than the bulk.",
+  "change_summary": "The parent's single-phase bulk cooling law is replaced by a two-stage transfer in the hotter body: heat first leaves a near-contact hot subregion to the colder body, then the observed bulk T_h relaxes toward that subregion. This adds physically motivated memory and changes the curvature of dT_h_dt during transients without altering the external isolation setup.",
+  "assumption_audit": {
+    "released_assumption": "Each body remains spatially uniform in temperature.",
+    "outcome": "state_augmentation",
+    "quantity": "T_h_interface",
+    "quantity_role": "internal_state",
+    "mechanism": "Finite internal thermal resistance within the initially hotter body creates a near-contact subregion that can cool faster than the bulk, introducing transient buffering between interfacial heat extraction and the observed bulk temperature response.",
+    "reference_condition": {},
+    "parent_reduction": "The successor reduces to the parent in the fast-internal-equilibration limit k_internal_hot -> oo or whenever T_h_interface = T_h along the trajectory, so the added internal state is slaved to the bulk hot temperature."
+  },
+  "add_term_audit": null,
+  "evolution_contract": {
+    "operation": "change_assumption",
+    "parent_shortcut": "single_phase",
+    "response_change": {
+      "type": "curvature_change",
+      "parent_relation": "The target maps the observed state pair (T_h, T_c) and conductance state g_contact to dT_h_dt through a single interfacial heat-flow pathway proportional to (T_h - T_c), with all transferred energy immediately and uniformly mixed into each body.",
+      "child_relation": "Retain the same contrast-driven heat-flow pathway but relax the assumption of instantaneous internal equilibration in the hotter body by introducing a finite internal thermalization state that buffers incoming/outgoing heat before the bulk T_h responds, so the cooling rate depends not only on the present contrast but also on the internal lag state.",
+      "affected_inputs": [
+        "T_h",
+        "T_c",
+        "g_contact"
+      ],
+      "observable_effect": "For runs with similar instantaneous (T_h - T_c) and similar g_contact during the transient, the hotter-body cooling rate can be temporarily smaller in magnitude early and then larger later than the parent predicts because some extracted interfacial heat is first supplied from a hotter near-contact region before the bulk temperature fully follows."
+    },
+    "diagnostic_groups": [
+      {
+        "name": "delta_T",
+        "expression": "T_h - T_c",
+        "role": "Driving temperature contrast across the contact"
+      },
+      {
+        "name": "C_h_eff",
+        "expression": "heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h/(hot_capacity_temp_scale + T_h))",
+        "role": "Current effective bulk heat capacity of the initially hotter body"
+      },
+      {
+        "name": "q_contact_over_Ch",
+        "expression": "g_contact*(T_h - T_c)/(heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h/(hot_capacity_temp_scale + T_h)))",
+        "role": "Parent bulk cooling-rate scale from the contact flux"
+      }
+    ],
+    "activation_condition": "Most visible when the hotter body internally equilibrates on a timescale comparable to or slower than the contact-adjustment and bulk cooling timescales, so an internal temperature lag can persist during the observed transient; weak when internal equilibration is much faster than heat exchange.",
+    "train_hidden_contrast": "Within training, the same mechanism appears as early-time suppression of |dT_h_dt| followed by mid-transient catch-up at moderate to large temperature contrast; in holdout with stronger contrast or faster contact transfer, the same lag produces more pronounced curvature changes in the T_h trajectory and thus in the target mapping.",
+    "continuation_path": "Recover the parent law in the limit of vanishing internal equilibration time or vanishing internal temperature split in the hotter body, where the added internal state remains slaved to T_h and the bulk stays effectively uniform.",
+    "freedom_change": "add_state",
+    "promoted_symbol": null,
+    "promotion_reason": "A finite internal thermalization lag is a dynamical memory effect and cannot be represented by refitting existing static parameters or the existing conductance state alone; it requires one additional state to store the hotter body's internal nonequilibrium.",
+    "scope_kind": "memory",
+    "scope_symbols": [
+      "T_h",
+      "T_c",
+      "g_contact",
+      "T_h_interface"
+    ],
+    "structural_role": "feedback",
+    "domain_mechanism_id": "",
+    "domain_mechanism": "Internal thermal buffering inside the hotter body",
+    "scientific_mechanism": "Finite internal thermal resistance within the initially hotter body creates a near-contact subregion that can cool faster than the bulk, introducing transient buffering between interfacial heat extraction and the observed bulk temperature response.",
+    "embedding_pattern": "nested_nonlinearity",
+    "difficulty_rationale": "This is harder than a coefficient-only correction because the target derivative now depends on a hidden lag state whose evolution is itself driven by the contrast-dependent contact flow and a temperature-dependent heat-capacity nonlinearity. The mapping from observed temperatures to dT_h_dt is therefore no longer a single instantaneous phase law but a history-dependent two-stage transport balance.",
+    "taxonomy_match": "provisional",
+    "assumption_before": "Each body remains spatially uniform in temperature.",
+    "assumption_after": "The initially hotter body contains a finite-capacity near-contact subregion that can deviate transiently from the observed bulk temperature and exchange heat with it through a finite internal conductance.",
+    "before_fragment": "-g_contact*(T_h - T_c)/(heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h/(hot_capacity_temp_scale + T_h)))",
+    "after_fragment": "-k_internal_hot*(T_h - T_h_interface)/(heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h/(hot_capacity_temp_scale + T_h)))",
+    "parent_reduction": "The parent is recovered when k_internal_hot is large enough that T_h_interface tracks T_h quasi-instantly, with the interface-capacity split becoming dynamically irrelevant so the hotter body remains effectively uniform.",
+    "observable_signature": "At fixed observed T_h, T_c, and g_contact, trajectories with a residual T_h_interface > T_h show weaker instantaneous bulk cooling than the parent early in the transient, followed later by stronger bulk cooling as the internal lag relaxes. This is a changed target mapping, not merely an auxiliary-state change, because dT_h_dt directly depends on T_h_interface rather than solely on the supplied observed pair and conductance state.",
+    "shortcut_blocked": "A single parent parameter set cannot reproduce this across conditions because any refit of heat_capacity_h, hot_capacity_temp_coeff, hot_capacity_temp_scale, or the conductance-law parameters still yields one instantaneous mapping from (T_h, T_c, g_contact) to dT_h_dt. The child permits two different cooling rates at the same observed (T_h, T_c, g_contact) depending on internal lag history, so coefficient retuning alone cannot generate the early suppression and later catch-up pattern over the same admissible trajectories."
+  },
+  "dimension_track": null,
+  "mechanism_profile": {
+    "allowed_structural_roles": [
+      "contribution",
+      "response_law",
+      "modulation",
+      "interaction",
+      "constraint",
+      "transition",
+      "feedback",
+      "heterogeneity",
+      "timescale",
+      "transport_balance"
+    ],
+    "preferred_scopes": [
+      "unary",
+      "pairwise",
+      "state_coupling",
+      "time_forcing"
+    ],
+    "domain_mechanisms": [
+      {
+        "id": "nonlinear_constitutive_response",
+        "description": "nonlinear constitutive or response law",
+        "operations": [
+          "add_term",
+          "change_assumption"
+        ]
+      },
+      {
+        "id": "coupled_field_or_force",
+        "description": "coupling to an already declared field, force, or state",
+        "operations": [
+          "add_term"
+        ]
+      },
+      {
+        "id": "finite_relaxation_or_threshold",
+        "description": "finite response time or physical threshold",
+        "operations": [
+          "change_assumption"
+        ]
+      }
+    ],
+    "profile_source": "subject_fallback",
+    "ontology_schema_version": "1.0",
+    "taxonomy_schema_version": "1.0"
+  },
+  "evolution_plan": {
+    "operation": "change_assumption",
+    "parent_shortcut": "single_phase",
+    "response_change": {
+      "type": "curvature_change",
+      "parent_relation": "The target maps the observed state pair (T_h, T_c) and conductance state g_contact to dT_h_dt through a single interfacial heat-flow pathway proportional to (T_h - T_c), with all transferred energy immediately and uniformly mixed into each body.",
+      "child_relation": "Retain the same contrast-driven heat-flow pathway but relax the assumption of instantaneous internal equilibration in the hotter body by introducing a finite internal thermalization state that buffers incoming/outgoing heat before the bulk T_h responds, so the cooling rate depends not only on the present contrast but also on the internal lag state.",
+      "affected_inputs": [
+        "T_h",
+        "T_c",
+        "g_contact"
+      ],
+      "observable_effect": "For runs with similar instantaneous (T_h - T_c) and similar g_contact during the transient, the hotter-body cooling rate can be temporarily smaller in magnitude early and then larger later than the parent predicts because some extracted interfacial heat is first supplied from a hotter near-contact region before the bulk temperature fully follows."
+    },
+    "diagnostic_groups": [
+      {
+        "name": "delta_T",
+        "expression": "T_h - T_c",
+        "role": "Driving temperature contrast across the contact"
+      },
+      {
+        "name": "C_h_eff",
+        "expression": "heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h/(hot_capacity_temp_scale + T_h))",
+        "role": "Current effective bulk heat capacity of the initially hotter body"
+      },
+      {
+        "name": "q_contact_over_Ch",
+        "expression": "g_contact*(T_h - T_c)/(heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h/(hot_capacity_temp_scale + T_h)))",
+        "role": "Parent bulk cooling-rate scale from the contact flux"
+      }
+    ],
+    "activation_condition": "Most visible when the hotter body internally equilibrates on a timescale comparable to or slower than the contact-adjustment and bulk cooling timescales, so an internal temperature lag can persist during the observed transient; weak when internal equilibration is much faster than heat exchange.",
+    "train_hidden_contrast": "Within training, the same mechanism appears as early-time suppression of |dT_h_dt| followed by mid-transient catch-up at moderate to large temperature contrast; in holdout with stronger contrast or faster contact transfer, the same lag produces more pronounced curvature changes in the T_h trajectory and thus in the target mapping.",
+    "continuation_path": "Recover the parent law in the limit of vanishing internal equilibration time or vanishing internal temperature split in the hotter body, where the added internal state remains slaved to T_h and the bulk stays effectively uniform.",
+    "freedom_change": "add_state",
+    "promoted_symbol": null,
+    "promotion_reason": "A finite internal thermalization lag is a dynamical memory effect and cannot be represented by refitting existing static parameters or the existing conductance state alone; it requires one additional state to store the hotter body's internal nonequilibrium.",
+    "gap_statement": "The current model still assumes the initially hotter body remains perfectly lumped internally even while allowing dynamic contact conductance and temperature-dependent heat capacity.",
+    "baseline_assumption": "Each body remains spatially uniform in temperature.",
+    "scientific_mechanism": "Finite internal thermal resistance within the initially hotter body creates a near-contact subregion that can cool faster than the bulk, introducing transient buffering between interfacial heat extraction and the observed bulk temperature response.",
+    "affected_symbols": [
+      "T_h",
+      "T_c",
+      "g_contact",
+      "heat_capacity_h",
+      "hot_capacity_temp_coeff",
+      "hot_capacity_temp_scale"
+    ],
+    "rationale": "A realistic next refinement is to relax the hotter body's perfect internal mixing assumption while preserving isolation and heat-flow direction. The parent target relation is effectively single-phase: once T_h, T_c, and g_contact are known, the hotter-body cooling rate is fixed by one instantaneous bulk balance. Vary the ratio of internal equilibration time in the hotter body to the contact-driven cooling time, while holding the existing heat capacities, conductance law, and initial temperatures fixed. Under admissible conditions where internal thermalization is not much faster than the experiment, the child predicts a different dT_h_dt-versus-(T_h, T_c, g_contact) curvature: early in the run the observed bulk T_h cools more slowly than the parent because the contact mainly drains a hotter near-interface region, and later the bulk catches up as that internal gradient relaxes. A single refit of existing parent parameters cannot reproduce this transient phase-lag pattern across conditions, because changing heat capacity or conductance only rescales or smoothly retimes the same one-phase mapping rather than introducing state-dependent memory at fixed observed T_h, T_c, and g_contact. The effect is scientifically admissible only when internal gradients remain moderate so both absolute temperatures stay nonnegative and bounded, and it disappears in the fast-internal-equilibration limit, which cleanly recovers the parent."
+  },
+  "selected_embedding_pattern": {
+    "description": "Combine declared quantities before applying a nonlinear map, such as relative speed followed by quadratic drag.",
+    "difficulty_level": 8,
+    "operations": [
+      "add_term",
+      "change_assumption"
+    ],
+    "model_families": [
+      "static",
+      "ode"
+    ],
+    "minimum_active_quantities": 2,
+    "weight": 8,
+    "id": "nested_nonlinearity"
+  },
+  "ode_system": {
+    "time_symbol": "t",
+    "target_state": "T_h",
+    "states": [
+      {
+        "symbol": "T_h",
+        "rhs": "-k_internal_hot*(T_h - T_h_interface)/(heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h/(hot_capacity_temp_scale + T_h)))",
+        "initial_condition": 370.0,
+        "description": "Uniform bulk temperature of the body that is initially hotter"
+      },
+      {
+        "symbol": "T_c",
+        "rhs": "g_contact*(T_h_interface - T_c)/(heat_capacity_c*(1 + cold_capacity_temp_coeff*T_c/(cold_capacity_temp_scale + T_c)))",
+        "initial_condition": 275.0,
+        "description": "Uniform temperature of the body that is initially colder"
+      },
+      {
+        "symbol": "g_contact",
+        "rhs": "(contact_conductance*(1 + conductance_contrast_coeff*Abs(T_h_interface - T_c)) - g_contact)/contact_adjustment_time",
+        "initial_condition": 370.0,
+        "description": "Effective thermal contact conductance that relaxes toward its contrast-dependent preferred value"
+      },
+      {
+        "symbol": "T_h_interface",
+        "rhs": "(k_internal_hot*(T_h - T_h_interface) - g_contact*(T_h_interface - T_c)/hot_interface_capacity_fraction)/(heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h_interface/(hot_capacity_temp_scale + T_h_interface)))",
+        "initial_condition": 370.0,
+        "description": "Near-contact subregion temperature inside the initially hotter body"
+      }
+    ]
+  },
+  "scenario_text": "Two finite, internally equilibrated bodies begin at different uniform temperatures and exchange heat through a fixed thermal contact while remaining isolated from their surroundings. Their temperatures evolve jointly as energy is transferred from the hotter body to the colder body. The benchmark targets the instantaneous cooling rate of the initially hotter body over the full approach to mutual equilibrium. Heat capacities and contact conductance are fixed properties of the experimental setup.",
+  "freedom_change": "add_state",
+  "promoted_symbol": null,
+  "promotion_reason": "A finite internal thermalization lag is a dynamical memory effect and cannot be represented by refitting existing static parameters or the existing conductance state alone; it requires one additional state to store the hotter body's internal nonequilibrium.",
+  "parent_shortcut": "single_phase",
+  "response_change": {
+    "type": "curvature_change",
+    "parent_relation": "The target maps the observed state pair (T_h, T_c) and conductance state g_contact to dT_h_dt through a single interfacial heat-flow pathway proportional to (T_h - T_c), with all transferred energy immediately and uniformly mixed into each body.",
+    "child_relation": "Retain the same contrast-driven heat-flow pathway but relax the assumption of instantaneous internal equilibration in the hotter body by introducing a finite internal thermalization state that buffers incoming/outgoing heat before the bulk T_h responds, so the cooling rate depends not only on the present contrast but also on the internal lag state.",
+    "affected_inputs": [
+      "T_h",
+      "T_c",
+      "g_contact"
+    ],
+    "observable_effect": "For runs with similar instantaneous (T_h - T_c) and similar g_contact during the transient, the hotter-body cooling rate can be temporarily smaller in magnitude early and then larger later than the parent predicts because some extracted interfacial heat is first supplied from a hotter near-contact region before the bulk temperature fully follows."
+  },
+  "diagnostic_groups": [
+    {
+      "name": "delta_T",
+      "expression": "T_h - T_c",
+      "role": "Driving temperature contrast across the contact"
+    },
+    {
+      "name": "C_h_eff",
+      "expression": "heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h/(hot_capacity_temp_scale + T_h))",
+      "role": "Current effective bulk heat capacity of the initially hotter body"
+    },
+    {
+      "name": "q_contact_over_Ch",
+      "expression": "g_contact*(T_h - T_c)/(heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h/(hot_capacity_temp_scale + T_h)))",
+      "role": "Parent bulk cooling-rate scale from the contact flux"
+    }
+  ],
+  "activation_condition": "Most visible when the hotter body internally equilibrates on a timescale comparable to or slower than the contact-adjustment and bulk cooling timescales, so an internal temperature lag can persist during the observed transient; weak when internal equilibration is much faster than heat exchange.",
+  "train_hidden_contrast": "Within training, the same mechanism appears as early-time suppression of |dT_h_dt| followed by mid-transient catch-up at moderate to large temperature contrast; in holdout with stronger contrast or faster contact transfer, the same lag produces more pronounced curvature changes in the T_h trajectory and thus in the target mapping.",
+  "continuation_path": "Recover the parent law in the limit of vanishing internal equilibration time or vanishing internal temperature split in the hotter body, where the added internal state remains slaved to T_h and the bulk stays effectively uniform.",
+  "dependent_variable": {
+    "symbol": "dT_h_dt",
+    "description": "Time derivative of the temperature of the body that is initially hotter"
+  },
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "description": "time"
+    }
+  ],
+  "state_variables": [
+    {
+      "symbol": "T_h",
+      "description": "Uniform bulk temperature of the body that is initially hotter"
+    },
+    {
+      "symbol": "T_c",
+      "description": "Uniform temperature of the body that is initially colder"
+    },
+    {
+      "symbol": "g_contact",
+      "description": "Effective thermal contact conductance that relaxes toward its contrast-dependent preferred value"
+    },
+    {
+      "symbol": "T_h_interface",
+      "description": "Near-contact subregion temperature inside the initially hotter body"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "contact_conductance",
+      "description": "Baseline thermal contact conductance between the two bodies at small temperature contrast"
+    },
+    {
+      "symbol": "heat_capacity_h",
+      "description": "Reference total heat capacity of the initially hotter body at low temperature"
+    },
+    {
+      "symbol": "heat_capacity_c",
+      "description": "Reference total heat capacity of the initially colder body at low temperature"
+    },
+    {
+      "symbol": "conductance_contrast_coeff",
+      "description": "Sensitivity of preferred contact conductance to the instantaneous temperature difference magnitude"
+    },
+    {
+      "symbol": "contact_adjustment_time",
+      "description": "Relaxation time for the interfacial conductance to approach its contrast-dependent preferred value"
+    },
+    {
+      "symbol": "hot_capacity_temp_coeff",
+      "description": "Dimensionless amplitude of the hotter body's heat-capacity increase with temperature"
+    },
+    {
+      "symbol": "hot_capacity_temp_scale",
+      "description": "Temperature scale setting saturation of the hotter body's heat-capacity variation"
+    },
+    {
+      "symbol": "cold_capacity_temp_coeff",
+      "description": "Dimensionless amplitude of the colder body's heat-capacity increase with temperature"
+    },
+    {
+      "symbol": "cold_capacity_temp_scale",
+      "description": "Temperature scale setting saturation of the colder body's heat-capacity variation"
+    },
+    {
+      "symbol": "k_internal_hot",
+      "description": "Internal thermal conductance coupling the hotter body's near-contact subregion to its bulk"
+    },
+    {
+      "symbol": "hot_interface_capacity_fraction",
+      "description": "Fraction of the hotter body's reference heat capacity assigned to the near-contact subregion"
+    }
+  ]
+}

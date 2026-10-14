@@ -1,0 +1,249 @@
+{
+  "equation_type": "explicit",
+  "integrator": "evaluate_explicit",
+  "dependent_variable": "A",
+  "independent_variables": [
+    {
+      "symbol": "L",
+      "range": [
+        0.03,
+        30.0
+      ],
+      "n_points": 180,
+      "scale": "log"
+    },
+    {
+      "symbol": "R_tot",
+      "range": [
+        0.1,
+        4.0
+      ],
+      "n_points": 120,
+      "scale": "linear"
+    },
+    {
+      "symbol": "E",
+      "range": [
+        0.0,
+        2.0
+      ],
+      "n_points": 60,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "K_d",
+      "value": 1.0
+    },
+    {
+      "symbol": "k_activation",
+      "value": 0.9
+    },
+    {
+      "symbol": "k_deactivation",
+      "value": 0.7
+    },
+    {
+      "symbol": "alpha_R",
+      "value": 0.4
+    },
+    {
+      "symbol": "beta_cluster",
+      "value": 0.7
+    },
+    {
+      "symbol": "k_crowding",
+      "value": 0.35
+    },
+    {
+      "symbol": "gamma_env",
+      "value": 0.25
+    },
+    {
+      "symbol": "eta_hetero",
+      "value": 0.6
+    },
+    {
+      "symbol": "delta_cluster",
+      "value": 1.2
+    }
+  ],
+  "benchmark_output": null,
+  "benchmark_target_state": null,
+  "observed_variables": [],
+  "rhs_for_integrator": "(k_activation*(1 + gamma_env*E*alpha_R*R_tot)*(((1 - eta_hetero*(alpha_R*R_tot)/(1 + alpha_R*R_tot))*L**(1 + beta_cluster*alpha_R*R_tot))/((K_d*(1 + alpha_R*R_tot))**(1 + beta_cluster*alpha_R*R_tot) + L**(1 + beta_cluster*alpha_R*R_tot)) + (eta_hetero*(alpha_R*R_tot)/(1 + alpha_R*R_tot))*L**(1 + beta_cluster*alpha_R*R_tot + delta_cluster)/(K_d**(1 + beta_cluster*alpha_R*R_tot + delta_cluster) + L**(1 + beta_cluster*alpha_R*R_tot + delta_cluster))))/(k_activation + k_deactivation + k_crowding*alpha_R*R_tot)",
+  "state_variables": [],
+  "state_rhs": [],
+  "initial_conditions": {},
+  "sanity_expectations": [
+    "A is finite, real, and nonnegative throughout the sampled domain for the chosen parameter set.",
+    "At fixed R_tot and E, A increases monotonically with L and approaches a saturating plateau rather than diverging.",
+    "At low receptor abundance (R_tot near 0.1), changing E from 0 to 2 produces only a small change in A because the environmental factor enters as 1 + gamma_env*E*alpha_R*R_tot.",
+    "At moderate/high receptor abundance (R_tot around 2 to 4) and intermediate ligand (L around K_d), changing E from 0 to 2 produces a visibly larger upward shift in A than at low R_tot.",
+    "Comparing low and high R_tot at the same intermediate L, activity does not simply scale uniformly: higher R_tot changes threshold/steepness through the occupancy terms while crowding partially suppresses productive activation, so equal-L points separate in a nontrivial way.",
+    "The ligand-response curve versus L is not a single-phase shared Hill curve across R_tot: higher R_tot should show stronger sub-K_d activity and altered mid-range curvature, consistent with the heterogeneous second channel.",
+    "Setting E=0 would remove the context modulation, and taking eta_hetero near 0 or delta_cluster near 0 would collapse the extra heterogeneity effect toward the simpler parent-like behavior; the chosen dataset intentionally avoids those recovery limits."
+  ],
+  "role_corrections": [
+    "A: claimed-output/target derivative -> dependent_variable (confirmed: explicit algebraic target solved for A, no derivatives present)",
+    "L: claimed-input/time axis -> independent_variable (confirmed as sampled input axis in explicit static relation; not a time axis)",
+    "R_tot: claimed-input/time axis -> independent_variable (confirmed as sampled input axis in explicit static relation; not a time axis)",
+    "E: claimed-input/time axis -> independent_variable (confirmed as sampled input axis in explicit static relation; not a time axis and must be preserved as varied input under freedom_change=none)",
+    "K_d: claimed-parameter -> parameter (confirmed)",
+    "k_activation: claimed-parameter -> parameter (confirmed)",
+    "k_deactivation: claimed-parameter -> parameter (confirmed)",
+    "alpha_R: claimed-parameter -> parameter (confirmed)",
+    "beta_cluster: claimed-parameter -> parameter (confirmed)",
+    "k_crowding: claimed-parameter -> parameter (confirmed)",
+    "gamma_env: claimed-parameter -> parameter (confirmed)",
+    "eta_hetero: claimed-parameter -> parameter (confirmed)",
+    "delta_cluster: claimed-parameter -> parameter (confirmed)"
+  ],
+  "rationale": "Structure check shows a purely explicit static expression with no derivatives, integrals, delays, or hidden state variables, so the correct type is explicit and the target is A. Because the record has freedom_change=none, the declared sampled inputs L, R_tot, and E are preserved as independent variables rather than reclassified as fixed coefficients. Parameter choices are chosen to expose the intended mechanisms without pushing the system into singular or recovery limits: K_d=1 centers the ligand transition, L spans about 0.03 to 30 on a log scale so data include sub-K_d, near-threshold, and super-K_d regimes; R_tot spans 0.1 to 4 so alpha_R*R_tot ranges about 0.04 to 1.6, enough for receptor-density effects to be weak at low abundance and clearly visible at moderate/high abundance; E spans 0 to 2 so the environmental modulation is absent at one edge and moderate at the other. With alpha_R=0.4 and beta_cluster=0.7, the effective exponent 1+beta_cluster*alpha_R*R_tot ranges from about 1.03 to 2.12, giving visible receptor-dependent steepening. k_crowding=0.35 makes the productive activation denominator increase with receptor abundance, creating the occupancy-activity decoupling at larger R_tot without overwhelming activation. gamma_env=0.25 keeps 1+gamma_env*E*alpha_R*R_tot positive and moderate (up to about 1.8), so context effects are visible mainly when receptor abundance is appreciable, matching the recorded distinguishing condition. The heterogeneity terms use the provided biologically sensible hints: eta_hetero=0.6 keeps the clustered-subpopulation weight below 1 because eta_hetero*(alpha_R*R_tot)/(1+alpha_R*R_tot) stays below about 0.37 over the chosen range, and delta_cluster=1.2 provides a distinct higher-avidity/high-steepness channel without numerical instability. These settings do not force equal contributions: the heterogeneous channel is weak at low R_tot and becomes moderate at higher R_tot, which is exactly where the mechanism should emerge. Representative substitutions were checked and remained finite and real.",
+  "coverage_report": {},
+  "inactive_mechanisms": [],
+  "target_variance": {},
+  "parent_absorption_report": {},
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_dUxtN9xVig6JtaIhBEnS638P"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "A - (k_activation*(1 + gamma_env*E*alpha_R*R_tot)*(((1 - eta_hetero*(alpha_R*R_tot)/(1 + alpha_R*R_tot))*L**(1 + beta_cluster*alpha_R*R_tot))/((K_d*(1 + alpha_R*R_tot))**(1 + beta_cluster*alpha_R*R_tot) + L**(1 + beta_cluster*alpha_R*R_tot)) + (eta_hetero*(alpha_R*R_tot)/(1 + alpha_R*R_tot))*L**(1 + beta_cluster*alpha_R*R_tot + delta_cluster)/(K_d**(1 + beta_cluster*alpha_R*R_tot + delta_cluster) + L**(1 + beta_cluster*alpha_R*R_tot + delta_cluster))))/(k_activation + k_deactivation + k_crowding*alpha_R*R_tot)",
+        "target_symbol": "A"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "A",
+          "E",
+          "K_d",
+          "L",
+          "R_tot",
+          "alpha_R",
+          "beta_cluster",
+          "delta_cluster",
+          "eta_hetero",
+          "gamma_env",
+          "k_activation",
+          "k_crowding",
+          "k_deactivation"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "k_activation*(-E*K_d**(R_tot*alpha_R*beta_cluster + delta_cluster + 1)*L**(R_tot*alpha_R*beta_cluster + 1)*R_tot**3*alpha_R**3*eta_hetero*gamma_env + E*K_d**(R_tot*alpha_R*beta_cluster + delta_cluster + 1)*L**(R_tot*alpha_R*beta_cluster + 1)*R_tot**3*alpha_R**3*gamma_env - E*K_d**(R_tot*alpha_R*beta_cluster + delta_cluster + 1)*L**(R_tot*alpha_R*beta_cluster + 1)*R_tot**2*alpha_R**2*eta_hetero*gamma_env + 2*E*K_d**(R_tot*alpha_R*beta_cluster + delta_cluster + 1)*L**(R_tot*alpha_R*beta_cluster + 1)*R_tot**2*alpha_R**2*gamma_env + E*K_d**(R_tot*alpha_R*beta_cluster + delta_cluster + 1)*L**(R_tot*alpha_R*beta_cluster + 1)*R_tot*alpha_R*gamma_env + E*L**(R_tot*alpha_R*beta_cluster + delta_cluster + 1)*R_tot**3*alpha_R**3*eta_hetero*gamma_env*(K_d*(R_tot*alpha_R + 1))**(R_tot*alpha_R*beta_cluster + 1) + E*L**(R_tot*alpha_R*beta_cluster + delta_cluster + 1)*R_tot**2*alpha_R**2*eta_hetero*gamma_env*(K_d*(R_tot*alpha_R + 1))**(R_tot*alpha_R*beta_cluster + 1) + E*L**(2*R_tot*alpha_R*beta_cluster + delta_cluster + 2)*R_tot**3*alpha_R**3*gamma_env + 2*E*L**(2*R_tot*alpha_R*beta_cluster + delta_cluster + 2)*R_tot**2*alpha_R**2*gamma_env + E*L**(2*R_tot*alpha_R*beta_cluster + delta_cluster + 2)*R_tot*alpha_R*gamma_env - K_d**(R_tot*alpha_R*beta_cluster + delta_cluster + 1)*L**(R_tot*alpha_R*beta_cluster + 1)*R_tot**2*alpha_R**2*eta_hetero + K_d**(R_tot*alpha_R*beta_cluster + delta_cluster + 1)*L**(R_tot*alpha_R*beta_cluster + 1)*R_tot**2*alpha_R**2 - K_d**(R_tot*alpha_R*beta_cluster + delta_cluster + 1)*L**(R_tot*alpha_R*beta_cluster + 1)*R_tot*alpha_R*eta_hetero + 2*K_d**(R_tot*alpha_R*beta_cluster + delta_cluster + 1)*L**(R_tot*alpha_R*beta_cluster + 1)*R_tot*alpha_R + K_d**(R_tot*alpha_R*beta_cluster + delta_cluster + 1)*L**(R_tot*alpha_R*beta_cluster + 1) + L**(R_tot*alpha_R*beta_cluster + delta_cluster + 1)*R_tot**2*alpha_R**2*eta_hetero*(K_d*(R_tot*alpha_R + 1))**(R_tot*alpha_R*beta_cluster + 1) + L**(R_tot*alpha_R*beta_cluster + delta_cluster + 1)*R_tot*alpha_R*eta_hetero*(K_d*(R_tot*alpha_R + 1))**(R_tot*alpha_R*beta_cluster + 1) + L**(2*R_tot*alpha_R*beta_cluster + delta_cluster + 2)*R_tot**2*alpha_R**2 + 2*L**(2*R_tot*alpha_R*beta_cluster + delta_cluster + 2)*R_tot*alpha_R + L**(2*R_tot*alpha_R*beta_cluster + delta_cluster + 2))/((R_tot*alpha_R + 1)**2*(K_d**(R_tot*alpha_R*beta_cluster + delta_cluster + 1)*L**(R_tot*alpha_R*beta_cluster + 1)*R_tot*alpha_R*k_crowding + K_d**(R_tot*alpha_R*beta_cluster + delta_cluster + 1)*L**(R_tot*alpha_R*beta_cluster + 1)*k_activation + K_d**(R_tot*alpha_R*beta_cluster + delta_cluster + 1)*L**(R_tot*alpha_R*beta_cluster + 1)*k_deactivation + K_d**(R_tot*alpha_R*beta_cluster + delta_cluster + 1)*R_tot*alpha_R*k_crowding*(K_d*(R_tot*alpha_R + 1))**(R_tot*alpha_R*beta_cluster + 1) + K_d**(R_tot*alpha_R*beta_cluster + delta_cluster + 1)*k_activation*(K_d*(R_tot*alpha_R + 1))**(R_tot*alpha_R*beta_cluster + 1) + K_d**(R_tot*alpha_R*beta_cluster + delta_cluster + 1)*k_deactivation*(K_d*(R_tot*alpha_R + 1))**(R_tot*alpha_R*beta_cluster + 1) + L**(R_tot*alpha_R*beta_cluster + delta_cluster + 1)*R_tot*alpha_R*k_crowding*(K_d*(R_tot*alpha_R + 1))**(R_tot*alpha_R*beta_cluster + 1) + L**(R_tot*alpha_R*beta_cluster + delta_cluster + 1)*k_activation*(K_d*(R_tot*alpha_R + 1))**(R_tot*alpha_R*beta_cluster + 1) + L**(R_tot*alpha_R*beta_cluster + delta_cluster + 1)*k_deactivation*(K_d*(R_tot*alpha_R + 1))**(R_tot*alpha_R*beta_cluster + 1) + L**(2*R_tot*alpha_R*beta_cluster + delta_cluster + 2)*R_tot*alpha_R*k_crowding + L**(2*R_tot*alpha_R*beta_cluster + delta_cluster + 2)*k_activation + L**(2*R_tot*alpha_R*beta_cluster + delta_cluster + 2)*k_deactivation))"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_kDFZ9u2fD0zKa2vBs2P9NsMW"
+        },
+        {
+          "name": "check_substitution",
+          "id": "call_dpFOOYq9New3UkqPiNNLMkub"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "(k_activation*(1 + gamma_env*E*alpha_R*R_tot)*(((1 - eta_hetero*(alpha_R*R_tot)/(1 + alpha_R*R_tot))*L**(1 + beta_cluster*alpha_R*R_tot))/((K_d*(1 + alpha_R*R_tot))**(1 + beta_cluster*alpha_R*R_tot) + L**(1 + beta_cluster*alpha_R*R_tot)) + (eta_hetero*(alpha_R*R_tot)/(1 + alpha_R*R_tot))*L**(1 + beta_cluster*alpha_R*R_tot + delta_cluster)/(K_d**(1 + beta_cluster*alpha_R*R_tot + delta_cluster) + L**(1 + beta_cluster*alpha_R*R_tot + delta_cluster))))/(k_activation + k_deactivation + k_crowding*alpha_R*R_tot)",
+        "target_symbol": "A",
+        "assignments": {
+          "L": 1,
+          "R_tot": 1,
+          "E": 1,
+          "K_d": 1,
+          "k_activation": 1,
+          "k_deactivation": 1,
+          "alpha_R": 0.5,
+          "beta_cluster": 0.8,
+          "k_crowding": 0.5,
+          "gamma_env": 0.3,
+          "eta_hetero": 0.5,
+          "delta_cluster": 1
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": 0.19668364213321468,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "(k_activation*(1 + gamma_env*E*alpha_R*R_tot)*(((1 - eta_hetero*(alpha_R*R_tot)/(1 + alpha_R*R_tot))*L**(1 + beta_cluster*alpha_R*R_tot))/((K_d*(1 + alpha_R*R_tot))**(1 + beta_cluster*alpha_R*R_tot) + L**(1 + beta_cluster*alpha_R*R_tot)) + (eta_hetero*(alpha_R*R_tot)/(1 + alpha_R*R_tot))*L**(1 + beta_cluster*alpha_R*R_tot + delta_cluster)/(K_d**(1 + beta_cluster*alpha_R*R_tot + delta_cluster) + L**(1 + beta_cluster*alpha_R*R_tot + delta_cluster))))/(k_activation + k_deactivation + k_crowding*alpha_R*R_tot)",
+        "target_symbol": "A",
+        "assignments": {
+          "L": 0.05,
+          "R_tot": 4,
+          "E": 2,
+          "K_d": 1,
+          "k_activation": 0.9,
+          "k_deactivation": 0.7,
+          "alpha_R": 0.4,
+          "beta_cluster": 0.7,
+          "k_crowding": 0.35,
+          "gamma_env": 0.25,
+          "eta_hetero": 0.6,
+          "delta_cluster": 1.2
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": 0.00012214058313666249,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_rDaNURHPbpVJ4WJe5EKlv0v0"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 3
+}

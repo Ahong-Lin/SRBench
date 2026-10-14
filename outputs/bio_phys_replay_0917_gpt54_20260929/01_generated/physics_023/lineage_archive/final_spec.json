@@ -1,0 +1,1775 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "V_C",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        0.12
+      ],
+      "n_points": 400,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "source_voltage",
+      "value": 12.0
+    },
+    {
+      "symbol": "resistance",
+      "value": 120.0
+    },
+    {
+      "symbol": "capacitance",
+      "value": 0.001
+    },
+    {
+      "symbol": "leak_conductance",
+      "value": 0.02
+    },
+    {
+      "symbol": "leakage_voltage_scale",
+      "value": 2.5
+    },
+    {
+      "symbol": "capacitance_voltage_nonlinearity",
+      "value": 0.35
+    },
+    {
+      "symbol": "capacitance_voltage_scale",
+      "value": 4.0
+    },
+    {
+      "symbol": "parasitic_inductance",
+      "value": 0.02
+    },
+    {
+      "symbol": "inductive_current_smoothing_scale",
+      "value": 0.12
+    },
+    {
+      "symbol": "thermal_time_constant",
+      "value": 0.25
+    },
+    {
+      "symbol": "thermal_heating_gain",
+      "value": 0.06
+    },
+    {
+      "symbol": "thermal_capacitance_nonlinearity_sensitivity",
+      "value": 0.25
+    },
+    {
+      "symbol": "thermal_leakage_sensitivity",
+      "value": 0.6
+    }
+  ],
+  "benchmark_output": "dV_C_dt",
+  "benchmark_target_state": "V_C",
+  "observed_variables": [
+    "t",
+    "V_C",
+    "I_L",
+    "T_th"
+  ],
+  "rhs_for_integrator": "I_L / (capacitance * (1 + capacitance_voltage_nonlinearity * (1 + thermal_capacitance_nonlinearity_sensitivity * T_th) * tanh(Abs(V_C) / capacitance_voltage_scale))) - leak_conductance * (1 + thermal_leakage_sensitivity * T_th) * V_C * tanh(Abs(V_C) / leakage_voltage_scale) / (capacitance * (1 + capacitance_voltage_nonlinearity * (1 + thermal_capacitance_nonlinearity_sensitivity * T_th) * tanh(Abs(V_C) / capacitance_voltage_scale)))",
+  "state_variables": [
+    "V_C",
+    "I_L",
+    "T_th"
+  ],
+  "state_rhs": [
+    "I_L / (capacitance * (1 + capacitance_voltage_nonlinearity * (1 + thermal_capacitance_nonlinearity_sensitivity * T_th) * tanh(Abs(V_C) / capacitance_voltage_scale))) - leak_conductance * (1 + thermal_leakage_sensitivity * T_th) * V_C * tanh(Abs(V_C) / leakage_voltage_scale) / (capacitance * (1 + capacitance_voltage_nonlinearity * (1 + thermal_capacitance_nonlinearity_sensitivity * T_th) * tanh(Abs(V_C) / capacitance_voltage_scale)))",
+    "(source_voltage - V_C - resistance * I_L * tanh(Abs(I_L) / inductive_current_smoothing_scale)) / parasitic_inductance",
+    "-T_th / thermal_time_constant + thermal_heating_gain * resistance * I_L**2"
+  ],
+  "initial_conditions": {
+    "V_C": 0.0,
+    "I_L": 0.0,
+    "T_th": 0.0
+  },
+  "sanity_expectations": [
+    "At t = 0, V_C(0)=0 and I_L(0)=0 imply dV_C/dt initially equals 0, so the capacitor voltage should start flat and then rise after a short inductive startup rather than jumping immediately into maximal RC slope.",
+    "Because source_voltage > 0 and all initial states are zero, I_L should first increase positive, then later relax as V_C rises and resistive/leakage effects oppose the drive.",
+    "As V_C moves through a few volts, tanh(|V_C|/leakage_voltage_scale) and tanh(|V_C|/capacitance_voltage_scale) should move out of their near-linear regimes, producing visible curvature change beyond a single ideal exponential.",
+    "The trajectory over this window should remain predominantly monotone increasing in V_C, but its late-time slope should be smaller than an ideal leakage-free, temperature-invariant RC charging trace with the same nominal R and C.",
+    "T_th starts at zero and should remain nonnegative, growing only after current flows; thermal effects should therefore be weak very early and more noticeable later in the transient.",
+    "Compared at similar V_C and I_L values reached later in the run, larger T_th should reduce dV_C/dt through both the capacitance denominator and the thermally strengthened leakage factor, giving extra late-time sag rather than an early-time effect."
+  ],
+  "role_corrections": [
+    "dV_C_dt: claimed-output/target derivative -> derivative of dependent state V_C (confirmed by ODE contract context)",
+    "t: claimed-input/time axis -> independent variable/time axis (confirmed)",
+    "V_C: claimed-dynamic state -> dependent variable and dynamic state (confirmed)",
+    "I_L: claimed-dynamic state -> dynamic state, not independent sampled axis (confirmed)",
+    "T_th: claimed-dynamic state -> dynamic state, not independent sampled axis (confirmed)",
+    "source_voltage: claimed-parameter -> parameter (confirmed)",
+    "resistance: claimed-parameter -> parameter (confirmed)",
+    "capacitance: claimed-parameter -> parameter (confirmed)",
+    "leak_conductance: claimed-parameter -> parameter (confirmed)",
+    "leakage_voltage_scale: claimed-parameter -> parameter (confirmed)",
+    "capacitance_voltage_nonlinearity: claimed-parameter -> parameter (confirmed)",
+    "capacitance_voltage_scale: claimed-parameter -> parameter (confirmed)",
+    "parasitic_inductance: claimed-parameter -> parameter (confirmed)",
+    "inductive_current_smoothing_scale: claimed-parameter -> parameter (confirmed)",
+    "thermal_time_constant: claimed-parameter -> parameter (confirmed)",
+    "thermal_heating_gain: claimed-parameter -> parameter (confirmed)",
+    "thermal_capacitance_nonlinearity_sensitivity: claimed-parameter -> parameter (confirmed)",
+    "thermal_leakage_sensitivity: claimed-parameter -> parameter (confirmed)",
+    "equation type prior -> ode_system (confirmed from required ODE system contract; single displayed expression alone is one component RHS, not the full standalone explicit relation)"
+  ],
+  "rationale": "The provided ODE-system contract is preserved exactly as required: time is the sole sampled axis; V_C is the target state; I_L and T_th are additional dynamic states rather than fixed parameters. Parameters are chosen to keep the system finite while making all intended mechanisms visible in one transient. With R*C = 0.12 s, the observation window t in [0, 0.12] spans the nominal RC rise where the capacitor reaches voltages comparable to both leakage_voltage_scale = 2.5 V and capacitance_voltage_scale = 4 V, so the thresholded leakage and voltage-dependent capacitance both activate within the recorded trace instead of staying negligible or fully saturated. The inductive startup timescale L/R ≈ 1.7e-4 s is much shorter than RC but still resolved by 400 points over the full window, giving a rounded initial current build-up rather than an instantaneous jump. The leakage strength satisfies leak_conductance*resistance = 2.4, large enough to lower the late-time approach below the ideal source-driven RC behavior and change curvature in the observable window. Thermal parameters are modest rather than extreme: thermal_time_constant = 0.25 s is comparable to, but somewhat longer than, the electrical window so T_th accumulates during charging without immediately equilibrating; thermal_heating_gain = 0.06 and thermal sensitivities 0.25 and 0.6 make electrothermal drift noticeable only after current has flowed, consistent with the stated hint that leakage sensitivity should remain nonnegative and modest. This setup therefore exposes the recorded contrasts honestly: early-time inductive delay, mid-trajectory voltage-dependent capacitance slowdown, leakage-induced sub-source tendency, and additional late-time thermal enhancement of leakage and capacitance modulation. No noise is added; outputs are exact numerical solutions of the inherited state system.",
+  "coverage_report": {
+    "groups": [
+      {
+        "generation": 1,
+        "name": "drive_gap",
+        "expression": "source_voltage - V_C",
+        "role": "instantaneous charging drive from the source through the resistor",
+        "train_range": [
+          7.517629939499006,
+          12.0
+        ],
+        "hidden_range": [
+          7.4375185490839035,
+          7.516910509865308
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 7.517629939499006,
+          "max": 12.0,
+          "q05": 7.561929856670348,
+          "median": 8.379311993963896,
+          "q95": 11.367618816784434,
+          "range": 4.482370060500994,
+          "robust_range": 3.805688960114086
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 7.4375185490839035,
+          "max": 7.516910509865308,
+          "q05": 7.440973736482069,
+          "median": 7.474388011607401,
+          "q95": 7.51237991802608,
+          "range": 0.07939196078140487,
+          "robust_range": 0.07140618154401146
+        }
+      },
+      {
+        "generation": 1,
+        "name": "stored_voltage",
+        "expression": "V_C",
+        "role": "state that would feed a leakage discharge branch",
+        "train_range": [
+          0.0,
+          4.482370060500994
+        ],
+        "hidden_range": [
+          4.483089490134692,
+          4.5624814509160965
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 4.482370060500994,
+          "q05": 0.6323811832155648,
+          "median": 3.6206880060361035,
+          "q95": 4.438070143329652,
+          "range": 4.482370060500994,
+          "robust_range": 3.805688960114087
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 4.483089490134692,
+          "max": 4.5624814509160965,
+          "q05": 4.48762008197392,
+          "median": 4.525611988392599,
+          "q95": 4.559026263517931,
+          "range": 0.07939196078140487,
+          "robust_range": 0.07140618154401146
+        }
+      },
+      {
+        "generation": 1,
+        "name": "parent_rate",
+        "expression": "(source_voltage - V_C)/(resistance*capacitance)",
+        "role": "ideal RC charging slope used by the parent model",
+        "train_range": [
+          62.64691616249172,
+          100.0
+        ],
+        "hidden_range": [
+          61.97932124236586,
+          62.640920915544235
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 62.64691616249172,
+          "max": 100.0,
+          "q05": 63.01608213891957,
+          "median": 69.82759994969913,
+          "q95": 94.73015680653695,
+          "range": 37.35308383750828,
+          "robust_range": 31.714074667617382
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 61.97932124236586,
+          "max": 62.640920915544235,
+          "q05": 62.00811447068391,
+          "median": 62.286566763395015,
+          "q95": 62.60316598355067,
+          "range": 0.6615996731783724,
+          "robust_range": 0.5950515128667604
+        }
+      },
+      {
+        "generation": 2,
+        "name": "rc_drive",
+        "expression": "(source_voltage - V_C) / resistance",
+        "role": "Available series charging current before division by effective capacitance",
+        "train_range": [
+          0.06264691616249171,
+          0.1
+        ],
+        "hidden_range": [
+          0.06197932124236586,
+          0.06264092091554424
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.06264691616249171,
+          "max": 0.1,
+          "q05": 0.06301608213891957,
+          "median": 0.06982759994969914,
+          "q95": 0.09473015680653696,
+          "range": 0.037353083837508294,
+          "robust_range": 0.03171407466761739
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.06197932124236586,
+          "max": 0.06264092091554424,
+          "q05": 0.062008114470683905,
+          "median": 0.06228656676339501,
+          "q95": 0.06260316598355066,
+          "range": 0.0006615996731783799,
+          "robust_range": 0.0005950515128667552
+        }
+      },
+      {
+        "generation": 2,
+        "name": "leak_activation",
+        "expression": "Abs(V_C) / leakage_voltage_scale",
+        "role": "Dimensionless regime indicator for leakage turn-on",
+        "train_range": [
+          0.0,
+          1.7929480242003977
+        ],
+        "hidden_range": [
+          1.7932357960538767,
+          1.8249925803664386
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 1.7929480242003977,
+          "q05": 0.25295247328622594,
+          "median": 1.4482752024144414,
+          "q95": 1.7752280573318608,
+          "range": 1.7929480242003977,
+          "robust_range": 1.522275584045635
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 1.7932357960538767,
+          "max": 1.8249925803664386,
+          "q05": 1.7950480327895681,
+          "median": 1.8102447953570397,
+          "q95": 1.8236105054071725,
+          "range": 0.0317567843125619,
+          "robust_range": 0.028562472617604362
+        }
+      },
+      {
+        "generation": 2,
+        "name": "normalized_voltage",
+        "expression": "V_C / source_voltage",
+        "role": "Position along the charging trajectory when source_voltage > 0",
+        "train_range": [
+          0.0,
+          0.37353083837508283
+        ],
+        "hidden_range": [
+          0.37359079084455765,
+          0.38020678757634135
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 0.37353083837508283,
+          "q05": 0.052698431934630405,
+          "median": 0.3017240005030086,
+          "q95": 0.36983917861080434,
+          "range": 0.37353083837508283,
+          "robust_range": 0.3171407466761739
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.37359079084455765,
+          "max": 0.38020678757634135,
+          "q05": 0.3739683401644934,
+          "median": 0.3771343323660499,
+          "q95": 0.379918855293161,
+          "range": 0.006615996731783702,
+          "robust_range": 0.005950515128667622
+        }
+      },
+      {
+        "generation": 3,
+        "name": "cap_scale",
+        "expression": "capacitance*(1 + capacitance_voltage_nonlinearity*tanh(Abs(V_C)/capacitance_voltage_scale))",
+        "role": "Effective differential capacitance setting how current converts to dV_C_dt",
+        "train_range": [
+          0.001,
+          0.0012827212198895405
+        ],
+        "hidden_range": [
+          0.0012827430918493342,
+          0.001285118008979161
+        ],
+        "train_status": "inactive",
+        "hidden_status": "inactive",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.001,
+          "max": 0.0012827212198895405,
+          "q05": 0.0010548764733918727,
+          "median": 0.0012515822834589,
+          "q95": 0.001281362118859705,
+          "range": 0.0002827212198895405,
+          "robust_range": 0.0002264856454678322
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.0012827430918493342,
+          "max": 0.001285118008979161,
+          "q05": 0.0012828806833554117,
+          "median": 0.0012840246104384597,
+          "q95": 0.0012850162366961728,
+          "range": 2.3749171298268097e-06,
+          "robust_range": 2.1355533407611295e-06
+        }
+      },
+      {
+        "generation": 3,
+        "name": "leak_factor",
+        "expression": "tanh(Abs(V_C)/leakage_voltage_scale)",
+        "role": "Finite-voltage activation of dielectric leakage",
+        "train_range": [
+          0.0,
+          0.9460708251454434
+        ],
+        "hidden_range": [
+          0.9461010185786115,
+          0.949333860749671
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 0.9460708251454434,
+          "q05": 0.2476871304941381,
+          "median": 0.8953508161391526,
+          "q95": 0.9441795948682388,
+          "range": 0.9460708251454434,
+          "robust_range": 0.6964924643741006
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.9461010185786115,
+          "max": 0.949333860749671,
+          "q05": 0.9462907819006396,
+          "median": 0.9478567172694163,
+          "q95": 0.9491971795386918,
+          "range": 0.003232842171059458,
+          "robust_range": 0.002906397638052116
+        }
+      },
+      {
+        "generation": 4,
+        "name": "joule_drive",
+        "expression": "resistance*I_L**2",
+        "role": "instantaneous dissipative heating in the series path that can drive component temperature rise during charging",
+        "train_range": [
+          0.0,
+          1.9193974139201495
+        ],
+        "hidden_range": [
+          1.069597781035496,
+          1.0832496188946625
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 1.9193974139201495,
+          "q05": 1.0905899961896337,
+          "median": 1.2335418884639742,
+          "q95": 1.8002950926715047,
+          "range": 1.9193974139201495,
+          "robust_range": 0.709705096481871
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 1.069597781035496,
+          "max": 1.0832496188946625,
+          "q05": 1.0701908348943976,
+          "median": 1.075931116584818,
+          "q95": 1.08246916269013,
+          "range": 0.013651837859166571,
+          "robust_range": 0.012278327795732347
+        }
+      },
+      {
+        "generation": 4,
+        "name": "electrothermal_loading",
+        "expression": "resistance*I_L**2/(source_voltage*I_L + 1.0e-12)",
+        "role": "dimensionless indicator that a nontrivial fraction of supplied power is being dissipated rather than stored, marking conditions where thermal drift can become observable",
+        "train_range": [
+          0.0,
+          1.264712554271266
+        ],
+        "hidden_range": [
+          0.9441035346796838,
+          0.9501094756626567
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 1.264712554271266,
+          "q05": 0.9533231311808927,
+          "median": 1.0138794224221663,
+          "q95": 1.2248450029813838,
+          "range": 1.264712554271266,
+          "robust_range": 0.27152187180049103
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.9441035346796838,
+          "max": 0.9501094756626567,
+          "q05": 0.9443652340866538,
+          "median": 0.946894536505322,
+          "q95": 0.9497671477378331,
+          "range": 0.006005940982972913,
+          "robust_range": 0.005401913651179258
+        }
+      },
+      {
+        "generation": 4,
+        "name": "cap_bias",
+        "expression": "Abs(V_C)/capacitance_voltage_scale",
+        "role": "existing voltage-bias coordinate controlling how strongly any capacitance-law drift affects the target slope",
+        "train_range": [
+          0.0,
+          1.1205925151252485
+        ],
+        "hidden_range": [
+          1.120772372533673,
+          1.1406203627290241
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 1.1205925151252485,
+          "q05": 0.1580952958038912,
+          "median": 0.9051720015090259,
+          "q95": 1.109517535832413,
+          "range": 1.1205925151252485,
+          "robust_range": 0.9514222400285217
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 1.120772372533673,
+          "max": 1.1406203627290241,
+          "q05": 1.12190502049348,
+          "median": 1.1314029970981498,
+          "q95": 1.1397565658794828,
+          "range": 0.019847990195351217,
+          "robust_range": 0.017851545386002865
+        }
+      },
+      {
+        "generation": 5,
+        "name": "effective_capacitance_factor",
+        "expression": "1 + capacitance_voltage_nonlinearity * (1 + thermal_capacitance_nonlinearity_sensitivity * T_th) * tanh(Abs(V_C) / capacitance_voltage_scale)",
+        "role": "existing thermally modulated capacitance factor controlling the parent denominator",
+        "train_range": [
+          1.0,
+          1.2832008591251394
+        ],
+        "hidden_range": [
+          1.2832230189980325,
+          1.2856329670756501
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 1.0,
+          "max": 1.2832008591251394,
+          "q05": 1.0548843748778725,
+          "median": 1.25185276192064,
+          "q95": 1.2818248300769695,
+          "range": 0.28320085912513937,
+          "robust_range": 0.226940455199097
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 1.2832230189980325,
+          "max": 1.2856329670756501,
+          "q05": 1.2833624341021008,
+          "median": 1.2845224234719086,
+          "q95": 1.2855295119981573,
+          "range": 0.0024099480776176296,
+          "robust_range": 0.002167077896056524
+        }
+      },
+      {
+        "generation": 5,
+        "name": "leak_drive",
+        "expression": "V_C * tanh(Abs(V_C) / leakage_voltage_scale)",
+        "role": "finite-voltage leakage-driving coordinate already present in the target law",
+        "train_range": [
+          0.0,
+          4.240639541745407
+        ],
+        "hidden_range": [
+          4.2414555329954995,
+          4.331318130396938
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 4.240639541745407,
+          "q05": 0.15668142092540122,
+          "median": 3.241787297928181,
+          "q95": 4.190335303787835,
+          "range": 4.240639541745407,
+          "robust_range": 4.033653882862434
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 4.2414555329954995,
+          "max": 4.331318130396938,
+          "q05": 4.246593521014476,
+          "median": 4.28963172689492,
+          "q95": 4.327414873482007,
+          "range": 0.08986259740143865,
+          "robust_range": 0.08082135246753097
+        }
+      },
+      {
+        "generation": 5,
+        "name": "heating_drive",
+        "expression": "resistance * I_L**2",
+        "role": "instantaneous dissipation that builds the thermal state and reveals the hidden environment variable",
+        "train_range": [
+          0.0,
+          1.9193974139201495
+        ],
+        "hidden_range": [
+          1.069597781035496,
+          1.0832496188946625
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 1.9193974139201495,
+          "q05": 1.0905899961896337,
+          "median": 1.2335418884639742,
+          "q95": 1.8002950926715047,
+          "range": 1.9193974139201495,
+          "robust_range": 0.709705096481871
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 1.069597781035496,
+          "max": 1.0832496188946625,
+          "q05": 1.0701908348943976,
+          "median": 1.075931116584818,
+          "q95": 1.08246916269013,
+          "range": 0.013651837859166571,
+          "robust_range": 0.012278327795732347
+        }
+      }
+    ],
+    "inactive_mechanisms": [
+      "cap_scale"
+    ],
+    "visible_mechanisms": [
+      "drive_gap",
+      "stored_voltage",
+      "parent_rate",
+      "rc_drive",
+      "leak_activation",
+      "normalized_voltage",
+      "leak_factor",
+      "joule_drive",
+      "electrothermal_loading",
+      "cap_bias",
+      "effective_capacitance_factor",
+      "leak_drive",
+      "heating_drive"
+    ],
+    "extended_mechanisms": [
+      "drive_gap",
+      "stored_voltage",
+      "parent_rate",
+      "rc_drive",
+      "leak_activation",
+      "normalized_voltage",
+      "leak_factor",
+      "joule_drive",
+      "electrothermal_loading",
+      "cap_bias",
+      "effective_capacitance_factor",
+      "leak_drive",
+      "heating_drive"
+    ]
+  },
+  "inactive_mechanisms": [
+    "cap_scale"
+  ],
+  "target_variance": {
+    "train": {
+      "n": 384,
+      "variance": 1090.2599133189133,
+      "range": 125.37865354514155
+    },
+    "hidden": {
+      "n": 128,
+      "variance": 0.30602153143093813,
+      "range": 1.9027553807047468
+    }
+  },
+  "parent_absorption_report": {
+    "status": "ok",
+    "n_points": 512,
+    "fixed_parent_normalized_rmse": 0.01680639416212199,
+    "refit": {
+      "status": "not_run",
+      "reason": "no free parent parameters"
+    },
+    "interpretation": "<1e-3 nearly absorbed; 1e-3..1e-2 weak; >1e-2 visible structure"
+  },
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_VcazSspPa3n8gqsw22pI15IB"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "I_L / (capacitance * (1 + capacitance_voltage_nonlinearity * (1 + thermal_capacitance_nonlinearity_sensitivity * T_th) * tanh(Abs(V_C) / capacitance_voltage_scale))) - leak_conductance * (1 + thermal_leakage_sensitivity * T_th) * V_C * tanh(Abs(V_C) / leakage_voltage_scale) / (capacitance * (1 + capacitance_voltage_nonlinearity * (1 + thermal_capacitance_nonlinearity_sensitivity * T_th) * tanh(Abs(V_C) / capacitance_voltage_scale)))",
+        "target_symbol": "V_C"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "I_L",
+          "T_th",
+          "V_C",
+          "capacitance",
+          "capacitance_voltage_nonlinearity",
+          "capacitance_voltage_scale",
+          "leak_conductance",
+          "leakage_voltage_scale",
+          "thermal_capacitance_nonlinearity_sensitivity",
+          "thermal_leakage_sensitivity"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": false,
+        "explicit_solution_preview": null,
+        "classification_hint": "implicit_or_explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_a8tz3LSOH4pa2DpV9GmozUxC"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "I_L / (capacitance * (1 + capacitance_voltage_nonlinearity * (1 + thermal_capacitance_nonlinearity_sensitivity * T_th) * tanh(Abs(V_C) / capacitance_voltage_scale))) - leak_conductance * (1 + thermal_leakage_sensitivity * T_th) * V_C * tanh(Abs(V_C) / leakage_voltage_scale) / (capacitance * (1 + capacitance_voltage_nonlinearity * (1 + thermal_capacitance_nonlinearity_sensitivity * T_th) * tanh(Abs(V_C) / capacitance_voltage_scale)))",
+        "target_symbol": "V_C",
+        "assignments": {
+          "V_C": 6,
+          "I_L": 0.04,
+          "T_th": 0.3,
+          "capacitance": 0.001,
+          "capacitance_voltage_nonlinearity": 0.35,
+          "capacitance_voltage_scale": 4,
+          "leak_conductance": 0.02,
+          "leakage_voltage_scale": 2.5,
+          "thermal_capacitance_nonlinearity_sensitivity": 0.25,
+          "thermal_leakage_sensitivity": 0.6
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": -74.06472628296794,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_zGIY8P8uj4O2pkvRrIPalo5D"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 3,
+  "discipline": "physics",
+  "scenario_text": "A resistor and capacitor are connected to a constant voltage source, and the capacitor voltage is recorded after the connection is made. The capacitor voltage evolves through charge accumulation while the resistor limits the charging rate. The baseline model neglects leakage, parasitic inductance, and changes in component values with temperature.",
+  "record_id": "m2_electromagnetism_20280757_001",
+  "generation": 5,
+  "_n_total": 5000,
+  "mechanism_observation_history": [
+    {
+      "generation": 1,
+      "plan": {
+        "operation": "add_term",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "With fixed resistance and capacitance, dV_C_dt depends only linearly on the voltage gap source_voltage - V_C, so all charging traces are single-exponential with one shared time constant.",
+          "child_relation": "Add capacitor leakage as an extra discharge path proportional to V_C, so dV_C_dt depends on both the charging gap and the present capacitor voltage through a second linear channel; the effective approach rate and final saturation both change.",
+          "affected_inputs": [
+            "V_C",
+            "source_voltage",
+            "resistance",
+            "capacitance"
+          ],
+          "observable_effect": "Compared across experiments with different source_voltage but the same component values, the leaked capacitor saturates below source_voltage and shows a different late-time curvature than the ideal single-exponential parent."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "drive_gap",
+            "expression": "source_voltage - V_C",
+            "role": "instantaneous charging drive from the source through the resistor"
+          },
+          {
+            "name": "stored_voltage",
+            "expression": "V_C",
+            "role": "state that would feed a leakage discharge branch"
+          },
+          {
+            "name": "parent_rate",
+            "expression": "(source_voltage - V_C)/(resistance*capacitance)",
+            "role": "ideal RC charging slope used by the parent model"
+          }
+        ],
+        "activation_condition": "Observable when the capacitor has a finite leakage path on time scales comparable to the charging experiment, i.e. the leakage time constant is not much longer than resistance*capacitance and measurements extend into mid-to-late charging.",
+        "train_hidden_contrast": "In training, leakage appears as slightly reduced late-time slope and sub-source saturation; in holdout with broader observation windows or larger source_voltage, the same mechanism more clearly reveals the lowered asymptote and altered curvature.",
+        "continuation_path": "Recover the parent law in the limit of vanishing leakage conductance, equivalently infinite leakage resistance.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The model omits capacitor leakage, treating the capacitor as perfectly insulating so no stored charge can drain except through the intended charging branch.",
+        "baseline_assumption": "There is no leakage path across the capacitor.",
+        "scientific_mechanism": "A real capacitor can have a finite parallel leakage path through dielectric imperfections, producing a discharge current proportional to its own voltage during charging.",
+        "affected_symbols": [
+          "V_C",
+          "source_voltage",
+          "resistance",
+          "capacitance"
+        ],
+        "rationale": "A realistic next refinement is to add leakage across the capacitor. The parent target mapping is a fixed-environment single-time-constant law: for fixed resistance and capacitance, changing source_voltage only rescales the same exponential approach, and the final voltage always equals source_voltage. Under the child mechanism, holding resistance and capacitance fixed while varying source_voltage still gives monotone charging, but the target slope depends on both source_voltage - V_C and V_C because leakage opposes charge accumulation. The concrete contrast is that late in the trajectory the parent predicts approach to source_voltage with a single shared asymptote ratio V_C/source_voltage -> 1, whereas the child predicts approach to a lower steady value set by the balance of resistor current and leakage current. A single refit of the parent parameters cannot reproduce both the early-time charging rate and the reduced steady-state fraction across observation windows when leakage is appreciable, because the parent ties transient rate and asymptote through one ideal RC branch. This effect is admissible when leakage is not negligible over the sampled time range; if leakage is extremely weak or data stop very early, the refinement becomes hard to identify, which should be stated rather than exaggerated."
+      },
+      "contract": {
+        "operation": "add_term",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "With fixed resistance and capacitance, dV_C_dt depends only linearly on the voltage gap source_voltage - V_C, so all charging traces are single-exponential with one shared time constant.",
+          "child_relation": "Add capacitor leakage as an extra discharge path proportional to V_C, so dV_C_dt depends on both the charging gap and the present capacitor voltage through a second linear channel; the effective approach rate and final saturation both change.",
+          "affected_inputs": [
+            "V_C",
+            "source_voltage",
+            "resistance",
+            "capacitance"
+          ],
+          "observable_effect": "Compared across experiments with different source_voltage but the same component values, the leaked capacitor saturates below source_voltage and shows a different late-time curvature than the ideal single-exponential parent."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "drive_gap",
+            "expression": "source_voltage - V_C",
+            "role": "instantaneous charging drive from the source through the resistor"
+          },
+          {
+            "name": "stored_voltage",
+            "expression": "V_C",
+            "role": "state that would feed a leakage discharge branch"
+          },
+          {
+            "name": "parent_rate",
+            "expression": "(source_voltage - V_C)/(resistance*capacitance)",
+            "role": "ideal RC charging slope used by the parent model"
+          }
+        ],
+        "activation_condition": "Observable when the capacitor has a finite leakage path on time scales comparable to the charging experiment, i.e. the leakage time constant is not much longer than resistance*capacitance and measurements extend into mid-to-late charging.",
+        "train_hidden_contrast": "In training, leakage appears as slightly reduced late-time slope and sub-source saturation; in holdout with broader observation windows or larger source_voltage, the same mechanism more clearly reveals the lowered asymptote and altered curvature.",
+        "continuation_path": "Recover the parent law in the limit of vanishing leakage conductance, equivalently infinite leakage resistance.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "unary",
+        "scope_symbols": [
+          "V_C"
+        ],
+        "structural_role": "contribution",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "threshold-activated parallel capacitor leakage",
+        "scientific_mechanism": "A real capacitor can have a finite parallel leakage path through dielectric imperfections, producing a discharge current proportional to its own voltage during charging.",
+        "embedding_pattern": "saturating_or_thresholded",
+        "difficulty_rationale": "The added term introduces a new voltage-dependent activation scale, so the target mapping is no longer a single globally linear function of source_voltage - V_C. This is structurally harder than a coefficient-only correction because leakage influence is state-conditioned, changing curvature across the trajectory rather than merely rescaling one time constant.",
+        "taxonomy_match": "provisional",
+        "assumption_before": "There is no leakage path across the capacitor.",
+        "assumption_after": "The capacitor has a finite leakage path whose discharge contribution activates over a finite voltage scale and then approaches a voltage-proportional regime.",
+        "before_fragment": "(source_voltage - V_C) / (resistance * capacitance)",
+        "after_fragment": "(source_voltage - V_C) / (resistance * capacitance) - leak_conductance * V_C * tanh(Abs(V_C) / leakage_voltage_scale) / capacitance",
+        "parent_reduction": "leak_conductance -> 0, or operation restricted to Abs(V_C) << leakage_voltage_scale so the added term is negligible.",
+        "observable_signature": "Charging remains monotone, but once V_C grows enough to activate the leakage branch, the curve bends away from the parent single-exponential approach and settles below source_voltage.",
+        "shortcut_blocked": "A single parent parameter set cannot reproduce both the early-time ideal charging slope and the reduced steady-state fraction across observation windows when leakage is appreciable. In the parent, resistance and capacitance jointly fix one time constant while the asymptote is locked to source_voltage; retuning those coefficients can slow or speed the whole trace but cannot lower the final voltage below source_voltage without spoiling the shared early-time relation."
+      },
+      "range_suggestions": {
+        "leak_conductance": "positive; typically much smaller than 1/resistance, but large enough that leak_conductance*resistance is not negligible in observable leakage experiments",
+        "leakage_voltage_scale": "positive and within the same order of magnitude as observed capacitor voltages when thresholded leakage activation is to be visible"
+      }
+    },
+    {
+      "generation": 2,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "With fixed capacitance, the charging law has a single RC timescale so dV_C_dt decreases with V_C mainly through one affine charging term plus the existing leakage nonlinearity.",
+          "child_relation": "Let capacitance depend on capacitor voltage, so the same source_voltage and resistance produce a voltage-dependent effective charging timescale; dV_C_dt is reduced more strongly in the voltage range where capacitance increases, changing the curvature of V_C(t).",
+          "affected_inputs": [
+            "V_C",
+            "capacitance"
+          ],
+          "observable_effect": "Across experiments varying source_voltage while holding resistance, nominal low-bias capacitance, and leakage parameters fixed, the rise is relatively slower in the higher-V_C portion of the trajectory for larger source_voltage because the effective capacitance grows with voltage; a single fixed-capacitance parent cannot match both low-voltage and higher-voltage trajectory curvature with one shared parameter set."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "rc_drive",
+            "expression": "(source_voltage - V_C) / resistance",
+            "role": "Available series charging current before division by effective capacitance"
+          },
+          {
+            "name": "leak_activation",
+            "expression": "Abs(V_C) / leakage_voltage_scale",
+            "role": "Dimensionless regime indicator for leakage turn-on"
+          },
+          {
+            "name": "normalized_voltage",
+            "expression": "V_C / source_voltage",
+            "role": "Position along the charging trajectory when source_voltage > 0"
+          }
+        ],
+        "activation_condition": "Observable when capacitor voltage spans a range over which real capacitance variation is non-negligible, e.g. higher source_voltage drives V_C into a regime where differential capacitance changes appreciably while resistance and leakage remain fixed.",
+        "train_hidden_contrast": "In training, modest source_voltage variation may show slight late-time curvature changes; in holdout with larger source_voltage but same component family, the voltage-dependent capacitance produces a stronger slowdown at higher V_C that extends the same mechanism rather than introducing a new one.",
+        "continuation_path": "Recover the parent by taking the capacitance to be voltage-independent over the sampled range, i.e. the capacitance-variation amplitude tends to zero.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The current model treats capacitance as constant, omitting the common dielectric effect that a real capacitor's differential capacitance can vary with applied voltage.",
+        "baseline_assumption": "The resistor and capacitor are ideal and time-invariant.",
+        "scientific_mechanism": "Voltage-dependent capacitance of the capacitor dielectric alters the effective RC timescale during charging.",
+        "affected_symbols": [
+          "V_C",
+          "capacitance",
+          "source_voltage",
+          "resistance"
+        ],
+        "rationale": "A realistic next refinement is to relax the constant-capacitance assumption rather than add an unrelated new branch. The parent target mapping effectively uses one fixed storage factor capacitance, so for fixed resistance the charging slope at a given V_C is constrained to one shared RC scaling apart from the already modeled leakage activation. Vary source_voltage across runs, hold resistance and leakage parameters fixed, and observe V_C(t) from the same initial condition V_C(0)=0. In the parent, after refitting one global parameter set, trajectories at different source_voltage remain tied to the same capacitance and therefore to the same basic curvature pattern versus normalized progress, aside from leakage. In the child, if capacitance increases with |V_C|, higher-source runs enter a larger-capacitance regime later in the rise and show extra slowdown near the upper part of the trajectory. This is a changed target mapping because dV_C_dt itself at the observed state V_C changes as a function of V_C through the effective capacitance, not merely an auxiliary hidden trajectory. The effect is admissible when the applied voltage range is large enough for capacitance variation to matter; if the capacitor technology is nearly ideal over the sampled range, the refinement may be weak and the parent is recovered."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "With fixed capacitance, the charging law has a single RC timescale so dV_C_dt decreases with V_C mainly through one affine charging term plus the existing leakage nonlinearity.",
+          "child_relation": "Let capacitance depend on capacitor voltage, so the same source_voltage and resistance produce a voltage-dependent effective charging timescale; dV_C_dt is reduced more strongly in the voltage range where capacitance increases, changing the curvature of V_C(t).",
+          "affected_inputs": [
+            "V_C",
+            "capacitance"
+          ],
+          "observable_effect": "Across experiments varying source_voltage while holding resistance, nominal low-bias capacitance, and leakage parameters fixed, the rise is relatively slower in the higher-V_C portion of the trajectory for larger source_voltage because the effective capacitance grows with voltage; a single fixed-capacitance parent cannot match both low-voltage and higher-voltage trajectory curvature with one shared parameter set."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "rc_drive",
+            "expression": "(source_voltage - V_C) / resistance",
+            "role": "Available series charging current before division by effective capacitance"
+          },
+          {
+            "name": "leak_activation",
+            "expression": "Abs(V_C) / leakage_voltage_scale",
+            "role": "Dimensionless regime indicator for leakage turn-on"
+          },
+          {
+            "name": "normalized_voltage",
+            "expression": "V_C / source_voltage",
+            "role": "Position along the charging trajectory when source_voltage > 0"
+          }
+        ],
+        "activation_condition": "Observable when capacitor voltage spans a range over which real capacitance variation is non-negligible, e.g. higher source_voltage drives V_C into a regime where differential capacitance changes appreciably while resistance and leakage remain fixed.",
+        "train_hidden_contrast": "In training, modest source_voltage variation may show slight late-time curvature changes; in holdout with larger source_voltage but same component family, the voltage-dependent capacitance produces a stronger slowdown at higher V_C that extends the same mechanism rather than introducing a new one.",
+        "continuation_path": "Recover the parent by taking the capacitance to be voltage-independent over the sampled range, i.e. the capacitance-variation amplitude tends to zero.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "unary",
+        "scope_symbols": [
+          "V_C"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Voltage-dependent differential capacitance in the dielectric",
+        "scientific_mechanism": "Voltage-dependent capacitance of the capacitor dielectric alters the effective RC timescale during charging.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This embedding is harder than a coefficient-only correction because the storage coefficient changes along the trajectory as a nonlinear function of the observed state, so one shared parameter set must explain curvature changes across source_voltage conditions rather than only rescaling the whole response.",
+        "taxonomy_match": "known",
+        "assumption_before": "The resistor and capacitor are ideal and time-invariant.",
+        "assumption_after": "The capacitor's effective differential capacitance varies with applied voltage through dielectric nonlinearity.",
+        "before_fragment": "(source_voltage - V_C) / (resistance * capacitance) - leak_conductance * V_C * tanh(Abs(V_C) / leakage_voltage_scale) / capacitance",
+        "after_fragment": "(source_voltage - V_C) / (resistance * capacitance * (1 + capacitance_voltage_nonlinearity * tanh(Abs(V_C) / capacitance_voltage_scale))) - leak_conductance * V_C * tanh(Abs(V_C) / leakage_voltage_scale) / (capacitance * (1 + capacitance_voltage_nonlinearity * tanh(Abs(V_C) / capacitance_voltage_scale)))",
+        "parent_reduction": "Take capacitance_voltage_nonlinearity -> 0, which makes the multiplicative capacitance factor equal to 1 and recovers the parent expression exactly.",
+        "observable_signature": "For runs starting from V_C(0)=0 with different source_voltage but the same resistance, capacitance, and leakage parameters, the child predicts extra late-trajectory flattening when V_C approaches or exceeds capacitance_voltage_scale, because both charging and leakage-induced voltage change are divided by a larger effective capacitance. The parent retains one fixed storage scale and therefore cannot reproduce the stronger high-voltage curvature with the same low-voltage slope across all runs.",
+        "shortcut_blocked": "Refitting all parent parameters with a single shared set cannot create a state-dependent slowdown that appears only after V_C enters the capacitance-variation range. Changing capacitance or resistance in the parent rescales the timescale nearly globally, while changing leakage parameters mainly alters the leak branch activation; neither reproduces the specific cross-condition contrast of similar early charging but disproportionately slower high-V_C evolution in larger-source runs."
+      },
+      "range_suggestions": {
+        "capacitance_voltage_nonlinearity": "positive and typically less than order unity for moderate dielectric nonlinearity; zero recovers the parent model",
+        "capacitance_voltage_scale": "positive and on the order of the capacitor voltages where capacitance variation becomes experimentally visible"
+      }
+    },
+    {
+      "generation": 3,
+      "plan": {
+        "operation": "add_term",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "phase_shift",
+          "parent_relation": "The parent maps capacitor voltage to its derivative through a single monotone RC charging phase with voltage-dependent capacitance and leakage, so the charging rate decreases smoothly from its initial value without an additional transient stage.",
+          "child_relation": "Add a parasitic series inductive current state so the target derivative depends on both capacitor voltage and circuit current, creating an initial current-ramp phase before the usual RC-like approach. The mapping from observed V_C to dV_C_dt is no longer single-valued in time because the same V_C can occur with different current histories during startup.",
+          "affected_inputs": [
+            "V_C",
+            "t"
+          ],
+          "observable_effect": "At fixed source_voltage, resistance, and capacitance, the child predicts delayed initial rise of V_C and possible inflection in the early-time trajectory, whereas the parent always starts with its maximal charging slope at t=0 and then relaxes monotonically."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "drive_gap",
+            "expression": "source_voltage - V_C",
+            "role": "Instantaneous voltage still available to drive charging"
+          },
+          {
+            "name": "cap_scale",
+            "expression": "capacitance*(1 + capacitance_voltage_nonlinearity*tanh(Abs(V_C)/capacitance_voltage_scale))",
+            "role": "Effective differential capacitance setting how current converts to dV_C_dt"
+          },
+          {
+            "name": "leak_factor",
+            "expression": "tanh(Abs(V_C)/leakage_voltage_scale)",
+            "role": "Finite-voltage activation of dielectric leakage"
+          }
+        ],
+        "activation_condition": "Observable when the parasitic inductive timescale is not negligible relative to the RC charging timescale, i.e. during early-time measurements with fast sampling after connection and physically plausible wiring or lead inductance.",
+        "train_hidden_contrast": "In training, the mechanism appears as rounded or delayed startup relative to the later charging tail; in holdout with different resistance or capacitance but similar non-negligible inductive timescale, the same startup phase persists and shifts systematically rather than being absorbed into one global RC constant.",
+        "continuation_path": "Recover the parent law in the limit of vanishing parasitic inductance or after the fast current transient has relaxed so circuit current becomes quasi-instantaneously slaved to source_voltage - V_C.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "Inductance introduces dynamical memory through current inertia; this cannot be represented by a purely algebraic modification of the existing V_C-only right-hand side because the same V_C can correspond to different charging currents during startup.",
+        "gap_statement": "The current model omits parasitic inductance of leads and connections, which can produce a finite current build-up time immediately after the source is connected.",
+        "baseline_assumption": "Parasitic inductance is negligible, so charging current responds instantaneously to the voltage difference across the resistor-capacitor path.",
+        "scientific_mechanism": "Series parasitic inductance stores magnetic energy and limits the rate of change of charging current, introducing an additional fast transient phase before the capacitor follows the slower resistive-capacitive evolution.",
+        "affected_symbols": [
+          "V_C",
+          "source_voltage",
+          "resistance",
+          "capacitance",
+          "capacitance_voltage_nonlinearity",
+          "capacitance_voltage_scale",
+          "leak_conductance",
+          "leakage_voltage_scale"
+        ],
+        "rationale": "A realistic next refinement is to release the neglected parasitic inductance as a new current-like state. The parent target mapping has a single-phase shortcut: for any admissible experiment starting from V_C=0 with fixed source_voltage, resistance, capacitance, and leakage parameters, dV_C_dt is determined solely by V_C and therefore begins at its largest positive value at connection and then decreases as V_C rises. If we vary the observation regime by comparing slower sampling windows, where the parent is adequate, against fast early-time windows after the switch closes while holding component values fixed, a circuit with non-negligible lead inductance shows a different response: the charging current cannot jump instantly, so dV_C_dt starts near zero, rises over a short inductive timescale, and only then transitions toward the RC-controlled decay. This is a genuine change in the scored target mapping, not merely an auxiliary trajectory change, because the derivative of V_C at the same observed V_C depends on the hidden current state during the startup transient. A single refitted parent parameter set cannot reproduce both the delayed initial slope and the later charging tail across those conditions, since lowering the parent's effective RC rate to match the startup delay would also slow the entire later trajectory, while fitting the later tail forces an unrealistically large initial slope. The effect is scientifically admissible when measurement bandwidth resolves times comparable to the inductive transient and becomes weak when inductance is negligible or observations begin only after current has equilibrated."
+      },
+      "contract": {
+        "operation": "add_term",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "phase_shift",
+          "parent_relation": "The parent maps capacitor voltage to its derivative through a single monotone RC charging phase with voltage-dependent capacitance and leakage, so the charging rate decreases smoothly from its initial value without an additional transient stage.",
+          "child_relation": "Add a parasitic series inductive current state so the target derivative depends on both capacitor voltage and circuit current, creating an initial current-ramp phase before the usual RC-like approach. The mapping from observed V_C to dV_C_dt is no longer single-valued in time because the same V_C can occur with different current histories during startup.",
+          "affected_inputs": [
+            "V_C",
+            "t"
+          ],
+          "observable_effect": "At fixed source_voltage, resistance, and capacitance, the child predicts delayed initial rise of V_C and possible inflection in the early-time trajectory, whereas the parent always starts with its maximal charging slope at t=0 and then relaxes monotonically."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "drive_gap",
+            "expression": "source_voltage - V_C",
+            "role": "Instantaneous voltage still available to drive charging"
+          },
+          {
+            "name": "cap_scale",
+            "expression": "capacitance*(1 + capacitance_voltage_nonlinearity*tanh(Abs(V_C)/capacitance_voltage_scale))",
+            "role": "Effective differential capacitance setting how current converts to dV_C_dt"
+          },
+          {
+            "name": "leak_factor",
+            "expression": "tanh(Abs(V_C)/leakage_voltage_scale)",
+            "role": "Finite-voltage activation of dielectric leakage"
+          }
+        ],
+        "activation_condition": "Observable when the parasitic inductive timescale is not negligible relative to the RC charging timescale, i.e. during early-time measurements with fast sampling after connection and physically plausible wiring or lead inductance.",
+        "train_hidden_contrast": "In training, the mechanism appears as rounded or delayed startup relative to the later charging tail; in holdout with different resistance or capacitance but similar non-negligible inductive timescale, the same startup phase persists and shifts systematically rather than being absorbed into one global RC constant.",
+        "continuation_path": "Recover the parent law in the limit of vanishing parasitic inductance or after the fast current transient has relaxed so circuit current becomes quasi-instantaneously slaved to source_voltage - V_C.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "Inductance introduces dynamical memory through current inertia; this cannot be represented by a purely algebraic modification of the existing V_C-only right-hand side because the same V_C can correspond to different charging currents during startup.",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "V_C",
+          "I_L"
+        ],
+        "structural_role": "feedback",
+        "domain_mechanism_id": "coupled_field_or_force",
+        "domain_mechanism": "series parasitic inductive current buildup coupled to capacitor charging",
+        "scientific_mechanism": "Series parasitic inductance stores magnetic energy and limits the rate of change of charging current, introducing an additional fast transient phase before the capacitor follows the slower resistive-capacitive evolution.",
+        "embedding_pattern": "nested_nonlinearity",
+        "difficulty_rationale": "The added mechanism is structurally harder because it introduces a hidden current state and applies a nonlinear tanh smoothing to the state-dependent inductive drive, so the target derivative depends on a coupled transient trajectory rather than a single algebraic gain on source_voltage - V_C.",
+        "taxonomy_match": "alias",
+        "assumption_before": "Parasitic inductance is negligible, so charging current responds instantaneously to the voltage difference across the resistor-capacitor path.",
+        "assumption_after": "Charging current has finite inductive buildup governed by a new current state before approaching the slower resistive-capacitive regime.",
+        "before_fragment": "(source_voltage - V_C) / (resistance * capacitance * (1 + capacitance_voltage_nonlinearity * tanh(Abs(V_C) / capacitance_voltage_scale))) - leak_conductance * V_C * tanh(Abs(V_C) / leakage_voltage_scale) / (capacitance * (1 + capacitance_voltage_nonlinearity * tanh(Abs(V_C) / capacitance_voltage_scale)))",
+        "after_fragment": "I_L / (capacitance * (1 + capacitance_voltage_nonlinearity * tanh(Abs(V_C) / capacitance_voltage_scale))) - leak_conductance * V_C * tanh(Abs(V_C) / leakage_voltage_scale) / (capacitance * (1 + capacitance_voltage_nonlinearity * tanh(Abs(V_C) / capacitance_voltage_scale)))",
+        "parent_reduction": "Take parasitic_inductance -> 0 with inductive_current_smoothing_scale large enough that tanh(I_L/inductive_current_smoothing_scale) stays in its linear regime, yielding rapid relaxation of I_L toward (source_voltage - V_C)/resistance.",
+        "observable_signature": "With fast early-time observation after connection, dV_C_dt starts near zero because I_L(0)=0, then rises over a short inductive timescale before decaying; the parent instead starts immediately at a positive maximum set by source_voltage/(resistance*capacitance) and has no separate startup phase.",
+        "shortcut_blocked": "A single parent parameter set cannot reproduce both the delayed initial slope and the later tail because its target mapping is algebraic in V_C alone: matching the later RC-like portion fixes an initial slope near source_voltage divided by an effective RC scale, while reducing that slope enough to mimic the inductive startup would also slow the entire subsequent trajectory. The child changes the scored mapping itself, since at the same observed V_C during startup different I_L values give different dV_C_dt."
+      },
+      "range_suggestions": {
+        "I_L": "initially zero at connection; during charging typically nonnegative and on the order of source_voltage/resistance before decaying toward leakage-limited current",
+        "parasitic_inductance": "positive and small but non-negligible compared with resistance*capacitance over the resolved startup window",
+        "inductive_current_smoothing_scale": "positive; choose comparable to or somewhat above expected charging current so tanh(I_L/inductive_current_smoothing_scale) regularizes current build-up without dominating the linear inductive law"
+      }
+    },
+    {
+      "generation": 4,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "slope_change",
+          "parent_relation": "The target dV_C_dt depends on V_C and I_L through a time-invariant effective capacitance and leakage law, so for a fixed state pair (V_C, I_L) the charging slope is the same at all times in a run and across runs with the same parameter set.",
+          "child_relation": "Release the fixed-capacitance assumption by allowing the capacitor's effective capacitance nonlinearity to relax with self-heating during charging, so dV_C_dt at the same (V_C, I_L) can differ depending on the accumulated thermal state of the component.",
+          "affected_inputs": [
+            "V_C",
+            "I_L",
+            "capacitance_voltage_nonlinearity"
+          ],
+          "observable_effect": "Under otherwise fixed source_voltage and resistance, higher-current charging episodes show progressive slowing of dV_C_dt later in the transient compared with low-current episodes because the effective capacitance shifts as the device warms; the parent predicts no such history-dependent slope change once V_C and I_L are specified."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "joule_drive",
+            "expression": "resistance*I_L**2",
+            "role": "instantaneous dissipative heating in the series path that can drive component temperature rise during charging"
+          },
+          {
+            "name": "electrothermal_loading",
+            "expression": "resistance*I_L**2/(source_voltage*I_L + 1.0e-12)",
+            "role": "dimensionless indicator that a nontrivial fraction of supplied power is being dissipated rather than stored, marking conditions where thermal drift can become observable"
+          },
+          {
+            "name": "cap_bias",
+            "expression": "Abs(V_C)/capacitance_voltage_scale",
+            "role": "existing voltage-bias coordinate controlling how strongly any capacitance-law drift affects the target slope"
+          }
+        ],
+        "activation_condition": "Observable when the startup current is large enough and the observation window long enough that cumulative heating is not negligible compared with thermal relaxation; practically, resistance*I_L**2 sustained over a significant fraction of the RC charging interval and voltage bias reaching |V_C| comparable to capacitance_voltage_scale so the capacitance nonlinearity matters.",
+        "train_hidden_contrast": "In training, moderate-current traces may already show slight late-time deviation from a single time-invariant capacitance law; in holdout, larger source_voltage or smaller resistance extends the same electrothermal mechanism, producing a stronger current-dependent drift in dV_C_dt that the parent cannot match with one shared static capacitance nonlinearity.",
+        "continuation_path": "Recover the parent law in the zero-heating or instantaneous-thermal-relaxation limit, where the capacitance nonlinearity remains fixed at its nominal value throughout the transient.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A thermal memory effect is history dependent and cannot be represented by refitting fixed parameters alone within one run; one additional state is needed to encode accumulated self-heating that feeds back onto the effective capacitance seen by V_C.",
+        "gap_statement": "The current model assumes the voltage-dependent capacitance law is time-invariant during charging, omitting electrothermal drift of dielectric properties under dissipative startup current.",
+        "baseline_assumption": "The resistor and capacitor are ideal and time-invariant.",
+        "scientific_mechanism": "Self-heating during charging changes dielectric response, causing the capacitance-voltage characteristic to drift over the transient and thereby modifying the capacitor-voltage slope at fixed electrical state.",
+        "affected_symbols": [
+          "V_C",
+          "I_L",
+          "capacitance_voltage_nonlinearity",
+          "resistance"
+        ],
+        "rationale": "A realistic next refinement is to relax the parent's fixed-environment assumption for the already-present nonlinear capacitance. Vary source_voltage or resistance across admissible monotone charging experiments while holding the capacitor nominal parameters fixed. In the parent, once V_C and I_L are known, dV_C_dt is fully determined by a static capacitance law; any two times or runs reaching the same (V_C, I_L) must have the same target slope. In the child, stronger early current produces more Joule heating, which shifts the effective capacitance nonlinearity later in the same trace, so the mapping from supplied states to dV_C_dt changes with thermal history. This is a genuine target-mapping refinement, not merely an auxiliary-trajectory change, because the V_C equation itself acquires history dependence through the added thermal state. The contrast is observable when currents are high enough and the transient lasts long enough for heating to accumulate, but it vanishes in weak-drive or fast-thermal-equilibration limits. A single refitted parent parameter set cannot reproduce both low-drive traces with nearly nominal capacitance and high-drive traces with progressive late-time slope change, because its capacitance law is static and cannot depend on prior current exposure within the run."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "slope_change",
+          "parent_relation": "The target dV_C_dt depends on V_C and I_L through a time-invariant effective capacitance and leakage law, so for a fixed state pair (V_C, I_L) the charging slope is the same at all times in a run and across runs with the same parameter set.",
+          "child_relation": "Release the fixed-capacitance assumption by allowing the capacitor's effective capacitance nonlinearity to relax with self-heating during charging, so dV_C_dt at the same (V_C, I_L) can differ depending on the accumulated thermal state of the component.",
+          "affected_inputs": [
+            "V_C",
+            "I_L",
+            "capacitance_voltage_nonlinearity"
+          ],
+          "observable_effect": "Under otherwise fixed source_voltage and resistance, higher-current charging episodes show progressive slowing of dV_C_dt later in the transient compared with low-current episodes because the effective capacitance shifts as the device warms; the parent predicts no such history-dependent slope change once V_C and I_L are specified."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "joule_drive",
+            "expression": "resistance*I_L**2",
+            "role": "instantaneous dissipative heating in the series path that can drive component temperature rise during charging"
+          },
+          {
+            "name": "electrothermal_loading",
+            "expression": "resistance*I_L**2/(source_voltage*I_L + 1.0e-12)",
+            "role": "dimensionless indicator that a nontrivial fraction of supplied power is being dissipated rather than stored, marking conditions where thermal drift can become observable"
+          },
+          {
+            "name": "cap_bias",
+            "expression": "Abs(V_C)/capacitance_voltage_scale",
+            "role": "existing voltage-bias coordinate controlling how strongly any capacitance-law drift affects the target slope"
+          }
+        ],
+        "activation_condition": "Observable when the startup current is large enough and the observation window long enough that cumulative heating is not negligible compared with thermal relaxation; practically, resistance*I_L**2 sustained over a significant fraction of the RC charging interval and voltage bias reaching |V_C| comparable to capacitance_voltage_scale so the capacitance nonlinearity matters.",
+        "train_hidden_contrast": "In training, moderate-current traces may already show slight late-time deviation from a single time-invariant capacitance law; in holdout, larger source_voltage or smaller resistance extends the same electrothermal mechanism, producing a stronger current-dependent drift in dV_C_dt that the parent cannot match with one shared static capacitance nonlinearity.",
+        "continuation_path": "Recover the parent law in the zero-heating or instantaneous-thermal-relaxation limit, where the capacitance nonlinearity remains fixed at its nominal value throughout the transient.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A thermal memory effect is history dependent and cannot be represented by refitting fixed parameters alone within one run; one additional state is needed to encode accumulated self-heating that feeds back onto the effective capacitance seen by V_C.",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "V_C",
+          "I_L",
+          "T_th"
+        ],
+        "structural_role": "timescale",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "electrothermal drift of nonlinear capacitance",
+        "scientific_mechanism": "Self-heating during charging changes dielectric response, causing the capacitance-voltage characteristic to drift over the transient and thereby modifying the capacitor-voltage slope at fixed electrical state.",
+        "embedding_pattern": "multi_timescale",
+        "difficulty_rationale": "This embedding adds a distinct thermal relaxation timescale and memory state that modulates an existing nonlinear response law. That is structurally harder than a coefficient-only correction because the target slope now depends on accumulated prior dissipation, not just the instantaneous electrical state.",
+        "taxonomy_match": "known",
+        "assumption_before": "The resistor and capacitor are ideal and time-invariant.",
+        "assumption_after": "The capacitance-voltage nonlinearity drifts with a finite-rate self-heating state during charging.",
+        "before_fragment": "I_L / (capacitance * (1 + capacitance_voltage_nonlinearity * tanh(Abs(V_C) / capacitance_voltage_scale))) - leak_conductance * V_C * tanh(Abs(V_C) / leakage_voltage_scale) / (capacitance * (1 + capacitance_voltage_nonlinearity * tanh(Abs(V_C) / capacitance_voltage_scale)))",
+        "after_fragment": "I_L / (capacitance * (1 + capacitance_voltage_nonlinearity * (1 + thermal_capacitance_nonlinearity_sensitivity * T_th) * tanh(Abs(V_C) / capacitance_voltage_scale))) - leak_conductance * V_C * tanh(Abs(V_C) / leakage_voltage_scale) / (capacitance * (1 + capacitance_voltage_nonlinearity * (1 + thermal_capacitance_nonlinearity_sensitivity * T_th) * tanh(Abs(V_C) / capacitance_voltage_scale)))",
+        "parent_reduction": "Set thermal_capacitance_nonlinearity_sensitivity = 0, or keep T_th approximately zero via thermal_heating_gain -> 0 or thermal_time_constant -> 0.",
+        "observable_signature": "Compare runs with different source_voltage or resistance but the same nominal capacitor parameters. In the parent, whenever two trajectories pass through the same observed state pair (V_C, I_L), the predicted dV_C_dt must coincide. In the child, stronger earlier current raises T_th, so later in the transient the same (V_C, I_L) can map to a different dV_C_dt through the thermally shifted capacitance nonlinearity. The contrast is strongest when resistance*I_L**2 is appreciable over a non-negligible fraction of the charging window and |V_C| is on the order of capacitance_voltage_scale.",
+        "shortcut_blocked": "A single refitted parent parameter set cannot reproduce both low-drive traces with nearly nominal capacitance and high-drive traces with progressive late-time slope drift, because the parent target law is memoryless in the supplied electrical states and has no variable that records prior dissipation. Retuning capacitance_voltage_nonlinearity or capacitance_voltage_scale only changes one static V_C-dependent curve, whereas the child creates history-dependent slope changes within a run through T_th."
+      },
+      "range_suggestions": {
+        "T_th": "nonnegative temperature-rise-like state; initially zero at ambient and typically small enough that 1 + thermal_capacitance_nonlinearity_sensitivity*T_th remains positive over the observed transient",
+        "thermal_time_constant": "positive; choose comparable to or somewhat longer than the resolved startup/charging window so thermal memory can accumulate but also relax",
+        "thermal_heating_gain": "positive and small; scales resistance*I_L**2 into a modest temperature-rise rate over the charging transient",
+        "thermal_capacitance_nonlinearity_sensitivity": "either sign but typically chosen so thermal drift is modest; magnitude small enough that heating perturbs rather than overwhelms the nominal capacitance-voltage nonlinearity"
+      }
+    },
+    {
+      "generation": 5,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "interaction_emergence",
+          "parent_relation": "The target mapping dV_C_dt(V_C,I_L,T_th) uses a thermally drifting capacitance but a temperature-invariant leakage branch, so at fixed electrical state the leakage contribution remains proportional to V_C*tanh(Abs(V_C)/leakage_voltage_scale) with only the shared capacitance denominator changing.",
+          "child_relation": "Make the leakage branch itself temperature dependent, so dV_C_dt at fixed V_C and I_L depends on the interaction T_th × V_C through a thermally activated leakage conductance. This changes the balance between charging current and self-discharge as heating accumulates.",
+          "affected_inputs": [
+            "V_C",
+            "I_L",
+            "T_th",
+            "leak_conductance"
+          ],
+          "observable_effect": "Across runs with different source_voltage or resistance that generate different self-heating histories, late-transient charging slows more strongly at the same V_C when T_th is larger, producing a temperature-linked sag in dV_C_dt and possibly a lower approach rate to the source voltage than the parent can match with one shared leakage parameter set."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "effective_capacitance_factor",
+            "expression": "1 + capacitance_voltage_nonlinearity * (1 + thermal_capacitance_nonlinearity_sensitivity * T_th) * tanh(Abs(V_C) / capacitance_voltage_scale)",
+            "role": "existing thermally modulated capacitance factor controlling the parent denominator"
+          },
+          {
+            "name": "leak_drive",
+            "expression": "V_C * tanh(Abs(V_C) / leakage_voltage_scale)",
+            "role": "finite-voltage leakage-driving coordinate already present in the target law"
+          },
+          {
+            "name": "heating_drive",
+            "expression": "resistance * I_L**2",
+            "role": "instantaneous dissipation that builds the thermal state and reveals the hidden environment variable"
+          }
+        ],
+        "activation_condition": "Observable when self-heating is non-negligible over the charging window, i.e. thermal_heating_gain*resistance*I_L**2 accumulates enough that T_th departs measurably from zero while V_C is large enough for the leakage branch to be active on the scale leakage_voltage_scale.",
+        "train_hidden_contrast": "Within training, lower- and higher-dissipation trajectories already differ in T_th buildup; in holdout, stronger source_voltage or smaller resistance extends that same mechanism, causing a larger late-time leakage-induced reduction in dV_C_dt at comparable V_C that the parent cannot reproduce with one fixed leakage strength.",
+        "continuation_path": "Recover the parent by taking the thermal sensitivity of leakage to zero, or in regimes where T_th stays near zero throughout the observation window.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The model includes self-heating but assumes the dielectric leakage path is thermally invariant, even though leakage in real capacitors commonly increases with temperature.",
+        "baseline_assumption": "The leakage conductance is fixed and independent of the capacitor's thermal state.",
+        "scientific_mechanism": "Temperature-activated dielectric leakage: warming of the capacitor raises carrier mobility or defect-assisted conduction, increasing parallel leakage during the same charging transient that generated the heat.",
+        "affected_symbols": [
+          "V_C",
+          "I_L",
+          "T_th",
+          "leak_conductance",
+          "thermal_heating_gain",
+          "resistance",
+          "source_voltage",
+          "leakage_voltage_scale"
+        ],
+        "rationale": "A natural next refinement is to relax the parent's fixed-environment treatment of leakage rather than adding a wholly new branch. In the parent, varying source_voltage or resistance changes I_L and therefore T_th, but the target mapping only feels that heating through the capacitance denominator; the leakage numerator itself is unchanged at fixed V_C. In the child, the same thermal state also strengthens leakage, so two trajectories that reach similar V_C but with different prior dissipation histories will have different dV_C_dt because hotter capacitors leak more strongly. Hold capacitance, leak shape scale, and initial conditions fixed; vary source_voltage and/or resistance over admissible monotone-charging conditions so that one case produces modest T_th and another larger T_th. Then compare late transient segments where V_C is already on the order of leakage_voltage_scale and T_th has had time to accumulate. The parent with one shared parameter set can alter capacitance drift through its existing thermal factor, but it cannot create an additional temperature-dependent subtraction in the numerator balance between I_L and leakage. Refitting leak_conductance alone cannot match both low-heating and high-heating cases simultaneously because that would require one leakage level for cool trajectories and a larger leakage level for hot trajectories at the same V_C. The effect is scientifically admissible when self-heating is modest but nonzero; if T_th remains near zero or V_C never reaches the leakage activation scale, this refinement becomes weak and the parent is effectively recovered."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "interaction_emergence",
+          "parent_relation": "The target mapping dV_C_dt(V_C,I_L,T_th) uses a thermally drifting capacitance but a temperature-invariant leakage branch, so at fixed electrical state the leakage contribution remains proportional to V_C*tanh(Abs(V_C)/leakage_voltage_scale) with only the shared capacitance denominator changing.",
+          "child_relation": "Make the leakage branch itself temperature dependent, so dV_C_dt at fixed V_C and I_L depends on the interaction T_th × V_C through a thermally activated leakage conductance. This changes the balance between charging current and self-discharge as heating accumulates.",
+          "affected_inputs": [
+            "V_C",
+            "I_L",
+            "T_th",
+            "leak_conductance"
+          ],
+          "observable_effect": "Across runs with different source_voltage or resistance that generate different self-heating histories, late-transient charging slows more strongly at the same V_C when T_th is larger, producing a temperature-linked sag in dV_C_dt and possibly a lower approach rate to the source voltage than the parent can match with one shared leakage parameter set."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "effective_capacitance_factor",
+            "expression": "1 + capacitance_voltage_nonlinearity * (1 + thermal_capacitance_nonlinearity_sensitivity * T_th) * tanh(Abs(V_C) / capacitance_voltage_scale)",
+            "role": "existing thermally modulated capacitance factor controlling the parent denominator"
+          },
+          {
+            "name": "leak_drive",
+            "expression": "V_C * tanh(Abs(V_C) / leakage_voltage_scale)",
+            "role": "finite-voltage leakage-driving coordinate already present in the target law"
+          },
+          {
+            "name": "heating_drive",
+            "expression": "resistance * I_L**2",
+            "role": "instantaneous dissipation that builds the thermal state and reveals the hidden environment variable"
+          }
+        ],
+        "activation_condition": "Observable when self-heating is non-negligible over the charging window, i.e. thermal_heating_gain*resistance*I_L**2 accumulates enough that T_th departs measurably from zero while V_C is large enough for the leakage branch to be active on the scale leakage_voltage_scale.",
+        "train_hidden_contrast": "Within training, lower- and higher-dissipation trajectories already differ in T_th buildup; in holdout, stronger source_voltage or smaller resistance extends that same mechanism, causing a larger late-time leakage-induced reduction in dV_C_dt at comparable V_C that the parent cannot reproduce with one fixed leakage strength.",
+        "continuation_path": "Recover the parent by taking the thermal sensitivity of leakage to zero, or in regimes where T_th stays near zero throughout the observation window.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "V_C",
+          "T_th"
+        ],
+        "structural_role": "interaction",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "temperature-dependent dielectric leakage in a charging capacitor",
+        "scientific_mechanism": "Temperature-activated dielectric leakage: warming of the capacitor raises carrier mobility or defect-assisted conduction, increasing parallel leakage during the same charging transient that generated the heat.",
+        "embedding_pattern": "state_coupling",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the leakage subtraction now depends jointly on the instantaneous voltage-dependent leak drive and the history-dependent thermal state, so identical V_C with different prior dissipation produces different target slopes.",
+        "taxonomy_match": "known",
+        "assumption_before": "The leakage conductance is fixed and independent of the capacitor's thermal state.",
+        "assumption_after": "The leakage conductance increases with the existing thermal state through a first-order thermal activation factor.",
+        "before_fragment": "I_L / (capacitance * (1 + capacitance_voltage_nonlinearity * (1 + thermal_capacitance_nonlinearity_sensitivity * T_th) * tanh(Abs(V_C) / capacitance_voltage_scale))) - leak_conductance * V_C * tanh(Abs(V_C) / leakage_voltage_scale) / (capacitance * (1 + capacitance_voltage_nonlinearity * (1 + thermal_capacitance_nonlinearity_sensitivity * T_th) * tanh(Abs(V_C) / capacitance_voltage_scale)))",
+        "after_fragment": "I_L / (capacitance * (1 + capacitance_voltage_nonlinearity * (1 + thermal_capacitance_nonlinearity_sensitivity * T_th) * tanh(Abs(V_C) / capacitance_voltage_scale))) - leak_conductance * (1 + thermal_leakage_sensitivity * T_th) * V_C * tanh(Abs(V_C) / leakage_voltage_scale) / (capacitance * (1 + capacitance_voltage_nonlinearity * (1 + thermal_capacitance_nonlinearity_sensitivity * T_th) * tanh(Abs(V_C) / capacitance_voltage_scale)))",
+        "parent_reduction": "Set thermal_leakage_sensitivity = 0, or remain in the low-heating regime where T_th stays approximately zero.",
+        "observable_signature": "When comparing admissible trajectories that reach similar V_C but accumulate different T_th because source_voltage or resistance changed, the hotter trajectory shows extra late-time reduction in dV_C_dt once V_C is on the order of leakage_voltage_scale. This is a changed target mapping, not merely an auxiliary-state change, because T_th now enters the leakage numerator directly.",
+        "shortcut_blocked": "A single refit of existing parent parameters cannot reproduce both cool and hot late-transient slopes at the same V_C because the parent only lets temperature act through the common capacitance denominator, not through an additional temperature-scaled leakage subtraction. Refitting leak_conductance or capacitance-related parameters globally would force one compromise leakage level rather than the required T_th-dependent increase across conditions."
+      },
+      "range_suggestions": {
+        "thermal_leakage_sensitivity": "typically nonnegative and small enough that 1 + thermal_leakage_sensitivity*T_th stays positive over the observed transient; choose so leakage changes are noticeable only when self-heating is modest but nonzero"
+      }
+    }
+  ],
+  "evolution_provenance": {
+    "dimension_track": null,
+    "mechanism_profile": {
+      "allowed_structural_roles": [
+        "contribution",
+        "response_law",
+        "modulation",
+        "interaction",
+        "constraint",
+        "transition",
+        "feedback",
+        "heterogeneity",
+        "timescale",
+        "transport_balance"
+      ],
+      "preferred_scopes": [
+        "unary",
+        "pairwise",
+        "state_coupling",
+        "time_forcing"
+      ],
+      "domain_mechanisms": [
+        {
+          "id": "nonlinear_constitutive_response",
+          "description": "nonlinear constitutive or response law",
+          "operations": [
+            "add_term",
+            "change_assumption"
+          ]
+        },
+        {
+          "id": "coupled_field_or_force",
+          "description": "coupling to an already declared field, force, or state",
+          "operations": [
+            "add_term"
+          ]
+        },
+        {
+          "id": "finite_relaxation_or_threshold",
+          "description": "finite response time or physical threshold",
+          "operations": [
+            "change_assumption"
+          ]
+        }
+      ],
+      "profile_source": "subject_fallback",
+      "ontology_schema_version": "1.0",
+      "taxonomy_schema_version": "1.0"
+    },
+    "baseline_mechanisms": [
+      "Charge accumulation on the capacitor plates.",
+      "Resistive limitation of current from a constant voltage source."
+    ],
+    "baseline_assumptions": [
+      "The source voltage is constant.",
+      "The resistor and capacitor are ideal and time-invariant.",
+      "There is no leakage path across the capacitor.",
+      "Parasitic inductance and electromagnetic radiation are negligible."
+    ],
+    "scientific_constraints": [
+      "Capacitance and resistance are positive.",
+      "The capacitor voltage remains bounded by the initial voltage and source voltage for a monotone charging setup.",
+      "Stored electrical energy is nonnegative.",
+      "The charging direction is toward the source voltage."
+    ],
+    "refinement_agenda": [
+      "Add dielectric leakage through the capacitor.",
+      "Change the ideal-component assumption to include parasitic inductance.",
+      "Allow source voltage or component values to vary with time.",
+      "Add nonlinear capacitance depending on capacitor voltage."
+    ],
+    "evolution_contracts": [
+      {
+        "operation": "add_term",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "With fixed resistance and capacitance, dV_C_dt depends only linearly on the voltage gap source_voltage - V_C, so all charging traces are single-exponential with one shared time constant.",
+          "child_relation": "Add capacitor leakage as an extra discharge path proportional to V_C, so dV_C_dt depends on both the charging gap and the present capacitor voltage through a second linear channel; the effective approach rate and final saturation both change.",
+          "affected_inputs": [
+            "V_C",
+            "source_voltage",
+            "resistance",
+            "capacitance"
+          ],
+          "observable_effect": "Compared across experiments with different source_voltage but the same component values, the leaked capacitor saturates below source_voltage and shows a different late-time curvature than the ideal single-exponential parent."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "drive_gap",
+            "expression": "source_voltage - V_C",
+            "role": "instantaneous charging drive from the source through the resistor"
+          },
+          {
+            "name": "stored_voltage",
+            "expression": "V_C",
+            "role": "state that would feed a leakage discharge branch"
+          },
+          {
+            "name": "parent_rate",
+            "expression": "(source_voltage - V_C)/(resistance*capacitance)",
+            "role": "ideal RC charging slope used by the parent model"
+          }
+        ],
+        "activation_condition": "Observable when the capacitor has a finite leakage path on time scales comparable to the charging experiment, i.e. the leakage time constant is not much longer than resistance*capacitance and measurements extend into mid-to-late charging.",
+        "train_hidden_contrast": "In training, leakage appears as slightly reduced late-time slope and sub-source saturation; in holdout with broader observation windows or larger source_voltage, the same mechanism more clearly reveals the lowered asymptote and altered curvature.",
+        "continuation_path": "Recover the parent law in the limit of vanishing leakage conductance, equivalently infinite leakage resistance.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "unary",
+        "scope_symbols": [
+          "V_C"
+        ],
+        "structural_role": "contribution",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "threshold-activated parallel capacitor leakage",
+        "scientific_mechanism": "A real capacitor can have a finite parallel leakage path through dielectric imperfections, producing a discharge current proportional to its own voltage during charging.",
+        "embedding_pattern": "saturating_or_thresholded",
+        "difficulty_rationale": "The added term introduces a new voltage-dependent activation scale, so the target mapping is no longer a single globally linear function of source_voltage - V_C. This is structurally harder than a coefficient-only correction because leakage influence is state-conditioned, changing curvature across the trajectory rather than merely rescaling one time constant.",
+        "taxonomy_match": "provisional",
+        "assumption_before": "There is no leakage path across the capacitor.",
+        "assumption_after": "The capacitor has a finite leakage path whose discharge contribution activates over a finite voltage scale and then approaches a voltage-proportional regime.",
+        "before_fragment": "(source_voltage - V_C) / (resistance * capacitance)",
+        "after_fragment": "(source_voltage - V_C) / (resistance * capacitance) - leak_conductance * V_C * tanh(Abs(V_C) / leakage_voltage_scale) / capacitance",
+        "parent_reduction": "leak_conductance -> 0, or operation restricted to Abs(V_C) << leakage_voltage_scale so the added term is negligible.",
+        "observable_signature": "Charging remains monotone, but once V_C grows enough to activate the leakage branch, the curve bends away from the parent single-exponential approach and settles below source_voltage.",
+        "shortcut_blocked": "A single parent parameter set cannot reproduce both the early-time ideal charging slope and the reduced steady-state fraction across observation windows when leakage is appreciable. In the parent, resistance and capacitance jointly fix one time constant while the asymptote is locked to source_voltage; retuning those coefficients can slow or speed the whole trace but cannot lower the final voltage below source_voltage without spoiling the shared early-time relation."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "With fixed capacitance, the charging law has a single RC timescale so dV_C_dt decreases with V_C mainly through one affine charging term plus the existing leakage nonlinearity.",
+          "child_relation": "Let capacitance depend on capacitor voltage, so the same source_voltage and resistance produce a voltage-dependent effective charging timescale; dV_C_dt is reduced more strongly in the voltage range where capacitance increases, changing the curvature of V_C(t).",
+          "affected_inputs": [
+            "V_C",
+            "capacitance"
+          ],
+          "observable_effect": "Across experiments varying source_voltage while holding resistance, nominal low-bias capacitance, and leakage parameters fixed, the rise is relatively slower in the higher-V_C portion of the trajectory for larger source_voltage because the effective capacitance grows with voltage; a single fixed-capacitance parent cannot match both low-voltage and higher-voltage trajectory curvature with one shared parameter set."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "rc_drive",
+            "expression": "(source_voltage - V_C) / resistance",
+            "role": "Available series charging current before division by effective capacitance"
+          },
+          {
+            "name": "leak_activation",
+            "expression": "Abs(V_C) / leakage_voltage_scale",
+            "role": "Dimensionless regime indicator for leakage turn-on"
+          },
+          {
+            "name": "normalized_voltage",
+            "expression": "V_C / source_voltage",
+            "role": "Position along the charging trajectory when source_voltage > 0"
+          }
+        ],
+        "activation_condition": "Observable when capacitor voltage spans a range over which real capacitance variation is non-negligible, e.g. higher source_voltage drives V_C into a regime where differential capacitance changes appreciably while resistance and leakage remain fixed.",
+        "train_hidden_contrast": "In training, modest source_voltage variation may show slight late-time curvature changes; in holdout with larger source_voltage but same component family, the voltage-dependent capacitance produces a stronger slowdown at higher V_C that extends the same mechanism rather than introducing a new one.",
+        "continuation_path": "Recover the parent by taking the capacitance to be voltage-independent over the sampled range, i.e. the capacitance-variation amplitude tends to zero.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "unary",
+        "scope_symbols": [
+          "V_C"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Voltage-dependent differential capacitance in the dielectric",
+        "scientific_mechanism": "Voltage-dependent capacitance of the capacitor dielectric alters the effective RC timescale during charging.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This embedding is harder than a coefficient-only correction because the storage coefficient changes along the trajectory as a nonlinear function of the observed state, so one shared parameter set must explain curvature changes across source_voltage conditions rather than only rescaling the whole response.",
+        "taxonomy_match": "known",
+        "assumption_before": "The resistor and capacitor are ideal and time-invariant.",
+        "assumption_after": "The capacitor's effective differential capacitance varies with applied voltage through dielectric nonlinearity.",
+        "before_fragment": "(source_voltage - V_C) / (resistance * capacitance) - leak_conductance * V_C * tanh(Abs(V_C) / leakage_voltage_scale) / capacitance",
+        "after_fragment": "(source_voltage - V_C) / (resistance * capacitance * (1 + capacitance_voltage_nonlinearity * tanh(Abs(V_C) / capacitance_voltage_scale))) - leak_conductance * V_C * tanh(Abs(V_C) / leakage_voltage_scale) / (capacitance * (1 + capacitance_voltage_nonlinearity * tanh(Abs(V_C) / capacitance_voltage_scale)))",
+        "parent_reduction": "Take capacitance_voltage_nonlinearity -> 0, which makes the multiplicative capacitance factor equal to 1 and recovers the parent expression exactly.",
+        "observable_signature": "For runs starting from V_C(0)=0 with different source_voltage but the same resistance, capacitance, and leakage parameters, the child predicts extra late-trajectory flattening when V_C approaches or exceeds capacitance_voltage_scale, because both charging and leakage-induced voltage change are divided by a larger effective capacitance. The parent retains one fixed storage scale and therefore cannot reproduce the stronger high-voltage curvature with the same low-voltage slope across all runs.",
+        "shortcut_blocked": "Refitting all parent parameters with a single shared set cannot create a state-dependent slowdown that appears only after V_C enters the capacitance-variation range. Changing capacitance or resistance in the parent rescales the timescale nearly globally, while changing leakage parameters mainly alters the leak branch activation; neither reproduces the specific cross-condition contrast of similar early charging but disproportionately slower high-V_C evolution in larger-source runs."
+      },
+      {
+        "operation": "add_term",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "phase_shift",
+          "parent_relation": "The parent maps capacitor voltage to its derivative through a single monotone RC charging phase with voltage-dependent capacitance and leakage, so the charging rate decreases smoothly from its initial value without an additional transient stage.",
+          "child_relation": "Add a parasitic series inductive current state so the target derivative depends on both capacitor voltage and circuit current, creating an initial current-ramp phase before the usual RC-like approach. The mapping from observed V_C to dV_C_dt is no longer single-valued in time because the same V_C can occur with different current histories during startup.",
+          "affected_inputs": [
+            "V_C",
+            "t"
+          ],
+          "observable_effect": "At fixed source_voltage, resistance, and capacitance, the child predicts delayed initial rise of V_C and possible inflection in the early-time trajectory, whereas the parent always starts with its maximal charging slope at t=0 and then relaxes monotonically."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "drive_gap",
+            "expression": "source_voltage - V_C",
+            "role": "Instantaneous voltage still available to drive charging"
+          },
+          {
+            "name": "cap_scale",
+            "expression": "capacitance*(1 + capacitance_voltage_nonlinearity*tanh(Abs(V_C)/capacitance_voltage_scale))",
+            "role": "Effective differential capacitance setting how current converts to dV_C_dt"
+          },
+          {
+            "name": "leak_factor",
+            "expression": "tanh(Abs(V_C)/leakage_voltage_scale)",
+            "role": "Finite-voltage activation of dielectric leakage"
+          }
+        ],
+        "activation_condition": "Observable when the parasitic inductive timescale is not negligible relative to the RC charging timescale, i.e. during early-time measurements with fast sampling after connection and physically plausible wiring or lead inductance.",
+        "train_hidden_contrast": "In training, the mechanism appears as rounded or delayed startup relative to the later charging tail; in holdout with different resistance or capacitance but similar non-negligible inductive timescale, the same startup phase persists and shifts systematically rather than being absorbed into one global RC constant.",
+        "continuation_path": "Recover the parent law in the limit of vanishing parasitic inductance or after the fast current transient has relaxed so circuit current becomes quasi-instantaneously slaved to source_voltage - V_C.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "Inductance introduces dynamical memory through current inertia; this cannot be represented by a purely algebraic modification of the existing V_C-only right-hand side because the same V_C can correspond to different charging currents during startup.",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "V_C",
+          "I_L"
+        ],
+        "structural_role": "feedback",
+        "domain_mechanism_id": "coupled_field_or_force",
+        "domain_mechanism": "series parasitic inductive current buildup coupled to capacitor charging",
+        "scientific_mechanism": "Series parasitic inductance stores magnetic energy and limits the rate of change of charging current, introducing an additional fast transient phase before the capacitor follows the slower resistive-capacitive evolution.",
+        "embedding_pattern": "nested_nonlinearity",
+        "difficulty_rationale": "The added mechanism is structurally harder because it introduces a hidden current state and applies a nonlinear tanh smoothing to the state-dependent inductive drive, so the target derivative depends on a coupled transient trajectory rather than a single algebraic gain on source_voltage - V_C.",
+        "taxonomy_match": "alias",
+        "assumption_before": "Parasitic inductance is negligible, so charging current responds instantaneously to the voltage difference across the resistor-capacitor path.",
+        "assumption_after": "Charging current has finite inductive buildup governed by a new current state before approaching the slower resistive-capacitive regime.",
+        "before_fragment": "(source_voltage - V_C) / (resistance * capacitance * (1 + capacitance_voltage_nonlinearity * tanh(Abs(V_C) / capacitance_voltage_scale))) - leak_conductance * V_C * tanh(Abs(V_C) / leakage_voltage_scale) / (capacitance * (1 + capacitance_voltage_nonlinearity * tanh(Abs(V_C) / capacitance_voltage_scale)))",
+        "after_fragment": "I_L / (capacitance * (1 + capacitance_voltage_nonlinearity * tanh(Abs(V_C) / capacitance_voltage_scale))) - leak_conductance * V_C * tanh(Abs(V_C) / leakage_voltage_scale) / (capacitance * (1 + capacitance_voltage_nonlinearity * tanh(Abs(V_C) / capacitance_voltage_scale)))",
+        "parent_reduction": "Take parasitic_inductance -> 0 with inductive_current_smoothing_scale large enough that tanh(I_L/inductive_current_smoothing_scale) stays in its linear regime, yielding rapid relaxation of I_L toward (source_voltage - V_C)/resistance.",
+        "observable_signature": "With fast early-time observation after connection, dV_C_dt starts near zero because I_L(0)=0, then rises over a short inductive timescale before decaying; the parent instead starts immediately at a positive maximum set by source_voltage/(resistance*capacitance) and has no separate startup phase.",
+        "shortcut_blocked": "A single parent parameter set cannot reproduce both the delayed initial slope and the later tail because its target mapping is algebraic in V_C alone: matching the later RC-like portion fixes an initial slope near source_voltage divided by an effective RC scale, while reducing that slope enough to mimic the inductive startup would also slow the entire subsequent trajectory. The child changes the scored mapping itself, since at the same observed V_C during startup different I_L values give different dV_C_dt."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "slope_change",
+          "parent_relation": "The target dV_C_dt depends on V_C and I_L through a time-invariant effective capacitance and leakage law, so for a fixed state pair (V_C, I_L) the charging slope is the same at all times in a run and across runs with the same parameter set.",
+          "child_relation": "Release the fixed-capacitance assumption by allowing the capacitor's effective capacitance nonlinearity to relax with self-heating during charging, so dV_C_dt at the same (V_C, I_L) can differ depending on the accumulated thermal state of the component.",
+          "affected_inputs": [
+            "V_C",
+            "I_L",
+            "capacitance_voltage_nonlinearity"
+          ],
+          "observable_effect": "Under otherwise fixed source_voltage and resistance, higher-current charging episodes show progressive slowing of dV_C_dt later in the transient compared with low-current episodes because the effective capacitance shifts as the device warms; the parent predicts no such history-dependent slope change once V_C and I_L are specified."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "joule_drive",
+            "expression": "resistance*I_L**2",
+            "role": "instantaneous dissipative heating in the series path that can drive component temperature rise during charging"
+          },
+          {
+            "name": "electrothermal_loading",
+            "expression": "resistance*I_L**2/(source_voltage*I_L + 1.0e-12)",
+            "role": "dimensionless indicator that a nontrivial fraction of supplied power is being dissipated rather than stored, marking conditions where thermal drift can become observable"
+          },
+          {
+            "name": "cap_bias",
+            "expression": "Abs(V_C)/capacitance_voltage_scale",
+            "role": "existing voltage-bias coordinate controlling how strongly any capacitance-law drift affects the target slope"
+          }
+        ],
+        "activation_condition": "Observable when the startup current is large enough and the observation window long enough that cumulative heating is not negligible compared with thermal relaxation; practically, resistance*I_L**2 sustained over a significant fraction of the RC charging interval and voltage bias reaching |V_C| comparable to capacitance_voltage_scale so the capacitance nonlinearity matters.",
+        "train_hidden_contrast": "In training, moderate-current traces may already show slight late-time deviation from a single time-invariant capacitance law; in holdout, larger source_voltage or smaller resistance extends the same electrothermal mechanism, producing a stronger current-dependent drift in dV_C_dt that the parent cannot match with one shared static capacitance nonlinearity.",
+        "continuation_path": "Recover the parent law in the zero-heating or instantaneous-thermal-relaxation limit, where the capacitance nonlinearity remains fixed at its nominal value throughout the transient.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A thermal memory effect is history dependent and cannot be represented by refitting fixed parameters alone within one run; one additional state is needed to encode accumulated self-heating that feeds back onto the effective capacitance seen by V_C.",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "V_C",
+          "I_L",
+          "T_th"
+        ],
+        "structural_role": "timescale",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "electrothermal drift of nonlinear capacitance",
+        "scientific_mechanism": "Self-heating during charging changes dielectric response, causing the capacitance-voltage characteristic to drift over the transient and thereby modifying the capacitor-voltage slope at fixed electrical state.",
+        "embedding_pattern": "multi_timescale",
+        "difficulty_rationale": "This embedding adds a distinct thermal relaxation timescale and memory state that modulates an existing nonlinear response law. That is structurally harder than a coefficient-only correction because the target slope now depends on accumulated prior dissipation, not just the instantaneous electrical state.",
+        "taxonomy_match": "known",
+        "assumption_before": "The resistor and capacitor are ideal and time-invariant.",
+        "assumption_after": "The capacitance-voltage nonlinearity drifts with a finite-rate self-heating state during charging.",
+        "before_fragment": "I_L / (capacitance * (1 + capacitance_voltage_nonlinearity * tanh(Abs(V_C) / capacitance_voltage_scale))) - leak_conductance * V_C * tanh(Abs(V_C) / leakage_voltage_scale) / (capacitance * (1 + capacitance_voltage_nonlinearity * tanh(Abs(V_C) / capacitance_voltage_scale)))",
+        "after_fragment": "I_L / (capacitance * (1 + capacitance_voltage_nonlinearity * (1 + thermal_capacitance_nonlinearity_sensitivity * T_th) * tanh(Abs(V_C) / capacitance_voltage_scale))) - leak_conductance * V_C * tanh(Abs(V_C) / leakage_voltage_scale) / (capacitance * (1 + capacitance_voltage_nonlinearity * (1 + thermal_capacitance_nonlinearity_sensitivity * T_th) * tanh(Abs(V_C) / capacitance_voltage_scale)))",
+        "parent_reduction": "Set thermal_capacitance_nonlinearity_sensitivity = 0, or keep T_th approximately zero via thermal_heating_gain -> 0 or thermal_time_constant -> 0.",
+        "observable_signature": "Compare runs with different source_voltage or resistance but the same nominal capacitor parameters. In the parent, whenever two trajectories pass through the same observed state pair (V_C, I_L), the predicted dV_C_dt must coincide. In the child, stronger earlier current raises T_th, so later in the transient the same (V_C, I_L) can map to a different dV_C_dt through the thermally shifted capacitance nonlinearity. The contrast is strongest when resistance*I_L**2 is appreciable over a non-negligible fraction of the charging window and |V_C| is on the order of capacitance_voltage_scale.",
+        "shortcut_blocked": "A single refitted parent parameter set cannot reproduce both low-drive traces with nearly nominal capacitance and high-drive traces with progressive late-time slope drift, because the parent target law is memoryless in the supplied electrical states and has no variable that records prior dissipation. Retuning capacitance_voltage_nonlinearity or capacitance_voltage_scale only changes one static V_C-dependent curve, whereas the child creates history-dependent slope changes within a run through T_th."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "interaction_emergence",
+          "parent_relation": "The target mapping dV_C_dt(V_C,I_L,T_th) uses a thermally drifting capacitance but a temperature-invariant leakage branch, so at fixed electrical state the leakage contribution remains proportional to V_C*tanh(Abs(V_C)/leakage_voltage_scale) with only the shared capacitance denominator changing.",
+          "child_relation": "Make the leakage branch itself temperature dependent, so dV_C_dt at fixed V_C and I_L depends on the interaction T_th × V_C through a thermally activated leakage conductance. This changes the balance between charging current and self-discharge as heating accumulates.",
+          "affected_inputs": [
+            "V_C",
+            "I_L",
+            "T_th",
+            "leak_conductance"
+          ],
+          "observable_effect": "Across runs with different source_voltage or resistance that generate different self-heating histories, late-transient charging slows more strongly at the same V_C when T_th is larger, producing a temperature-linked sag in dV_C_dt and possibly a lower approach rate to the source voltage than the parent can match with one shared leakage parameter set."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "effective_capacitance_factor",
+            "expression": "1 + capacitance_voltage_nonlinearity * (1 + thermal_capacitance_nonlinearity_sensitivity * T_th) * tanh(Abs(V_C) / capacitance_voltage_scale)",
+            "role": "existing thermally modulated capacitance factor controlling the parent denominator"
+          },
+          {
+            "name": "leak_drive",
+            "expression": "V_C * tanh(Abs(V_C) / leakage_voltage_scale)",
+            "role": "finite-voltage leakage-driving coordinate already present in the target law"
+          },
+          {
+            "name": "heating_drive",
+            "expression": "resistance * I_L**2",
+            "role": "instantaneous dissipation that builds the thermal state and reveals the hidden environment variable"
+          }
+        ],
+        "activation_condition": "Observable when self-heating is non-negligible over the charging window, i.e. thermal_heating_gain*resistance*I_L**2 accumulates enough that T_th departs measurably from zero while V_C is large enough for the leakage branch to be active on the scale leakage_voltage_scale.",
+        "train_hidden_contrast": "Within training, lower- and higher-dissipation trajectories already differ in T_th buildup; in holdout, stronger source_voltage or smaller resistance extends that same mechanism, causing a larger late-time leakage-induced reduction in dV_C_dt at comparable V_C that the parent cannot reproduce with one fixed leakage strength.",
+        "continuation_path": "Recover the parent by taking the thermal sensitivity of leakage to zero, or in regimes where T_th stays near zero throughout the observation window.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "V_C",
+          "T_th"
+        ],
+        "structural_role": "interaction",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "temperature-dependent dielectric leakage in a charging capacitor",
+        "scientific_mechanism": "Temperature-activated dielectric leakage: warming of the capacitor raises carrier mobility or defect-assisted conduction, increasing parallel leakage during the same charging transient that generated the heat.",
+        "embedding_pattern": "state_coupling",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the leakage subtraction now depends jointly on the instantaneous voltage-dependent leak drive and the history-dependent thermal state, so identical V_C with different prior dissipation produces different target slopes.",
+        "taxonomy_match": "known",
+        "assumption_before": "The leakage conductance is fixed and independent of the capacitor's thermal state.",
+        "assumption_after": "The leakage conductance increases with the existing thermal state through a first-order thermal activation factor.",
+        "before_fragment": "I_L / (capacitance * (1 + capacitance_voltage_nonlinearity * (1 + thermal_capacitance_nonlinearity_sensitivity * T_th) * tanh(Abs(V_C) / capacitance_voltage_scale))) - leak_conductance * V_C * tanh(Abs(V_C) / leakage_voltage_scale) / (capacitance * (1 + capacitance_voltage_nonlinearity * (1 + thermal_capacitance_nonlinearity_sensitivity * T_th) * tanh(Abs(V_C) / capacitance_voltage_scale)))",
+        "after_fragment": "I_L / (capacitance * (1 + capacitance_voltage_nonlinearity * (1 + thermal_capacitance_nonlinearity_sensitivity * T_th) * tanh(Abs(V_C) / capacitance_voltage_scale))) - leak_conductance * (1 + thermal_leakage_sensitivity * T_th) * V_C * tanh(Abs(V_C) / leakage_voltage_scale) / (capacitance * (1 + capacitance_voltage_nonlinearity * (1 + thermal_capacitance_nonlinearity_sensitivity * T_th) * tanh(Abs(V_C) / capacitance_voltage_scale)))",
+        "parent_reduction": "Set thermal_leakage_sensitivity = 0, or remain in the low-heating regime where T_th stays approximately zero.",
+        "observable_signature": "When comparing admissible trajectories that reach similar V_C but accumulate different T_th because source_voltage or resistance changed, the hotter trajectory shows extra late-time reduction in dV_C_dt once V_C is on the order of leakage_voltage_scale. This is a changed target mapping, not merely an auxiliary-state change, because T_th now enters the leakage numerator directly.",
+        "shortcut_blocked": "A single refit of existing parent parameters cannot reproduce both cool and hot late-transient slopes at the same V_C because the parent only lets temperature act through the common capacitance denominator, not through an additional temperature-scaled leakage subtraction. Refitting leak_conductance or capacitance-related parameters globally would force one compromise leakage level rather than the required T_th-dependent increase across conditions."
+      }
+    ]
+  },
+  "finalization": {
+    "mode": "candidate",
+    "accepted_generations": 5,
+    "novelty": {
+      "answer": "NOT_EVALUATED"
+    },
+    "total_points": 5000,
+    "evaluation_status": "not_evaluated"
+  }
+}

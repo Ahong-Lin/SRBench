@@ -1,0 +1,285 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "k",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        20.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "C_epsilon2",
+      "value": 1.9
+    },
+    {
+      "symbol": "C_cascade",
+      "value": 0.7
+    },
+    {
+      "symbol": "tau_cascade",
+      "value": 1.5
+    },
+    {
+      "symbol": "tau_transfer",
+      "value": 3.0
+    },
+    {
+      "symbol": "C_transfer",
+      "value": 0.8
+    },
+    {
+      "symbol": "q_saturation",
+      "value": 1.0
+    },
+    {
+      "symbol": "k_feed_scale",
+      "value": 0.8
+    },
+    {
+      "symbol": "k_shutdown_scale",
+      "value": 0.2
+    }
+  ],
+  "benchmark_output": "dk_dt",
+  "benchmark_target_state": "k",
+  "observed_variables": [
+    "t",
+    "k",
+    "epsilon",
+    "q",
+    "r"
+  ],
+  "rhs_for_integrator": "-epsilon",
+  "state_variables": [
+    "k",
+    "epsilon",
+    "q",
+    "r"
+  ],
+  "state_rhs": [
+    "-epsilon",
+    "-C_epsilon2*epsilon**2/k + C_cascade*(k/(k_feed_scale + k))*(k/(k_shutdown_scale + k))*k*(q + C_transfer*r)/(q_saturation + q + C_transfer*r)",
+    "(epsilon/k - q)/tau_cascade",
+    "(k/(k_shutdown_scale + k))*(q - r)/tau_transfer"
+  ],
+  "initial_conditions": {
+    "k": 1.0,
+    "epsilon": 0.1,
+    "q": 1.0,
+    "r": 1.0
+  },
+  "sanity_expectations": [
+    "k(t) should decrease monotonically because dk/dt=-epsilon and the chosen parameters start with epsilon(0)=0.1>0; an initial slope near -0.1 is expected.",
+    "The cascade feed is initially active but not deep in saturation: at t=0, k/(k_feed_scale+k)≈0.56, k/(k_shutdown_scale+k)≈0.83, and (q+C_transfer*r)/(q_saturation+q+C_transfer*r)=1.8/2.8≈0.64, so epsilon should not follow a trivial single-power decay immediately.",
+    "Because tau_transfer > tau_cascade and C_transfer is nonzero, r should evolve more slowly than q after the trajectory leaves the initial q=r state; this should create a visible intermediate-time shoulder or inflection in epsilon(t) relative to a single-lag response.",
+    "As k decays toward the shutdown scale k_shutdown_scale=0.2, the factor k/(k_shutdown_scale+k) should noticeably suppress both epsilon production and r-relaxation, producing sharper late-time bending downward in epsilon(t) and a corresponding reduction in the magnitude of dk/dt.",
+    "The chosen parameters avoid the parent-recovery limits C_transfer=0, tau_transfer->0, k_feed_scale>>k, and k_shutdown_scale<<k over the whole record, so both the two-stage memory effect and late-decay shutdown should be observable within the sampled time range.",
+    "At the representative initial-condition substitution, all RHS components are finite and real, so numerical integration should begin from a well-posed, non-singular state."
+  ],
+  "role_corrections": [
+    "dk_dt: claimed-output/target derivative -> derived quantity for state k (overridden: contract and target law indicate dependent variable is k, with dk_dt as its RHS expression)",
+    "t: V->V (confirmed: sole time axis from ODE contract)",
+    "k: dynamic state/target -> dependent variable/state (confirmed)",
+    "epsilon: dynamic state -> dynamic state, not parameter (confirmed)",
+    "q: dynamic state -> dynamic state, not parameter (confirmed)",
+    "r: dynamic state -> dynamic state, not parameter (confirmed)",
+    "C_epsilon2: P->P (confirmed)",
+    "C_cascade: P->P (confirmed)",
+    "tau_cascade: P->P (confirmed)",
+    "tau_transfer: P->P (confirmed)",
+    "C_transfer: P->P (confirmed)",
+    "q_saturation: P->P (confirmed)",
+    "k_feed_scale: P->P (confirmed)",
+    "k_shutdown_scale: P->P (confirmed)"
+  ],
+  "rationale": "Preserving the typed ODE-system contract exactly: target state k, single time axis t, and the supplied four-state system. The analyzed target relation dk_dt=-epsilon is consistent with k as the dependent variable and t as the only independent variable; epsilon, q, and r are coupled dynamic states rather than fixed parameters because the contract explicitly governs them. Parameters are chosen to keep the system finite and active away from parent-recovery limits while remaining physically sensible and positive. Specifically, tau_cascade=1.5 and tau_transfer=3.0 give separated primary and slower secondary cascade-memory timescales so the added r stage can create visible mid-decay curvature rather than collapsing to the single-memory limit. C_transfer=0.8 makes r materially but not overwhelmingly contribute to the epsilon feed. q_saturation=1.0 keeps the feed term in an intermediate regime near the inherited initial q=r=1, avoiding both near-linear unsaturated behavior far below saturation and hard saturation that would hide differences between q and r. k_feed_scale=0.8 places the initial state k(0)=1 near the onset of energetic-state modulation, so the feed factor k/(k_feed_scale+k) is active early. k_shutdown_scale=0.2 ensures the extra low-k shutdown is weak initially but becomes important later as decay reduces k, exposing the intended stronger late-time bend rather than staying always-on or negligible over the whole trajectory. C_cascade=0.7 and C_epsilon2=1.9 balance production and destruction so epsilon can show transiently rich curvature while k still decays monotonically from dk_dt=-epsilon. The chosen time window t in [0,20] with 300 points is long enough to capture early memory relaxation, intermediate two-stage transfer effects, and late depletion/shutdown without requiring any change to inherited initial conditions. A limitation is that the initial contract fixes q(0)=r(0)=1, so the two-stage contrast cannot begin from a strongly separated q-r occupancy; the visible distinction must therefore emerge from different relaxation rates and k-dependent gating along the trajectory rather than from an imposed initial mismatch.",
+  "coverage_report": {},
+  "inactive_mechanisms": [],
+  "target_variance": {},
+  "parent_absorption_report": {},
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_XAp7vDHb6FCM22pk5fSsAEMr"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "dk_dt + epsilon",
+        "target_symbol": "dk_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "dk_dt",
+          "epsilon"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "-epsilon"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_rDQOcQuUhpcotxQ1N8dXWQEC"
+        },
+        {
+          "name": "check_substitution",
+          "id": "call_KZPz9FJoD8IpC5fmPZio7fl9"
+        },
+        {
+          "name": "check_substitution",
+          "id": "call_7FLKq2dFon432zfgJCNib4OD"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "-C_epsilon2*epsilon**2/k + C_cascade*(k/(k_feed_scale + k))*(k/(k_shutdown_scale + k))*k*(q + C_transfer*r)/(q_saturation + q + C_transfer*r)",
+        "target_symbol": "epsilon",
+        "assignments": {
+          "k": 1.0,
+          "epsilon": 0.1,
+          "q": 1.0,
+          "r": 1.0,
+          "C_epsilon2": 1.9,
+          "C_cascade": 0.7,
+          "tau_cascade": 1.5,
+          "tau_transfer": 3.0,
+          "C_transfer": 0.8,
+          "q_saturation": 1.0,
+          "k_feed_scale": 0.8,
+          "k_shutdown_scale": 0.2
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": 0.18933333333333335,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "(epsilon/k - q)/tau_cascade",
+        "target_symbol": "q",
+        "assignments": {
+          "k": 1.0,
+          "epsilon": 0.1,
+          "q": 1.0,
+          "r": 1.0,
+          "C_epsilon2": 1.9,
+          "C_cascade": 0.7,
+          "tau_cascade": 1.5,
+          "tau_transfer": 3.0,
+          "C_transfer": 0.8,
+          "q_saturation": 1.0,
+          "k_feed_scale": 0.8,
+          "k_shutdown_scale": 0.2
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": -0.6,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "(k/(k_shutdown_scale + k))*(q - r)/tau_transfer",
+        "target_symbol": "r",
+        "assignments": {
+          "k": 1.0,
+          "epsilon": 0.1,
+          "q": 1.0,
+          "r": 1.0,
+          "C_epsilon2": 1.9,
+          "C_cascade": 0.7,
+          "tau_cascade": 1.5,
+          "tau_transfer": 3.0,
+          "C_transfer": 0.8,
+          "q_saturation": 1.0,
+          "k_feed_scale": 0.8,
+          "k_shutdown_scale": 0.2
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": 0.0,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_0tEVSwMp8WYMcoq6PGUbFPdA"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_neNTq1cV3OQtrxMrM0J71yXE"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 4
+}

@@ -1,0 +1,1733 @@
+{
+  "version": 7,
+  "spec": {
+    "equation_type": "ode_system",
+    "integrator": "integrate_system",
+    "dependent_variable": "T_c",
+    "independent_variables": [
+      {
+        "symbol": "t",
+        "range": [
+          0.0,
+          7200.0
+        ],
+        "n_points": 301,
+        "scale": "linear"
+      }
+    ],
+    "parameters": [
+      {
+        "symbol": "effective_heat_capacity",
+        "value": 250000.0
+      },
+      {
+        "symbol": "heat_loss_sensitivity",
+        "value": 0.9
+      },
+      {
+        "symbol": "thermal_set_point",
+        "value": 37.0
+      },
+      {
+        "symbol": "heat_loss_curvature",
+        "value": 0.18
+      },
+      {
+        "symbol": "thermoeffector_adjustment_time",
+        "value": 600.0
+      },
+      {
+        "symbol": "recruitment_time_acceleration",
+        "value": 0.9
+      },
+      {
+        "symbol": "recruitment_activation_scale",
+        "value": 0.4
+      },
+      {
+        "symbol": "slow_effector_weight",
+        "value": 0.35
+      },
+      {
+        "symbol": "slow_recruitment_time",
+        "value": 1800.0
+      },
+      {
+        "symbol": "slow_recruitment_threshold",
+        "value": 0.3
+      },
+      {
+        "symbol": "metabolic_suppression_strength",
+        "value": 0.25
+      },
+      {
+        "symbol": "metabolic_adjustment_time",
+        "value": 3600.0
+      }
+    ],
+    "benchmark_output": "dT_c_dt",
+    "benchmark_target_state": "T_c",
+    "observed_variables": [
+      "t",
+      "T_c",
+      "H",
+      "H_slow",
+      "metabolic_heat_production"
+    ],
+    "rhs_for_integrator": "(metabolic_heat_production - metabolic_heat_production*((1 - slow_effector_weight)*H + slow_effector_weight*H_slow))/effective_heat_capacity",
+    "state_variables": [
+      "T_c",
+      "H",
+      "H_slow",
+      "metabolic_heat_production"
+    ],
+    "state_rhs": [
+      "(metabolic_heat_production - metabolic_heat_production*((1 - slow_effector_weight)*H + slow_effector_weight*H_slow))/effective_heat_capacity",
+      "(exp((heat_loss_sensitivity + heat_loss_curvature*(T_c - thermal_set_point)**2)*(T_c - thermal_set_point)) - H)/((thermoeffector_adjustment_time)/(1 + recruitment_time_acceleration*Piecewise((0, T_c - thermal_set_point <= 0), ((T_c - thermal_set_point)/(recruitment_activation_scale + (T_c - thermal_set_point)), True))))",
+      "(1 + (exp((heat_loss_sensitivity + heat_loss_curvature*(T_c - thermal_set_point)**2)*(T_c - thermal_set_point)) - 1)*Piecewise((0, T_c - thermal_set_point <= 0), ((T_c - thermal_set_point)/(slow_recruitment_threshold + (T_c - thermal_set_point)), True)) - H_slow)/slow_recruitment_time",
+      "((1 - metabolic_suppression_strength*Piecewise((0, T_c - thermal_set_point <= 0), ((T_c - thermal_set_point)/(slow_recruitment_threshold + (T_c - thermal_set_point)), True)))*metabolic_heat_production - metabolic_heat_production)/metabolic_adjustment_time"
+    ],
+    "initial_conditions": {
+      "T_c": 38.0,
+      "H": 1.0,
+      "H_slow": 1.0,
+      "metabolic_heat_production": 80.0
+    },
+    "sanity_expectations": [
+      "At t=0, T_c exceeds thermal_set_point, so the Piecewise above-set-point gates in H, H_slow, and metabolic_heat_production dynamics are active immediately.",
+      "Because H(0)=H_slow(0)=1, the initial dT_c_dt is approximately zero; after a short lag, H should increase and dT_c_dt should become negative, giving delayed cooling onset.",
+      "H should rise faster than H_slow over the early trajectory because slow_recruitment_time is larger than the fast effective recruitment time.",
+      "The combined factor ((1 - slow_effector_weight)*H + slow_effector_weight*H_slow) should exceed 1 during recovery, so T_c should relax downward toward thermal_set_point under fixed conditions.",
+      "metabolic_heat_production should remain positive and decline only modestly, with slower dynamics than H, adding late-phase cooling support rather than dominating the earliest response.",
+      "As T_c approaches thermal_set_point from above, recruitment acceleration and threshold gating should weaken, so H, H_slow, and metabolic suppression tendencies should all move back toward their near-equilibrium regimes.",
+      "With nonzero slow_effector_weight and metabolic_suppression_strength, later portions of recovery should differ from a single-phase parent-like relaxation: a slower shoulder from H_slow buildup and modest extra late-phase cooling from reduced metabolic_heat_production should be visible in exact trajectories."
+    ],
+    "role_corrections": [
+      "dT_c_dt: claimed-output/target derivative -> derived quantity in system RHS (confirmed as target derivative, not emitted dependent variable)",
+      "t: claimed-input/time axis -> independent variable (confirmed)",
+      "T_c: claimed-dynamic state -> dependent variable/target_state (confirmed)",
+      "H: claimed-dynamic state -> state variable (confirmed)",
+      "H_slow: claimed-dynamic state -> state variable (confirmed)",
+      "metabolic_heat_production: claimed-dynamic state -> state variable (confirmed; preserved due to explicit freedom_change parameter_to_state)",
+      "effective_heat_capacity: claimed-parameter -> parameter (confirmed)",
+      "heat_loss_sensitivity: claimed-parameter -> parameter (confirmed)",
+      "thermal_set_point: claimed-parameter -> parameter (confirmed)",
+      "heat_loss_curvature: claimed-parameter -> parameter (confirmed)",
+      "thermoeffector_adjustment_time: claimed-parameter -> parameter (confirmed)",
+      "recruitment_time_acceleration: claimed-parameter -> parameter (confirmed)",
+      "recruitment_activation_scale: claimed-parameter -> parameter (confirmed)",
+      "slow_effector_weight: claimed-parameter -> parameter (confirmed)",
+      "slow_recruitment_time: claimed-parameter -> parameter (confirmed)",
+      "slow_recruitment_threshold: claimed-parameter -> parameter (confirmed)",
+      "metabolic_suppression_strength: claimed-parameter -> parameter (confirmed)",
+      "metabolic_adjustment_time: claimed-parameter -> parameter (confirmed)"
+    ],
+    "rationale": "The validated upstream ODE-system contract is preserved exactly: time t is the sole sampled axis; T_c is the dependent variable and target state; H, H_slow, and metabolic_heat_production are additional dynamic states; and all listed parameter symbols remain fixed parameters. Structural analysis of the displayed target expression confirms it is the RHS for dT_c_dt and is compatible with the target-state equation in the inherited system. The explicit freedom decision promoting metabolic_heat_production to a state is preserved rather than overwritten by algebra. Parameter choices are selected to make the intended mechanisms active but mild. The initial condition T_c(0)=38 with thermal_set_point=37 activates the above-set-point gates immediately. heat_loss_curvature=0.18 gives noticeable state-dependent steepening of heat-loss equilibrium without blow-up over mild temperature elevations. thermoeffector_adjustment_time=600 s together with recruitment_time_acceleration=0.9 and recruitment_activation_scale=0.4 yields visibly faster early H recruitment when T_c is above set point, while slowing as T_c approaches the set point. slow_effector_weight=0.35 and slow_recruitment_time=1800 s preserve a meaningful but not dominant slower branch, producing a second recovery phase rather than collapsing to the parent or saturating completely. slow_recruitment_threshold=0.3 keeps both H_slow recruitment and metabolic suppression active for the inherited initial elevation but not maximally saturated near equilibrium. metabolic_suppression_strength=0.25 and metabolic_adjustment_time=3600 s create modest late-phase metabolic decline, enough to expose phase dependence in dT_c_dt without driving metabolism unrealistically low. The representative substitutions checked on the target RHS were finite and real. A 0-7200 s observation window with 301 points should capture delayed onset, fast recruitment, slower H_slow buildup, and slower metabolic suppression within one exact trajectory family under fixed ambient conditions.",
+    "coverage_report": {
+      "groups": [
+        {
+          "generation": 1,
+          "name": "temp_offset",
+          "expression": "T_c - thermal_set_point",
+          "role": "signed core-temperature displacement driving thermoregulatory heat loss",
+          "train_range": [
+            0.11437575043236592,
+            1.0
+          ],
+          "hidden_range": [
+            0.09460435125502897,
+            0.11433107083315974
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.11437575043236592,
+            "max": 1.0,
+            "q05": 0.12503228750731807,
+            "median": 0.31238803851232433,
+            "q95": 0.952802215121664,
+            "range": 0.8856242495676341,
+            "robust_range": 0.8277699276143459
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.09460435125502897,
+            "max": 0.11433107083315974,
+            "q05": 0.09547982570384406,
+            "median": 0.10385823134356187,
+            "q95": 0.11322362029855312,
+            "range": 0.01972671957813077,
+            "robust_range": 0.017743794594709067
+          }
+        },
+        {
+          "generation": 1,
+          "name": "parent_heat_loss_factor",
+          "expression": "exp(heat_loss_sensitivity*(T_c - thermal_set_point))",
+          "role": "baseline multiplicative heat-loss amplification",
+          "train_range": [
+            1.1084228791444277,
+            2.45960311115695
+          ],
+          "hidden_range": [
+            1.0888737619200013,
+            1.1083783085395702
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 1.1084228791444277,
+            "max": 2.45960311115695,
+            "q05": 1.1191047762877397,
+            "median": 1.324651276444083,
+            "q95": 2.35731202177043,
+            "range": 1.3511802320125221,
+            "robust_range": 1.2382072454826905
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 1.0888737619200013,
+            "max": 1.1083783085395702,
+            "q05": 1.0897320530779822,
+            "median": 1.0979803078530859,
+            "q95": 1.107274132206456,
+            "range": 0.019504546619568908,
+            "robust_range": 0.017542079128473942
+          }
+        },
+        {
+          "generation": 1,
+          "name": "quadratic_offset_scale",
+          "expression": "(T_c - thermal_set_point)**2",
+          "role": "magnitude of departure controlling departure from constant sensitivity",
+          "train_range": [
+            0.013081812286966853,
+            1.0
+          ],
+          "hidden_range": [
+            0.008949983276384903,
+            0.01307159375785699
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.013081812286966853,
+            "max": 1.0,
+            "q05": 0.01563307303880976,
+            "median": 0.09758629289641847,
+            "q95": 0.9078320672594339,
+            "range": 0.9869181877130332,
+            "robust_range": 0.8921989942206241
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.008949983276384903,
+            "max": 0.01307159375785699,
+            "q05": 0.00911639717560586,
+            "median": 0.010786532606148626,
+            "q95": 0.012819588285959912,
+            "range": 0.004121610481472087,
+            "robust_range": 0.003703191110354052
+          }
+        },
+        {
+          "generation": 2,
+          "name": "temp_error",
+          "expression": "T_c - thermal_set_point",
+          "role": "Core-temperature deviation that drives thermoregulatory recruitment",
+          "train_range": [
+            0.11437575043236592,
+            1.0
+          ],
+          "hidden_range": [
+            0.09460435125502897,
+            0.11433107083315974
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.11437575043236592,
+            "max": 1.0,
+            "q05": 0.12503228750731807,
+            "median": 0.31238803851232433,
+            "q95": 0.952802215121664,
+            "range": 0.8856242495676341,
+            "robust_range": 0.8277699276143459
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.09460435125502897,
+            "max": 0.11433107083315974,
+            "q05": 0.09547982570384406,
+            "median": 0.10385823134356187,
+            "q95": 0.11322362029855312,
+            "range": 0.01972671957813077,
+            "robust_range": 0.017743794594709067
+          }
+        },
+        {
+          "generation": 2,
+          "name": "parent_heat_loss_factor",
+          "expression": "exp((heat_loss_sensitivity + heat_loss_curvature*(T_c - thermal_set_point)**2)*(T_c - thermal_set_point))",
+          "role": "Instantaneous aggregate heat-loss factor assumed by the parent",
+          "train_range": [
+            1.1087214437630855,
+            2.944679551065524
+          ],
+          "hidden_range": [
+            1.0890397269042336,
+            1.10867651136366
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 1.1087214437630855,
+            "max": 2.944679551065524,
+            "q05": 1.1194985857964421,
+            "median": 1.3319399660050195,
+            "q95": 2.7544538804951624,
+            "range": 1.8359581073024387,
+            "robust_range": 1.6349552946987203
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 1.0890397269042336,
+            "max": 1.10867651136366,
+            "q05": 1.0899028032362115,
+            "median": 1.0982017364271042,
+            "q95": 1.1075634635714056,
+            "range": 0.019636784459426515,
+            "robust_range": 0.01766066033519409
+          }
+        },
+        {
+          "generation": 3,
+          "name": "heat_loss_gap",
+          "expression": "exp((heat_loss_sensitivity + heat_loss_curvature*(T_c - thermal_set_point)**2)*(T_c - thermal_set_point)) - H",
+          "role": "distance of current heat-loss factor from its instantaneous equilibrium",
+          "train_range": [
+            -0.2206656017550337,
+            1.9446795510655241
+          ],
+          "hidden_range": [
+            -0.01902975118196193,
+            -0.0147946182490295
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -0.2206656017550337,
+            "max": 1.9446795510655241,
+            "q05": -0.21436506619843898,
+            "median": -0.053224817208841646,
+            "q95": 0.6614905811748212,
+            "range": 2.165345152820558,
+            "robust_range": 0.8758556473732602
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": -0.01902975118196193,
+            "max": -0.0147946182490295,
+            "q05": -0.018784999804381565,
+            "median": -0.01674829697572322,
+            "q95": -0.014976902760538691,
+            "range": 0.004235132932932428,
+            "robust_range": 0.0038080970438428736
+          }
+        },
+        {
+          "generation": 3,
+          "name": "target_cooling_drive",
+          "expression": "metabolic_heat_production*(1 - H)/effective_heat_capacity",
+          "role": "instantaneous core-temperature tendency under current recruited heat loss",
+          "train_range": [
+            -0.000423839519951584,
+            0.0
+          ],
+          "hidden_range": [
+            -3.235685248012287e-05,
+            -2.5972700245244867e-05
+          ],
+          "train_status": "inactive",
+          "hidden_status": "inactive",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -0.000423839519951584,
+            "max": 0.0,
+            "q05": -0.0004125537598843968,
+            "median": -0.0001097851625502873,
+            "q95": -3.5685867921749174e-05,
+            "range": 0.000423839519951584,
+            "robust_range": 0.00037686789196264764
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": -3.235685248012287e-05,
+            "max": -2.5972700245244867e-05,
+            "q05": -3.1990872947816514e-05,
+            "median": -2.8931846683743097e-05,
+            "q95": -2.6249934628396166e-05,
+            "range": 6.384152234878002e-06,
+            "robust_range": 5.740938319420348e-06
+          }
+        },
+        {
+          "generation": 4,
+          "name": "thermal_error",
+          "expression": "T_c - thermal_set_point",
+          "role": "signed thermal displacement driving thermoeffector recruitment",
+          "train_range": [
+            0.11437575043236592,
+            1.0
+          ],
+          "hidden_range": [
+            0.09460435125502897,
+            0.11433107083315974
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.11437575043236592,
+            "max": 1.0,
+            "q05": 0.12503228750731807,
+            "median": 0.31238803851232433,
+            "q95": 0.952802215121664,
+            "range": 0.8856242495676341,
+            "robust_range": 0.8277699276143459
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.09460435125502897,
+            "max": 0.11433107083315974,
+            "q05": 0.09547982570384406,
+            "median": 0.10385823134356187,
+            "q95": 0.11322362029855312,
+            "range": 0.01972671957813077,
+            "robust_range": 0.017743794594709067
+          }
+        },
+        {
+          "generation": 4,
+          "name": "fast_timescale",
+          "expression": "(thermoeffector_adjustment_time)/(1 + recruitment_time_acceleration*Piecewise((0, T_c - thermal_set_point <= 0), ((T_c - thermal_set_point)/(recruitment_activation_scale + (T_c - thermal_set_point)), True)))",
+          "role": "existing fast effective recruitment time under above-set-point acceleration",
+          "train_range": [
+            365.2173913043477,
+            499.9489519837313
+          ],
+          "hidden_range": [
+            499.97428054949364,
+            511.8818415651607
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 365.2173913043477,
+            "max": 499.9489519837313,
+            "q05": 367.22274785778615,
+            "median": 430.21317595625464,
+            "q95": 494.1004884801467,
+            "range": 134.73156067938362,
+            "robust_range": 126.87774062236053
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 499.97428054949364,
+            "max": 511.8818415651607,
+            "q05": 500.60432118537057,
+            "median": 506.1098815877821,
+            "q95": 511.3208272697034,
+            "range": 11.907561015667056,
+            "robust_range": 10.71650608433282
+          }
+        },
+        {
+          "generation": 4,
+          "name": "net_cooling_drive",
+          "expression": "metabolic_heat_production*(1 - H)/effective_heat_capacity",
+          "role": "current target-state tendency from aggregate recruited heat loss",
+          "train_range": [
+            -0.000423839519951584,
+            0.0
+          ],
+          "hidden_range": [
+            -3.235685248012287e-05,
+            -2.5972700245244867e-05
+          ],
+          "train_status": "inactive",
+          "hidden_status": "inactive",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -0.000423839519951584,
+            "max": 0.0,
+            "q05": -0.0004125537598843968,
+            "median": -0.0001097851625502873,
+            "q95": -3.5685867921749174e-05,
+            "range": 0.000423839519951584,
+            "robust_range": 0.00037686789196264764
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": -3.235685248012287e-05,
+            "max": -2.5972700245244867e-05,
+            "q05": -3.1990872947816514e-05,
+            "median": -2.8931846683743097e-05,
+            "q95": -2.6249934628396166e-05,
+            "range": 6.384152234878002e-06,
+            "robust_range": 5.740938319420348e-06
+          }
+        },
+        {
+          "generation": 5,
+          "name": "effective_heat_loss_factor",
+          "expression": "(1 - slow_effector_weight)*H + slow_effector_weight*H_slow",
+          "role": "Current combined thermoeffector heat-loss multiplier",
+          "train_range": [
+            1.0,
+            2.0404645239271497
+          ],
+          "hidden_range": [
+            1.09682936225505,
+            1.1224284802139795
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 1.0,
+            "max": 2.0404645239271497,
+            "q05": 1.1348023097026452,
+            "median": 1.3801659107484336,
+            "q95": 2.020494925046814,
+            "range": 1.0404645239271497,
+            "robust_range": 0.8856926153441689
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 1.09682936225505,
+            "max": 1.1224284802139795,
+            "q05": 1.0979484145935847,
+            "median": 1.1087437426483255,
+            "q95": 1.1209725258211531,
+            "range": 0.02559911795892944,
+            "robust_range": 0.023024111227568422
+          }
+        },
+        {
+          "generation": 5,
+          "name": "above_setpoint_gate",
+          "expression": "Piecewise((0, T_c - thermal_set_point <= 0), ((T_c - thermal_set_point)/(slow_recruitment_threshold + (T_c - thermal_set_point)), True))",
+          "role": "Existing mild-heat activation regime where a slow metabolic adjustment would be physiologically observable",
+          "train_range": [
+            0.2760194106750342,
+            0.7692307692307709
+          ],
+          "hidden_range": [
+            0.23974482530195868,
+            0.27594133986441644
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.2760194106750342,
+            "max": 0.7692307692307709,
+            "q05": 0.29417126882790645,
+            "median": 0.5101145251608674,
+            "q95": 0.7605368209377726,
+            "range": 0.4932113585557367,
+            "robust_range": 0.4663655521098662
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.23974482530195868,
+            "max": 0.27594133986441644,
+            "q05": 0.24142780335359684,
+            "median": 0.2571650707322755,
+            "q95": 0.27400084258092655,
+            "range": 0.03619651456245776,
+            "robust_range": 0.03257303922732971
+          }
+        }
+      ],
+      "inactive_mechanisms": [
+        "target_cooling_drive",
+        "net_cooling_drive"
+      ],
+      "visible_mechanisms": [
+        "temp_offset",
+        "parent_heat_loss_factor",
+        "quadratic_offset_scale",
+        "temp_error",
+        "parent_heat_loss_factor",
+        "heat_loss_gap",
+        "thermal_error",
+        "fast_timescale",
+        "effective_heat_loss_factor",
+        "above_setpoint_gate"
+      ],
+      "extended_mechanisms": [
+        "temp_offset",
+        "parent_heat_loss_factor",
+        "quadratic_offset_scale",
+        "temp_error",
+        "parent_heat_loss_factor",
+        "thermal_error",
+        "fast_timescale",
+        "effective_heat_loss_factor",
+        "above_setpoint_gate"
+      ]
+    },
+    "inactive_mechanisms": [
+      "target_cooling_drive",
+      "net_cooling_drive"
+    ],
+    "target_variance": {
+      "train": {
+        "n": 4500,
+        "variance": 8.670571097853658e-09,
+        "range": 0.00032008718439633456
+      },
+      "hidden": {
+        "n": 500,
+        "variance": 3.861164765962723e-12,
+        "range": 6.79912186179158e-06
+      }
+    },
+    "parent_absorption_report": {
+      "status": "ok",
+      "n_points": 512,
+      "fixed_parent_normalized_rmse": 0.0,
+      "refit": {
+        "status": "not_run",
+        "reason": "no free parent parameters"
+      },
+      "interpretation": "<1e-3 nearly absorbed; 1e-3..1e-2 weak; >1e-2 visible structure"
+    },
+    "noise": 0.0,
+    "_trace": [
+      {
+        "turn": 1,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "analyze_expression",
+            "id": "call_zHuZbIxt79uqJtJHbU1pFXjT"
+          }
+        ]
+      },
+      {
+        "tool": "analyze_expression",
+        "input": {
+          "expression": "(metabolic_heat_production - metabolic_heat_production*((1 - slow_effector_weight)*H + slow_effector_weight*H_slow))/effective_heat_capacity",
+          "target_symbol": "dT_c_dt"
+        },
+        "result": {
+          "ok": true,
+          "free_symbols": [
+            "H",
+            "H_slow",
+            "effective_heat_capacity",
+            "metabolic_heat_production",
+            "slow_effector_weight"
+          ],
+          "functions_of": {},
+          "target_function_calls": [],
+          "delayed_target_calls": [],
+          "ungoverned_functions": [],
+          "derivatives": [],
+          "max_derivative_order": 0,
+          "integral_kernels": [],
+          "explicitly_solvable_for_target": true,
+          "explicit_solution_preview": [
+            "(-metabolic_heat_production*(H*(1 - slow_effector_weight) + H_slow*slow_effector_weight) + metabolic_heat_production)/ef"
+          ],
+          "classification_hint": "explicit",
+          "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+        }
+      },
+      {
+        "turn": 2,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "check_substitution",
+            "id": "call_ArcgQ6HfI0A8hCSuT63WLIom"
+          },
+          {
+            "name": "check_substitution",
+            "id": "call_jOfpKbjM2cdZF9Q1b2OhFKB6"
+          }
+        ]
+      },
+      {
+        "tool": "check_substitution",
+        "input": {
+          "expression": "(metabolic_heat_production - metabolic_heat_production*((1 - slow_effector_weight)*H + slow_effector_weight*H_slow))/effective_heat_capacity",
+          "target_symbol": "dT_c_dt",
+          "assignments": {
+            "H": 1.0,
+            "H_slow": 1.0,
+            "effective_heat_capacity": 250000.0,
+            "metabolic_heat_production": 80.0,
+            "slow_effector_weight": 0.35
+          }
+        },
+        "result": {
+          "ok": true,
+          "value_real": 0.0,
+          "value_imag": 0.0,
+          "is_finite": true,
+          "is_real": true,
+          "verdict": "ok",
+          "residual_free_symbols": []
+        }
+      },
+      {
+        "tool": "check_substitution",
+        "input": {
+          "expression": "(metabolic_heat_production - metabolic_heat_production*((1 - slow_effector_weight)*H + slow_effector_weight*H_slow))/effective_heat_capacity",
+          "target_symbol": "dT_c_dt",
+          "assignments": {
+            "H": 1.25,
+            "H_slow": 1.05,
+            "effective_heat_capacity": 250000.0,
+            "metabolic_heat_production": 72.0,
+            "slow_effector_weight": 0.35
+          }
+        },
+        "result": {
+          "ok": true,
+          "value_real": -5.184000000000002e-05,
+          "value_imag": 0.0,
+          "is_finite": true,
+          "is_real": true,
+          "verdict": "ok",
+          "residual_free_symbols": []
+        }
+      },
+      {
+        "turn": 3,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "emit_data_gen_spec",
+            "id": "call_hToQmIk6mCYKeaQExiTECVge"
+          }
+        ]
+      },
+      {
+        "tool": "emit_data_gen_spec",
+        "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+      },
+      {
+        "turn": 4,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "emit_data_gen_spec",
+            "id": "call_7TCrYQenMFzZrHt9nihr6QLY"
+          }
+        ]
+      },
+      {
+        "tool": "emit_data_gen_spec",
+        "accepted": true
+      }
+    ],
+    "_provider": "openai",
+    "_num_turns": 4,
+    "discipline": "biology",
+    "scenario_text": "Track core body temperature during recovery from a mild thermal displacement under constant environmental conditions. The body stores heat while fixed metabolic production and temperature-dependent heat loss determine the net rate of temperature change. In the baseline model, aggregate thermoregulatory heat loss changes smoothly around a fixed thermal set point, producing monotonic relaxation. Humidity, clothing, activity, and ambient temperature remain fixed throughout each trajectory.",
+    "record_id": "m2_physiology_and_homeostasis_20260921_003",
+    "generation": 5,
+    "_n_total": 5000,
+    "mechanism_observation_history": [
+      {
+        "generation": 1,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The net cooling drive is a single exponential function of core-temperature displacement from the set point, so one shared sensitivity produces the same local slope and far-from-set-point steepening across all admissible recoveries.",
+            "child_relation": "Replace the single fixed heat-loss sensitivity by a temperature-dependent effective sensitivity so the restoring drive remains weak near the set point but steepens more strongly at larger positive thermal displacement during recovery.",
+            "affected_inputs": [
+              "T_c",
+              "heat_loss_sensitivity",
+              "thermal_set_point"
+            ],
+            "observable_effect": "Across trajectories started with small versus larger mild thermal elevations under the same environment, the child predicts nearly parent-like near-baseline relaxation but faster-than-parent return from the warmer initial segment because cooling acceleration increases with displacement."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "temp_offset",
+              "expression": "T_c - thermal_set_point",
+              "role": "signed core-temperature displacement driving thermoregulatory heat loss"
+            },
+            {
+              "name": "parent_heat_loss_factor",
+              "expression": "exp(heat_loss_sensitivity*(T_c - thermal_set_point))",
+              "role": "baseline multiplicative heat-loss amplification"
+            },
+            {
+              "name": "quadratic_offset_scale",
+              "expression": "(T_c - thermal_set_point)**2",
+              "role": "magnitude of departure controlling departure from constant sensitivity"
+            }
+          ],
+          "activation_condition": "Observable when the initial core-temperature elevation is mild but not infinitesimal, so |T_c - thermal_set_point| is large enough that higher-order dependence of heat-loss responsiveness on temperature matters during early recovery, while ambient conditions, clothing, humidity, and activity remain fixed.",
+          "train_hidden_contrast": "The same recovery protocol already varies the observed state T_c over time; training trajectories near equilibrium constrain the local slope, while holdout trajectories with somewhat larger but still physiologically mild thermal displacements reveal stronger curvature in dT_c_dt versus T_c.",
+          "continuation_path": "The parent law is recovered when the added temperature dependence of the effective sensitivity tends to zero, leaving a constant heat_loss_sensitivity over the full admissible range.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The current model assumes a single displacement-to-heat-loss sensitivity over the whole recovery range, omitting the common physiological feature that aggregate heat-loss responsiveness strengthens as core temperature rises further above the defended level.",
+          "baseline_assumption": "Aggregate heat loss is governed by one instantaneous exponential response with constant sensitivity heat_loss_sensitivity independent of the magnitude of temperature displacement.",
+          "scientific_mechanism": "Nonlinear recruitment of existing thermoeffectors under fixed environment, where vasodilation and sweating contributions together make effective heat-loss responsiveness increase with thermal deviation even without changing ambient conditions.",
+          "affected_symbols": [
+            "T_c",
+            "heat_loss_sensitivity",
+            "thermal_set_point"
+          ],
+          "rationale": "The parent target mapping is a single-gain temperature-restoring law: with metabolic_heat_production and effective_heat_capacity fixed, dT_c_dt depends on T_c only through one exponential controlled by one shared heat_loss_sensitivity. Under the stated protocol, what varies is the observed core temperature along recovery trajectories, especially the size of the initial thermal displacement; what is held fixed is environment, clothing, humidity, activity, and baseline metabolic production. A realistic next refinement is to relax the constant-sensitivity assumption, not to add a new external driver. Physiologically, aggregate heat-loss pathways are often only mildly engaged near the set point but are recruited more strongly as temperature rises further, creating extra curvature in the cooling law. This changes the scored target mapping itself because the relationship from T_c to dT_c_dt is altered: near T_c≈thermal_set_point the child can remain close to the parent, but at larger positive offsets the cooling term grows more steeply than any single shared parent sensitivity can do without also distorting the local slope near equilibrium. Thus one refitted parent parameter set cannot simultaneously match both near-baseline gentle relaxation and stronger early cooling from larger mild perturbations. The effect is admissible and observable directly from the existing state because recoveries begin above baseline and pass through both larger and smaller offsets; no new state is needed. Limitation: if all trajectories stay extremely close to the set point, this refinement would be weakly identifiable."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The net cooling drive is a single exponential function of core-temperature displacement from the set point, so one shared sensitivity produces the same local slope and far-from-set-point steepening across all admissible recoveries.",
+            "child_relation": "Replace the single fixed heat-loss sensitivity by a temperature-dependent effective sensitivity so the restoring drive remains weak near the set point but steepens more strongly at larger positive thermal displacement during recovery.",
+            "affected_inputs": [
+              "T_c",
+              "heat_loss_sensitivity",
+              "thermal_set_point"
+            ],
+            "observable_effect": "Across trajectories started with small versus larger mild thermal elevations under the same environment, the child predicts nearly parent-like near-baseline relaxation but faster-than-parent return from the warmer initial segment because cooling acceleration increases with displacement."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "temp_offset",
+              "expression": "T_c - thermal_set_point",
+              "role": "signed core-temperature displacement driving thermoregulatory heat loss"
+            },
+            {
+              "name": "parent_heat_loss_factor",
+              "expression": "exp(heat_loss_sensitivity*(T_c - thermal_set_point))",
+              "role": "baseline multiplicative heat-loss amplification"
+            },
+            {
+              "name": "quadratic_offset_scale",
+              "expression": "(T_c - thermal_set_point)**2",
+              "role": "magnitude of departure controlling departure from constant sensitivity"
+            }
+          ],
+          "activation_condition": "Observable when the initial core-temperature elevation is mild but not infinitesimal, so |T_c - thermal_set_point| is large enough that higher-order dependence of heat-loss responsiveness on temperature matters during early recovery, while ambient conditions, clothing, humidity, and activity remain fixed.",
+          "train_hidden_contrast": "The same recovery protocol already varies the observed state T_c over time; training trajectories near equilibrium constrain the local slope, while holdout trajectories with somewhat larger but still physiologically mild thermal displacements reveal stronger curvature in dT_c_dt versus T_c.",
+          "continuation_path": "The parent law is recovered when the added temperature dependence of the effective sensitivity tends to zero, leaving a constant heat_loss_sensitivity over the full admissible range.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "unary",
+          "scope_symbols": [
+            "T_c"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "state-dependent thermoregulatory heat-loss sensitivity",
+          "scientific_mechanism": "Nonlinear recruitment of existing thermoeffectors under fixed environment, where vasodilation and sweating contributions together make effective heat-loss responsiveness increase with thermal deviation even without changing ambient conditions.",
+          "embedding_pattern": "state_dependent_coefficient",
+          "difficulty_rationale": "This embedding is structurally harder than a coefficient-only correction because the coefficient of the exponential heat-loss process now varies with the state T_c itself, altering curvature of the target mapping across the admissible recovery range while preserving near-set-point behavior.",
+          "taxonomy_match": "known",
+          "assumption_before": "Aggregate heat loss is governed by one instantaneous exponential response with constant sensitivity heat_loss_sensitivity independent of the magnitude of temperature displacement.",
+          "assumption_after": "Effective heat-loss sensitivity increases with the magnitude of core-temperature displacement, reflecting progressive recruitment of existing heat-loss pathways during recovery under fixed conditions.",
+          "before_fragment": "(metabolic_heat_production - metabolic_heat_production*exp(heat_loss_sensitivity*(T_c - thermal_set_point)))/effective_heat_capacity",
+          "after_fragment": "(metabolic_heat_production - metabolic_heat_production*exp((heat_loss_sensitivity + heat_loss_curvature*(T_c - thermal_set_point)**2)*(T_c - thermal_set_point)))/effective_heat_capacity",
+          "parent_reduction": "The parent is recovered at heat_loss_curvature = 0.",
+          "observable_signature": "In trajectories that start only slightly above thermal_set_point, the child behaves nearly like the parent because the added quadratic sensitivity term is small; in trajectories with somewhat larger but still mild positive initial offsets, dT_c_dt becomes more negative than the parent predicts early in recovery, yielding stronger curvature in the mapping from T_c to dT_c_dt under the same fixed environment. This changes the scored target mapping itself, not merely an auxiliary trajectory.",
+          "shortcut_blocked": "A single refitted parent parameter set cannot reproduce both conditions because increasing heat_loss_sensitivity enough to match the stronger early cooling at larger offsets would also increase the local slope near T_c ≈ thermal_set_point, distorting the observed gentle near-baseline relaxation. The child separates near-equilibrium slope from farther-from-set-point steepening through state-dependent sensitivity, which coefficient retuning alone cannot supply across the same admissible recovery range."
+        },
+        "range_suggestions": {
+          "heat_loss_curvature": "0 to a small positive value such that heat_loss_curvature*(T_c - thermal_set_point)**2 is negligible near the set point but appreciable over mild positive thermal elevations"
+        }
+      },
+      {
+        "generation": 2,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "phase_shift",
+            "parent_relation": "The net cooling drive is an instantaneous function of current core-temperature displacement only, so trajectories with the same T_c have the same dT_c_dt regardless of recent history.",
+            "child_relation": "The effective heat-loss drive adjusts with finite recruitment time, so dT_c_dt depends on both current T_c and a lagged thermoeffector state; for the same T_c, early recovery can cool less strongly than later recovery after effectors catch up.",
+            "affected_inputs": [
+              "T_c"
+            ],
+            "observable_effect": "After a mild positive thermal displacement, the initial relaxation is slower and then steepens transiently relative to the parent; two times with equal T_c but different recent histories can have different dT_c_dt."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "temp_error",
+              "expression": "T_c - thermal_set_point",
+              "role": "Core-temperature deviation that drives thermoregulatory recruitment"
+            },
+            {
+              "name": "parent_heat_loss_factor",
+              "expression": "exp((heat_loss_sensitivity + heat_loss_curvature*(T_c - thermal_set_point)**2)*(T_c - thermal_set_point))",
+              "role": "Instantaneous aggregate heat-loss factor assumed by the parent"
+            }
+          ],
+          "activation_condition": "Observable for mild positive displacements from the set point when thermoeffector adjustment time is not negligible compared with the recovery observation window; weakest arbitrarily near equilibrium or if adaptation is effectively instantaneous.",
+          "train_hidden_contrast": "Within training trajectories, early versus later recovery segments at similar T_c expose lagged cooling recruitment; in holdout, somewhat larger but still mild positive displacements amplify the same transient mismatch because the parent enforces a single instantaneous T_c-to-dT_c_dt map.",
+          "continuation_path": "Recover the parent law in the limit of vanishing thermoeffector adjustment time, where the lagged heat-loss state rapidly tracks its instantaneous equilibrium function of T_c.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "A finite-response thermoeffector memory cannot be represented by the existing single thermal state with fixed parameters, because the target derivative would remain a single-valued function of T_c alone. One additional state is needed to encode delayed heat-loss recruitment.",
+          "gap_statement": "The model assumes aggregate heat-loss regulation responds instantaneously to core-temperature deviation, omitting finite vasomotor/sudomotor recruitment dynamics during recovery.",
+          "baseline_assumption": "Sweating, vasomotor responses, and metabolic thermogenesis are combined into one instantaneous heat-loss response.",
+          "scientific_mechanism": "First-order delayed activation of aggregate heat-loss effectors under otherwise fixed environment, producing transient hysteresis in the cooling response during recovery.",
+          "affected_symbols": [
+            "T_c",
+            "heat_loss_sensitivity",
+            "heat_loss_curvature",
+            "thermal_set_point",
+            "metabolic_heat_production"
+          ],
+          "rationale": "The parent maps current temperature error directly to net heat loss, so with one shared parameter set every observed dT_c_dt is determined solely by T_c. Under fixed ambient conditions, clothing, activity, and metabolic production, a realistic next refinement is to relax only the instantaneous-response assumption: vasodilation and sweating recruit over minutes, so the cooling drive can lag behind the thermal error. The scientifically relevant varied condition is time since the perturbation within a recovery trajectory, while the fixed conditions remain the stated environment and physiology parameters. The concrete contrast is that for the same admissible mildly elevated T_c, the child can produce weaker cooling early after perturbation and stronger cooling later after effectors build up, whereas the parent cannot because it has no history dependence. This is a genuine target-mapping change, not merely auxiliary complexity, since the scored dT_c_dt versus observed T_c relationship becomes multi-valued through a hidden phase variable. The effect is admissible for mild positive thermal elevations large enough to recruit effectors but still within physiological recovery, and it vanishes if effector dynamics are extremely fast or observations start only after equilibration of the thermoeffector state."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "phase_shift",
+            "parent_relation": "The net cooling drive is an instantaneous function of current core-temperature displacement only, so trajectories with the same T_c have the same dT_c_dt regardless of recent history.",
+            "child_relation": "The effective heat-loss drive adjusts with finite recruitment time, so dT_c_dt depends on both current T_c and a lagged thermoeffector state; for the same T_c, early recovery can cool less strongly than later recovery after effectors catch up.",
+            "affected_inputs": [
+              "T_c"
+            ],
+            "observable_effect": "After a mild positive thermal displacement, the initial relaxation is slower and then steepens transiently relative to the parent; two times with equal T_c but different recent histories can have different dT_c_dt."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "temp_error",
+              "expression": "T_c - thermal_set_point",
+              "role": "Core-temperature deviation that drives thermoregulatory recruitment"
+            },
+            {
+              "name": "parent_heat_loss_factor",
+              "expression": "exp((heat_loss_sensitivity + heat_loss_curvature*(T_c - thermal_set_point)**2)*(T_c - thermal_set_point))",
+              "role": "Instantaneous aggregate heat-loss factor assumed by the parent"
+            }
+          ],
+          "activation_condition": "Observable for mild positive displacements from the set point when thermoeffector adjustment time is not negligible compared with the recovery observation window; weakest arbitrarily near equilibrium or if adaptation is effectively instantaneous.",
+          "train_hidden_contrast": "Within training trajectories, early versus later recovery segments at similar T_c expose lagged cooling recruitment; in holdout, somewhat larger but still mild positive displacements amplify the same transient mismatch because the parent enforces a single instantaneous T_c-to-dT_c_dt map.",
+          "continuation_path": "Recover the parent law in the limit of vanishing thermoeffector adjustment time, where the lagged heat-loss state rapidly tracks its instantaneous equilibrium function of T_c.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "A finite-response thermoeffector memory cannot be represented by the existing single thermal state with fixed parameters, because the target derivative would remain a single-valued function of T_c alone. One additional state is needed to encode delayed heat-loss recruitment.",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "T_c",
+            "H"
+          ],
+          "structural_role": "feedback",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Delayed recruitment of aggregate heat-loss effectors competing with constant metabolic heat production",
+          "scientific_mechanism": "First-order delayed activation of aggregate heat-loss effectors under otherwise fixed environment, producing transient hysteresis in the cooling response during recovery.",
+          "embedding_pattern": "competing_processes",
+          "difficulty_rationale": "This embedding is harder than coefficient refinement because the cooling loss term now competes with constant metabolic production through a separate relaxation process, making the scored dT_c_dt map history-dependent rather than a single instantaneous curve in T_c.",
+          "taxonomy_match": "known",
+          "assumption_before": "Sweating, vasomotor responses, and metabolic thermogenesis are combined into one instantaneous heat-loss response.",
+          "assumption_after": "Aggregate heat-loss effectors recruit with first-order delay toward the parent's temperature-dependent equilibrium response.",
+          "before_fragment": "(metabolic_heat_production - metabolic_heat_production*exp((heat_loss_sensitivity + heat_loss_curvature*(T_c - thermal_set_point)**2)*(T_c - thermal_set_point)))/effective_heat_capacity",
+          "after_fragment": "(metabolic_heat_production - metabolic_heat_production*H)/effective_heat_capacity",
+          "parent_reduction": "In the limit thermoeffector_adjustment_time -> 0, H = exp((heat_loss_sensitivity + heat_loss_curvature*(T_c - thermal_set_point)**2)*(T_c - thermal_set_point)) and the parent expression is recovered.",
+          "observable_signature": "Under fixed environment and the given elevated initial condition, early recovery begins with H near baseline while T_c is high, so cooling is initially weaker than the parent predicts; later, as H rises toward exp((heat_loss_sensitivity + heat_loss_curvature*(T_c - thermal_set_point)**2)*(T_c - thermal_set_point)), segments with similar T_c can exhibit stronger cooling. This is a changed target mapping for dT_c_dt itself, not only an auxiliary trajectory change.",
+          "shortcut_blocked": "Refitting all parent parameters still leaves dT_c_dt a single-valued function of T_c alone, so one shared parent parameter set cannot produce different derivatives at the same observed T_c across early and later recovery segments. The added state is therefore structurally necessary to represent the finite-response memory over the stated admissible conditions."
+        },
+        "range_suggestions": {
+          "H": "positive heat-loss factor; near 1 at thermal equilibrium and plausibly between exp(-small) and exp(moderate) during mild recovery",
+          "thermoeffector_adjustment_time": "positive and non-negligible relative to observation window, e.g. minutes to tens of minutes for aggregate vasomotor/sudomotor recruitment"
+        }
+      },
+      {
+        "generation": 3,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "At fixed H, dT_c_dt depends linearly on 1-H, and H relaxes toward a single smooth exponential equilibrium of T_c-thermal_set_point, so recovery remains effectively one-phase with a single delayed effector pathway across mild perturbations.",
+            "child_relation": "Retain aggregate heat-loss control but allow thermoeffector recruitment speed itself to depend on thermal displacement, so H approaches its equilibrium faster for larger positive T_c-thermal_set_point and more slowly near baseline, changing the T_c trajectory from a single-phase relaxation to amplitude-dependent early steepening followed by slower late approach.",
+            "affected_inputs": [
+              "T_c",
+              "H",
+              "thermoeffector_adjustment_time"
+            ],
+            "observable_effect": "Across trajectories starting modestly versus more strongly above the set point, the larger displacement shows disproportionately faster initial cooling and earlier H rise, while near-baseline recovery remains slower; one shared parent time constant cannot match both early and late portions simultaneously."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "temp_error",
+              "expression": "T_c - thermal_set_point",
+              "role": "signed thermal displacement driving effector recruitment"
+            },
+            {
+              "name": "heat_loss_gap",
+              "expression": "exp((heat_loss_sensitivity + heat_loss_curvature*(T_c - thermal_set_point)**2)*(T_c - thermal_set_point)) - H",
+              "role": "distance of current heat-loss factor from its instantaneous equilibrium"
+            },
+            {
+              "name": "target_cooling_drive",
+              "expression": "metabolic_heat_production*(1 - H)/effective_heat_capacity",
+              "role": "instantaneous core-temperature tendency under current recruited heat loss"
+            }
+          ],
+          "activation_condition": "Observable when initial T_c is above thermal_set_point by enough that thermoeffector recruitment is appreciably engaged yet still within mild recovery, so positive temp_error spans small-to-moderate values over the sampled trajectory; the contrast is weak if trajectories remain extremely close to equilibrium throughout.",
+          "train_hidden_contrast": "In training, differing portions of the same mild-recovery trajectories already contain larger versus smaller temp_error. In holdout, the same mechanism extends to somewhat larger initial displacements, revealing stronger acceleration of early H recruitment and more pronounced non-single-exponential cooling.",
+          "continuation_path": "Recover the parent by making recruitment speed independent of temperature, i.e. reducing the temperature dependence of the adjustment-time law to a constant thermoeffector_adjustment_time.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The parent assumes a fixed thermoeffector adjustment time across all thermal displacements, although aggregate vasomotor and sudomotor recruitment commonly accelerates when core temperature is further above the set point.",
+          "baseline_assumption": "The delayed aggregate heat-loss response has one constant first-order time scale, independent of the magnitude and sign of core-temperature deviation.",
+          "scientific_mechanism": "Temperature-dependent effector recruitment kinetics: stronger thermal error drives faster approach of aggregate heat loss toward its temperature-dependent equilibrium, while near-equilibrium recruitment remains slower.",
+          "affected_symbols": [
+            "T_c",
+            "H",
+            "thermoeffector_adjustment_time",
+            "thermal_set_point"
+          ],
+          "rationale": "A realistic next refinement is to relax the constant-kinetics assumption already built into H dynamics, rather than add a new process. The parent target mapping from observed states to dT_c_dt is constrained by a single delayed phase: H always approaches its equilibrium with the same characteristic time, so after refitting one shared parameter set it cannot produce both relatively slow near-baseline adaptation and disproportionately rapid early cooling when T_c starts further above thermal_set_point. Here the varied condition is the magnitude of T_c-thermal_set_point along or across mild recovery trajectories; ambient conditions, clothing, activity, metabolic_heat_production, and effective_heat_capacity remain fixed. The child changes the response relationship by making the effective slope/curvature of the T_c-to-H pathway state dependent: larger positive thermal displacement speeds H recruitment, which in turn steepens the early dT_c_dt response before relaxing toward the same stable equilibrium. This is scientifically admissible under mild heat recovery, where heat loss remains positive and aggregate thermoeffector activation is stronger when warmer. The observable contrast is in the scored target because dT_c_dt changes through altered H values over time, not merely in an unscored auxiliary state shape. The limitation is that if observations stay extremely close to equilibrium, the added kinetic nonlinearity may be hard to distinguish from the parent."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "At fixed H, dT_c_dt depends linearly on 1-H, and H relaxes toward a single smooth exponential equilibrium of T_c-thermal_set_point, so recovery remains effectively one-phase with a single delayed effector pathway across mild perturbations.",
+            "child_relation": "Retain aggregate heat-loss control but allow thermoeffector recruitment speed itself to depend on thermal displacement, so H approaches its equilibrium faster for larger positive T_c-thermal_set_point and more slowly near baseline, changing the T_c trajectory from a single-phase relaxation to amplitude-dependent early steepening followed by slower late approach.",
+            "affected_inputs": [
+              "T_c",
+              "H",
+              "thermoeffector_adjustment_time"
+            ],
+            "observable_effect": "Across trajectories starting modestly versus more strongly above the set point, the larger displacement shows disproportionately faster initial cooling and earlier H rise, while near-baseline recovery remains slower; one shared parent time constant cannot match both early and late portions simultaneously."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "temp_error",
+              "expression": "T_c - thermal_set_point",
+              "role": "signed thermal displacement driving effector recruitment"
+            },
+            {
+              "name": "heat_loss_gap",
+              "expression": "exp((heat_loss_sensitivity + heat_loss_curvature*(T_c - thermal_set_point)**2)*(T_c - thermal_set_point)) - H",
+              "role": "distance of current heat-loss factor from its instantaneous equilibrium"
+            },
+            {
+              "name": "target_cooling_drive",
+              "expression": "metabolic_heat_production*(1 - H)/effective_heat_capacity",
+              "role": "instantaneous core-temperature tendency under current recruited heat loss"
+            }
+          ],
+          "activation_condition": "Observable when initial T_c is above thermal_set_point by enough that thermoeffector recruitment is appreciably engaged yet still within mild recovery, so positive temp_error spans small-to-moderate values over the sampled trajectory; the contrast is weak if trajectories remain extremely close to equilibrium throughout.",
+          "train_hidden_contrast": "In training, differing portions of the same mild-recovery trajectories already contain larger versus smaller temp_error. In holdout, the same mechanism extends to somewhat larger initial displacements, revealing stronger acceleration of early H recruitment and more pronounced non-single-exponential cooling.",
+          "continuation_path": "Recover the parent by making recruitment speed independent of temperature, i.e. reducing the temperature dependence of the adjustment-time law to a constant thermoeffector_adjustment_time.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "T_c",
+            "H",
+            "thermoeffector_adjustment_time"
+          ],
+          "structural_role": "timescale",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "saturating acceleration of thermoeffector recruitment kinetics with positive thermal displacement",
+          "scientific_mechanism": "Temperature-dependent effector recruitment kinetics: stronger thermal error drives faster approach of aggregate heat loss toward its temperature-dependent equilibrium, while near-equilibrium recruitment remains slower.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "This is harder than a coefficient-only correction because the recruitment timescale becomes state dependent and saturating, changing trajectory shape across thermal amplitudes rather than merely rescaling one fixed phase. The resulting early-versus-late curvature in H and therefore dT_c_dt cannot be reproduced by simply retuning a single constant time constant while keeping one common parameter set.",
+          "taxonomy_match": "known",
+          "assumption_before": "The delayed aggregate heat-loss response has one constant first-order time scale, independent of the magnitude and sign of core-temperature deviation.",
+          "assumption_after": "Thermoeffector recruitment accelerates with positive core-temperature elevation above the set point and does so with finite saturation over the mild-recovery range.",
+          "before_fragment": "(metabolic_heat_production - metabolic_heat_production*H)/effective_heat_capacity",
+          "after_fragment": "(metabolic_heat_production - metabolic_heat_production*H)/effective_heat_capacity",
+          "parent_reduction": "Set recruitment_time_acceleration = 0 to recover the parent constant-time-scale law exactly.",
+          "observable_signature": "Holding metabolic_heat_production, effective_heat_capacity, ambient conditions, clothing, and activity fixed, trajectories that spend time at larger positive temp_error exhibit faster H recruitment and thus steeper early negative dT_c_dt than predicted by a single shared recruitment time; as temp_error shrinks, the effective recruitment speed relaxes back toward the baseline thermoeffector_adjustment_time. This is a changed target mapping because the altered H trajectory feeds back into the scored T_c equation and changes the observed cooling-rate curvature.",
+          "shortcut_blocked": "Refitting all parent parameters still leaves one constant recruitment time scale for every thermal displacement, so the parent can only shift a single delayed phase globally. It cannot with one shared parameter set make recruitment relatively slow near baseline yet disproportionately faster at larger positive temp_error, because that requires a state-dependent timescale rather than a different coefficient on the same fixed-phase law."
+        },
+        "range_suggestions": {
+          "recruitment_time_acceleration": "nonnegative; typically between 0 and 1 so effective recruitment time shortens but stays positive during mild recovery",
+          "recruitment_activation_scale": "positive temperature scale; plausibly small positive fraction of a degree to a few degrees Celsius over mild thermal recovery"
+        }
+      },
+      {
+        "generation": 4,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The target mapping is dT_c_dt = metabolic_heat_production*(1 - H)/effective_heat_capacity, with H relaxing toward a temperature-only equilibrium. For fixed initial H and fixed environment, recovery is governed by a single effective thermoeffector phase whose equilibrium heat-loss drive depends only on current T_c displacement from the set point.",
+            "child_relation": "Retain the same net heat-balance structure but relax the assumption that aggregate heat loss has only one recruitment timescale. Introduce a slower sweat-dominant component in addition to the existing faster component, so the effective heat-loss factor seen by T_c becomes a weighted combination of fast and slow recruited effectors. Then the mapping from current thermal displacement/history to dT_c_dt acquires two-phase curvature: early recovery is dominated by rapid vasomotor-like adjustment, while later recovery is further shaped by slower evaporative recruitment.",
+            "affected_inputs": [
+              "T_c",
+              "H",
+              "thermoeffector_adjustment_time"
+            ],
+            "observable_effect": "Across otherwise identical mild heat-recovery trajectories starting from different initial thermal displacements above the set point, the child can show similar initial cooling but a later extra cooling shoulder or delayed steepening as the slow component catches up; the parent's single-timescale relaxation cannot match both the early and later slope pattern with one shared parameter set."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "thermal_error",
+              "expression": "T_c - thermal_set_point",
+              "role": "signed thermal displacement driving thermoeffector recruitment"
+            },
+            {
+              "name": "fast_timescale",
+              "expression": "(thermoeffector_adjustment_time)/(1 + recruitment_time_acceleration*Piecewise((0, T_c - thermal_set_point <= 0), ((T_c - thermal_set_point)/(recruitment_activation_scale + (T_c - thermal_set_point)), True)))",
+              "role": "existing fast effective recruitment time under above-set-point acceleration"
+            },
+            {
+              "name": "net_cooling_drive",
+              "expression": "metabolic_heat_production*(1 - H)/effective_heat_capacity",
+              "role": "current target-state tendency from aggregate recruited heat loss"
+            }
+          ],
+          "activation_condition": "Observable when trajectories begin modestly above the set point and are followed long enough for recovery transients to unfold over both a fast and a slower thermoeffector timescale; effect is weakest for very small perturbations or very short observation windows.",
+          "train_hidden_contrast": "In training under mild displacements, the mechanism appears as subtle non-single-exponential relaxation curvature. In holdout with somewhat larger but still physiologically mild initial elevations, the delayed slow-component contribution produces a clearer late-phase deviation from the parent's single-phase recovery.",
+          "continuation_path": "Recover the parent when the slow component's weight tends to zero or when its adjustment time collapses to the existing recruitment timescale, making aggregate heat loss effectively single-phase again.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "A genuine second recruitment timescale requires its own dynamical memory; modifying only existing static parameters in the single H equation cannot represent delayed occupancy of a distinct slow effector pool.",
+          "gap_statement": "The model lumps all heat-loss effectors into one delayed variable, idealizing recovery as a single-phase recruitment process even though vasomotor and sweating contributions are known to adjust on different timescales under fixed ambient conditions.",
+          "baseline_assumption": "Aggregate thermoeffector heat loss is represented by one first-order recruited factor with one effective adjustment time at each temperature.",
+          "scientific_mechanism": "Parallel fast and slow thermoeffector recruitment, with a slower evaporative/sweating-like contribution augmenting the existing faster aggregate response during recovery from mild heat displacement.",
+          "affected_symbols": [
+            "T_c",
+            "H",
+            "thermoeffector_adjustment_time"
+          ],
+          "rationale": "The parent already includes delayed heat-loss recruitment, but it assumes all thermoeffector pathways can be collapsed into a single first-order phase. Under fixed environment, clothing, humidity, and activity, a realistic next refinement is to distinguish a slower sweating-like component from the faster vasomotor-dominant adjustment without changing the basic heat-balance sign structure. The varied condition is initial core-temperature elevation above the fixed set point; held fixed are environmental conditions and all parameters across trajectories. Parent response: one shared H trajectory shape class implies one-phase relaxation in dT_c_dt once temperature-dependent acceleration is accounted for. Child response: with fast plus slow recruitment, the target mapping itself changes because dT_c_dt depends on an aggregate heat-loss factor with additional thermal history encoded in a second state, yielding different late-versus-early curvature of cooling across initial displacement sizes. This is observable for mild above-set-point recoveries that last long enough to sample both timescales. A single refit of the parent's existing parameters may shift overall speed or nonlinearity with T_c, but it cannot independently preserve the early slope while adding a later shoulder/delayed steepening across multiple initial displacements, because its memory is restricted to one first-order occupancy variable. Limitation: if observations are too short or perturbations stay extremely small, the second phase may be hard to distinguish, so the refinement should be treated as a plausible hypothesis rather than guaranteed detectability."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The target mapping is dT_c_dt = metabolic_heat_production*(1 - H)/effective_heat_capacity, with H relaxing toward a temperature-only equilibrium. For fixed initial H and fixed environment, recovery is governed by a single effective thermoeffector phase whose equilibrium heat-loss drive depends only on current T_c displacement from the set point.",
+            "child_relation": "Retain the same net heat-balance structure but relax the assumption that aggregate heat loss has only one recruitment timescale. Introduce a slower sweat-dominant component in addition to the existing faster component, so the effective heat-loss factor seen by T_c becomes a weighted combination of fast and slow recruited effectors. Then the mapping from current thermal displacement/history to dT_c_dt acquires two-phase curvature: early recovery is dominated by rapid vasomotor-like adjustment, while later recovery is further shaped by slower evaporative recruitment.",
+            "affected_inputs": [
+              "T_c",
+              "H",
+              "thermoeffector_adjustment_time"
+            ],
+            "observable_effect": "Across otherwise identical mild heat-recovery trajectories starting from different initial thermal displacements above the set point, the child can show similar initial cooling but a later extra cooling shoulder or delayed steepening as the slow component catches up; the parent's single-timescale relaxation cannot match both the early and later slope pattern with one shared parameter set."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "thermal_error",
+              "expression": "T_c - thermal_set_point",
+              "role": "signed thermal displacement driving thermoeffector recruitment"
+            },
+            {
+              "name": "fast_timescale",
+              "expression": "(thermoeffector_adjustment_time)/(1 + recruitment_time_acceleration*Piecewise((0, T_c - thermal_set_point <= 0), ((T_c - thermal_set_point)/(recruitment_activation_scale + (T_c - thermal_set_point)), True)))",
+              "role": "existing fast effective recruitment time under above-set-point acceleration"
+            },
+            {
+              "name": "net_cooling_drive",
+              "expression": "metabolic_heat_production*(1 - H)/effective_heat_capacity",
+              "role": "current target-state tendency from aggregate recruited heat loss"
+            }
+          ],
+          "activation_condition": "Observable when trajectories begin modestly above the set point and are followed long enough for recovery transients to unfold over both a fast and a slower thermoeffector timescale; effect is weakest for very small perturbations or very short observation windows.",
+          "train_hidden_contrast": "In training under mild displacements, the mechanism appears as subtle non-single-exponential relaxation curvature. In holdout with somewhat larger but still physiologically mild initial elevations, the delayed slow-component contribution produces a clearer late-phase deviation from the parent's single-phase recovery.",
+          "continuation_path": "Recover the parent when the slow component's weight tends to zero or when its adjustment time collapses to the existing recruitment timescale, making aggregate heat loss effectively single-phase again.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "A genuine second recruitment timescale requires its own dynamical memory; modifying only existing static parameters in the single H equation cannot represent delayed occupancy of a distinct slow effector pool.",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "T_c",
+            "H",
+            "H_slow"
+          ],
+          "structural_role": "feedback",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "parallel thermoeffector recruitment with slower sweating-like activation",
+          "scientific_mechanism": "Parallel fast and slow thermoeffector recruitment, with a slower evaporative/sweating-like contribution augmenting the existing faster aggregate response during recovery from mild heat displacement.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "This embedding is harder than a coefficient-only correction because the target derivative now depends on a second hidden occupancy state with its own thresholded and saturating recruitment kinetics, creating history-dependent late-phase curvature that cannot be reproduced by retuning a single first-order response law.",
+          "taxonomy_match": "known",
+          "assumption_before": "Aggregate thermoeffector heat loss is represented by one first-order recruited factor with one effective adjustment time at each temperature.",
+          "assumption_after": "Aggregate heat loss is the weighted sum of a fast recruited component and a slower thresholded sweating-like component with its own occupancy dynamics.",
+          "before_fragment": "(metabolic_heat_production - metabolic_heat_production*H)/effective_heat_capacity",
+          "after_fragment": "(metabolic_heat_production - metabolic_heat_production*((1 - slow_effector_weight)*H + slow_effector_weight*H_slow))/effective_heat_capacity",
+          "parent_reduction": "Set slow_effector_weight = 0 to recover the parent exactly; additionally, when slow_recruitment_time approaches the fast timescale and the slow activation threshold becomes negligible, the two branches behave nearly as a single phase.",
+          "observable_signature": "Holding environment and all parameters fixed while varying only initial core-temperature elevation above the set point, the successor can preserve a similar early cooling slope yet show a later extra cooling shoulder or delayed steepening once the slow thresholded component recruits; this changes the scored target mapping itself because dT_c_dt directly uses the mixed factor ((1 - slow_effector_weight)*H + slow_effector_weight*H_slow), not merely an auxiliary trajectory.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce this contrast across those trajectories because the parent target law depends on only one first-order heat-loss occupancy H. Retuning heat_loss_sensitivity, heat_loss_curvature, thermoeffector_adjustment_time, or the acceleration parameters can alter overall speed and temperature dependence, but it still yields one-phase memory and cannot independently match both the shared early slope and the later delayed additional cooling generated by distinct slow occupancy buildup."
+        },
+        "range_suggestions": {
+          "H_slow": "dimensionless heat-loss factor state; typically nonnegative and near 1 at equilibrium, with mild recovery excursions plausibly from below 1 to a few-fold above 1",
+          "slow_effector_weight": "between 0 and 1 so the slow pathway contributes a bounded fraction of aggregate heat loss",
+          "slow_recruitment_time": "positive and typically larger than thermoeffector_adjustment_time, often by a factor of about 2 to 10 during mild recovery",
+          "slow_recruitment_threshold": "positive temperature scale; plausibly a small positive fraction of a degree Celsius to about 1 degree Celsius above the set point"
+        }
+      },
+      {
+        "generation": 5,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "phase_shift",
+            "parent_relation": "The target mapping dT_c_dt(T_c,H,H_slow) uses a fixed metabolic_heat_production, so all temperature recovery is governed only by heat-loss recruitment and the net cooling drive at a given thermal state is independent of recovery phase.",
+            "child_relation": "Allow metabolic heat production to undergo slow first-order suppression after mild heat elevation, so dT_c_dt at the same T_c, H, and H_slow can differ between early and late recovery because internal heat generation is lower later in the trajectory.",
+            "affected_inputs": [
+              "T_c",
+              "H",
+              "H_slow",
+              "metabolic_heat_production"
+            ],
+            "observable_effect": "For mild above-set-point recoveries under fixed environment, late recovery can cool faster than the parent predicts even after heat-loss factors have begun relaxing, because transient metabolic suppression reduces inward heat flux."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "thermal_error",
+              "expression": "T_c - thermal_set_point",
+              "role": "Signed core-temperature displacement driving thermoregulatory activation"
+            },
+            {
+              "name": "effective_heat_loss_factor",
+              "expression": "(1 - slow_effector_weight)*H + slow_effector_weight*H_slow",
+              "role": "Current combined thermoeffector heat-loss multiplier"
+            },
+            {
+              "name": "above_setpoint_gate",
+              "expression": "Piecewise((0, T_c - thermal_set_point <= 0), ((T_c - thermal_set_point)/(slow_recruitment_threshold + (T_c - thermal_set_point)), True))",
+              "role": "Existing mild-heat activation regime where a slow metabolic adjustment would be physiologically observable"
+            }
+          ],
+          "activation_condition": "Observable for mild but sustained above-set-point excursions where T_c - thermal_set_point is positive for long enough that a slower autonomic suppression of metabolic heat production can develop; weak or negligible for near-baseline trajectories and very short perturbations.",
+          "train_hidden_contrast": "In training, the mechanism appears as modest extra late-phase cooling during recoveries with longer residence above the set point; in holdout, the same effect extends to trajectories with similar amplitudes but different durations, producing duration-dependent phase separation at matched T_c.",
+          "continuation_path": "Recover the parent by taking the metabolic-suppression amplitude to zero or its adjustment time to zero/infinity such that metabolic_heat_production remains effectively constant.",
+          "freedom_change": "parameter_to_state",
+          "promoted_symbol": "metabolic_heat_production",
+          "promotion_reason": "A fixed parameter cannot encode trajectory-history-dependent internal heat generation. To create an observable phase-dependent change in dT_c_dt under the same environmental conditions, metabolic_heat_production must be allowed to evolve as a state.",
+          "gap_statement": "The model assumes constant metabolic heat production during recovery, omitting the plausible slow reduction in endogenous heat production that accompanies passive recovery from mild heat load.",
+          "baseline_assumption": "metabolic_heat_production is constant across the entire trajectory and does not adapt to sustained elevation of core temperature.",
+          "scientific_mechanism": "Slow heat-induced suppression of thermogenic/metabolic heat production during recovery, operating in parallel with delayed heat-loss recruitment under otherwise fixed ambient conditions.",
+          "affected_symbols": [
+            "T_c",
+            "H",
+            "H_slow",
+            "metabolic_heat_production",
+            "thermal_set_point",
+            "slow_recruitment_threshold"
+          ],
+          "rationale": "The parent already includes fast and slow heat-loss effectors, so its scored target mapping is effectively single-phase: once T_c, H, and H_slow are specified, dT_c_dt is fully determined by a constant inward metabolic term minus heat loss. A realistic next refinement is to relax the constant-metabolism assumption, not to add another decorative heat-loss branch. Under fixed humidity, clothing, activity, and ambient temperature, mild heat exposure can still transiently suppress internal heat generation during recovery. This changes the target mapping itself, not only an auxiliary trajectory, because dT_c_dt directly depends on metabolic_heat_production. The concrete distinguishing condition is to compare recoveries that reach similar T_c and similar effective heat-loss factor but differ in how long they have remained above the set point. The parent with one shared parameter set predicts the same dT_c_dt at matched T_c, H, and H_slow regardless of phase; the child predicts more negative dT_c_dt later in a prolonged recovery due to reduced metabolic input. This is admissible for mild positive thermal_error on the scale already activating H_slow, and it remains limited: if excursions are too small or brief, the added process may be practically unobservable."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "phase_shift",
+            "parent_relation": "The target mapping dT_c_dt(T_c,H,H_slow) uses a fixed metabolic_heat_production, so all temperature recovery is governed only by heat-loss recruitment and the net cooling drive at a given thermal state is independent of recovery phase.",
+            "child_relation": "Allow metabolic heat production to undergo slow first-order suppression after mild heat elevation, so dT_c_dt at the same T_c, H, and H_slow can differ between early and late recovery because internal heat generation is lower later in the trajectory.",
+            "affected_inputs": [
+              "T_c",
+              "H",
+              "H_slow",
+              "metabolic_heat_production"
+            ],
+            "observable_effect": "For mild above-set-point recoveries under fixed environment, late recovery can cool faster than the parent predicts even after heat-loss factors have begun relaxing, because transient metabolic suppression reduces inward heat flux."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "thermal_error",
+              "expression": "T_c - thermal_set_point",
+              "role": "Signed core-temperature displacement driving thermoregulatory activation"
+            },
+            {
+              "name": "effective_heat_loss_factor",
+              "expression": "(1 - slow_effector_weight)*H + slow_effector_weight*H_slow",
+              "role": "Current combined thermoeffector heat-loss multiplier"
+            },
+            {
+              "name": "above_setpoint_gate",
+              "expression": "Piecewise((0, T_c - thermal_set_point <= 0), ((T_c - thermal_set_point)/(slow_recruitment_threshold + (T_c - thermal_set_point)), True))",
+              "role": "Existing mild-heat activation regime where a slow metabolic adjustment would be physiologically observable"
+            }
+          ],
+          "activation_condition": "Observable for mild but sustained above-set-point excursions where T_c - thermal_set_point is positive for long enough that a slower autonomic suppression of metabolic heat production can develop; weak or negligible for near-baseline trajectories and very short perturbations.",
+          "train_hidden_contrast": "In training, the mechanism appears as modest extra late-phase cooling during recoveries with longer residence above the set point; in holdout, the same effect extends to trajectories with similar amplitudes but different durations, producing duration-dependent phase separation at matched T_c.",
+          "continuation_path": "Recover the parent by taking the metabolic-suppression amplitude to zero or its adjustment time to zero/infinity such that metabolic_heat_production remains effectively constant.",
+          "freedom_change": "parameter_to_state",
+          "promoted_symbol": "metabolic_heat_production",
+          "promotion_reason": "A fixed parameter cannot encode trajectory-history-dependent internal heat generation. To create an observable phase-dependent change in dT_c_dt under the same environmental conditions, metabolic_heat_production must be allowed to evolve as a state.",
+          "scope_kind": "memory",
+          "scope_symbols": [
+            "T_c",
+            "metabolic_heat_production"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "slow thermogenic suppression",
+          "scientific_mechanism": "Slow heat-induced suppression of thermogenic/metabolic heat production during recovery, operating in parallel with delayed heat-loss recruitment under otherwise fixed ambient conditions.",
+          "embedding_pattern": "state_dependent_coefficient",
+          "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the coefficient of the existing heat-balance production term becomes a history-dependent state, creating phase-separated target values at matched thermal states that cannot be obtained from a single static metabolic parameter.",
+          "taxonomy_match": "known",
+          "assumption_before": "metabolic_heat_production is constant across the entire trajectory and does not adapt to sustained elevation of core temperature.",
+          "assumption_after": "metabolic_heat_production is an internal state that slowly relaxes toward a lower above-set-point equilibrium during mild heat recovery.",
+          "before_fragment": "(metabolic_heat_production - metabolic_heat_production*((1 - slow_effector_weight)*H + slow_effector_weight*H_slow))/effective_heat_capacity",
+          "after_fragment": "(metabolic_heat_production - metabolic_heat_production*((1 - slow_effector_weight)*H + slow_effector_weight*H_slow))/effective_heat_capacity",
+          "parent_reduction": "The successor reduces to the parent when metabolic_suppression_strength = 0, or in the fixed-state limit where metabolic_heat_production remains at its initial baseline value throughout the trajectory.",
+          "observable_signature": "Compare trajectories that attain similar T_c and similar effective_heat_loss_factor = (1 - slow_effector_weight)*H + slow_effector_weight*H_slow but differ in prior residence time above thermal_set_point. The child predicts more negative dT_c_dt later in the longer-hotter-phase trajectory because metabolic_heat_production has been suppressed, whereas the parent predicts the same dT_c_dt at matched T_c, H, and H_slow.",
+          "shortcut_blocked": "Refitting one shared constant metabolic_heat_production in the parent cannot produce duration-dependent phase separation at matched T_c, H, and H_slow, because the parent target mapping is algebraically memoryless once those states are fixed. Parameter retuning can shift all phases together but cannot make late recovery cooler faster than early recovery under the same observed thermal state without an evolving metabolic state."
+        },
+        "range_suggestions": {
+          "metabolic_heat_production": "positive heat-production state remaining near baseline during mild recovery, plausibly between a modestly suppressed level and the initial baseline value",
+          "metabolic_suppression_strength": "dimensionless, typically between 0 and 1 so the heat-elevated equilibrium metabolic production remains nonnegative",
+          "metabolic_adjustment_time": "positive and typically comparable to or longer than slow_recruitment_time during mild recovery"
+        }
+      }
+    ],
+    "evolution_provenance": {
+      "dimension_track": null,
+      "mechanism_profile": {
+        "allowed_structural_roles": [
+          "response_law",
+          "modulation",
+          "constraint",
+          "feedback",
+          "timescale",
+          "transport_balance"
+        ],
+        "preferred_scopes": [
+          "unary",
+          "pairwise",
+          "state_coupling",
+          "memory"
+        ],
+        "domain_mechanisms": [
+          {
+            "id": "homeostatic_feedback",
+            "description": "negative feedback around a physiological set point",
+            "operations": [
+              "add_term"
+            ]
+          },
+          {
+            "id": "finite_reserve_capacity",
+            "description": "finite storage, transport, or organ capacity",
+            "operations": [
+              "add_term",
+              "change_assumption"
+            ]
+          },
+          {
+            "id": "delayed_regulatory_response",
+            "description": "finite regulatory response time",
+            "operations": [
+              "change_assumption"
+            ]
+          }
+        ],
+        "profile_source": "subfield",
+        "ontology_schema_version": "1.0",
+        "taxonomy_schema_version": "1.0"
+      },
+      "baseline_mechanisms": [
+        "Whole-body heat storage",
+        "Constant baseline metabolic heat production",
+        "Aggregate heat loss that increases with core temperature relative to fixed surroundings",
+        "Instantaneous homeostatic adjustment represented by a smooth restoring response"
+      ],
+      "baseline_assumptions": [
+        "The body is a single well-mixed thermal compartment",
+        "Ambient conditions, clothing, and activity are constant",
+        "Effective heat capacity is constant",
+        "Sweating, vasomotor responses, and metabolic thermogenesis are combined into one instantaneous heat-loss response"
+      ],
+      "scientific_constraints": [
+        "Core temperature must remain finite and physiologically plausible",
+        "The net thermal response must point toward the stable equilibrium near baseline",
+        "Heat loss cannot be negative under the fixed ordinary environment",
+        "The equilibrium must be locally stable"
+      ],
+      "refinement_agenda": [
+        "Add a sweating threshold and saturation limit",
+        "Separate core and skin temperatures",
+        "Introduce delayed vasomotor control",
+        "Allow shivering thermogenesis below a recruitment threshold",
+        "Release the fixed-environment assumption to include changing ambient temperature or humidity"
+      ],
+      "evolution_contracts": [
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The net cooling drive is a single exponential function of core-temperature displacement from the set point, so one shared sensitivity produces the same local slope and far-from-set-point steepening across all admissible recoveries.",
+            "child_relation": "Replace the single fixed heat-loss sensitivity by a temperature-dependent effective sensitivity so the restoring drive remains weak near the set point but steepens more strongly at larger positive thermal displacement during recovery.",
+            "affected_inputs": [
+              "T_c",
+              "heat_loss_sensitivity",
+              "thermal_set_point"
+            ],
+            "observable_effect": "Across trajectories started with small versus larger mild thermal elevations under the same environment, the child predicts nearly parent-like near-baseline relaxation but faster-than-parent return from the warmer initial segment because cooling acceleration increases with displacement."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "temp_offset",
+              "expression": "T_c - thermal_set_point",
+              "role": "signed core-temperature displacement driving thermoregulatory heat loss"
+            },
+            {
+              "name": "parent_heat_loss_factor",
+              "expression": "exp(heat_loss_sensitivity*(T_c - thermal_set_point))",
+              "role": "baseline multiplicative heat-loss amplification"
+            },
+            {
+              "name": "quadratic_offset_scale",
+              "expression": "(T_c - thermal_set_point)**2",
+              "role": "magnitude of departure controlling departure from constant sensitivity"
+            }
+          ],
+          "activation_condition": "Observable when the initial core-temperature elevation is mild but not infinitesimal, so |T_c - thermal_set_point| is large enough that higher-order dependence of heat-loss responsiveness on temperature matters during early recovery, while ambient conditions, clothing, humidity, and activity remain fixed.",
+          "train_hidden_contrast": "The same recovery protocol already varies the observed state T_c over time; training trajectories near equilibrium constrain the local slope, while holdout trajectories with somewhat larger but still physiologically mild thermal displacements reveal stronger curvature in dT_c_dt versus T_c.",
+          "continuation_path": "The parent law is recovered when the added temperature dependence of the effective sensitivity tends to zero, leaving a constant heat_loss_sensitivity over the full admissible range.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "unary",
+          "scope_symbols": [
+            "T_c"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "state-dependent thermoregulatory heat-loss sensitivity",
+          "scientific_mechanism": "Nonlinear recruitment of existing thermoeffectors under fixed environment, where vasodilation and sweating contributions together make effective heat-loss responsiveness increase with thermal deviation even without changing ambient conditions.",
+          "embedding_pattern": "state_dependent_coefficient",
+          "difficulty_rationale": "This embedding is structurally harder than a coefficient-only correction because the coefficient of the exponential heat-loss process now varies with the state T_c itself, altering curvature of the target mapping across the admissible recovery range while preserving near-set-point behavior.",
+          "taxonomy_match": "known",
+          "assumption_before": "Aggregate heat loss is governed by one instantaneous exponential response with constant sensitivity heat_loss_sensitivity independent of the magnitude of temperature displacement.",
+          "assumption_after": "Effective heat-loss sensitivity increases with the magnitude of core-temperature displacement, reflecting progressive recruitment of existing heat-loss pathways during recovery under fixed conditions.",
+          "before_fragment": "(metabolic_heat_production - metabolic_heat_production*exp(heat_loss_sensitivity*(T_c - thermal_set_point)))/effective_heat_capacity",
+          "after_fragment": "(metabolic_heat_production - metabolic_heat_production*exp((heat_loss_sensitivity + heat_loss_curvature*(T_c - thermal_set_point)**2)*(T_c - thermal_set_point)))/effective_heat_capacity",
+          "parent_reduction": "The parent is recovered at heat_loss_curvature = 0.",
+          "observable_signature": "In trajectories that start only slightly above thermal_set_point, the child behaves nearly like the parent because the added quadratic sensitivity term is small; in trajectories with somewhat larger but still mild positive initial offsets, dT_c_dt becomes more negative than the parent predicts early in recovery, yielding stronger curvature in the mapping from T_c to dT_c_dt under the same fixed environment. This changes the scored target mapping itself, not merely an auxiliary trajectory.",
+          "shortcut_blocked": "A single refitted parent parameter set cannot reproduce both conditions because increasing heat_loss_sensitivity enough to match the stronger early cooling at larger offsets would also increase the local slope near T_c ≈ thermal_set_point, distorting the observed gentle near-baseline relaxation. The child separates near-equilibrium slope from farther-from-set-point steepening through state-dependent sensitivity, which coefficient retuning alone cannot supply across the same admissible recovery range."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "phase_shift",
+            "parent_relation": "The net cooling drive is an instantaneous function of current core-temperature displacement only, so trajectories with the same T_c have the same dT_c_dt regardless of recent history.",
+            "child_relation": "The effective heat-loss drive adjusts with finite recruitment time, so dT_c_dt depends on both current T_c and a lagged thermoeffector state; for the same T_c, early recovery can cool less strongly than later recovery after effectors catch up.",
+            "affected_inputs": [
+              "T_c"
+            ],
+            "observable_effect": "After a mild positive thermal displacement, the initial relaxation is slower and then steepens transiently relative to the parent; two times with equal T_c but different recent histories can have different dT_c_dt."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "temp_error",
+              "expression": "T_c - thermal_set_point",
+              "role": "Core-temperature deviation that drives thermoregulatory recruitment"
+            },
+            {
+              "name": "parent_heat_loss_factor",
+              "expression": "exp((heat_loss_sensitivity + heat_loss_curvature*(T_c - thermal_set_point)**2)*(T_c - thermal_set_point))",
+              "role": "Instantaneous aggregate heat-loss factor assumed by the parent"
+            }
+          ],
+          "activation_condition": "Observable for mild positive displacements from the set point when thermoeffector adjustment time is not negligible compared with the recovery observation window; weakest arbitrarily near equilibrium or if adaptation is effectively instantaneous.",
+          "train_hidden_contrast": "Within training trajectories, early versus later recovery segments at similar T_c expose lagged cooling recruitment; in holdout, somewhat larger but still mild positive displacements amplify the same transient mismatch because the parent enforces a single instantaneous T_c-to-dT_c_dt map.",
+          "continuation_path": "Recover the parent law in the limit of vanishing thermoeffector adjustment time, where the lagged heat-loss state rapidly tracks its instantaneous equilibrium function of T_c.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "A finite-response thermoeffector memory cannot be represented by the existing single thermal state with fixed parameters, because the target derivative would remain a single-valued function of T_c alone. One additional state is needed to encode delayed heat-loss recruitment.",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "T_c",
+            "H"
+          ],
+          "structural_role": "feedback",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Delayed recruitment of aggregate heat-loss effectors competing with constant metabolic heat production",
+          "scientific_mechanism": "First-order delayed activation of aggregate heat-loss effectors under otherwise fixed environment, producing transient hysteresis in the cooling response during recovery.",
+          "embedding_pattern": "competing_processes",
+          "difficulty_rationale": "This embedding is harder than coefficient refinement because the cooling loss term now competes with constant metabolic production through a separate relaxation process, making the scored dT_c_dt map history-dependent rather than a single instantaneous curve in T_c.",
+          "taxonomy_match": "known",
+          "assumption_before": "Sweating, vasomotor responses, and metabolic thermogenesis are combined into one instantaneous heat-loss response.",
+          "assumption_after": "Aggregate heat-loss effectors recruit with first-order delay toward the parent's temperature-dependent equilibrium response.",
+          "before_fragment": "(metabolic_heat_production - metabolic_heat_production*exp((heat_loss_sensitivity + heat_loss_curvature*(T_c - thermal_set_point)**2)*(T_c - thermal_set_point)))/effective_heat_capacity",
+          "after_fragment": "(metabolic_heat_production - metabolic_heat_production*H)/effective_heat_capacity",
+          "parent_reduction": "In the limit thermoeffector_adjustment_time -> 0, H = exp((heat_loss_sensitivity + heat_loss_curvature*(T_c - thermal_set_point)**2)*(T_c - thermal_set_point)) and the parent expression is recovered.",
+          "observable_signature": "Under fixed environment and the given elevated initial condition, early recovery begins with H near baseline while T_c is high, so cooling is initially weaker than the parent predicts; later, as H rises toward exp((heat_loss_sensitivity + heat_loss_curvature*(T_c - thermal_set_point)**2)*(T_c - thermal_set_point)), segments with similar T_c can exhibit stronger cooling. This is a changed target mapping for dT_c_dt itself, not only an auxiliary trajectory change.",
+          "shortcut_blocked": "Refitting all parent parameters still leaves dT_c_dt a single-valued function of T_c alone, so one shared parent parameter set cannot produce different derivatives at the same observed T_c across early and later recovery segments. The added state is therefore structurally necessary to represent the finite-response memory over the stated admissible conditions."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "At fixed H, dT_c_dt depends linearly on 1-H, and H relaxes toward a single smooth exponential equilibrium of T_c-thermal_set_point, so recovery remains effectively one-phase with a single delayed effector pathway across mild perturbations.",
+            "child_relation": "Retain aggregate heat-loss control but allow thermoeffector recruitment speed itself to depend on thermal displacement, so H approaches its equilibrium faster for larger positive T_c-thermal_set_point and more slowly near baseline, changing the T_c trajectory from a single-phase relaxation to amplitude-dependent early steepening followed by slower late approach.",
+            "affected_inputs": [
+              "T_c",
+              "H",
+              "thermoeffector_adjustment_time"
+            ],
+            "observable_effect": "Across trajectories starting modestly versus more strongly above the set point, the larger displacement shows disproportionately faster initial cooling and earlier H rise, while near-baseline recovery remains slower; one shared parent time constant cannot match both early and late portions simultaneously."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "temp_error",
+              "expression": "T_c - thermal_set_point",
+              "role": "signed thermal displacement driving effector recruitment"
+            },
+            {
+              "name": "heat_loss_gap",
+              "expression": "exp((heat_loss_sensitivity + heat_loss_curvature*(T_c - thermal_set_point)**2)*(T_c - thermal_set_point)) - H",
+              "role": "distance of current heat-loss factor from its instantaneous equilibrium"
+            },
+            {
+              "name": "target_cooling_drive",
+              "expression": "metabolic_heat_production*(1 - H)/effective_heat_capacity",
+              "role": "instantaneous core-temperature tendency under current recruited heat loss"
+            }
+          ],
+          "activation_condition": "Observable when initial T_c is above thermal_set_point by enough that thermoeffector recruitment is appreciably engaged yet still within mild recovery, so positive temp_error spans small-to-moderate values over the sampled trajectory; the contrast is weak if trajectories remain extremely close to equilibrium throughout.",
+          "train_hidden_contrast": "In training, differing portions of the same mild-recovery trajectories already contain larger versus smaller temp_error. In holdout, the same mechanism extends to somewhat larger initial displacements, revealing stronger acceleration of early H recruitment and more pronounced non-single-exponential cooling.",
+          "continuation_path": "Recover the parent by making recruitment speed independent of temperature, i.e. reducing the temperature dependence of the adjustment-time law to a constant thermoeffector_adjustment_time.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "T_c",
+            "H",
+            "thermoeffector_adjustment_time"
+          ],
+          "structural_role": "timescale",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "saturating acceleration of thermoeffector recruitment kinetics with positive thermal displacement",
+          "scientific_mechanism": "Temperature-dependent effector recruitment kinetics: stronger thermal error drives faster approach of aggregate heat loss toward its temperature-dependent equilibrium, while near-equilibrium recruitment remains slower.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "This is harder than a coefficient-only correction because the recruitment timescale becomes state dependent and saturating, changing trajectory shape across thermal amplitudes rather than merely rescaling one fixed phase. The resulting early-versus-late curvature in H and therefore dT_c_dt cannot be reproduced by simply retuning a single constant time constant while keeping one common parameter set.",
+          "taxonomy_match": "known",
+          "assumption_before": "The delayed aggregate heat-loss response has one constant first-order time scale, independent of the magnitude and sign of core-temperature deviation.",
+          "assumption_after": "Thermoeffector recruitment accelerates with positive core-temperature elevation above the set point and does so with finite saturation over the mild-recovery range.",
+          "before_fragment": "(metabolic_heat_production - metabolic_heat_production*H)/effective_heat_capacity",
+          "after_fragment": "(metabolic_heat_production - metabolic_heat_production*H)/effective_heat_capacity",
+          "parent_reduction": "Set recruitment_time_acceleration = 0 to recover the parent constant-time-scale law exactly.",
+          "observable_signature": "Holding metabolic_heat_production, effective_heat_capacity, ambient conditions, clothing, and activity fixed, trajectories that spend time at larger positive temp_error exhibit faster H recruitment and thus steeper early negative dT_c_dt than predicted by a single shared recruitment time; as temp_error shrinks, the effective recruitment speed relaxes back toward the baseline thermoeffector_adjustment_time. This is a changed target mapping because the altered H trajectory feeds back into the scored T_c equation and changes the observed cooling-rate curvature.",
+          "shortcut_blocked": "Refitting all parent parameters still leaves one constant recruitment time scale for every thermal displacement, so the parent can only shift a single delayed phase globally. It cannot with one shared parameter set make recruitment relatively slow near baseline yet disproportionately faster at larger positive temp_error, because that requires a state-dependent timescale rather than a different coefficient on the same fixed-phase law."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The target mapping is dT_c_dt = metabolic_heat_production*(1 - H)/effective_heat_capacity, with H relaxing toward a temperature-only equilibrium. For fixed initial H and fixed environment, recovery is governed by a single effective thermoeffector phase whose equilibrium heat-loss drive depends only on current T_c displacement from the set point.",
+            "child_relation": "Retain the same net heat-balance structure but relax the assumption that aggregate heat loss has only one recruitment timescale. Introduce a slower sweat-dominant component in addition to the existing faster component, so the effective heat-loss factor seen by T_c becomes a weighted combination of fast and slow recruited effectors. Then the mapping from current thermal displacement/history to dT_c_dt acquires two-phase curvature: early recovery is dominated by rapid vasomotor-like adjustment, while later recovery is further shaped by slower evaporative recruitment.",
+            "affected_inputs": [
+              "T_c",
+              "H",
+              "thermoeffector_adjustment_time"
+            ],
+            "observable_effect": "Across otherwise identical mild heat-recovery trajectories starting from different initial thermal displacements above the set point, the child can show similar initial cooling but a later extra cooling shoulder or delayed steepening as the slow component catches up; the parent's single-timescale relaxation cannot match both the early and later slope pattern with one shared parameter set."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "thermal_error",
+              "expression": "T_c - thermal_set_point",
+              "role": "signed thermal displacement driving thermoeffector recruitment"
+            },
+            {
+              "name": "fast_timescale",
+              "expression": "(thermoeffector_adjustment_time)/(1 + recruitment_time_acceleration*Piecewise((0, T_c - thermal_set_point <= 0), ((T_c - thermal_set_point)/(recruitment_activation_scale + (T_c - thermal_set_point)), True)))",
+              "role": "existing fast effective recruitment time under above-set-point acceleration"
+            },
+            {
+              "name": "net_cooling_drive",
+              "expression": "metabolic_heat_production*(1 - H)/effective_heat_capacity",
+              "role": "current target-state tendency from aggregate recruited heat loss"
+            }
+          ],
+          "activation_condition": "Observable when trajectories begin modestly above the set point and are followed long enough for recovery transients to unfold over both a fast and a slower thermoeffector timescale; effect is weakest for very small perturbations or very short observation windows.",
+          "train_hidden_contrast": "In training under mild displacements, the mechanism appears as subtle non-single-exponential relaxation curvature. In holdout with somewhat larger but still physiologically mild initial elevations, the delayed slow-component contribution produces a clearer late-phase deviation from the parent's single-phase recovery.",
+          "continuation_path": "Recover the parent when the slow component's weight tends to zero or when its adjustment time collapses to the existing recruitment timescale, making aggregate heat loss effectively single-phase again.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "A genuine second recruitment timescale requires its own dynamical memory; modifying only existing static parameters in the single H equation cannot represent delayed occupancy of a distinct slow effector pool.",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "T_c",
+            "H",
+            "H_slow"
+          ],
+          "structural_role": "feedback",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "parallel thermoeffector recruitment with slower sweating-like activation",
+          "scientific_mechanism": "Parallel fast and slow thermoeffector recruitment, with a slower evaporative/sweating-like contribution augmenting the existing faster aggregate response during recovery from mild heat displacement.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "This embedding is harder than a coefficient-only correction because the target derivative now depends on a second hidden occupancy state with its own thresholded and saturating recruitment kinetics, creating history-dependent late-phase curvature that cannot be reproduced by retuning a single first-order response law.",
+          "taxonomy_match": "known",
+          "assumption_before": "Aggregate thermoeffector heat loss is represented by one first-order recruited factor with one effective adjustment time at each temperature.",
+          "assumption_after": "Aggregate heat loss is the weighted sum of a fast recruited component and a slower thresholded sweating-like component with its own occupancy dynamics.",
+          "before_fragment": "(metabolic_heat_production - metabolic_heat_production*H)/effective_heat_capacity",
+          "after_fragment": "(metabolic_heat_production - metabolic_heat_production*((1 - slow_effector_weight)*H + slow_effector_weight*H_slow))/effective_heat_capacity",
+          "parent_reduction": "Set slow_effector_weight = 0 to recover the parent exactly; additionally, when slow_recruitment_time approaches the fast timescale and the slow activation threshold becomes negligible, the two branches behave nearly as a single phase.",
+          "observable_signature": "Holding environment and all parameters fixed while varying only initial core-temperature elevation above the set point, the successor can preserve a similar early cooling slope yet show a later extra cooling shoulder or delayed steepening once the slow thresholded component recruits; this changes the scored target mapping itself because dT_c_dt directly uses the mixed factor ((1 - slow_effector_weight)*H + slow_effector_weight*H_slow), not merely an auxiliary trajectory.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce this contrast across those trajectories because the parent target law depends on only one first-order heat-loss occupancy H. Retuning heat_loss_sensitivity, heat_loss_curvature, thermoeffector_adjustment_time, or the acceleration parameters can alter overall speed and temperature dependence, but it still yields one-phase memory and cannot independently match both the shared early slope and the later delayed additional cooling generated by distinct slow occupancy buildup."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "phase_shift",
+            "parent_relation": "The target mapping dT_c_dt(T_c,H,H_slow) uses a fixed metabolic_heat_production, so all temperature recovery is governed only by heat-loss recruitment and the net cooling drive at a given thermal state is independent of recovery phase.",
+            "child_relation": "Allow metabolic heat production to undergo slow first-order suppression after mild heat elevation, so dT_c_dt at the same T_c, H, and H_slow can differ between early and late recovery because internal heat generation is lower later in the trajectory.",
+            "affected_inputs": [
+              "T_c",
+              "H",
+              "H_slow",
+              "metabolic_heat_production"
+            ],
+            "observable_effect": "For mild above-set-point recoveries under fixed environment, late recovery can cool faster than the parent predicts even after heat-loss factors have begun relaxing, because transient metabolic suppression reduces inward heat flux."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "thermal_error",
+              "expression": "T_c - thermal_set_point",
+              "role": "Signed core-temperature displacement driving thermoregulatory activation"
+            },
+            {
+              "name": "effective_heat_loss_factor",
+              "expression": "(1 - slow_effector_weight)*H + slow_effector_weight*H_slow",
+              "role": "Current combined thermoeffector heat-loss multiplier"
+            },
+            {
+              "name": "above_setpoint_gate",
+              "expression": "Piecewise((0, T_c - thermal_set_point <= 0), ((T_c - thermal_set_point)/(slow_recruitment_threshold + (T_c - thermal_set_point)), True))",
+              "role": "Existing mild-heat activation regime where a slow metabolic adjustment would be physiologically observable"
+            }
+          ],
+          "activation_condition": "Observable for mild but sustained above-set-point excursions where T_c - thermal_set_point is positive for long enough that a slower autonomic suppression of metabolic heat production can develop; weak or negligible for near-baseline trajectories and very short perturbations.",
+          "train_hidden_contrast": "In training, the mechanism appears as modest extra late-phase cooling during recoveries with longer residence above the set point; in holdout, the same effect extends to trajectories with similar amplitudes but different durations, producing duration-dependent phase separation at matched T_c.",
+          "continuation_path": "Recover the parent by taking the metabolic-suppression amplitude to zero or its adjustment time to zero/infinity such that metabolic_heat_production remains effectively constant.",
+          "freedom_change": "parameter_to_state",
+          "promoted_symbol": "metabolic_heat_production",
+          "promotion_reason": "A fixed parameter cannot encode trajectory-history-dependent internal heat generation. To create an observable phase-dependent change in dT_c_dt under the same environmental conditions, metabolic_heat_production must be allowed to evolve as a state.",
+          "scope_kind": "memory",
+          "scope_symbols": [
+            "T_c",
+            "metabolic_heat_production"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "slow thermogenic suppression",
+          "scientific_mechanism": "Slow heat-induced suppression of thermogenic/metabolic heat production during recovery, operating in parallel with delayed heat-loss recruitment under otherwise fixed ambient conditions.",
+          "embedding_pattern": "state_dependent_coefficient",
+          "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the coefficient of the existing heat-balance production term becomes a history-dependent state, creating phase-separated target values at matched thermal states that cannot be obtained from a single static metabolic parameter.",
+          "taxonomy_match": "known",
+          "assumption_before": "metabolic_heat_production is constant across the entire trajectory and does not adapt to sustained elevation of core temperature.",
+          "assumption_after": "metabolic_heat_production is an internal state that slowly relaxes toward a lower above-set-point equilibrium during mild heat recovery.",
+          "before_fragment": "(metabolic_heat_production - metabolic_heat_production*((1 - slow_effector_weight)*H + slow_effector_weight*H_slow))/effective_heat_capacity",
+          "after_fragment": "(metabolic_heat_production - metabolic_heat_production*((1 - slow_effector_weight)*H + slow_effector_weight*H_slow))/effective_heat_capacity",
+          "parent_reduction": "The successor reduces to the parent when metabolic_suppression_strength = 0, or in the fixed-state limit where metabolic_heat_production remains at its initial baseline value throughout the trajectory.",
+          "observable_signature": "Compare trajectories that attain similar T_c and similar effective_heat_loss_factor = (1 - slow_effector_weight)*H + slow_effector_weight*H_slow but differ in prior residence time above thermal_set_point. The child predicts more negative dT_c_dt later in the longer-hotter-phase trajectory because metabolic_heat_production has been suppressed, whereas the parent predicts the same dT_c_dt at matched T_c, H, and H_slow.",
+          "shortcut_blocked": "Refitting one shared constant metabolic_heat_production in the parent cannot produce duration-dependent phase separation at matched T_c, H, and H_slow, because the parent target mapping is algebraically memoryless once those states are fixed. Parameter retuning can shift all phases together but cannot make late recovery cooler faster than early recovery under the same observed thermal state without an evolving metabolic state."
+        }
+      ]
+    },
+    "finalization": {
+      "mode": "candidate",
+      "accepted_generations": 5,
+      "novelty": {
+        "answer": "NOT_EVALUATED"
+      },
+      "total_points": 5000,
+      "evaluation_status": "not_evaluated"
+    }
+  },
+  "contract": {
+    "features": [
+      "t",
+      "T_c",
+      "H",
+      "H_slow",
+      "metabolic_heat_production"
+    ],
+    "target": "dT_c_dt",
+    "family": "ode",
+    "expression": "(metabolic_heat_production - metabolic_heat_production*((1 - slow_effector_weight)*H + slow_effector_weight*H_slow))/effective_heat_capacity",
+    "parameters": {
+      "effective_heat_capacity": 250000.0,
+      "heat_loss_sensitivity": 0.9,
+      "thermal_set_point": 37.0,
+      "heat_loss_curvature": 0.18,
+      "thermoeffector_adjustment_time": 600.0,
+      "recruitment_time_acceleration": 0.9,
+      "recruitment_activation_scale": 0.4,
+      "slow_effector_weight": 0.35,
+      "slow_recruitment_time": 1800.0,
+      "slow_recruitment_threshold": 0.3,
+      "metabolic_suppression_strength": 0.25,
+      "metabolic_adjustment_time": 3600.0
+    },
+    "implicit_branch": null
+  }
+}

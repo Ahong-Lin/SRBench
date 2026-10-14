@@ -1,0 +1,273 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "T_h",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        6000.0
+      ],
+      "n_points": 400,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "contact_conductance",
+      "value": 240.0
+    },
+    {
+      "symbol": "heat_capacity_h",
+      "value": 5000.0
+    },
+    {
+      "symbol": "heat_capacity_c",
+      "value": 4200.0
+    },
+    {
+      "symbol": "conductance_contrast_coeff",
+      "value": 0.004
+    },
+    {
+      "symbol": "contact_adjustment_time",
+      "value": 80.0
+    },
+    {
+      "symbol": "hot_capacity_temp_coeff",
+      "value": 1.2
+    },
+    {
+      "symbol": "hot_capacity_temp_scale",
+      "value": 300.0
+    },
+    {
+      "symbol": "cold_capacity_temp_coeff",
+      "value": 0.9
+    },
+    {
+      "symbol": "cold_capacity_temp_scale",
+      "value": 260.0
+    },
+    {
+      "symbol": "k_internal_hot",
+      "value": 250.0
+    },
+    {
+      "symbol": "hot_interface_capacity_fraction",
+      "value": 0.12
+    }
+  ],
+  "benchmark_output": "dT_h_dt",
+  "benchmark_target_state": "T_h",
+  "observed_variables": [
+    "t",
+    "T_h",
+    "T_c",
+    "g_contact",
+    "T_h_interface"
+  ],
+  "rhs_for_integrator": "-k_internal_hot*(T_h - T_h_interface)/(heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h/(hot_capacity_temp_scale + T_h)))",
+  "state_variables": [
+    "T_h",
+    "T_c",
+    "g_contact",
+    "T_h_interface"
+  ],
+  "state_rhs": [
+    "-k_internal_hot*(T_h - T_h_interface)/(heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h/(hot_capacity_temp_scale + T_h)))",
+    "g_contact*(T_h_interface - T_c)/(heat_capacity_c*(1 + cold_capacity_temp_coeff*T_c/(cold_capacity_temp_scale + T_c)))",
+    "(contact_conductance*(1 + conductance_contrast_coeff*Abs(T_h_interface - T_c)) - g_contact)/contact_adjustment_time",
+    "(k_internal_hot*(T_h - T_h_interface) - g_contact*(T_h_interface - T_c)/hot_interface_capacity_fraction)/(heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h_interface/(hot_capacity_temp_scale + T_h_interface)))"
+  ],
+  "initial_conditions": {
+    "T_h": 370.0,
+    "T_c": 275.0,
+    "g_contact": 370.0,
+    "T_h_interface": 370.0
+  },
+  "sanity_expectations": [
+    "All effective heat-capacity denominators remain positive and finite over the sampled run, so the integrated trajectory should stay real and nonsingular.",
+    "At t=0, T_h_interface = T_h by inherited initial condition, so dT_h/dt starts at 0 exactly; shortly afterward T_h_interface should drop below T_h and the bulk hot body should begin cooling.",
+    "g_contact should relax away from its initial value 370 toward the contrast-dependent preferred conductance contact_conductance*(1 + conductance_contrast_coeff*Abs(T_h_interface - T_c)); because the temperature contrast shrinks over time, the preferred value should also decrease during the run.",
+    "The hottest-body bulk temperature T_h should remain above T_c initially and approach a common equilibrium monotonically after the brief activation transient; T_c should rise overall.",
+    "The same instantaneous bulk contrast T_h-T_c reached at different times need not imply the same dT_h/dt because both g_contact and T_h_interface carry memory; a hysteresis-like spread in dT_h/dt versus T_h-T_c is therefore expected.",
+    "Because the initial interface temperature equals the hot bulk, the added internal-lag mechanism is inactive exactly at the initial instant but becomes active once interfacial cooling creates T_h_interface<T_h; visible deviation from the parent one-phase law should therefore emerge after an initial short transient rather than at the first sample.",
+    "With conductance_contrast_coeff > 0, early large-|T_h_interface-T_c| periods should correspond to larger preferred conductance than late near-equilibrium periods, yielding stronger-than-linear early cooling relative to a constant-conductance baseline once the internal-lag transient passes."
+  ],
+  "role_corrections": [
+    "dT_h_dt: claimed-output/target derivative -> target derivative of state T_h within an ode_system (confirmed structurally for the scalar RHS, but dataset dependent variable is T_h per required contract)",
+    "t: claimed-input/time axis -> independent variable/time axis (confirmed)",
+    "T_h: claimed-dynamic state -> dynamic state and dependent variable/target_state (confirmed)",
+    "T_c: claimed-dynamic state -> dynamic state (confirmed)",
+    "g_contact: claimed-dynamic state -> dynamic state (confirmed; preserved by explicit freedom-change/ODE contract)",
+    "T_h_interface: claimed-dynamic state -> dynamic state (confirmed; added memory state preserved by explicit freedom-change/ODE contract)",
+    "contact_conductance: claimed-parameter -> fixed parameter (confirmed)",
+    "heat_capacity_h: claimed-parameter -> fixed parameter (confirmed)",
+    "heat_capacity_c: claimed-parameter -> fixed parameter (confirmed)",
+    "conductance_contrast_coeff: claimed-parameter -> fixed parameter (confirmed)",
+    "contact_adjustment_time: claimed-parameter -> fixed parameter (confirmed)",
+    "hot_capacity_temp_coeff: claimed-parameter -> fixed parameter (confirmed)",
+    "hot_capacity_temp_scale: claimed-parameter -> fixed parameter (confirmed)",
+    "cold_capacity_temp_coeff: claimed-parameter -> fixed parameter (confirmed)",
+    "cold_capacity_temp_scale: claimed-parameter -> fixed parameter (confirmed)",
+    "k_internal_hot: claimed-parameter -> fixed parameter (confirmed)",
+    "hot_interface_capacity_fraction: claimed-parameter -> fixed parameter (confirmed)"
+  ],
+  "rationale": "The provided typed ODE-system contract is preserved exactly as required: the scored quantity is the target state T_h, sampled only over time, with the inherited four-state system and fixed initial conditions. Although the isolated target expression alone looks explicit in T_h and T_h_interface, the record explicitly declares an add_state freedom change and a validated ODE-system contract, so g_contact and T_h_interface must remain dynamic states rather than being collapsed into parameters. Parameter choices are set to make the intended memory and curvature mechanisms visible without pushing the model into a recovery limit or singular regime. contact_conductance=240 and heat capacities of order 4e3-5e3 give a thermal equilibration timescale of tens of seconds to a few thousand seconds, so a 0-6000 time window captures both early transients and approach toward equilibrium. conductance_contrast_coeff=0.004 with the inherited initial contrast 95 K gives a preferred conductance enhancement factor about 1+0.38, enough to produce observable nonlinear dependence on contrast but not extreme saturation. contact_adjustment_time=80 is not negligible relative to the early cooling timescale, so the conductance state lags its preferred value and the same instantaneous temperature contrast can correspond to different cooling rates at different stages. k_internal_hot=250 is finite and comparable to the contact-transfer scale, so the added hot-side internal buffering state can transiently separate from the bulk instead of being slaved immediately; it is also far from the parent-recovery limit k_internal_hot->infinity. hot_interface_capacity_fraction=0.12 gives the interface subregion enough inertia to matter transiently without dominating the whole hot body. The hot and cold temperature-dependent capacity coefficients/scales are moderate, so absolute-temperature-level curvature remains active over the inherited 275-370 K trajectory while denominators stay safely positive. The inherited initial condition T_h_interface(0)=T_h(0) means the internal-lag effect is initially dormant exactly at t=0, but it activates immediately once interfacial extraction cools the interface region faster than the bulk; this is reported rather than repaired. Exact noiseless input-output pairs should be generated by integrating the inherited state system over the chosen time grid and taking the target output from the resulting T_h trajectory, with no observation noise.",
+  "coverage_report": {},
+  "inactive_mechanisms": [],
+  "target_variance": {},
+  "parent_absorption_report": {},
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_cV5PRirVFkUEzF62V7sXlzWW"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "-k_internal_hot*(T_h - T_h_interface)/(heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h/(hot_capacity_temp_scale + T_h)))",
+        "target_symbol": "dT_h_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "T_h",
+          "T_h_interface",
+          "heat_capacity_h",
+          "hot_capacity_temp_coeff",
+          "hot_capacity_temp_scale",
+          "k_internal_hot"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "(-k_internal_hot)*(T_h - T_h_interface)/((heat_capacity_h*(T_h*hot_capacity_temp_coeff/(T_h + hot_capacity_temp_scale) +"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_wpLgqscDJpun1qJBfVfU9YKS"
+        },
+        {
+          "name": "check_substitution",
+          "id": "call_2oLBMaoaABgbbctue69IbHg6"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "-k_internal_hot*(T_h - T_h_interface)/(heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h/(hot_capacity_temp_scale + T_h)))",
+        "target_symbol": "dT_h_dt",
+        "assignments": {
+          "T_h": 370,
+          "T_h_interface": 360,
+          "heat_capacity_h": 5000,
+          "hot_capacity_temp_coeff": 1.2,
+          "hot_capacity_temp_scale": 300,
+          "k_internal_hot": 250
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": -0.3007181328545781,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "-k_internal_hot*(T_h - T_h_interface)/(heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h/(hot_capacity_temp_scale + T_h)))",
+        "target_symbol": "dT_h_dt",
+        "assignments": {
+          "T_h": 300,
+          "T_h_interface": 320,
+          "heat_capacity_h": 5000,
+          "hot_capacity_temp_coeff": 1.2,
+          "hot_capacity_temp_scale": 300,
+          "k_internal_hot": 250
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": 0.625,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_2vIgCRHIA232GCmAaVIZE3oe"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE state_variables must preserve the inherited order: expected ['T_h', 'T_c', 'g_contact', 'T_h_interface'], got []"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_7X3MEP7tCvh5tOVCOSkMJ2kz"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 5,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_wnK0YcHS1UklukJQNwt956Q8"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 5
+}

@@ -1,0 +1,236 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "omega",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        25.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "drive_torque",
+      "value": 6.0
+    },
+    {
+      "symbol": "nonlinear_drag_coefficient",
+      "value": 0.15
+    },
+    {
+      "symbol": "speed_transition",
+      "value": 2.0
+    },
+    {
+      "symbol": "rotor_inertia",
+      "value": 1.5
+    },
+    {
+      "symbol": "thermal_sensitivity",
+      "value": 0.04
+    },
+    {
+      "symbol": "thermal_drag_sensitivity",
+      "value": 0.6
+    },
+    {
+      "symbol": "thermal_drag_scale",
+      "value": 0.4
+    },
+    {
+      "symbol": "baseline_drift_sensitivity",
+      "value": 0.008
+    },
+    {
+      "symbol": "baseline_relaxation_time_constant",
+      "value": 30.0
+    },
+    {
+      "symbol": "cooling_heat_sensitivity",
+      "value": 0.02
+    },
+    {
+      "symbol": "cooling_recovery_time_constant",
+      "value": 12.0
+    },
+    {
+      "symbol": "nominal_cooling_time_constant",
+      "value": 1.0
+    }
+  ],
+  "benchmark_output": "domega_dt",
+  "benchmark_target_state": "omega",
+  "observed_variables": [
+    "t",
+    "omega",
+    "resistance_coefficient",
+    "baseline_resistance_coefficient",
+    "cooling_time_constant"
+  ],
+  "rhs_for_integrator": "(drive_torque - resistance_coefficient * omega - nonlinear_drag_coefficient * (1 + thermal_drag_sensitivity * (resistance_coefficient - baseline_resistance_coefficient) / (thermal_drag_scale + Abs(resistance_coefficient - baseline_resistance_coefficient))) * omega**3 / (speed_transition + Abs(omega))) / rotor_inertia",
+  "state_variables": [
+    "omega",
+    "resistance_coefficient",
+    "baseline_resistance_coefficient",
+    "cooling_time_constant"
+  ],
+  "state_rhs": [
+    "(drive_torque - resistance_coefficient * omega - nonlinear_drag_coefficient * (1 + thermal_drag_sensitivity * (resistance_coefficient - baseline_resistance_coefficient) / (thermal_drag_scale + Abs(resistance_coefficient - baseline_resistance_coefficient))) * omega**3 / (speed_transition + Abs(omega))) / rotor_inertia",
+    "thermal_sensitivity * omega*(resistance_coefficient*omega + nonlinear_drag_coefficient*omega**3/(speed_transition + Abs(omega))) - (resistance_coefficient - baseline_resistance_coefficient)/cooling_time_constant",
+    "baseline_drift_sensitivity * omega*(resistance_coefficient*omega + nonlinear_drag_coefficient*omega**3/(speed_transition + Abs(omega))) * (resistance_coefficient - baseline_resistance_coefficient) / (thermal_drag_scale + Abs(resistance_coefficient - baseline_resistance_coefficient)) - (baseline_resistance_coefficient - 1)/baseline_relaxation_time_constant",
+    "cooling_heat_sensitivity * omega*(resistance_coefficient*omega + nonlinear_drag_coefficient*omega**3/(speed_transition + Abs(omega))) * (cooling_time_constant - nominal_cooling_time_constant) / (thermal_drag_scale + Abs(cooling_time_constant - nominal_cooling_time_constant)) + cooling_heat_sensitivity * omega*(resistance_coefficient*omega + nonlinear_drag_coefficient*omega**3/(speed_transition + Abs(omega))) - (cooling_time_constant - nominal_cooling_time_constant)/cooling_recovery_time_constant"
+  ],
+  "initial_conditions": {
+    "omega": 0.0,
+    "resistance_coefficient": 1.0,
+    "baseline_resistance_coefficient": 1.0,
+    "cooling_time_constant": 1.0
+  },
+  "sanity_expectations": [
+    "At t=0, omega' should equal drive_torque/rotor_inertia = 4, so omega initially increases from rest.",
+    "As omega rises to values of order speed_transition=2, the omega^3/(speed_transition+|omega|) drag channel should create visible departure from a purely exponential linear-drag spin-up.",
+    "Because resistance_coefficient(0)=baseline_resistance_coefficient(0)=1, the thermal enhancement factor of the nonlinear drag starts exactly at 1 and only departs from 1 after dissipative heating creates a nonzero excess resistance.",
+    "Under sustained positive dissipative loading, resistance_coefficient should rise above baseline_resistance_coefficient before later relaxing tendencies strengthen, so later-time omega' at similar omega should be smaller than earlier-time omega' for colder portions.",
+    "baseline_resistance_coefficient should change more slowly and usually by a smaller amount than resistance_coefficient over t in [0,25].",
+    "cooling_time_constant starts at nominal_cooling_time_constant=1 and should show delayed upward drift rather than an immediate jump, because its evolution is heating-driven and initially the offset-dependent factor is inactive.",
+    "The trajectory should remain finite and smooth, with omega approaching a bounded positive regime where omega' decreases toward near zero without oscillatory instability for these parameter choices."
+  ],
+  "role_corrections": [
+    "domega_dt: claimed-output/target derivative -> derived target RHS for omega' (confirmed by explicit expression; overridden as not the dependent variable because the ODE-system contract sets omega as the target state)",
+    "t: claimed-input/time axis -> independent variable (confirmed)",
+    "omega: claimed-dynamic state -> dependent variable and state variable (confirmed)",
+    "resistance_coefficient: claimed-dynamic state -> state variable (confirmed)",
+    "baseline_resistance_coefficient: claimed-dynamic state -> state variable (confirmed)",
+    "cooling_time_constant: claimed-dynamic state -> state variable (confirmed; preserved due to explicit parameter_to_state freedom change)",
+    "drive_torque: claimed-parameter -> parameter (confirmed)",
+    "nonlinear_drag_coefficient: claimed-parameter -> parameter (confirmed)",
+    "speed_transition: claimed-parameter -> parameter (confirmed)",
+    "rotor_inertia: claimed-parameter -> parameter (confirmed)",
+    "thermal_sensitivity: claimed-parameter -> parameter (confirmed)",
+    "thermal_drag_sensitivity: claimed-parameter -> parameter (confirmed)",
+    "thermal_drag_scale: claimed-parameter -> parameter (confirmed)",
+    "baseline_drift_sensitivity: claimed-parameter -> parameter (confirmed)",
+    "baseline_relaxation_time_constant: claimed-parameter -> parameter (confirmed)",
+    "cooling_heat_sensitivity: claimed-parameter -> parameter (confirmed)",
+    "cooling_recovery_time_constant: claimed-parameter -> parameter (confirmed)",
+    "nominal_cooling_time_constant: claimed-parameter -> parameter (confirmed)"
+  ],
+  "rationale": "The typed ODE contract is preserved exactly: time is the only sampled axis, omega is the target state/dependent variable, and the inherited 4-state system is integrated without reordering or rewriting. The explicit freedom decision promoting cooling_time_constant from parameter to state is preserved. The standalone target expression is explicit in domega_dt, but because a validated ODE-system contract is supplied, the governing object for data generation is the full coupled system, so equation_type=ode_system is kept. Parameter values are chosen to expose the intended mechanisms while staying finite and smooth. drive_torque=6 with rotor_inertia=1.5 gives clear spin-up from omega(0)=0. speed_transition=2 places the nonlinear-drag crossover inside the reachable speed range, and nonlinear_drag_coefficient=0.15 makes the high-speed drag visible without overwhelming low-speed linear behavior. thermal_sensitivity=0.04 permits measurable warming-driven growth of resistance_coefficient over the run. thermal_drag_sensitivity=0.6 with thermal_drag_scale=0.4 means the thermal modulation of nonlinear drag activates once resistance_coefficient-baseline_resistance_coefficient reaches a modest fraction of order 0.4, so the interaction is observable but not forced immediately into deep saturation. baseline_drift_sensitivity=0.008 and baseline_relaxation_time_constant=30 make baseline_resistance_coefficient evolve more slowly and weakly than resistance_coefficient, consistent with slow thermal soak rather than a dominant fast state. cooling_heat_sensitivity=0.02 and cooling_recovery_time_constant=12 allow cooling_time_constant to drift upward gradually from the inherited initial and nominal value 1.0, exposing the promoted-state environmental-memory effect without freezing it in the parent-recovery limit or sending it to runaway values over the chosen window. The sampling interval t in [0,25] with 300 points is long enough to capture early acceleration, entry into the nonlinear drag regime, warming-induced drag growth, slower baseline drift, and gradual cooling-state evolution, while still showing transient dynamics rather than only final equilibration. Exact noiseless trajectories from this system should reveal the distinguishing conditions through reachable states: omega should become comparable to or exceed speed_transition; resistance_coefficient-baseline_resistance_coefficient should become non-negligible relative to thermal_drag_scale; and cooling_time_constant should drift above nominal late enough to alter resistance recovery curvature within the same run. Weak effect honesty: because all inherited initial drag-related states start exactly at 1, the baseline drift and cooling-state feedback are initially inactive and only emerge after dissipation accumulates; this delay is part of the intended behavior, not a defect to repair.",
+  "coverage_report": {},
+  "inactive_mechanisms": [],
+  "target_variance": {},
+  "parent_absorption_report": {},
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_tzpnNSKhuz12gWFZfUN97LUy"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "(drive_torque - resistance_coefficient * omega - nonlinear_drag_coefficient * (1 + thermal_drag_sensitivity * (resistance_coefficient - baseline_resistance_coefficient) / (thermal_drag_scale + Abs(resistance_coefficient - baseline_resistance_coefficient))) * omega**3 / (speed_transition + Abs(omega))) / rotor_inertia",
+        "target_symbol": "domega_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "baseline_resistance_coefficient",
+          "drive_torque",
+          "nonlinear_drag_coefficient",
+          "omega",
+          "resistance_coefficient",
+          "rotor_inertia",
+          "speed_transition",
+          "thermal_drag_scale",
+          "thermal_drag_sensitivity"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "(drive_torque - nonlinear_drag_coefficient*omega**3*(thermal_drag_sensitivity*(-baseline_resistance_coefficient + resist"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_NVlF3KAmjW3pldgg9LFi7qgO"
+        },
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_KarI1YOkOzs2rG73UpW6TyQK"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "(drive_torque - resistance_coefficient * omega - nonlinear_drag_coefficient * (1 + thermal_drag_sensitivity * (resistance_coefficient - baseline_resistance_coefficient) / (thermal_drag_scale + Abs(resistance_coefficient - baseline_resistance_coefficient))) * omega**3 / (speed_transition + Abs(omega))) / rotor_inertia",
+        "target_symbol": "domega_dt",
+        "assignments": {
+          "drive_torque": 6,
+          "resistance_coefficient": 1,
+          "baseline_resistance_coefficient": 1,
+          "nonlinear_drag_coefficient": 0.15,
+          "thermal_drag_sensitivity": 0.6,
+          "thermal_drag_scale": 0.4,
+          "omega": 2,
+          "speed_transition": 2,
+          "rotor_inertia": 1.5
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": 2.4666666666666663,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_z95lg9CgSNjyN2ivw3BymSua"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 3
+}

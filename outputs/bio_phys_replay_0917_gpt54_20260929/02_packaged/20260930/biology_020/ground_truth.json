@@ -1,0 +1,1808 @@
+{
+  "version": 7,
+  "spec": {
+    "equation_type": "ode_system",
+    "integrator": "integrate_system",
+    "dependent_variable": "P",
+    "independent_variables": [
+      {
+        "symbol": "t",
+        "range": [
+          0.0,
+          40.0
+        ],
+        "n_points": 401,
+        "scale": "linear"
+      }
+    ],
+    "parameters": [
+      {
+        "symbol": "E_total",
+        "value": 1.0
+      },
+      {
+        "symbol": "k_on",
+        "value": 0.08
+      },
+      {
+        "symbol": "k_off",
+        "value": 1.2
+      },
+      {
+        "symbol": "k_cat",
+        "value": 2.0
+      },
+      {
+        "symbol": "k_on_P",
+        "value": 0.05
+      },
+      {
+        "symbol": "k_off_P",
+        "value": 0.2
+      },
+      {
+        "symbol": "K_I_P",
+        "value": 30.0
+      },
+      {
+        "symbol": "K_I_cat",
+        "value": 40.0
+      },
+      {
+        "symbol": "n_I_cat",
+        "value": 2.0
+      },
+      {
+        "symbol": "K_S_protect",
+        "value": 50.0
+      }
+    ],
+    "benchmark_output": "dP_dt",
+    "benchmark_target_state": "P",
+    "observed_variables": [
+      "t",
+      "S",
+      "C",
+      "P",
+      "EP"
+    ],
+    "rhs_for_integrator": "k_cat*C/(1 + (P/(K_I_cat*(1 + S/K_S_protect)))**n_I_cat) - k_on_P*(E_total - C - EP)*P/(1 + P/K_I_P) + k_off_P*EP",
+    "state_variables": [
+      "S",
+      "C",
+      "P",
+      "EP"
+    ],
+    "state_rhs": [
+      "-k_on*(E_total - C - EP)*S + k_off*C",
+      "k_on*(E_total - C - EP)*S - k_off*C - k_cat*C/(1 + (P/(K_I_cat*(1 + S/K_S_protect)))**n_I_cat)",
+      "k_cat*C/(1 + (P/(K_I_cat*(1 + S/K_S_protect)))**n_I_cat) - k_on_P*(E_total - C - EP)*P/(1 + P/K_I_P) + k_off_P*EP",
+      "k_on_P*(E_total - C - EP)*P/(1 + P/K_I_P) - k_off_P*EP"
+    ],
+    "initial_conditions": {
+      "S": 100.0,
+      "C": 0.0,
+      "P": 0.0,
+      "EP": 0.0
+    },
+    "sanity_expectations": [
+      "At t=0, dP/dt = 0 exactly because C=P=EP=0 under the inherited initial conditions.",
+      "Soon after t=0, C should rise from zero, producing positive dP/dt and increasing P before eventual slowdown as substrate is depleted and inhibition strengthens.",
+      "EP should remain nonnegative and typically increase only after P has accumulated to non-negligible levels; it should stay bounded by E_total.",
+      "The direct catalytic factor 1/(1 + (P/(K_I_cat*(1 + S/K_S_protect)))**n_I_cat) should be closer to 1 early when S is high, and smaller later when S is lower and P has accumulated.",
+      "A checkable mechanism prediction for this dataset: during later portions of the same trajectory, dP/dt plus k_on_P*(E_total - C - EP)*P/(1 + P/K_I_P) minus k_off_P*EP, all divided by C where C>0, should be lower at comparable P than during earlier higher-S portions, reflecting weaker substrate protection as S falls.",
+      "Net product rate should eventually bend downward more strongly than would be expected from C alone, due to the combined effects of product rebinding (EP branch) and substrate-modulated direct catalytic suppression."
+    ],
+    "role_corrections": [
+      "dP_dt: claimed-output/target derivative -> target rate expression (confirmed structurally; in the ODE contract the dependent variable is target_state P)",
+      "t: claimed-input/time axis -> independent variable (confirmed by ODE contract)",
+      "S: claimed-dynamic state -> dynamic state variable (confirmed by ODE contract)",
+      "C: claimed-dynamic state -> dynamic state variable (confirmed by ODE contract)",
+      "P: claimed-dynamic state -> dynamic state variable and dependent_variable/target_state (confirmed by ODE contract override of expression-only explicit hint)",
+      "EP: claimed-dynamic state -> dynamic state variable (confirmed by ODE contract)",
+      "E_total: claimed-parameter -> parameter (confirmed)",
+      "k_on: claimed-parameter -> parameter (confirmed)",
+      "k_off: claimed-parameter -> parameter (confirmed)",
+      "k_cat: claimed-parameter -> parameter (confirmed)",
+      "k_on_P: claimed-parameter -> parameter (confirmed)",
+      "k_off_P: claimed-parameter -> parameter (confirmed)",
+      "K_I_P: claimed-parameter -> parameter (confirmed)",
+      "K_I_cat: claimed-parameter -> parameter (confirmed)",
+      "n_I_cat: claimed-parameter -> parameter (confirmed)",
+      "K_S_protect: claimed-parameter -> parameter (confirmed)"
+    ],
+    "rationale": "The supplied ODE system contract is preserved exactly as required. Structural analysis of the target expression alone is explicit in dP_dt, but the record also provides an already validated dynamical contract with states S, C, P, EP and time t; per instruction, that typed ODE contract governs the data plan. Parameter values are chosen to keep all denominators positive and to place the trajectory away from both trivial recovery and deep saturation. With S(0)=100 and K_S_protect=50, early substrate-rich conditions enlarge the effective direct-inhibition scale to K_I_cat*(1+S/K_S_protect)≈120, so direct catalytic suppression by product is initially weak. As substrate depletes, that protection weakens toward the base scale K_I_cat=40, making the same product burden more inhibitory later in the batch. The chosen K_I_cat and K_S_protect are therefore comparable to reachable product and substrate scales, exposing the intended S-P interaction in the catalytic term rather than hiding it in a limit. K_I_P=30 and moderate k_on_P=0.05, k_off_P=0.2 make EP formation visible but not overwhelming; product rebinding should contribute noticeable late-time sequestration while avoiding immediate dominance of the net rate. n_I_cat=2 creates a sharper-than-hyperbolic onset of direct catalytic suppression once P enters the relevant range, but not an extreme switch. k_on=0.08, k_off=1.2, k_cat=2.0, and E_total=1.0 give fast ES formation relative to the batch window and allow appreciable product accumulation from the fixed initial substrate pool. The distinguishing condition requested by the evolution notes is reachable within a single batch run: moderate-to-high product with substantially different remaining substrate levels. Under these settings, early high-S portions should show weaker direct product suppression than later low-S portions at similar P and nonzero C. Exact labels are generated from the ODE without observation noise.",
+    "coverage_report": {
+      "groups": [
+        {
+          "generation": 1,
+          "name": "occupancy",
+          "expression": "C/E_total",
+          "role": "fraction of enzyme transiently bound as complex",
+          "train_range": [
+            0.0,
+            0.7092430810925864
+          ],
+          "hidden_range": [
+            0.27873222140908377,
+            0.28918901073016273
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0,
+            "max": 0.7092430810925864,
+            "q05": 0.2943138702492027,
+            "median": 0.37151298608277467,
+            "q95": 0.6855423082608331,
+            "range": 0.7092430810925864,
+            "robust_range": 0.3912284380116304
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.27873222140908377,
+            "max": 0.28918901073016273,
+            "q05": 0.2792210746175956,
+            "median": 0.2837747954558679,
+            "q95": 0.2886294250978243,
+            "range": 0.010456789321078963,
+            "robust_range": 0.0094083504802287
+          }
+        },
+        {
+          "generation": 1,
+          "name": "product_load",
+          "expression": "P/(S + C + P)",
+          "role": "fraction of substrate-derived material already converted to product",
+          "train_range": [
+            0.0,
+            0.29054626262206984
+          ],
+          "hidden_range": [
+            0.29058874324493894,
+            0.3112438883996662
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0,
+            "max": 0.29054626262206984,
+            "q05": 0.0238745692989366,
+            "median": 0.18055194321451512,
+            "q95": 0.28087130356746576,
+            "range": 0.29054626262206984,
+            "robust_range": 0.25699673426852915
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.29058874324493894,
+            "max": 0.3112438883996662,
+            "q05": 0.291647176293134,
+            "median": 0.3010492406854997,
+            "q95": 0.31023598887294984,
+            "range": 0.020655145154727272,
+            "robust_range": 0.018588812579815817
+          }
+        },
+        {
+          "generation": 1,
+          "name": "product_to_complex",
+          "expression": "P/(C + 1.0e-12)",
+          "role": "scale of accumulated product relative to currently catalytically competent complex",
+          "train_range": [
+            0.0,
+            99.90379054403975
+          ],
+          "hidden_range": [
+            99.92614915806303,
+            111.02972170235871
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0,
+            "max": 99.90379054403975,
+            "q05": 3.4493554454438096,
+            "median": 48.30503036282249,
+            "q95": 94.86232989075576,
+            "range": 99.90379054403975,
+            "robust_range": 91.41297444531195
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 99.92614915806303,
+            "max": 111.02972170235871,
+            "q05": 100.4838541182132,
+            "median": 105.4912720504317,
+            "q95": 110.47708620738939,
+            "range": 11.103572544295687,
+            "robust_range": 9.993232089176189
+          }
+        },
+        {
+          "generation": 2,
+          "name": "free_enzyme",
+          "expression": "E_total - C - EP",
+          "role": "Catalytically available enzyme before substrate or product rebinding",
+          "train_range": [
+            0.15563287350061183,
+            1.0
+          ],
+          "hidden_range": [
+            0.15313496083834366,
+            0.15562739372694367
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.15563287350061183,
+            "max": 1.0,
+            "q05": 0.15692298448701358,
+            "median": 0.17877423267007875,
+            "q95": 0.28291837170535483,
+            "range": 0.8443671264993882,
+            "robust_range": 0.12599538721834125
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.15313496083834366,
+            "max": 0.15562739372694367,
+            "q05": 0.15324910069566675,
+            "median": 0.1543236508330027,
+            "q95": 0.15549134717661828,
+            "range": 0.0024924328886000158,
+            "robust_range": 0.002242246480951532
+          }
+        },
+        {
+          "generation": 2,
+          "name": "product_loading",
+          "expression": "P/(P + k_off_P/k_on_P)",
+          "role": "Dimensionless product-occupancy proxy for onset of saturation of inhibition",
+          "train_range": [
+            0.0,
+            0.8783947913430062
+          ],
+          "hidden_range": [
+            0.8784103769842211,
+            0.8855427993063282
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0,
+            "max": 0.8783947913430062,
+            "q05": 0.37371382053317087,
+            "median": 0.8179675384969356,
+            "q95": 0.874737885856063,
+            "range": 0.8783947913430062,
+            "robust_range": 0.5010240653228921
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.8784103769842211,
+            "max": 0.8855427993063282,
+            "q05": 0.8787974170516717,
+            "median": 0.8821302502323639,
+            "q95": 0.8852142484439258,
+            "range": 0.00713242232210709,
+            "robust_range": 0.00641683139225413
+          }
+        },
+        {
+          "generation": 2,
+          "name": "inhibition_flux_parent",
+          "expression": "k_on_P*(E_total - C - EP)*P",
+          "role": "Parent linear product-sequestration tendency",
+          "train_range": [
+            0.0,
+            0.22483758213068936
+          ],
+          "hidden_range": [
+            0.2248624746126829,
+            0.23695767687938796
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0,
+            "max": 0.22483758213068936,
+            "q05": 0.033764289986890156,
+            "median": 0.16066532258576394,
+            "q95": 0.21916679393191582,
+            "range": 0.22483758213068936,
+            "robust_range": 0.18540250394502567
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.2248624746126829,
+            "max": 0.23695767687938796,
+            "q05": 0.2254826440753911,
+            "median": 0.23098981954035055,
+            "q95": 0.23636781696235803,
+            "range": 0.012095202266705046,
+            "robust_range": 0.010885172886966943
+          }
+        },
+        {
+          "generation": 3,
+          "name": "product_load",
+          "expression": "P/K_I_P",
+          "role": "Dimensionless scale for when accumulated product reaches the inhibition onset regime",
+          "train_range": [
+            0.0,
+            0.9631109292592371
+          ],
+          "hidden_range": [
+            0.9632514740398286,
+            1.0315853657547276
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0,
+            "max": 0.9631109292592371,
+            "q05": 0.07956191495255753,
+            "median": 0.5991367682919377,
+            "q95": 0.9311013072641546,
+            "range": 0.9631109292592371,
+            "robust_range": 0.8515393923115971
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.9632514740398286,
+            "max": 1.0315853657547276,
+            "q05": 0.9667532340710439,
+            "median": 0.9978588010732394,
+            "q95": 1.0282510236957263,
+            "range": 0.06833389171489901,
+            "robust_range": 0.06149778962468244
+          }
+        },
+        {
+          "generation": 3,
+          "name": "complex_turnover_flux",
+          "expression": "k_cat*C",
+          "role": "Parent catalytic production branch before any direct product-dependent suppression of turnover",
+          "train_range": [
+            0.0,
+            1.4184861621851728
+          ],
+          "hidden_range": [
+            0.5574644428181675,
+            0.5783780214603255
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0,
+            "max": 1.4184861621851728,
+            "q05": 0.5886277404984054,
+            "median": 0.7430259721655493,
+            "q95": 1.3710846165216661,
+            "range": 1.4184861621851728,
+            "robust_range": 0.7824568760232608
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.5574644428181675,
+            "max": 0.5783780214603255,
+            "q05": 0.5584421492351912,
+            "median": 0.5675495909117358,
+            "q95": 0.5772588501956486,
+            "range": 0.020913578642157926,
+            "robust_range": 0.0188167009604574
+          }
+        },
+        {
+          "generation": 4,
+          "name": "cat_flux_parent",
+          "expression": "k_cat*C/(1 + P/K_I_cat)",
+          "role": "Current direct catalytic contribution to product formation",
+          "train_range": [
+            0.0,
+            1.3961134274274587
+          ],
+          "hidden_range": [
+            0.31429660733968406,
+            0.33579021023068617
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0,
+            "max": 1.3961134274274587,
+            "q05": 0.34656156783597586,
+            "median": 0.5127654702489102,
+            "q95": 1.2883962188101268,
+            "range": 1.3961134274274587,
+            "robust_range": 0.9418346509741509
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.31429660733968406,
+            "max": 0.33579021023068617,
+            "q05": 0.31529237156063356,
+            "median": 0.3246119348917154,
+            "q95": 0.33463021702892315,
+            "range": 0.021493602891002106,
+            "robust_range": 0.019337845468289594
+          }
+        },
+        {
+          "generation": 4,
+          "name": "product_loading",
+          "expression": "P/K_I_cat",
+          "role": "Dimensionless product accumulation relative to the catalytic inhibition scale",
+          "train_range": [
+            0.0,
+            0.7223331969444279
+          ],
+          "hidden_range": [
+            0.7224386055298714,
+            0.7736890243160457
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0,
+            "max": 0.7223331969444279,
+            "q05": 0.059671436214418144,
+            "median": 0.4493525762189533,
+            "q95": 0.6983259804481159,
+            "range": 0.7223331969444279,
+            "robust_range": 0.6386545442336977
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.7224386055298714,
+            "max": 0.7736890243160457,
+            "q05": 0.725064925553283,
+            "median": 0.7483941008049295,
+            "q95": 0.7711882677717947,
+            "range": 0.05125041878617431,
+            "robust_range": 0.046123342218511776
+          }
+        },
+        {
+          "generation": 4,
+          "name": "free_enzyme_pool",
+          "expression": "E_total - C - EP",
+          "role": "Residual enzyme available for substrate or product binding",
+          "train_range": [
+            0.15563287350061183,
+            1.0
+          ],
+          "hidden_range": [
+            0.15313496083834366,
+            0.15562739372694367
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.15563287350061183,
+            "max": 1.0,
+            "q05": 0.15692298448701358,
+            "median": 0.17877423267007875,
+            "q95": 0.28291837170535483,
+            "range": 0.8443671264993882,
+            "robust_range": 0.12599538721834125
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.15313496083834366,
+            "max": 0.15562739372694367,
+            "q05": 0.15324910069566675,
+            "median": 0.1543236508330027,
+            "q95": 0.15549134717661828,
+            "range": 0.0024924328886000158,
+            "robust_range": 0.002242246480951532
+          }
+        },
+        {
+          "generation": 5,
+          "name": "prod_load",
+          "expression": "P/K_I_cat",
+          "role": "scale of direct product-mediated catalytic suppression",
+          "train_range": [
+            0.0,
+            0.7223331969444279
+          ],
+          "hidden_range": [
+            0.7224386055298714,
+            0.7736890243160457
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0,
+            "max": 0.7223331969444279,
+            "q05": 0.059671436214418144,
+            "median": 0.4493525762189533,
+            "q95": 0.6983259804481159,
+            "range": 0.7223331969444279,
+            "robust_range": 0.6386545442336977
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.7224386055298714,
+            "max": 0.7736890243160457,
+            "q05": 0.725064925553283,
+            "median": 0.7483941008049295,
+            "q95": 0.7711882677717947,
+            "range": 0.05125041878617431,
+            "robust_range": 0.046123342218511776
+          }
+        },
+        {
+          "generation": 5,
+          "name": "substrate_occupancy",
+          "expression": "S",
+          "role": "available substrate level governing whether product acts under substrate-rich or substrate-poor conditions",
+          "train_range": [
+            70.26230499572343,
+            100.0
+          ],
+          "hidden_range": [
+            68.20557398819643,
+            70.25808317253201
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 70.26230499572343,
+            "max": 100.0,
+            "q05": 71.22388376656234,
+            "median": 81.20467118391191,
+            "q95": 96.8960609231286,
+            "range": 29.737695004276574,
+            "robust_range": 25.672177156566264
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 68.20557398819643,
+            "max": 70.25808317253201,
+            "q05": 68.3057183898238,
+            "median": 69.21855961863575,
+            "q95": 70.15289432504522,
+            "range": 2.0525091843355767,
+            "robust_range": 1.8471759352214292
+          }
+        },
+        {
+          "generation": 5,
+          "name": "normalized_turnover",
+          "expression": "k_cat*C/(1 + (P/K_I_cat)**n_I_cat)",
+          "role": "parent catalytic contribution to dP_dt for comparison against a substrate-modulated child law",
+          "train_range": [
+            0.0,
+            1.4180095406892599
+          ],
+          "hidden_range": [
+            0.3487215618848178,
+            0.38003243062142944
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0,
+            "max": 1.4180095406892599,
+            "q05": 0.39557815793695983,
+            "median": 0.6179542119034054,
+            "q95": 1.3648763098748309,
+            "range": 1.4180095406892599,
+            "robust_range": 0.969298151937871
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.3487215618848178,
+            "max": 0.38003243062142944,
+            "q05": 0.35017945278226753,
+            "median": 0.3637919833938563,
+            "q95": 0.37835197381843133,
+            "range": 0.03131086873661165,
+            "robust_range": 0.0281725210361638
+          }
+        }
+      ],
+      "inactive_mechanisms": [],
+      "visible_mechanisms": [
+        "occupancy",
+        "product_load",
+        "product_to_complex",
+        "free_enzyme",
+        "product_loading",
+        "inhibition_flux_parent",
+        "product_load",
+        "complex_turnover_flux",
+        "cat_flux_parent",
+        "product_loading",
+        "free_enzyme_pool",
+        "prod_load",
+        "substrate_occupancy",
+        "normalized_turnover"
+      ],
+      "extended_mechanisms": [
+        "occupancy",
+        "product_load",
+        "product_to_complex",
+        "free_enzyme",
+        "product_loading",
+        "inhibition_flux_parent",
+        "product_load",
+        "complex_turnover_flux",
+        "cat_flux_parent",
+        "product_loading",
+        "free_enzyme_pool",
+        "prod_load",
+        "substrate_occupancy",
+        "normalized_turnover"
+      ]
+    },
+    "inactive_mechanisms": [],
+    "target_variance": {
+      "train": {
+        "n": 4500,
+        "variance": 0.06421837776999226,
+        "range": 1.4091783480496025
+      },
+      "hidden": {
+        "n": 500,
+        "variance": 5.867310238270826e-05,
+        "range": 0.02649021444376609
+      }
+    },
+    "parent_absorption_report": {
+      "status": "ok",
+      "n_points": 512,
+      "fixed_parent_normalized_rmse": 1.0402939369117992,
+      "refit": {
+        "status": "not_run",
+        "reason": "no free parent parameters"
+      },
+      "interpretation": "<1e-3 nearly absorbed; 1e-3..1e-2 weak; >1e-2 visible structure"
+    },
+    "noise": 0.0,
+    "_trace": [
+      {
+        "turn": 1,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "analyze_expression",
+            "id": "call_51e80S2kZORn6QHaXmeQVhiG"
+          }
+        ]
+      },
+      {
+        "tool": "analyze_expression",
+        "input": {
+          "expression": "k_cat*C/(1 + (P/(K_I_cat*(1 + S/K_S_protect)))**n_I_cat) - k_on_P*(E_total - C - EP)*P/(1 + P/K_I_P) + k_off_P*EP",
+          "target_symbol": "dP_dt"
+        },
+        "result": {
+          "ok": true,
+          "free_symbols": [
+            "C",
+            "EP",
+            "E_total",
+            "K_I_P",
+            "K_I_cat",
+            "K_S_protect",
+            "P",
+            "S",
+            "k_cat",
+            "k_off_P",
+            "k_on_P",
+            "n_I_cat"
+          ],
+          "functions_of": {},
+          "target_function_calls": [],
+          "delayed_target_calls": [],
+          "ungoverned_functions": [],
+          "derivatives": [],
+          "max_derivative_order": 0,
+          "integral_kernels": [],
+          "explicitly_solvable_for_target": true,
+          "explicit_solution_preview": [
+            "C*k_cat/((P/((K_I_cat*(1 + S/K_S_protect))))**n_I_cat + 1) + EP*k_off_P - P*k_on_P*(-C - EP + E_total)/(1 + P/K_I_P)"
+          ],
+          "classification_hint": "explicit",
+          "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+        }
+      },
+      {
+        "turn": 2,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "check_substitution",
+            "id": "call_qlhwhzoTX9PVeSqpY53BND8k"
+          }
+        ]
+      },
+      {
+        "tool": "check_substitution",
+        "input": {
+          "expression": "k_cat*C/(1 + (P/(K_I_cat*(1 + S/K_S_protect)))**n_I_cat) - k_on_P*(E_total - C - EP)*P/(1 + P/K_I_P) + k_off_P*EP",
+          "target_symbol": "dP_dt",
+          "assignments": {
+            "S": 100,
+            "C": 0,
+            "P": 0,
+            "EP": 0,
+            "E_total": 1,
+            "k_cat": 2,
+            "k_on_P": 0.05,
+            "k_off_P": 0.2,
+            "K_I_P": 30,
+            "K_I_cat": 40,
+            "n_I_cat": 2,
+            "K_S_protect": 50
+          }
+        },
+        "result": {
+          "ok": true,
+          "value_real": 0.0,
+          "value_imag": 0.0,
+          "is_finite": true,
+          "is_real": true,
+          "verdict": "ok",
+          "residual_free_symbols": []
+        }
+      },
+      {
+        "turn": 3,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "emit_data_gen_spec",
+            "id": "call_WrJqcSFO3ovXEmAarR40yyHC"
+          }
+        ]
+      },
+      {
+        "tool": "emit_data_gen_spec",
+        "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+      },
+      {
+        "turn": 4,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "emit_data_gen_spec",
+            "id": "call_zUnosYuhvaI0IJlHLwWnnSEZ"
+          }
+        ]
+      },
+      {
+        "tool": "emit_data_gen_spec",
+        "accepted": true
+      }
+    ],
+    "_provider": "openai",
+    "_num_turns": 4,
+    "discipline": "biology",
+    "scenario_text": "Follow a closed batch reaction in which substrate binds reversibly to an enzyme, forms a transient enzyme-substrate complex, and is then converted irreversibly into product. Substrate, bound complex, and product are jointly tracked from their initial values, while free enzyme is determined by a fixed total enzyme pool. The target is the instantaneous product accumulation rate throughout the transient and depletion phases.",
+    "record_id": "m2_enzyme_kinetics_and_biochemistry_20260917_003",
+    "generation": 5,
+    "_n_total": 5000,
+    "mechanism_observation_history": [
+      {
+        "generation": 1,
+        "plan": {
+          "operation": "add_term",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "With constant catalytic turnover, the target mapping is dP_dt = k_cat*C, so for any observed complex level C the product-rate response is a fixed linear gain independent of accumulated product.",
+            "child_relation": "Introduce product rebinding/inhibition so the effective conversion of bound substrate depends on accumulated product P; then dP_dt at a given C decreases as P rises, creating history-dependent curvature in the rate trajectory during batch accumulation.",
+            "affected_inputs": [
+              "C",
+              "P"
+            ],
+            "observable_effect": "Across trajectories with the same enzyme system and different initial substrate loads, the parent predicts the same proportionality between dP_dt and C at all times, whereas the child predicts late-time suppression of dP_dt at higher accumulated P, bending the decline more strongly in high-product phases."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "occupancy",
+              "expression": "C/E_total",
+              "role": "fraction of enzyme transiently bound as complex"
+            },
+            {
+              "name": "product_load",
+              "expression": "P/(S + C + P)",
+              "role": "fraction of substrate-derived material already converted to product"
+            },
+            {
+              "name": "product_to_complex",
+              "expression": "P/(C + 1.0e-12)",
+              "role": "scale of accumulated product relative to currently catalytically competent complex"
+            }
+          ],
+          "activation_condition": "Observable when product accumulates to a non-negligible fraction of the conserved substrate-derived pool during the monitored batch trajectory, so that P is no longer small compared with S + C + P and product binding can compete measurably with catalysis.",
+          "train_hidden_contrast": "In training, mild accumulation would show slight downward deviation from the parent's fixed dP_dt/C gain at late times; in holdout with larger initial substrate or longer observation, the same mechanism strengthens into clearer late-phase rate suppression as P grows.",
+          "continuation_path": "In the limit of vanishing product inhibition strength, or throughout regimes where P remains negligible, the model reduces continuously to dP_dt = k_cat*C with the original batch dynamics.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "Reversible product inhibition requires tracking a product-bound inactive enzyme pool or equivalent dynamic occupancy; existing states S, C, and P do not contain that enzyme sequestration memory because free enzyme is currently fixed algebraically as E_total - C.",
+          "gap_statement": "The current model omits product inhibition/rebinding, so accumulated product cannot feed back on catalytic throughput during the same batch run.",
+          "baseline_assumption": "Relax the assumption that product neither rebinds nor affects forward catalysis; allow product to reversibly sequester enzyme in a nonproductive form.",
+          "scientific_mechanism": "Competitive or mixed product inhibition via reversible binding of product to free enzyme, reducing the free enzyme available for substrate association and therefore indirectly lowering product formation as P accumulates.",
+          "affected_symbols": [
+            "C",
+            "P",
+            "E_total"
+          ],
+          "rationale": "A realistic next refinement is product inhibition, common for enzyme reactions in closed batches once product accumulates. The parent target mapping has a fixed-environment shortcut: dP_dt depends only on C through one constant gain k_cat, so if C is supplied the scored mapping ignores whether product has accumulated. Varying initial substrate concentration while holding enzyme parameters and E_total fixed changes how much P builds up over the trajectory. Under the parent, a single refitted parameter set still enforces the same dP_dt-versus-C line across low- and high-product phases. Under the child, the same observed C yields lower dP_dt when P is large because some enzyme is trapped in a product-bound inactive pool, altering both target slope versus C and the late-time curvature of P accumulation. This contrast is scientifically admissible only when product reaches appreciable levels within the observed transient/depletion window; if product stays small, the refinement is weak and the parent is effectively recovered."
+        },
+        "contract": {
+          "operation": "add_term",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "With constant catalytic turnover, the target mapping is dP_dt = k_cat*C, so for any observed complex level C the product-rate response is a fixed linear gain independent of accumulated product.",
+            "child_relation": "Introduce product rebinding/inhibition so the effective conversion of bound substrate depends on accumulated product P; then dP_dt at a given C decreases as P rises, creating history-dependent curvature in the rate trajectory during batch accumulation.",
+            "affected_inputs": [
+              "C",
+              "P"
+            ],
+            "observable_effect": "Across trajectories with the same enzyme system and different initial substrate loads, the parent predicts the same proportionality between dP_dt and C at all times, whereas the child predicts late-time suppression of dP_dt at higher accumulated P, bending the decline more strongly in high-product phases."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "occupancy",
+              "expression": "C/E_total",
+              "role": "fraction of enzyme transiently bound as complex"
+            },
+            {
+              "name": "product_load",
+              "expression": "P/(S + C + P)",
+              "role": "fraction of substrate-derived material already converted to product"
+            },
+            {
+              "name": "product_to_complex",
+              "expression": "P/(C + 1.0e-12)",
+              "role": "scale of accumulated product relative to currently catalytically competent complex"
+            }
+          ],
+          "activation_condition": "Observable when product accumulates to a non-negligible fraction of the conserved substrate-derived pool during the monitored batch trajectory, so that P is no longer small compared with S + C + P and product binding can compete measurably with catalysis.",
+          "train_hidden_contrast": "In training, mild accumulation would show slight downward deviation from the parent's fixed dP_dt/C gain at late times; in holdout with larger initial substrate or longer observation, the same mechanism strengthens into clearer late-phase rate suppression as P grows.",
+          "continuation_path": "In the limit of vanishing product inhibition strength, or throughout regimes where P remains negligible, the model reduces continuously to dP_dt = k_cat*C with the original batch dynamics.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "Reversible product inhibition requires tracking a product-bound inactive enzyme pool or equivalent dynamic occupancy; existing states S, C, and P do not contain that enzyme sequestration memory because free enzyme is currently fixed algebraically as E_total - C.",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "C",
+            "P",
+            "EP"
+          ],
+          "structural_role": "feedback",
+          "domain_mechanism_id": "product_feedback",
+          "domain_mechanism": "Competitive or mixed product inhibition via reversible binding of product to free enzyme, reducing the free enzyme available for substrate association and therefore indirectly lowering product formation as P accumulates.",
+          "scientific_mechanism": "Competitive or mixed product inhibition via reversible binding of product to free enzyme, reducing the free enzyme available for substrate association and therefore indirectly lowering product formation as P accumulates.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "The child adds a dynamically occupied inhibitory branch, so the target is no longer a fixed gain on C. The net product-rate now depends on catalytic production and reversible rebinding fluxes generated by accumulated product exposure, which creates history-dependent curvature that cannot be reproduced by only rescaling k_cat.",
+          "taxonomy_match": "known",
+          "assumption_before": "Product does not rebind or affect catalysis, so the catalytic environment is fixed once C is known.",
+          "assumption_after": "Product reversibly sequesters enzyme into a finite-capacity inactive pool, and product accumulation feeds back on the net product-rate through reversible enzyme-product occupancy.",
+          "before_fragment": "k_cat*C",
+          "after_fragment": "k_cat*C - k_on_P*(E_total - C - EP)*P + k_off_P*EP",
+          "parent_reduction": "k_on_P -> 0 and EP -> 0",
+          "observable_signature": "For the same observed C, dP_dt decreases in high-product phases because product rebinding subtracts from net product accumulation while EP grows after product accumulates; this yields stronger late-time downward curvature in product-rate trajectories, especially at larger initial substrate loads.",
+          "shortcut_blocked": "A single parent parameter set can only produce dP_dt/C = k_cat, a constant independent of product history. Here the target includes the additional state-coupled flux -k_on_P*(E_total - C - EP)*P + k_off_P*EP, so trajectories with similar C but different accumulated P and EP have different net dP_dt. Retuning k_cat, k_on, or k_off changes the shared catalytic trajectory globally but cannot generate this within-run product-dependent subtraction term across the stated conditions."
+        },
+        "range_suggestions": {
+          "EP": "0 to E_total",
+          "k_on_P": "positive; typically below or comparable to k_on",
+          "k_off_P": "positive"
+        }
+      },
+      {
+        "generation": 2,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "Product rebinding is modeled as simple mass-action trapping of free enzyme by P, so at fixed E_total and kinetic constants the inhibition strength grows linearly with P through k_on_P*(E_total-C-EP)*P and yields a single inhibition scale.",
+            "child_relation": "Replace simple product rebinding with saturable/occupancy-limited product inhibition of free enzyme so that the dependence of dP_dt on accumulated P bends from initially near-linear inhibition to weaker incremental inhibition at higher P.",
+            "affected_inputs": [
+              "P",
+              "C",
+              "EP",
+              "E_total"
+            ],
+            "observable_effect": "Across trajectories with different initial substrate loads but the same enzyme pool and rate constants, the parent predicts a similar linear strengthening of product inhibition with rising P, whereas the child predicts stronger early curvature in dP_dt versus P and a later flattening once inhibitory occupancy approaches saturation."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "free_enzyme",
+              "expression": "E_total - C - EP",
+              "role": "Catalytically available enzyme before substrate or product rebinding"
+            },
+            {
+              "name": "product_loading",
+              "expression": "P/(P + k_off_P/k_on_P)",
+              "role": "Dimensionless product-occupancy proxy for onset of saturation of inhibition"
+            },
+            {
+              "name": "inhibition_flux_parent",
+              "expression": "k_on_P*(E_total - C - EP)*P",
+              "role": "Parent linear product-sequestration tendency"
+            }
+          ],
+          "activation_condition": "Observable when product accumulates to a scale comparable to the effective product-binding half-saturation level, i.e. P not always small relative to k_off_P/k_on_P, while free enzyme remains appreciable during the transient.",
+          "train_hidden_contrast": "In lower-product training segments the child reduces to nearly the parent’s linear inhibition, while in higher-substrate or later-time holdout segments larger P reveals the inhibited-rate flattening.",
+          "continuation_path": "In the low-product limit or large inhibition half-saturation limit, the refined inhibition law reduces to the parent’s mass-action-like dependence on P.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The current model treats reversible product inhibition as indefinitely linear in free product concentration, neglecting finite occupancy/saturation of inhibitory binding to enzyme.",
+          "baseline_assumption": "All product rebinding events to free enzyme obey elementary bimolecular mass action with a constant association coefficient, regardless of accumulated product level and inhibitory site occupancy.",
+          "scientific_mechanism": "Saturable product inhibition of enzyme activity due to finite inhibitory binding capacity, causing diminishing incremental inhibition at high product concentration.",
+          "affected_symbols": [
+            "P",
+            "C",
+            "EP",
+            "E_total"
+          ],
+          "rationale": "A realistic next refinement is to relax the idealized assumption that product inhibition strength keeps increasing proportionally to free product over the full trajectory. In many enzyme systems, inhibitory binding has a finite occupancy scale, so once product becomes comparable to that scale, additional product causes smaller marginal loss of catalytic throughput. The parent target mapping from observed states to dP_dt is effectively controlled by one linear-in-P inhibition branch through free enzyme sequestration. Holding E_total and kinetic constants fixed while varying initial substrate concentration changes how far P rises during the run. Under those admissible conditions, the parent with one shared parameter set cannot simultaneously match both early-time near-linear inhibition when P is small and late/high-substrate flattening of inhibition when P becomes large, because its inhibitory contribution keeps growing proportionally with P. The child changes the target mapping itself, not only auxiliary trajectories: for the same observed C, EP, and P, dP_dt would decline less steeply with further increases in large P than in the parent. This contrast is scientifically visible only when the experiment reaches moderate-to-high product levels; if P stays low throughout, the refinement is weak and the parent is recovered approximately."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "Product rebinding is modeled as simple mass-action trapping of free enzyme by P, so at fixed E_total and kinetic constants the inhibition strength grows linearly with P through k_on_P*(E_total-C-EP)*P and yields a single inhibition scale.",
+            "child_relation": "Replace simple product rebinding with saturable/occupancy-limited product inhibition of free enzyme so that the dependence of dP_dt on accumulated P bends from initially near-linear inhibition to weaker incremental inhibition at higher P.",
+            "affected_inputs": [
+              "P",
+              "C",
+              "EP",
+              "E_total"
+            ],
+            "observable_effect": "Across trajectories with different initial substrate loads but the same enzyme pool and rate constants, the parent predicts a similar linear strengthening of product inhibition with rising P, whereas the child predicts stronger early curvature in dP_dt versus P and a later flattening once inhibitory occupancy approaches saturation."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "free_enzyme",
+              "expression": "E_total - C - EP",
+              "role": "Catalytically available enzyme before substrate or product rebinding"
+            },
+            {
+              "name": "product_loading",
+              "expression": "P/(P + k_off_P/k_on_P)",
+              "role": "Dimensionless product-occupancy proxy for onset of saturation of inhibition"
+            },
+            {
+              "name": "inhibition_flux_parent",
+              "expression": "k_on_P*(E_total - C - EP)*P",
+              "role": "Parent linear product-sequestration tendency"
+            }
+          ],
+          "activation_condition": "Observable when product accumulates to a scale comparable to the effective product-binding half-saturation level, i.e. P not always small relative to k_off_P/k_on_P, while free enzyme remains appreciable during the transient.",
+          "train_hidden_contrast": "In lower-product training segments the child reduces to nearly the parent’s linear inhibition, while in higher-substrate or later-time holdout segments larger P reveals the inhibited-rate flattening.",
+          "continuation_path": "In the low-product limit or large inhibition half-saturation limit, the refined inhibition law reduces to the parent’s mass-action-like dependence on P.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "P",
+            "C",
+            "EP",
+            "E_total"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "occupancy-limited inhibitory rebinding of product to free enzyme",
+          "scientific_mechanism": "Saturable product inhibition of enzyme activity due to finite inhibitory binding capacity, causing diminishing incremental inhibition at high product concentration.",
+          "embedding_pattern": "multiplicative_modulation",
+          "difficulty_rationale": "This embedding is structurally harder than a coefficient-only correction because the product-sequestration branch is multiplied by a state-dependent saturation factor, changing the shape of the scored mapping from observed P, C, and EP to dP_dt rather than just rescaling one global coefficient.",
+          "taxonomy_match": "known",
+          "assumption_before": "Product inhibition of free enzyme remains mass-action linear in P over the full experiment.",
+          "assumption_after": "Product inhibition of free enzyme is occupancy-limited and therefore saturates as product accumulates.",
+          "before_fragment": "k_cat*C - k_on_P*(E_total - C - EP)*P + k_off_P*EP",
+          "after_fragment": "k_cat*C - k_on_P*(E_total - C - EP)*P/(1 + P/K_I_P) + k_off_P*EP",
+          "parent_reduction": "For P/K_I_P -> 0 or K_I_P -> oo, the factor 1/(1 + P/K_I_P) approaches 1 and the parent expression is recovered.",
+          "observable_signature": "At fixed observed C, EP, and free enzyme E_total - C - EP, increasing P initially reduces dP_dt almost linearly, but once product reaches the effective inhibitory occupancy scale the decline in dP_dt with further P weakens, producing a flatter high-P branch. Across runs with different initial substrate loads but shared parameters, this target-mapping curvature becomes visible only when product reaches moderate-to-high levels while free enzyme remains available.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce both the low-P near-linear inhibition and the later high-P flattening across those conditions, because for fixed observed C, EP, and E_total its inhibitory contribution is exactly proportional to P. Refitting k_on_P, k_off_P, or other existing parent parameters only changes the common linear scale of inhibition and cannot create the required curvature in the scored dP_dt versus observed P relationship."
+        },
+        "range_suggestions": {
+          "K_I_P": "positive; comparable to the product concentration range where inhibition begins to flatten"
+        }
+      },
+      {
+        "generation": 3,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "At fixed E_total and kinetic constants, dP_dt depends on P through a single monotone inhibitory occupancy term k_on_P*(E_total-C-EP)*P/(1 + P/K_I_P), so increasing product causes only one smoothly saturating reduction in free-enzyme availability and therefore one-phase bending of the product-rate trajectory.",
+            "child_relation": "Retain reversible product binding to free enzyme but relax the assumption that product-bound enzyme is catalytically inactive in a P-independent way; allow product to weaken catalytic turnover of the substrate-bound complex directly as product accumulates, creating an additional concentration-dependent curvature in the mapping from (C,P,EP) to dP_dt.",
+            "affected_inputs": [
+              "C",
+              "P",
+              "EP",
+              "E_total"
+            ],
+            "observable_effect": "Across trajectories with similar C but different accumulated P, the product formation rate drops more strongly at intermediate-to-high P than predicted from free-enzyme sequestration alone, producing earlier peak flattening and a steeper late-phase decline in dP_dt."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "free_enzyme",
+              "expression": "E_total - C - EP",
+              "role": "Current catalytically available unbound enzyme pool that drives both substrate capture and product rebinding"
+            },
+            {
+              "name": "product_load",
+              "expression": "P/K_I_P",
+              "role": "Dimensionless scale for when accumulated product reaches the inhibition onset regime"
+            },
+            {
+              "name": "complex_turnover_flux",
+              "expression": "k_cat*C",
+              "role": "Parent catalytic production branch before any direct product-dependent suppression of turnover"
+            }
+          ],
+          "activation_condition": "Observable when product accumulates into the same order of magnitude as the inhibition scale (P comparable to K_I_P) while a nontrivial substrate-bound complex remains present (C > 0), so that both catalytic turnover and product feedback act simultaneously during the transient-to-depletion crossover.",
+          "train_hidden_contrast": "In training, moderate product accumulation already bends the declining side of the rate curve beyond what free-enzyme sequestration alone predicts; in holdout, higher initial substrate or slower depletion extends trajectories into larger P/K_I_P, amplifying the extra curvature without changing the qualitative mechanism.",
+          "continuation_path": "Recover the parent law in the limit of vanishing direct product effect on catalysis, so product influences dP_dt only through reversible binding to free enzyme.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The model assumes product inhibition acts only by sequestering free enzyme into EP and leaves the catalytic competence of the substrate-bound complex unchanged once C has formed.",
+          "baseline_assumption": "Product-bound or product-accumulated enzyme does not alter the catalytic turnover law k_cat*C except indirectly through reducing free enzyme available for future substrate binding.",
+          "scientific_mechanism": "Mixed product inhibition: accumulated product can also reduce turnover of the enzyme-substrate complex, for example through rapid allosteric or mixed inhibitory effects that lower effective catalytic conversion even when substrate is already bound.",
+          "affected_symbols": [
+            "C",
+            "P",
+            "EP",
+            "E_total"
+          ],
+          "rationale": "A realistic next refinement is to relax the parent's one-channel inhibition assumption. The current target mapping from observed states to dP_dt has a single inhibitory pathway: P removes free enzyme into EP, which lowers future formation of C, but once C exists the output branch remains exactly k_cat*C. Varying product accumulation while holding E_total and the parent kinetic constants fixed therefore gives only one-phase saturation in the rate reduction. In many enzyme systems, product inhibition is mixed rather than purely competitive, so rising P can depress catalytic turnover of already bound substrate as well. This changes the scored target mapping directly, not merely auxiliary trajectories, because dP_dt at the same observed C can differ depending on P. The contrast is observable under the existing initial-condition protocol when substrate is initially abundant, C rises transiently, and P later accumulates into the inhibition range: the child predicts stronger downward curvature, earlier peak suppression, or a lower late transient rate than the parent can achieve with one shared parameter set. Refitting parent parameters can shift the timing or overall strength of sequestration, but cannot reproduce a genuine same-C different-P turnover suppression because the parent output depends on C linearly through k_cat*C and uses P only in the free-enzyme binding branch. The effect weakens when P remains far below K_I_P or after C is nearly exhausted, so those limitations should be stated honestly."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "At fixed E_total and kinetic constants, dP_dt depends on P through a single monotone inhibitory occupancy term k_on_P*(E_total-C-EP)*P/(1 + P/K_I_P), so increasing product causes only one smoothly saturating reduction in free-enzyme availability and therefore one-phase bending of the product-rate trajectory.",
+            "child_relation": "Retain reversible product binding to free enzyme but relax the assumption that product-bound enzyme is catalytically inactive in a P-independent way; allow product to weaken catalytic turnover of the substrate-bound complex directly as product accumulates, creating an additional concentration-dependent curvature in the mapping from (C,P,EP) to dP_dt.",
+            "affected_inputs": [
+              "C",
+              "P",
+              "EP",
+              "E_total"
+            ],
+            "observable_effect": "Across trajectories with similar C but different accumulated P, the product formation rate drops more strongly at intermediate-to-high P than predicted from free-enzyme sequestration alone, producing earlier peak flattening and a steeper late-phase decline in dP_dt."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "free_enzyme",
+              "expression": "E_total - C - EP",
+              "role": "Current catalytically available unbound enzyme pool that drives both substrate capture and product rebinding"
+            },
+            {
+              "name": "product_load",
+              "expression": "P/K_I_P",
+              "role": "Dimensionless scale for when accumulated product reaches the inhibition onset regime"
+            },
+            {
+              "name": "complex_turnover_flux",
+              "expression": "k_cat*C",
+              "role": "Parent catalytic production branch before any direct product-dependent suppression of turnover"
+            }
+          ],
+          "activation_condition": "Observable when product accumulates into the same order of magnitude as the inhibition scale (P comparable to K_I_P) while a nontrivial substrate-bound complex remains present (C > 0), so that both catalytic turnover and product feedback act simultaneously during the transient-to-depletion crossover.",
+          "train_hidden_contrast": "In training, moderate product accumulation already bends the declining side of the rate curve beyond what free-enzyme sequestration alone predicts; in holdout, higher initial substrate or slower depletion extends trajectories into larger P/K_I_P, amplifying the extra curvature without changing the qualitative mechanism.",
+          "continuation_path": "Recover the parent law in the limit of vanishing direct product effect on catalysis, so product influences dP_dt only through reversible binding to free enzyme.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "pairwise",
+          "scope_symbols": [
+            "C",
+            "P"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "mixed product inhibition of catalytic turnover",
+          "scientific_mechanism": "Mixed product inhibition: accumulated product can also reduce turnover of the enzyme-substrate complex, for example through rapid allosteric or mixed inhibitory effects that lower effective catalytic conversion even when substrate is already bound.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "This embedding is harder than a coefficient-only correction because it introduces a new saturating dependence of the output branch on the joint state pair (C,P), so the target law no longer separates into a linear C term plus a free-enzyme sequestration term. A single retuned parent parameter set can rescale or retime inhibition through EP formation, but it cannot generate direct same-C turnover suppression that grows with P.",
+          "taxonomy_match": "known",
+          "assumption_before": "Product inhibition acts only through reversible binding of product to free enzyme, and the catalytic branch remains exactly k_cat*C once the substrate-bound complex has formed.",
+          "assumption_after": "Product inhibition is mixed: product still sequesters free enzyme into EP but also directly suppresses catalytic turnover of the enzyme-substrate complex through a saturating factor.",
+          "before_fragment": "k_cat*C - k_on_P*(E_total - C - EP)*P/(1 + P/K_I_P) + k_off_P*EP",
+          "after_fragment": "k_cat*C/(1 + P/K_I_cat) - k_on_P*(E_total - C - EP)*P/(1 + P/K_I_P) + k_off_P*EP",
+          "parent_reduction": "K_I_cat -> oo recovers the parent expression because the direct suppression factor tends to 1.",
+          "observable_signature": "Holding observed C, EP, and E_total approximately matched across trajectory segments, the child predicts lower dP_dt at larger P because the catalytic branch itself is attenuated by 1/(1 + P/K_I_cat); the parent predicts no such same-C direct turnover drop and only reflects P through the sequestration branch. The difference is most visible when P is in the inhibition onset range and C remains appreciable, yielding stronger downward curvature, earlier peak flattening, and steeper late-phase decline.",
+          "shortcut_blocked": "Refitting all parent parameters cannot absorb this across the stated conditions because the parent output law is structurally k_cat*C plus a P-dependent free-enzyme rebinding term. With one shared parameter set, once C, EP, and E_total are fixed the parent's catalytic contribution is independent of P, so it cannot reproduce a genuine same-C, larger-P suppression of product formation rate. Parameter changes can alter how trajectories reach those states, but they cannot make the scored mapping from observed (C,P,EP,E_total) to dP_dt exhibit the added direct P-on-turnover curvature."
+        },
+        "range_suggestions": {
+          "K_I_cat": "positive; comparable to the product concentration range where direct suppression of k_cat*C begins to bend the rate trajectory"
+        }
+      },
+      {
+        "generation": 4,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_threshold",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "Direct catalytic suppression depends only on the instantaneous product level through a single hyperbolic factor 1/(1 + P/K_I_cat), so the decline of dP_dt with increasing P has one fixed saturation scale.",
+            "child_relation": "Catalytic suppression remains product-mediated but becomes cooperatively steeper, so the same instantaneous increase in P causes little effect at low P and a sharper drop in dP_dt once P reaches an activation band near the inhibition scale.",
+            "affected_inputs": [
+              "P",
+              "C"
+            ],
+            "observable_effect": "Across trajectories with different initial substrate loads and the same enzyme pool, the parent predicts a gradual one-scale bending of product accumulation rate versus P, whereas the child predicts a delayed but sharper curvature change in dP_dt once P enters the inhibitory range."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "cat_flux_parent",
+              "expression": "k_cat*C/(1 + P/K_I_cat)",
+              "role": "Current direct catalytic contribution to product formation"
+            },
+            {
+              "name": "product_loading",
+              "expression": "P/K_I_cat",
+              "role": "Dimensionless product accumulation relative to the catalytic inhibition scale"
+            },
+            {
+              "name": "free_enzyme_pool",
+              "expression": "E_total - C - EP",
+              "role": "Residual enzyme available for substrate or product binding"
+            }
+          ],
+          "activation_condition": "Observable when product accumulates into the same order of magnitude as K_I_cat during the sampled transient, so that low-P and mid/high-P portions of the trajectory are both present.",
+          "train_hidden_contrast": "In training, moderate product buildup already reveals whether inhibition bends gradually or abruptly; in holdout, larger substrate-driven product excursions amplify the difference in curvature without changing the underlying mechanism.",
+          "continuation_path": "Recover the parent by taking the cooperative suppression exponent to 1, which returns the original single-site hyperbolic inhibition law.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The current model assumes direct product suppression of catalytic turnover is a single-site hyperbolic function of P, which may be too idealized when inhibition reflects cooperative or multi-step occupancy of the catalytic complex.",
+          "baseline_assumption": "The effective catalytic rate of the enzyme-substrate complex decreases with product through one fixed noncooperative saturation factor.",
+          "scientific_mechanism": "Cooperative product-mediated suppression of turnover of the enzyme-substrate complex, such as multimeric or conformationally coupled inhibition that sharpens the onset of catalytic slowdown as product accumulates.",
+          "affected_symbols": [
+            "P",
+            "C"
+          ],
+          "rationale": "The parent target mapping from observed states to dP_dt contains a single-threshold shortcut in its direct catalytic term: for fixed C, increasing P always reduces k_cat*C with the same hyperbolic curvature class. A realistic next refinement is to relax that noncooperative assumption and allow direct product suppression of catalysis to be more switch-like. The distinguishing condition is to compare trajectories generated under different initial substrate amounts while holding E_total and all kinetic constants fixed, so that one trajectory reaches only low-to-moderate product levels and another reaches product concentrations around and above the catalytic inhibition scale. Under these admissible conditions, the parent predicts a smooth early bending of dP_dt versus P, while the child predicts weak suppression at low P followed by a sharper downturn once P enters the cooperative activation band. This changes the scored target mapping itself, not merely auxiliary state evolution, because P and C are supplied states and the formula for dP_dt as a function of them changes. No new state or input is needed because the effect is an alternative constitutive law for an already present process. A scientific limitation is that if trajectories never reach appreciable P relative to K_I_cat, the refinement will be practically unidentifiable."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_threshold",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "Direct catalytic suppression depends only on the instantaneous product level through a single hyperbolic factor 1/(1 + P/K_I_cat), so the decline of dP_dt with increasing P has one fixed saturation scale.",
+            "child_relation": "Catalytic suppression remains product-mediated but becomes cooperatively steeper, so the same instantaneous increase in P causes little effect at low P and a sharper drop in dP_dt once P reaches an activation band near the inhibition scale.",
+            "affected_inputs": [
+              "P",
+              "C"
+            ],
+            "observable_effect": "Across trajectories with different initial substrate loads and the same enzyme pool, the parent predicts a gradual one-scale bending of product accumulation rate versus P, whereas the child predicts a delayed but sharper curvature change in dP_dt once P enters the inhibitory range."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "cat_flux_parent",
+              "expression": "k_cat*C/(1 + P/K_I_cat)",
+              "role": "Current direct catalytic contribution to product formation"
+            },
+            {
+              "name": "product_loading",
+              "expression": "P/K_I_cat",
+              "role": "Dimensionless product accumulation relative to the catalytic inhibition scale"
+            },
+            {
+              "name": "free_enzyme_pool",
+              "expression": "E_total - C - EP",
+              "role": "Residual enzyme available for substrate or product binding"
+            }
+          ],
+          "activation_condition": "Observable when product accumulates into the same order of magnitude as K_I_cat during the sampled transient, so that low-P and mid/high-P portions of the trajectory are both present.",
+          "train_hidden_contrast": "In training, moderate product buildup already reveals whether inhibition bends gradually or abruptly; in holdout, larger substrate-driven product excursions amplify the difference in curvature without changing the underlying mechanism.",
+          "continuation_path": "Recover the parent by taking the cooperative suppression exponent to 1, which returns the original single-site hyperbolic inhibition law.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "P",
+            "C"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "cooperative direct product inhibition of catalytic turnover",
+          "scientific_mechanism": "Cooperative product-mediated suppression of turnover of the enzyme-substrate complex, such as multimeric or conformationally coupled inhibition that sharpens the onset of catalytic slowdown as product accumulates.",
+          "embedding_pattern": "nested_nonlinearity",
+          "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the observed state P is first normalized by K_I_cat and then passed through a nonlinear exponent before entering the inhibitory denominator, changing the curvature class of dP_dt as a function of the supplied states rather than only rescaling its magnitude.",
+          "taxonomy_match": "known",
+          "assumption_before": "The effective catalytic rate of the enzyme-substrate complex decreases with product through one fixed noncooperative saturation factor.",
+          "assumption_after": "Direct product suppression of catalytic turnover is cooperative, producing a sharper inhibition onset near the inhibition scale.",
+          "before_fragment": "k_cat*C/(1 + P/K_I_cat) - k_on_P*(E_total - C - EP)*P/(1 + P/K_I_P) + k_off_P*EP",
+          "after_fragment": "k_cat*C/(1 + (P/K_I_cat)**n_I_cat) - k_on_P*(E_total - C - EP)*P/(1 + P/K_I_P) + k_off_P*EP",
+          "parent_reduction": "Setting n_I_cat = 1 recovers the parent expression exactly.",
+          "observable_signature": "Holding E_total and kinetic constants fixed while varying initial substrate load, trajectories that keep P well below K_I_cat show nearly parent-like catalytic flux, but trajectories reaching P of order K_I_cat show a later and sharper drop in dP_dt versus P than the parent's gradual hyperbolic bending.",
+          "shortcut_blocked": "A single refit of the parent parameters cannot reproduce both weak low-P suppression and sharply increased mid-range curvature across these conditions, because its catalytic term is constrained to the hyperbolic family with one fixed threshold shape. Retuning k_cat or K_I_cat can shift overall scale or location of bending, but cannot independently preserve low-P behavior while steepening the inhibition onset once P approaches K_I_cat."
+        },
+        "range_suggestions": {
+          "n_I_cat": "positive; around 1 recovers noncooperative inhibition, with values moderately above 1 giving sharper onset of catalytic suppression when P becomes comparable to K_I_cat"
+        }
+      },
+      {
+        "generation": 5,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "interaction_emergence",
+            "parent_relation": "The catalytic term depends only on accumulated product through k_cat*C/(1 + (P/K_I_cat)**n_I_cat), so at fixed P and C the instantaneous product-formation contribution is independent of substrate level S.",
+            "child_relation": "Retain product suppression but let direct turnover suppression depend jointly on product accumulation and substrate occupancy, so that at the same P and C the effective catalytic inhibition weakens when S is high and strengthens as S becomes depleted.",
+            "affected_inputs": [
+              "S",
+              "C",
+              "P"
+            ],
+            "observable_effect": "During late transient and depletion phases, two times with similar P but different S can show different dP_dt/C in the child, whereas the parent predicts the same value once C and P are fixed."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "prod_load",
+              "expression": "P/K_I_cat",
+              "role": "scale of direct product-mediated catalytic suppression"
+            },
+            {
+              "name": "substrate_occupancy",
+              "expression": "S",
+              "role": "available substrate level governing whether product acts under substrate-rich or substrate-poor conditions"
+            },
+            {
+              "name": "normalized_turnover",
+              "expression": "k_cat*C/(1 + (P/K_I_cat)**n_I_cat)",
+              "role": "parent catalytic contribution to dP_dt for comparison against a substrate-modulated child law"
+            }
+          ],
+          "activation_condition": "Observable when product has accumulated to P comparable to K_I_cat and substrate is no longer overwhelmingly abundant, so product suppression is active while S still varies substantially along the trajectory.",
+          "train_hidden_contrast": "In training, early high-S portions and later lower-S portions already coexist on one batch trajectory; the same product level can be encountered with different substrate availability across trajectories or neighboring times, and holdout extends this contrast deeper into depletion where the substrate dependence of inhibition is stronger.",
+          "continuation_path": "Recover the parent law in the limit that substrate modulation of catalytic inhibition vanishes, e.g. a large substrate-protection scale or zero coupling strength so the turnover term depends only on P again.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The current model assumes direct product-mediated suppression of catalytic turnover is determined solely by product concentration and ignores that substrate-rich occupancy can partially protect catalytic turnover from product-driven allosteric or mixed inhibition.",
+          "baseline_assumption": "All elementary kinetic coefficients remain constant during the trajectory, specifically the product-suppressed catalytic efficiency depends only on P and not on the contemporaneous substrate environment.",
+          "scientific_mechanism": "Substrate-dependent mixed inhibition of catalysis: accumulated product suppresses turnover less strongly when substrate is abundant, consistent with partial substrate protection of the catalytic conformation or reduced access of inhibitory product effects under substrate-rich conditions.",
+          "affected_symbols": [
+            "S",
+            "C",
+            "P"
+          ],
+          "rationale": "A realistic next refinement is to relax the parent's fixed-environment assumption inside the catalytic inhibition term rather than add a wholly new species. The parent target mapping has a fixed product-only suppression shape: once C and P are known, the catalytic part of dP_dt is fixed, so any two observations with the same C and P must have the same turnover contribution regardless of S. In a closed batch reaction, however, substrate systematically changes from high to low while product rises, and product inhibition of catalysis can plausibly depend on the substrate environment because substrate occupancy or substrate-rich conformations can buffer product's inhibitory effect. The child therefore changes the response from a separable P-only suppression to a joint S-P interaction in the catalytic factor. Holding E_total and all other conditions fixed, compare periods where P is in the inhibitory range near K_I_cat but S is still high versus later when S is depleted: the child predicts a steeper late-phase decline in dP_dt/C than the parent because the same product burden inhibits more strongly at low S. This is a direct change to the scored target mapping, not merely to auxiliary trajectories, since dP_dt itself at given observed S,C,P changes. The mechanism is admissible without new degrees of freedom because S is already a tracked state. A single refit of existing parent parameters cannot reproduce this contrast across such conditions: changing k_cat, K_I_cat, or n_I_cat only reshapes inhibition as a function of P globally, but cannot make inhibition weak at high S and strong at low S when P and C are otherwise comparable."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "interaction_emergence",
+            "parent_relation": "The catalytic term depends only on accumulated product through k_cat*C/(1 + (P/K_I_cat)**n_I_cat), so at fixed P and C the instantaneous product-formation contribution is independent of substrate level S.",
+            "child_relation": "Retain product suppression but let direct turnover suppression depend jointly on product accumulation and substrate occupancy, so that at the same P and C the effective catalytic inhibition weakens when S is high and strengthens as S becomes depleted.",
+            "affected_inputs": [
+              "S",
+              "C",
+              "P"
+            ],
+            "observable_effect": "During late transient and depletion phases, two times with similar P but different S can show different dP_dt/C in the child, whereas the parent predicts the same value once C and P are fixed."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "prod_load",
+              "expression": "P/K_I_cat",
+              "role": "scale of direct product-mediated catalytic suppression"
+            },
+            {
+              "name": "substrate_occupancy",
+              "expression": "S",
+              "role": "available substrate level governing whether product acts under substrate-rich or substrate-poor conditions"
+            },
+            {
+              "name": "normalized_turnover",
+              "expression": "k_cat*C/(1 + (P/K_I_cat)**n_I_cat)",
+              "role": "parent catalytic contribution to dP_dt for comparison against a substrate-modulated child law"
+            }
+          ],
+          "activation_condition": "Observable when product has accumulated to P comparable to K_I_cat and substrate is no longer overwhelmingly abundant, so product suppression is active while S still varies substantially along the trajectory.",
+          "train_hidden_contrast": "In training, early high-S portions and later lower-S portions already coexist on one batch trajectory; the same product level can be encountered with different substrate availability across trajectories or neighboring times, and holdout extends this contrast deeper into depletion where the substrate dependence of inhibition is stronger.",
+          "continuation_path": "Recover the parent law in the limit that substrate modulation of catalytic inhibition vanishes, e.g. a large substrate-protection scale or zero coupling strength so the turnover term depends only on P again.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "S",
+            "P",
+            "C"
+          ],
+          "structural_role": "interaction",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "substrate-dependent direct product inhibition of catalytic turnover",
+          "scientific_mechanism": "Substrate-dependent mixed inhibition of catalysis: accumulated product suppresses turnover less strongly when substrate is abundant, consistent with partial substrate protection of the catalytic conformation or reduced access of inhibitory product effects under substrate-rich conditions.",
+          "embedding_pattern": "state_coupling",
+          "difficulty_rationale": "This embedding is harder than a coefficient-only correction because it changes the catalytic response from a product-only suppression curve into a joint S-P law, so no single global retuning of k_cat, K_I_cat, or n_I_cat can reproduce different inhibition strengths at the same P and C across varying substrate environments.",
+          "taxonomy_match": "provisional",
+          "assumption_before": "All elementary kinetic coefficients remain constant during the trajectory, specifically the product-suppressed catalytic efficiency depends only on P and not on the contemporaneous substrate environment.",
+          "assumption_after": "Direct product-mediated catalytic suppression is buffered by substrate abundance through a substrate-dependent effective inhibition scale.",
+          "before_fragment": "k_cat*C/(1 + (P/K_I_cat)**n_I_cat) - k_on_P*(E_total - C - EP)*P/(1 + P/K_I_P) + k_off_P*EP",
+          "after_fragment": "k_cat*C/(1 + (P/(K_I_cat*(1 + S/K_S_protect)))**n_I_cat) - k_on_P*(E_total - C - EP)*P/(1 + P/K_I_P) + k_off_P*EP",
+          "parent_reduction": "The parent is recovered in the limit K_S_protect -> oo, which removes substrate protection and restores the original product-only inhibition factor.",
+          "observable_signature": "Relative turnover dP_dt/C is no longer a function of P alone after subtracting the EP exchange terms; when P is in the inhibitory range near K_I_cat, higher S shifts suppression onset to larger P, so late low-S portions of the batch show stronger catalytic depression than earlier high-S portions even at similar P and C.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce this because the parent catalytic contribution is separable from S once C and P are given. Retuning k_cat rescales all catalytic fluxes, while retuning K_I_cat or n_I_cat only changes the global P-response shape; none can make inhibition weak at high S and strong at low S for otherwise comparable P and C across the admissible trajectory segment."
+        },
+        "range_suggestions": {
+          "K_S_protect": "positive; on the order of the substrate concentration range where substrate-rich conditions begin to noticeably buffer direct product-mediated catalytic suppression"
+        }
+      }
+    ],
+    "evolution_provenance": {
+      "dimension_track": null,
+      "mechanism_profile": {
+        "allowed_structural_roles": [
+          "response_law",
+          "modulation",
+          "interaction",
+          "constraint",
+          "transition",
+          "feedback"
+        ],
+        "preferred_scopes": [
+          "unary",
+          "pairwise",
+          "multiway",
+          "state_coupling"
+        ],
+        "domain_mechanisms": [
+          {
+            "id": "enzyme_inhibition",
+            "description": "competitive, noncompetitive, or allosteric inhibition",
+            "operations": [
+              "add_term",
+              "change_assumption"
+            ]
+          },
+          {
+            "id": "finite_enzyme_capacity",
+            "description": "finite enzyme occupancy or catalytic capacity",
+            "operations": [
+              "add_term",
+              "change_assumption"
+            ]
+          },
+          {
+            "id": "temperature_rate_modulation",
+            "description": "temperature-dependent kinetic rate",
+            "operations": [
+              "change_assumption"
+            ]
+          },
+          {
+            "id": "product_feedback",
+            "description": "product inhibition or feedback regulation",
+            "operations": [
+              "add_term"
+            ]
+          }
+        ],
+        "profile_source": "subfield",
+        "ontology_schema_version": "1.0",
+        "taxonomy_schema_version": "1.0"
+      },
+      "baseline_mechanisms": [
+        "Bimolecular association of free enzyme and free substrate.",
+        "Dissociation of the enzyme-substrate complex.",
+        "Irreversible catalytic conversion of bound substrate into product with enzyme release."
+      ],
+      "baseline_assumptions": [
+        "The reactor is closed, well mixed, and held at constant volume.",
+        "Total enzyme is conserved between free and substrate-bound forms.",
+        "Product neither rebinds nor undergoes reverse conversion.",
+        "All elementary kinetic coefficients remain constant during the trajectory."
+      ],
+      "scientific_constraints": [
+        "All concentrations must remain nonnegative.",
+        "Bound complex cannot exceed the fixed total enzyme pool.",
+        "The total amount of substrate-derived material is conserved among substrate, complex, and product.",
+        "Product formation has a nonnegative direction under the irreversible baseline mechanism."
+      ],
+      "refinement_agenda": [
+        "Add reversible product binding and reverse catalysis.",
+        "Include enzyme inactivation during turnover.",
+        "Introduce a second substrate or required cofactor as a new dynamic state.",
+        "Add product inhibition of association or catalysis."
+      ],
+      "evolution_contracts": [
+        {
+          "operation": "add_term",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "With constant catalytic turnover, the target mapping is dP_dt = k_cat*C, so for any observed complex level C the product-rate response is a fixed linear gain independent of accumulated product.",
+            "child_relation": "Introduce product rebinding/inhibition so the effective conversion of bound substrate depends on accumulated product P; then dP_dt at a given C decreases as P rises, creating history-dependent curvature in the rate trajectory during batch accumulation.",
+            "affected_inputs": [
+              "C",
+              "P"
+            ],
+            "observable_effect": "Across trajectories with the same enzyme system and different initial substrate loads, the parent predicts the same proportionality between dP_dt and C at all times, whereas the child predicts late-time suppression of dP_dt at higher accumulated P, bending the decline more strongly in high-product phases."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "occupancy",
+              "expression": "C/E_total",
+              "role": "fraction of enzyme transiently bound as complex"
+            },
+            {
+              "name": "product_load",
+              "expression": "P/(S + C + P)",
+              "role": "fraction of substrate-derived material already converted to product"
+            },
+            {
+              "name": "product_to_complex",
+              "expression": "P/(C + 1.0e-12)",
+              "role": "scale of accumulated product relative to currently catalytically competent complex"
+            }
+          ],
+          "activation_condition": "Observable when product accumulates to a non-negligible fraction of the conserved substrate-derived pool during the monitored batch trajectory, so that P is no longer small compared with S + C + P and product binding can compete measurably with catalysis.",
+          "train_hidden_contrast": "In training, mild accumulation would show slight downward deviation from the parent's fixed dP_dt/C gain at late times; in holdout with larger initial substrate or longer observation, the same mechanism strengthens into clearer late-phase rate suppression as P grows.",
+          "continuation_path": "In the limit of vanishing product inhibition strength, or throughout regimes where P remains negligible, the model reduces continuously to dP_dt = k_cat*C with the original batch dynamics.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "Reversible product inhibition requires tracking a product-bound inactive enzyme pool or equivalent dynamic occupancy; existing states S, C, and P do not contain that enzyme sequestration memory because free enzyme is currently fixed algebraically as E_total - C.",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "C",
+            "P",
+            "EP"
+          ],
+          "structural_role": "feedback",
+          "domain_mechanism_id": "product_feedback",
+          "domain_mechanism": "Competitive or mixed product inhibition via reversible binding of product to free enzyme, reducing the free enzyme available for substrate association and therefore indirectly lowering product formation as P accumulates.",
+          "scientific_mechanism": "Competitive or mixed product inhibition via reversible binding of product to free enzyme, reducing the free enzyme available for substrate association and therefore indirectly lowering product formation as P accumulates.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "The child adds a dynamically occupied inhibitory branch, so the target is no longer a fixed gain on C. The net product-rate now depends on catalytic production and reversible rebinding fluxes generated by accumulated product exposure, which creates history-dependent curvature that cannot be reproduced by only rescaling k_cat.",
+          "taxonomy_match": "known",
+          "assumption_before": "Product does not rebind or affect catalysis, so the catalytic environment is fixed once C is known.",
+          "assumption_after": "Product reversibly sequesters enzyme into a finite-capacity inactive pool, and product accumulation feeds back on the net product-rate through reversible enzyme-product occupancy.",
+          "before_fragment": "k_cat*C",
+          "after_fragment": "k_cat*C - k_on_P*(E_total - C - EP)*P + k_off_P*EP",
+          "parent_reduction": "k_on_P -> 0 and EP -> 0",
+          "observable_signature": "For the same observed C, dP_dt decreases in high-product phases because product rebinding subtracts from net product accumulation while EP grows after product accumulates; this yields stronger late-time downward curvature in product-rate trajectories, especially at larger initial substrate loads.",
+          "shortcut_blocked": "A single parent parameter set can only produce dP_dt/C = k_cat, a constant independent of product history. Here the target includes the additional state-coupled flux -k_on_P*(E_total - C - EP)*P + k_off_P*EP, so trajectories with similar C but different accumulated P and EP have different net dP_dt. Retuning k_cat, k_on, or k_off changes the shared catalytic trajectory globally but cannot generate this within-run product-dependent subtraction term across the stated conditions."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "Product rebinding is modeled as simple mass-action trapping of free enzyme by P, so at fixed E_total and kinetic constants the inhibition strength grows linearly with P through k_on_P*(E_total-C-EP)*P and yields a single inhibition scale.",
+            "child_relation": "Replace simple product rebinding with saturable/occupancy-limited product inhibition of free enzyme so that the dependence of dP_dt on accumulated P bends from initially near-linear inhibition to weaker incremental inhibition at higher P.",
+            "affected_inputs": [
+              "P",
+              "C",
+              "EP",
+              "E_total"
+            ],
+            "observable_effect": "Across trajectories with different initial substrate loads but the same enzyme pool and rate constants, the parent predicts a similar linear strengthening of product inhibition with rising P, whereas the child predicts stronger early curvature in dP_dt versus P and a later flattening once inhibitory occupancy approaches saturation."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "free_enzyme",
+              "expression": "E_total - C - EP",
+              "role": "Catalytically available enzyme before substrate or product rebinding"
+            },
+            {
+              "name": "product_loading",
+              "expression": "P/(P + k_off_P/k_on_P)",
+              "role": "Dimensionless product-occupancy proxy for onset of saturation of inhibition"
+            },
+            {
+              "name": "inhibition_flux_parent",
+              "expression": "k_on_P*(E_total - C - EP)*P",
+              "role": "Parent linear product-sequestration tendency"
+            }
+          ],
+          "activation_condition": "Observable when product accumulates to a scale comparable to the effective product-binding half-saturation level, i.e. P not always small relative to k_off_P/k_on_P, while free enzyme remains appreciable during the transient.",
+          "train_hidden_contrast": "In lower-product training segments the child reduces to nearly the parent’s linear inhibition, while in higher-substrate or later-time holdout segments larger P reveals the inhibited-rate flattening.",
+          "continuation_path": "In the low-product limit or large inhibition half-saturation limit, the refined inhibition law reduces to the parent’s mass-action-like dependence on P.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "P",
+            "C",
+            "EP",
+            "E_total"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "occupancy-limited inhibitory rebinding of product to free enzyme",
+          "scientific_mechanism": "Saturable product inhibition of enzyme activity due to finite inhibitory binding capacity, causing diminishing incremental inhibition at high product concentration.",
+          "embedding_pattern": "multiplicative_modulation",
+          "difficulty_rationale": "This embedding is structurally harder than a coefficient-only correction because the product-sequestration branch is multiplied by a state-dependent saturation factor, changing the shape of the scored mapping from observed P, C, and EP to dP_dt rather than just rescaling one global coefficient.",
+          "taxonomy_match": "known",
+          "assumption_before": "Product inhibition of free enzyme remains mass-action linear in P over the full experiment.",
+          "assumption_after": "Product inhibition of free enzyme is occupancy-limited and therefore saturates as product accumulates.",
+          "before_fragment": "k_cat*C - k_on_P*(E_total - C - EP)*P + k_off_P*EP",
+          "after_fragment": "k_cat*C - k_on_P*(E_total - C - EP)*P/(1 + P/K_I_P) + k_off_P*EP",
+          "parent_reduction": "For P/K_I_P -> 0 or K_I_P -> oo, the factor 1/(1 + P/K_I_P) approaches 1 and the parent expression is recovered.",
+          "observable_signature": "At fixed observed C, EP, and free enzyme E_total - C - EP, increasing P initially reduces dP_dt almost linearly, but once product reaches the effective inhibitory occupancy scale the decline in dP_dt with further P weakens, producing a flatter high-P branch. Across runs with different initial substrate loads but shared parameters, this target-mapping curvature becomes visible only when product reaches moderate-to-high levels while free enzyme remains available.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce both the low-P near-linear inhibition and the later high-P flattening across those conditions, because for fixed observed C, EP, and E_total its inhibitory contribution is exactly proportional to P. Refitting k_on_P, k_off_P, or other existing parent parameters only changes the common linear scale of inhibition and cannot create the required curvature in the scored dP_dt versus observed P relationship."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "At fixed E_total and kinetic constants, dP_dt depends on P through a single monotone inhibitory occupancy term k_on_P*(E_total-C-EP)*P/(1 + P/K_I_P), so increasing product causes only one smoothly saturating reduction in free-enzyme availability and therefore one-phase bending of the product-rate trajectory.",
+            "child_relation": "Retain reversible product binding to free enzyme but relax the assumption that product-bound enzyme is catalytically inactive in a P-independent way; allow product to weaken catalytic turnover of the substrate-bound complex directly as product accumulates, creating an additional concentration-dependent curvature in the mapping from (C,P,EP) to dP_dt.",
+            "affected_inputs": [
+              "C",
+              "P",
+              "EP",
+              "E_total"
+            ],
+            "observable_effect": "Across trajectories with similar C but different accumulated P, the product formation rate drops more strongly at intermediate-to-high P than predicted from free-enzyme sequestration alone, producing earlier peak flattening and a steeper late-phase decline in dP_dt."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "free_enzyme",
+              "expression": "E_total - C - EP",
+              "role": "Current catalytically available unbound enzyme pool that drives both substrate capture and product rebinding"
+            },
+            {
+              "name": "product_load",
+              "expression": "P/K_I_P",
+              "role": "Dimensionless scale for when accumulated product reaches the inhibition onset regime"
+            },
+            {
+              "name": "complex_turnover_flux",
+              "expression": "k_cat*C",
+              "role": "Parent catalytic production branch before any direct product-dependent suppression of turnover"
+            }
+          ],
+          "activation_condition": "Observable when product accumulates into the same order of magnitude as the inhibition scale (P comparable to K_I_P) while a nontrivial substrate-bound complex remains present (C > 0), so that both catalytic turnover and product feedback act simultaneously during the transient-to-depletion crossover.",
+          "train_hidden_contrast": "In training, moderate product accumulation already bends the declining side of the rate curve beyond what free-enzyme sequestration alone predicts; in holdout, higher initial substrate or slower depletion extends trajectories into larger P/K_I_P, amplifying the extra curvature without changing the qualitative mechanism.",
+          "continuation_path": "Recover the parent law in the limit of vanishing direct product effect on catalysis, so product influences dP_dt only through reversible binding to free enzyme.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "pairwise",
+          "scope_symbols": [
+            "C",
+            "P"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "mixed product inhibition of catalytic turnover",
+          "scientific_mechanism": "Mixed product inhibition: accumulated product can also reduce turnover of the enzyme-substrate complex, for example through rapid allosteric or mixed inhibitory effects that lower effective catalytic conversion even when substrate is already bound.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "This embedding is harder than a coefficient-only correction because it introduces a new saturating dependence of the output branch on the joint state pair (C,P), so the target law no longer separates into a linear C term plus a free-enzyme sequestration term. A single retuned parent parameter set can rescale or retime inhibition through EP formation, but it cannot generate direct same-C turnover suppression that grows with P.",
+          "taxonomy_match": "known",
+          "assumption_before": "Product inhibition acts only through reversible binding of product to free enzyme, and the catalytic branch remains exactly k_cat*C once the substrate-bound complex has formed.",
+          "assumption_after": "Product inhibition is mixed: product still sequesters free enzyme into EP but also directly suppresses catalytic turnover of the enzyme-substrate complex through a saturating factor.",
+          "before_fragment": "k_cat*C - k_on_P*(E_total - C - EP)*P/(1 + P/K_I_P) + k_off_P*EP",
+          "after_fragment": "k_cat*C/(1 + P/K_I_cat) - k_on_P*(E_total - C - EP)*P/(1 + P/K_I_P) + k_off_P*EP",
+          "parent_reduction": "K_I_cat -> oo recovers the parent expression because the direct suppression factor tends to 1.",
+          "observable_signature": "Holding observed C, EP, and E_total approximately matched across trajectory segments, the child predicts lower dP_dt at larger P because the catalytic branch itself is attenuated by 1/(1 + P/K_I_cat); the parent predicts no such same-C direct turnover drop and only reflects P through the sequestration branch. The difference is most visible when P is in the inhibition onset range and C remains appreciable, yielding stronger downward curvature, earlier peak flattening, and steeper late-phase decline.",
+          "shortcut_blocked": "Refitting all parent parameters cannot absorb this across the stated conditions because the parent output law is structurally k_cat*C plus a P-dependent free-enzyme rebinding term. With one shared parameter set, once C, EP, and E_total are fixed the parent's catalytic contribution is independent of P, so it cannot reproduce a genuine same-C, larger-P suppression of product formation rate. Parameter changes can alter how trajectories reach those states, but they cannot make the scored mapping from observed (C,P,EP,E_total) to dP_dt exhibit the added direct P-on-turnover curvature."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_threshold",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "Direct catalytic suppression depends only on the instantaneous product level through a single hyperbolic factor 1/(1 + P/K_I_cat), so the decline of dP_dt with increasing P has one fixed saturation scale.",
+            "child_relation": "Catalytic suppression remains product-mediated but becomes cooperatively steeper, so the same instantaneous increase in P causes little effect at low P and a sharper drop in dP_dt once P reaches an activation band near the inhibition scale.",
+            "affected_inputs": [
+              "P",
+              "C"
+            ],
+            "observable_effect": "Across trajectories with different initial substrate loads and the same enzyme pool, the parent predicts a gradual one-scale bending of product accumulation rate versus P, whereas the child predicts a delayed but sharper curvature change in dP_dt once P enters the inhibitory range."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "cat_flux_parent",
+              "expression": "k_cat*C/(1 + P/K_I_cat)",
+              "role": "Current direct catalytic contribution to product formation"
+            },
+            {
+              "name": "product_loading",
+              "expression": "P/K_I_cat",
+              "role": "Dimensionless product accumulation relative to the catalytic inhibition scale"
+            },
+            {
+              "name": "free_enzyme_pool",
+              "expression": "E_total - C - EP",
+              "role": "Residual enzyme available for substrate or product binding"
+            }
+          ],
+          "activation_condition": "Observable when product accumulates into the same order of magnitude as K_I_cat during the sampled transient, so that low-P and mid/high-P portions of the trajectory are both present.",
+          "train_hidden_contrast": "In training, moderate product buildup already reveals whether inhibition bends gradually or abruptly; in holdout, larger substrate-driven product excursions amplify the difference in curvature without changing the underlying mechanism.",
+          "continuation_path": "Recover the parent by taking the cooperative suppression exponent to 1, which returns the original single-site hyperbolic inhibition law.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "P",
+            "C"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "cooperative direct product inhibition of catalytic turnover",
+          "scientific_mechanism": "Cooperative product-mediated suppression of turnover of the enzyme-substrate complex, such as multimeric or conformationally coupled inhibition that sharpens the onset of catalytic slowdown as product accumulates.",
+          "embedding_pattern": "nested_nonlinearity",
+          "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the observed state P is first normalized by K_I_cat and then passed through a nonlinear exponent before entering the inhibitory denominator, changing the curvature class of dP_dt as a function of the supplied states rather than only rescaling its magnitude.",
+          "taxonomy_match": "known",
+          "assumption_before": "The effective catalytic rate of the enzyme-substrate complex decreases with product through one fixed noncooperative saturation factor.",
+          "assumption_after": "Direct product suppression of catalytic turnover is cooperative, producing a sharper inhibition onset near the inhibition scale.",
+          "before_fragment": "k_cat*C/(1 + P/K_I_cat) - k_on_P*(E_total - C - EP)*P/(1 + P/K_I_P) + k_off_P*EP",
+          "after_fragment": "k_cat*C/(1 + (P/K_I_cat)**n_I_cat) - k_on_P*(E_total - C - EP)*P/(1 + P/K_I_P) + k_off_P*EP",
+          "parent_reduction": "Setting n_I_cat = 1 recovers the parent expression exactly.",
+          "observable_signature": "Holding E_total and kinetic constants fixed while varying initial substrate load, trajectories that keep P well below K_I_cat show nearly parent-like catalytic flux, but trajectories reaching P of order K_I_cat show a later and sharper drop in dP_dt versus P than the parent's gradual hyperbolic bending.",
+          "shortcut_blocked": "A single refit of the parent parameters cannot reproduce both weak low-P suppression and sharply increased mid-range curvature across these conditions, because its catalytic term is constrained to the hyperbolic family with one fixed threshold shape. Retuning k_cat or K_I_cat can shift overall scale or location of bending, but cannot independently preserve low-P behavior while steepening the inhibition onset once P approaches K_I_cat."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "interaction_emergence",
+            "parent_relation": "The catalytic term depends only on accumulated product through k_cat*C/(1 + (P/K_I_cat)**n_I_cat), so at fixed P and C the instantaneous product-formation contribution is independent of substrate level S.",
+            "child_relation": "Retain product suppression but let direct turnover suppression depend jointly on product accumulation and substrate occupancy, so that at the same P and C the effective catalytic inhibition weakens when S is high and strengthens as S becomes depleted.",
+            "affected_inputs": [
+              "S",
+              "C",
+              "P"
+            ],
+            "observable_effect": "During late transient and depletion phases, two times with similar P but different S can show different dP_dt/C in the child, whereas the parent predicts the same value once C and P are fixed."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "prod_load",
+              "expression": "P/K_I_cat",
+              "role": "scale of direct product-mediated catalytic suppression"
+            },
+            {
+              "name": "substrate_occupancy",
+              "expression": "S",
+              "role": "available substrate level governing whether product acts under substrate-rich or substrate-poor conditions"
+            },
+            {
+              "name": "normalized_turnover",
+              "expression": "k_cat*C/(1 + (P/K_I_cat)**n_I_cat)",
+              "role": "parent catalytic contribution to dP_dt for comparison against a substrate-modulated child law"
+            }
+          ],
+          "activation_condition": "Observable when product has accumulated to P comparable to K_I_cat and substrate is no longer overwhelmingly abundant, so product suppression is active while S still varies substantially along the trajectory.",
+          "train_hidden_contrast": "In training, early high-S portions and later lower-S portions already coexist on one batch trajectory; the same product level can be encountered with different substrate availability across trajectories or neighboring times, and holdout extends this contrast deeper into depletion where the substrate dependence of inhibition is stronger.",
+          "continuation_path": "Recover the parent law in the limit that substrate modulation of catalytic inhibition vanishes, e.g. a large substrate-protection scale or zero coupling strength so the turnover term depends only on P again.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "S",
+            "P",
+            "C"
+          ],
+          "structural_role": "interaction",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "substrate-dependent direct product inhibition of catalytic turnover",
+          "scientific_mechanism": "Substrate-dependent mixed inhibition of catalysis: accumulated product suppresses turnover less strongly when substrate is abundant, consistent with partial substrate protection of the catalytic conformation or reduced access of inhibitory product effects under substrate-rich conditions.",
+          "embedding_pattern": "state_coupling",
+          "difficulty_rationale": "This embedding is harder than a coefficient-only correction because it changes the catalytic response from a product-only suppression curve into a joint S-P law, so no single global retuning of k_cat, K_I_cat, or n_I_cat can reproduce different inhibition strengths at the same P and C across varying substrate environments.",
+          "taxonomy_match": "provisional",
+          "assumption_before": "All elementary kinetic coefficients remain constant during the trajectory, specifically the product-suppressed catalytic efficiency depends only on P and not on the contemporaneous substrate environment.",
+          "assumption_after": "Direct product-mediated catalytic suppression is buffered by substrate abundance through a substrate-dependent effective inhibition scale.",
+          "before_fragment": "k_cat*C/(1 + (P/K_I_cat)**n_I_cat) - k_on_P*(E_total - C - EP)*P/(1 + P/K_I_P) + k_off_P*EP",
+          "after_fragment": "k_cat*C/(1 + (P/(K_I_cat*(1 + S/K_S_protect)))**n_I_cat) - k_on_P*(E_total - C - EP)*P/(1 + P/K_I_P) + k_off_P*EP",
+          "parent_reduction": "The parent is recovered in the limit K_S_protect -> oo, which removes substrate protection and restores the original product-only inhibition factor.",
+          "observable_signature": "Relative turnover dP_dt/C is no longer a function of P alone after subtracting the EP exchange terms; when P is in the inhibitory range near K_I_cat, higher S shifts suppression onset to larger P, so late low-S portions of the batch show stronger catalytic depression than earlier high-S portions even at similar P and C.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce this because the parent catalytic contribution is separable from S once C and P are given. Retuning k_cat rescales all catalytic fluxes, while retuning K_I_cat or n_I_cat only changes the global P-response shape; none can make inhibition weak at high S and strong at low S for otherwise comparable P and C across the admissible trajectory segment."
+        }
+      ]
+    },
+    "finalization": {
+      "mode": "candidate",
+      "accepted_generations": 5,
+      "novelty": {
+        "answer": "NOT_EVALUATED"
+      },
+      "total_points": 5000,
+      "evaluation_status": "not_evaluated"
+    }
+  },
+  "contract": {
+    "features": [
+      "t",
+      "S",
+      "C",
+      "P",
+      "EP"
+    ],
+    "target": "dP_dt",
+    "family": "ode",
+    "expression": "k_cat*C/(1 + (P/(K_I_cat*(1 + S/K_S_protect)))**n_I_cat) - k_on_P*(E_total - C - EP)*P/(1 + P/K_I_P) + k_off_P*EP",
+    "parameters": {
+      "E_total": 1.0,
+      "k_on": 0.08,
+      "k_off": 1.2,
+      "k_cat": 2.0,
+      "k_on_P": 0.05,
+      "k_off_P": 0.2,
+      "K_I_P": 30.0,
+      "K_I_cat": 40.0,
+      "n_I_cat": 2.0,
+      "K_S_protect": 50.0
+    },
+    "implicit_branch": null
+  }
+}

@@ -1,0 +1,245 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "C1",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        12.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "exchange_rate",
+      "value": 0.8
+    },
+    {
+      "symbol": "saturation_contrast",
+      "value": 0.8
+    },
+    {
+      "symbol": "mixing_relaxation_rate",
+      "value": 0.7
+    },
+    {
+      "symbol": "contrast_mixing_coupling",
+      "value": 1.4
+    },
+    {
+      "symbol": "mixing_baseline",
+      "value": 0.6
+    },
+    {
+      "symbol": "crowding_sharpness",
+      "value": 0.6
+    },
+    {
+      "symbol": "shielding_build_rate",
+      "value": 0.9
+    },
+    {
+      "symbol": "shielding_relaxation_rate",
+      "value": 0.45
+    }
+  ],
+  "benchmark_output": "dC1_dt",
+  "benchmark_target_state": "C1",
+  "observed_variables": [
+    "t",
+    "C1",
+    "C2",
+    "mixing_efficiency",
+    "shielding_memory"
+  ],
+  "rhs_for_integrator": "exchange_rate*mixing_efficiency*(C2 - C1)/(1 + saturation_contrast*((1 + shielding_memory)*mixing_efficiency*Abs(C2 - C1))**2 + crowding_sharpness*(saturation_contrast*((1 + shielding_memory)*mixing_efficiency*Abs(C2 - C1))**2)**2)",
+  "state_variables": [
+    "C1",
+    "C2",
+    "mixing_efficiency",
+    "shielding_memory"
+  ],
+  "state_rhs": [
+    "exchange_rate*mixing_efficiency*(C2 - C1)/(1 + saturation_contrast*((1 + shielding_memory)*mixing_efficiency*Abs(C2 - C1))**2 + crowding_sharpness*(saturation_contrast*((1 + shielding_memory)*mixing_efficiency*Abs(C2 - C1))**2)**2)",
+    "exchange_rate*mixing_efficiency*(C1 - C2)/(1 + saturation_contrast*((1 + shielding_memory)*mixing_efficiency*Abs(C2 - C1))**2 + crowding_sharpness*(saturation_contrast*((1 + shielding_memory)*mixing_efficiency*Abs(C2 - C1))**2)**2)",
+    "mixing_relaxation_rate*(mixing_baseline + contrast_mixing_coupling*Abs(C2 - C1) - mixing_efficiency)",
+    "shielding_build_rate*mixing_efficiency*Abs(C2 - C1) - shielding_relaxation_rate*shielding_memory"
+  ],
+  "initial_conditions": {
+    "C1": 1.0,
+    "C2": 0.0,
+    "mixing_efficiency": 1.0,
+    "shielding_memory": 0.0
+  },
+  "sanity_expectations": [
+    "C1(t) should decrease monotonically from 1 toward the common equilibration value while C2(t) increases monotonically from 0; because the first two RHS terms are equal and opposite, C1(t)+C2(t) should remain numerically constant at 1 throughout integration.",
+    "The scored target dC1_dt should be negative whenever C1>C2, vanish only at or near C1=C2, and its magnitude should be noticeably smaller than the unsaturated linear tendency exchange_rate*mixing_efficiency*(C2-C1) during the early high-contrast segment because the denominator exceeds 1.",
+    "mixing_efficiency should initially rise above its baseline because the driving equilibrium mixing_baseline + contrast_mixing_coupling*|C2-C1| starts at 2.0, well above the initial value 1.0; later it should relax downward as |C2-C1| shrinks.",
+    "shielding_memory should build up from 0 during early times since shielding_build_rate*mixing_efficiency*|C2-C1| initially exceeds shielding_relaxation_rate*shielding_memory, then later peak and decay as contrast diminishes.",
+    "The child mechanism should be active but not overwhelming: early high-loading points should show stronger suppression of |dC1_dt| than moderate-contrast later points, while late near-equilibrium points should approach approximately linear relaxation because the saturation variable becomes small."
+  ],
+  "role_corrections": [
+    "dC1_dt: claimed-output/target derivative -> scored derivative of dependent state C1 (confirmed by target expression; dataset dependent variable remains C1 under ODE contract)",
+    "t: claimed-input/time axis -> independent variable/time axis (confirmed)",
+    "C1: claimed-dynamic state -> dynamic state and dependent variable/target_state (confirmed)",
+    "C2: claimed-dynamic state -> dynamic state (confirmed)",
+    "mixing_efficiency: claimed-dynamic state -> dynamic state (confirmed; preserve declared V role per typed contract and freedom_change none)",
+    "shielding_memory: claimed-dynamic state -> dynamic state (confirmed; preserve declared V role per typed contract and freedom_change none)",
+    "exchange_rate: claimed-parameter -> parameter (confirmed)",
+    "saturation_contrast: claimed-parameter -> parameter (confirmed)",
+    "mixing_relaxation_rate: claimed-parameter -> parameter (confirmed)",
+    "contrast_mixing_coupling: claimed-parameter -> parameter (confirmed)",
+    "mixing_baseline: claimed-parameter -> parameter (confirmed)",
+    "crowding_sharpness: claimed-parameter -> parameter (confirmed)",
+    "shielding_build_rate: claimed-parameter -> parameter (confirmed)",
+    "shielding_relaxation_rate: claimed-parameter -> parameter (confirmed)"
+  ],
+  "rationale": "Preserved the provided ODE-system contract exactly, per instruction: target state C1, time as the only sampled axis, and all listed parameter symbols fixed once. The analyzed target expression by itself is explicit in dC1_dt, but the supplied typed contract and freedom decision define the intended data object as a coupled ODE system with dynamic states C1, C2, mixing_efficiency, and shielding_memory; these roles agree with the contract and should be preserved. Parameter values were chosen to keep the trajectory away from both trivial recovery limits and overwhelming saturation: exchange_rate=0.8 gives visible equilibration over t in [0,12]; mixing_relaxation_rate=0.7 with mixing_baseline=0.6 and contrast_mixing_coupling=1.4 lets mixing_efficiency evolve appreciably from its initial value rather than staying frozen or collapsing instantly; shielding_build_rate=0.9 and shielding_relaxation_rate=0.45 allow shielding_memory to build during early high-contrast exchange and relax later, making history dependence active on the same timescale as concentration equilibration. The saturation parameters saturation_contrast=0.8 and crowding_sharpness=0.6 make the denominator O(1) at the inherited initial loading ((1+shielding_memory)*mixing_efficiency*|C2-C1|=1 initially), so the child’s superlinear loading penalty and added crowding are visible without putting the full trajectory deep into a nearly frozen flux regime. With the inherited initial state, the observable contrast comes from reachable states along the single trajectory: early times have large |C2-C1| with low shielding_memory, mid-times combine reduced contrast with evolved mixing_efficiency and nonzero shielding_memory, and late times return toward near-linear weak-shielding behavior. No observation noise is added.",
+  "coverage_report": {},
+  "inactive_mechanisms": [],
+  "target_variance": {},
+  "parent_absorption_report": {},
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_ltMnEpBqXQ4VrV33bzHOJu4x"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "exchange_rate*mixing_efficiency*(C2 - C1)/(1 + saturation_contrast*((1 + shielding_memory)*mixing_efficiency*Abs(C2 - C1))**2 + crowding_sharpness*(saturation_contrast*((1 + shielding_memory)*mixing_efficiency*Abs(C2 - C1))**2)**2)",
+        "target_symbol": "dC1_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "C1",
+          "C2",
+          "crowding_sharpness",
+          "exchange_rate",
+          "mixing_efficiency",
+          "saturation_contrast",
+          "shielding_memory"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "exchange_rate*mixing_efficiency*(-C1 + C2)/(crowding_sharpness*(saturation_contrast*(mixing_efficiency*(shielding_memory"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_DDFnZyjDvFjKPsofqHnqgf8C"
+        },
+        {
+          "name": "check_substitution",
+          "id": "call_5DOX4llWzi1bajN39bIXY8Wz"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "exchange_rate*mixing_efficiency*(C2 - C1)/(1 + saturation_contrast*((1 + shielding_memory)*mixing_efficiency*Abs(C2 - C1))**2 + crowding_sharpness*(saturation_contrast*((1 + shielding_memory)*mixing_efficiency*Abs(C2 - C1))**2)**2)",
+        "target_symbol": "dC1_dt",
+        "assignments": {
+          "C1": 1.0,
+          "C2": 0.0,
+          "mixing_efficiency": 1.0,
+          "shielding_memory": 0.0,
+          "exchange_rate": 0.8,
+          "saturation_contrast": 0.8,
+          "crowding_sharpness": 0.6
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": -0.36630036630036633,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "exchange_rate*mixing_efficiency*(C2 - C1)/(1 + saturation_contrast*((1 + shielding_memory)*mixing_efficiency*Abs(C2 - C1))**2 + crowding_sharpness*(saturation_contrast*((1 + shielding_memory)*mixing_efficiency*Abs(C2 - C1))**2)**2)",
+        "target_symbol": "dC1_dt",
+        "assignments": {
+          "C1": 0.55,
+          "C2": 0.45,
+          "mixing_efficiency": 1.2,
+          "shielding_memory": 0.3,
+          "exchange_rate": 0.8,
+          "saturation_contrast": 0.8,
+          "crowding_sharpness": 0.6
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": -0.09414568581272624,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_nBKt0xxMuYIPEBCTxRDGzxlb"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_hq9FBvnRcvruxAUeDWpASgZs"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 4
+}

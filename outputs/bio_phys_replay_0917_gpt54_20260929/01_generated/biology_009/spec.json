@@ -1,0 +1,1712 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "p",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        12.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "selection_decay_rate",
+      "value": 0.6
+    },
+    {
+      "symbol": "selection_capacity",
+      "value": 0.5
+    },
+    {
+      "symbol": "occupancy_buildup_rate",
+      "value": 1.2
+    },
+    {
+      "symbol": "occupancy_relaxation_rate",
+      "value": 0.35
+    },
+    {
+      "symbol": "attenuation_capacity",
+      "value": 2.0
+    },
+    {
+      "symbol": "asymmetry_strength",
+      "value": 1.6
+    },
+    {
+      "symbol": "asymmetry_threshold",
+      "value": 0.3
+    },
+    {
+      "symbol": "burden_buildup_rate",
+      "value": 1.8
+    },
+    {
+      "symbol": "burden_relaxation_rate",
+      "value": 0.45
+    },
+    {
+      "symbol": "burden_half_saturation",
+      "value": 1.5
+    }
+  ],
+  "benchmark_output": "dp_dt",
+  "benchmark_target_state": "p",
+  "observed_variables": [
+    "t",
+    "p",
+    "selection_coefficient",
+    "attenuation_occupancy",
+    "delayed_burden"
+  ],
+  "rhs_for_integrator": "selection_coefficient*p*(1 - p)*(1 + asymmetry_strength*(1 - p)/(asymmetry_threshold + 1 - p))/(1 + delayed_burden/attenuation_capacity + (delayed_burden/attenuation_capacity)**2)",
+  "state_variables": [
+    "p",
+    "selection_coefficient",
+    "attenuation_occupancy",
+    "delayed_burden"
+  ],
+  "state_rhs": [
+    "selection_coefficient*p*(1 - p)*(1 + asymmetry_strength*(1 - p)/(asymmetry_threshold + 1 - p))/(1 + delayed_burden/attenuation_capacity + (delayed_burden/attenuation_capacity)**2)",
+    "-selection_decay_rate*selection_coefficient/(selection_capacity + selection_coefficient)",
+    "occupancy_buildup_rate*p - occupancy_relaxation_rate*attenuation_occupancy",
+    "burden_buildup_rate*attenuation_occupancy/(burden_half_saturation + attenuation_occupancy) - burden_relaxation_rate*delayed_burden"
+  ],
+  "initial_conditions": {
+    "p": 0.5,
+    "selection_coefficient": 1.0,
+    "attenuation_occupancy": 1.0,
+    "delayed_burden": 0.0
+  },
+  "sanity_expectations": [
+    "All four states remain real and finite over t in [0,12] with the chosen parameters.",
+    "p(t) should stay within [0,1] and increase initially from p(0)=0.5 because the initial realized gain is positive.",
+    "selection_coefficient(t) should decrease monotonically from 1.0 because its RHS is strictly negative for positive selection_coefficient.",
+    "attenuation_occupancy(t) should rise initially since occupancy_buildup_rate*p(0)=0.6 exceeds occupancy_relaxation_rate*attenuation_occupancy(0)=0.35.",
+    "delayed_burden(t) should increase from 0 after an initial lag because occupancy is positive and burden_buildup_rate*attenuation_occupancy/(burden_half_saturation+attenuation_occupancy) initially exceeds burden relaxation.",
+    "The realized attenuation acting on dp/dt should be weak near t=0 because delayed_burden(0)=0, then strengthen later as delayed_burden accumulates, producing extra late slowdown beyond what selection decay alone would cause.",
+    "Because asymmetry_strength>0, the frequency kernel multiplying selection_coefficient is asymmetric in p rather than exactly p*(1-p); if trajectories sample interior p values, the strongest instantaneous gain need not occur exactly at p=0.5."
+  ],
+  "role_corrections": [
+    "dp_dt: claimed-output/target derivative -> derivative label only (confirmed structurally as the named rate, but dependent variable for the ODE system is p per supplied contract)",
+    "t: claimed-input/time axis -> independent variable/time axis (confirmed)",
+    "p: claimed-dynamic state -> dependent variable and dynamic state (confirmed)",
+    "selection_coefficient: claimed-dynamic state -> dynamic state (confirmed under preserved typed ODE contract)",
+    "attenuation_occupancy: claimed-dynamic state -> dynamic state (confirmed under preserved typed ODE contract)",
+    "delayed_burden: claimed-dynamic state -> dynamic state (confirmed under preserved typed ODE contract)",
+    "selection_decay_rate: claimed-parameter -> parameter (confirmed)",
+    "selection_capacity: claimed-parameter -> parameter (confirmed)",
+    "occupancy_buildup_rate: claimed-parameter -> parameter (confirmed)",
+    "occupancy_relaxation_rate: claimed-parameter -> parameter (confirmed)",
+    "attenuation_capacity: claimed-parameter -> parameter (confirmed)",
+    "asymmetry_strength: claimed-parameter -> parameter (confirmed)",
+    "asymmetry_threshold: claimed-parameter -> parameter (confirmed)",
+    "burden_buildup_rate: claimed-parameter -> parameter (confirmed)",
+    "burden_relaxation_rate: claimed-parameter -> parameter (confirmed)",
+    "burden_half_saturation: claimed-parameter -> parameter (confirmed)"
+  ],
+  "rationale": "Preserving the supplied ODE-system contract exactly, the dataset should sample only time and integrate the 4-state system with one shared biologically admissible parameter set. The chosen values keep all rates nonnegative, avoid singularities, and place the system away from both the parent-recovery limits and deep immediate saturation. With p(0)=0.5 and selection_coefficient(0)=1, allele gain is initially substantial; selection then decays on an observable timescale because selection_decay_rate is comparable to the experiment duration and selection_capacity is moderate. Occupancy is generated fast enough from p to rise early, but its direct state is no longer in the p-equation; instead delayed_burden is built from occupancy through a saturating law and relaxes more slowly than occupancy, creating the intended two-timescale memory effect. attenuation_capacity=2 keeps delayed_burden/attenuation_capacity in an order-1 regime over reachable trajectories, so the quadratic attenuation term matters without crushing dp/dt to near zero throughout. asymmetry_strength=1.6 and asymmetry_threshold=0.3 make the competitor-dependent amplification visible over the interior p range while remaining finite and positive. The selected burden parameters expose the generation-5 contrast specifically: early in the run attenuation is weak because delayed_burden starts at 0 even though attenuation_occupancy already starts at 1, whereas later the accumulated burden suppresses p more strongly after occupancy history has had time to act. Weak/inactive note: because this spec preserves the inherited initial condition delayed_burden(0)=0, the burden effect is absent exactly at t=0 and must emerge dynamically; this is a real limitation of the inherited contract, not repaired here.",
+  "coverage_report": {
+    "groups": [
+      {
+        "generation": 1,
+        "name": "genic_drive",
+        "expression": "p*(1 - p)",
+        "role": "baseline frequency-limitation factor from haploid selection",
+        "train_range": [
+          0.10607163145199183,
+          0.25
+        ],
+        "hidden_range": [
+          0.10607130704491308,
+          0.10607162667286184
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.10607163145199183,
+          "max": 0.25,
+          "q05": 0.10607202251648697,
+          "median": 0.10638990221997946,
+          "q95": 0.21062843138478476,
+          "range": 0.14392836854800817,
+          "robust_range": 0.1045564088682978
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.10607130704491308,
+          "max": 0.10607162667286184,
+          "q05": 0.10607131445626129,
+          "median": 0.10607141167454742,
+          "q95": 0.10607159756643186,
+          "range": 3.196279487610587e-07,
+          "robust_range": 2.8311017057081056e-07
+        }
+      },
+      {
+        "generation": 1,
+        "name": "selection_flux",
+        "expression": "selection_coefficient*p*(1 - p)",
+        "role": "instantaneous selective increase under the parent law",
+        "train_range": [
+          1.8438116204386731e-06,
+          0.25
+        ],
+        "hidden_range": [
+          4.3686435782441975e-07,
+          1.8231853448068948e-06
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 1.8438116204386731e-06,
+          "max": 0.25,
+          "q05": 3.525000906133742e-06,
+          "median": 0.0011794824339643082,
+          "q95": 0.16689915625888832,
+          "range": 0.24999815618837956,
+          "robust_range": 0.16689563125798218
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 4.3686435782441975e-07,
+          "max": 1.8231853448068948e-06,
+          "q05": 4.692207094221789e-07,
+          "median": 8.924733627004188e-07,
+          "q95": 1.6975132538806103e-06,
+          "range": 1.386320986982475e-06,
+          "robust_range": 1.2282925444584314e-06
+        }
+      },
+      {
+        "generation": 2,
+        "name": "logistic_kernel",
+        "expression": "p*(1 - p)",
+        "role": "Parent frequency-limitation factor from allele scarcity at either boundary",
+        "train_range": [
+          0.10607163145199183,
+          0.25
+        ],
+        "hidden_range": [
+          0.10607130704491308,
+          0.10607162667286184
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.10607163145199183,
+          "max": 0.25,
+          "q05": 0.10607202251648697,
+          "median": 0.10638990221997946,
+          "q95": 0.21062843138478476,
+          "range": 0.14392836854800817,
+          "robust_range": 0.1045564088682978
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.10607130704491308,
+          "max": 0.10607162667286184,
+          "q05": 0.10607131445626129,
+          "median": 0.10607141167454742,
+          "q95": 0.10607159756643186,
+          "range": 3.196279487610587e-07,
+          "robust_range": 2.8311017057081056e-07
+        }
+      },
+      {
+        "generation": 2,
+        "name": "selection_drive",
+        "expression": "selection_coefficient*p*(1 - p)",
+        "role": "Current target mapping from observed state to allele-frequency change",
+        "train_range": [
+          1.8438116204386731e-06,
+          0.25
+        ],
+        "hidden_range": [
+          4.3686435782441975e-07,
+          1.8231853448068948e-06
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 1.8438116204386731e-06,
+          "max": 0.25,
+          "q05": 3.525000906133742e-06,
+          "median": 0.0011794824339643082,
+          "q95": 0.16689915625888832,
+          "range": 0.24999815618837956,
+          "robust_range": 0.16689563125798218
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 4.3686435782441975e-07,
+          "max": 1.8231853448068948e-06,
+          "q05": 4.692207094221789e-07,
+          "median": 8.924733627004188e-07,
+          "q95": 1.6975132538806103e-06,
+          "range": 1.386320986982475e-06,
+          "robust_range": 1.2282925444584314e-06
+        }
+      },
+      {
+        "generation": 2,
+        "name": "high_frequency_load",
+        "expression": "p",
+        "role": "Coordinate along which a nonlinear realization of selection can bend the parent symmetric response",
+        "train_range": [
+          0.5,
+          0.8793789247546682
+        ],
+        "hidden_range": [
+          0.8793789310532916,
+          0.8793793523046384
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.5,
+          "max": 0.8793789247546682,
+          "q05": 0.6984074819942786,
+          "median": 0.8789592296342081,
+          "q95": 0.879378409353396,
+          "range": 0.37937892475466817,
+          "robust_range": 0.18097092735911735
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.8793789310532916,
+          "max": 0.8793793523046384,
+          "q05": 0.8793789694139201,
+          "median": 0.8793792144088188,
+          "q95": 0.8793793425369109,
+          "range": 4.212513468049295e-07,
+          "robust_range": 3.731229907266709e-07
+        }
+      },
+      {
+        "generation": 3,
+        "name": "occupancy_load",
+        "expression": "attenuation_occupancy/attenuation_capacity",
+        "role": "Dimensionless attenuation burden controlling realized selection suppression",
+        "train_range": [
+          0.5,
+          1.479097597285967
+        ],
+        "hidden_range": [
+          1.4791906620012825,
+          1.4888407624219713
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.5,
+          "max": 1.479097597285967,
+          "q05": 0.5951353131557373,
+          "median": 1.3197291168195249,
+          "q95": 1.4731872001058484,
+          "range": 0.979097597285967,
+          "robust_range": 0.878051886950111
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 1.4791906620012825,
+          "max": 1.4888407624219713,
+          "q05": 1.4797745166820884,
+          "median": 1.484516507409623,
+          "q95": 1.488447720855074,
+          "range": 0.009650100420688812,
+          "robust_range": 0.00867320417298556
+        }
+      },
+      {
+        "generation": 3,
+        "name": "logistic_drive",
+        "expression": "p*(1 - p)",
+        "role": "Baseline allele-frequency opportunity for deterministic viability-driven change",
+        "train_range": [
+          0.10607163145199183,
+          0.25
+        ],
+        "hidden_range": [
+          0.10607130704491308,
+          0.10607162667286184
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.10607163145199183,
+          "max": 0.25,
+          "q05": 0.10607202251648697,
+          "median": 0.10638990221997946,
+          "q95": 0.21062843138478476,
+          "range": 0.14392836854800817,
+          "robust_range": 0.1045564088682978
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.10607130704491308,
+          "max": 0.10607162667286184,
+          "q05": 0.10607131445626129,
+          "median": 0.10607141167454742,
+          "q95": 0.10607159756643186,
+          "range": 3.196279487610587e-07,
+          "robust_range": 2.8311017057081056e-07
+        }
+      },
+      {
+        "generation": 3,
+        "name": "effective_drive_parent",
+        "expression": "selection_coefficient*p*(1 - p)/(1 + attenuation_occupancy/attenuation_capacity)",
+        "role": "Parent target mapping from current states to allele-frequency change",
+        "train_range": [
+          7.437430549153113e-07,
+          0.16666666666666666
+        ],
+        "hidden_range": [
+          1.7552925218055852e-07,
+          7.353953742852359e-07
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 7.437430549153113e-07,
+          "max": 0.16666666666666666,
+          "q05": 1.4252875922179918e-06,
+          "median": 0.0005084604081061682,
+          "q95": 0.10463157587480473,
+          "range": 0.16666592292361174,
+          "robust_range": 0.10463015058721252
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 1.7552925218055852e-07,
+          "max": 7.353953742852359e-07,
+          "q05": 1.8855961320899446e-07,
+          "median": 3.592141313849537e-07,
+          "q95": 6.845434542733983e-07,
+          "range": 5.598661221046775e-07,
+          "robust_range": 4.959838410644038e-07
+        }
+      },
+      {
+        "generation": 4,
+        "name": "attenuation_ratio",
+        "expression": "attenuation_occupancy/attenuation_capacity",
+        "role": "Dimensionless crowding or occupancy load controlling attenuation strength",
+        "train_range": [
+          0.5,
+          1.479097597285967
+        ],
+        "hidden_range": [
+          1.4791906620012825,
+          1.4888407624219713
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.5,
+          "max": 1.479097597285967,
+          "q05": 0.5951353131557373,
+          "median": 1.3197291168195249,
+          "q95": 1.4731872001058484,
+          "range": 0.979097597285967,
+          "robust_range": 0.878051886950111
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 1.4791906620012825,
+          "max": 1.4888407624219713,
+          "q05": 1.4797745166820884,
+          "median": 1.484516507409623,
+          "q95": 1.488447720855074,
+          "range": 0.009650100420688812,
+          "robust_range": 0.00867320417298556
+        }
+      },
+      {
+        "generation": 4,
+        "name": "realized_gain_scale",
+        "expression": "selection_coefficient/(1 + attenuation_occupancy/attenuation_capacity + (attenuation_occupancy/attenuation_capacity)**2)",
+        "role": "Instantaneous positive gain prefactor multiplying the frequency kernel",
+        "train_range": [
+          3.7247366255895526e-06,
+          0.5714285714285714
+        ],
+        "hidden_range": [
+          8.752740685405947e-07,
+          3.6827783609257706e-06
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 3.7247366255895526e-06,
+          "max": 0.5714285714285714,
+          "q05": 7.1567608021636516e-06,
+          "median": 0.0027297292372121104,
+          "q95": 0.4064906115491129,
+          "range": 0.5714248466919458,
+          "robust_range": 0.40648345478831077
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 8.752740685405947e-07,
+          "max": 3.6827783609257706e-06,
+          "q05": 9.404137112373565e-07,
+          "median": 1.7946553747208132e-06,
+          "q95": 3.4272288608577344e-06,
+          "range": 2.807504292385176e-06,
+          "robust_range": 2.486815149620378e-06
+        }
+      },
+      {
+        "generation": 5,
+        "name": "comp_freq",
+        "expression": "1 - p",
+        "role": "Available competitor frequency driving the existing asymmetric amplification",
+        "train_range": [
+          0.12062107524533183,
+          0.5
+        ],
+        "hidden_range": [
+          0.12062064769536163,
+          0.12062106894670843
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.12062107524533183,
+          "max": 0.5,
+          "q05": 0.12062159064660405,
+          "median": 0.12104077036579186,
+          "q95": 0.3015925180057212,
+          "range": 0.37937892475466817,
+          "robust_range": 0.18097092735911713
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.12062064769536163,
+          "max": 0.12062106894670843,
+          "q05": 0.12062065746308917,
+          "median": 0.12062078559118111,
+          "q95": 0.1206210305860799,
+          "range": 4.212513468049295e-07,
+          "robust_range": 3.731229907266709e-07
+        }
+      },
+      {
+        "generation": 5,
+        "name": "occ_load",
+        "expression": "attenuation_occupancy/attenuation_capacity",
+        "role": "Current normalized occupancy in the parent instantaneous attenuation channel",
+        "train_range": [
+          0.5,
+          1.479097597285967
+        ],
+        "hidden_range": [
+          1.4791906620012825,
+          1.4888407624219713
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.5,
+          "max": 1.479097597285967,
+          "q05": 0.5951353131557373,
+          "median": 1.3197291168195249,
+          "q95": 1.4731872001058484,
+          "range": 0.979097597285967,
+          "robust_range": 0.878051886950111
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 1.4791906620012825,
+          "max": 1.4888407624219713,
+          "q05": 1.4797745166820884,
+          "median": 1.484516507409623,
+          "q95": 1.488447720855074,
+          "range": 0.009650100420688812,
+          "robust_range": 0.00867320417298556
+        }
+      },
+      {
+        "generation": 5,
+        "name": "sel_flux",
+        "expression": "selection_coefficient*p*(1 - p)*(1 + asymmetry_strength*(1 - p)/(asymmetry_threshold + 1 - p))",
+        "role": "Unattenuated selection-driven allele-frequency gain before occupancy suppression",
+        "train_range": [
+          2.68980837446221e-06,
+          0.5
+        ],
+        "hidden_range": [
+          6.373104827002085e-07,
+          2.659718106151547e-06
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 2.68980837446221e-06,
+          "max": 0.5,
+          "q05": 5.142383279995976e-06,
+          "median": 0.0017220068674159805,
+          "q95": 0.3007747946870442,
+          "range": 0.4999973101916255,
+          "robust_range": 0.30076965230376423
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 6.373104827002085e-07,
+          "max": 2.659718106151547e-06,
+          "q05": 6.845128857352709e-07,
+          "median": 1.3019665378216745e-06,
+          "q95": 2.4763836697485087e-06,
+          "range": 2.0224076234513382e-06,
+          "robust_range": 1.791870784013238e-06
+        }
+      }
+    ],
+    "inactive_mechanisms": [],
+    "visible_mechanisms": [
+      "genic_drive",
+      "selection_flux",
+      "logistic_kernel",
+      "selection_drive",
+      "high_frequency_load",
+      "occupancy_load",
+      "logistic_drive",
+      "effective_drive_parent",
+      "attenuation_ratio",
+      "realized_gain_scale",
+      "comp_freq",
+      "occ_load",
+      "sel_flux"
+    ],
+    "extended_mechanisms": [
+      "genic_drive",
+      "selection_flux",
+      "logistic_kernel",
+      "selection_drive",
+      "high_frequency_load",
+      "occupancy_load",
+      "logistic_drive",
+      "effective_drive_parent",
+      "attenuation_ratio",
+      "realized_gain_scale",
+      "comp_freq",
+      "occ_load",
+      "sel_flux"
+    ]
+  },
+  "inactive_mechanisms": [],
+  "target_variance": {
+    "train": {
+      "n": 384,
+      "variance": 0.008049795439666663,
+      "range": 0.49999932433125066
+    },
+    "hidden": {
+      "n": 128,
+      "variance": 2.1313126647360885e-14,
+      "range": 5.098176479168267e-07
+    }
+  },
+  "parent_absorption_report": {
+    "status": "ok",
+    "n_points": 512,
+    "fixed_parent_normalized_rmse": 605.5742838642765,
+    "refit": {
+      "status": "not_run",
+      "reason": "no free parent parameters"
+    },
+    "interpretation": "<1e-3 nearly absorbed; 1e-3..1e-2 weak; >1e-2 visible structure"
+  },
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_QZp1dUFnGj6ol5EdKzkgbzID"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "selection_coefficient*p*(1 - p)*(1 + asymmetry_strength*(1 - p)/(asymmetry_threshold + 1 - p))/(1 + delayed_burden/attenuation_capacity + (delayed_burden/attenuation_capacity)**2)",
+        "target_symbol": "dp_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "asymmetry_strength",
+          "asymmetry_threshold",
+          "attenuation_capacity",
+          "delayed_burden",
+          "p",
+          "selection_coefficient"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "p*selection_coefficient*(1 - p)*(asymmetry_strength*(1 - p)/(asymmetry_threshold - p + 1) + 1)/((delayed_burden/attenuat"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_TtttNdXp4SdGHjMI0n9UUDjz"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "selection_coefficient*p*(1 - p)*(1 + asymmetry_strength*(1 - p)/(asymmetry_threshold + 1 - p))/(1 + delayed_burden/attenuation_capacity + (delayed_burden/attenuation_capacity)**2)",
+        "target_symbol": "dp_dt",
+        "assignments": {
+          "p": 0.5,
+          "selection_coefficient": 1.0,
+          "delayed_burden": 1.0,
+          "attenuation_capacity": 2.0,
+          "asymmetry_strength": 1.5,
+          "asymmetry_threshold": 0.3
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": 0.27678571428571425,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_qIt6iDKbU874N2DXzMd2gHDP"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_0tScxIAZPqIWCpNTVAc3grbO"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 4,
+  "discipline": "biology",
+  "scenario_text": "Consider a large haploid population with two alleles at one locus, where one allele has a fixed viability advantage. Track how the favored allele frequency changes continuously over time from different initial frequencies. Mutation, migration, recombination, and random sampling are absent, so directional selection is the sole driver of change.",
+  "record_id": "m2_genetics_and_population_genetics_20260917_000",
+  "generation": 5,
+  "_n_total": 5000,
+  "mechanism_observation_history": [
+    {
+      "generation": 1,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "With one constant selection_coefficient, dp_dt is a fixed logistic function of p, symmetric about p=0.5 up to a global gain and with a single invariant saturation scale set only by p(1-p).",
+          "child_relation": "Let selection_coefficient relax over time as the selective environment is depleted or adaptation saturates, so dp_dt depends on both p and the evolving strength of selection; the p-to-dp_dt relation bends over during a trajectory rather than remaining a single shared logistic shape.",
+          "affected_inputs": [
+            "p",
+            "selection_coefficient"
+          ],
+          "observable_effect": "For trajectories started at the same initial p but observed over longer time windows, the favored allele initially rises nearly as in the parent but later slows more than any single constant-coefficient logistic law predicts, producing reduced late-time slope and altered cumulative curvature."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "genic_drive",
+            "expression": "p*(1 - p)",
+            "role": "baseline frequency-limitation factor from haploid selection"
+          },
+          {
+            "name": "selection_flux",
+            "expression": "selection_coefficient*p*(1 - p)",
+            "role": "instantaneous selective increase under the parent law"
+          }
+        ],
+        "activation_condition": "Observable when selective advantage is not sustained indefinitely on the observation timescale, so the characteristic decay time of effective selection is comparable to or shorter than the time required for substantial allele-frequency change; if selection remains effectively constant over the whole experiment, the refinement is not distinguishable.",
+        "train_hidden_contrast": "In training, moderate-time trajectories would already show slight deviation from a single shared logistic gain; in holdout, longer observation windows or stronger initial selection expose a clearer late-time slowdown from the same depletion mechanism.",
+        "continuation_path": "Recover the parent by taking the relaxation timescale of selection to infinity, so effective selection remains constant during the experiment.",
+        "freedom_change": "parameter_to_state",
+        "promoted_symbol": "selection_coefficient",
+        "promotion_reason": "A fixed parameter cannot represent time-dependent erosion of selective advantage within a trajectory. Promoting selection_coefficient to a state is the minimal way to retain the same biological quantity while allowing sustained directional selection to weaken dynamically.",
+        "gap_statement": "The model assumes the viability advantage is perfectly constant through time, omitting realistic temporal relaxation of the selective differential as the ecological or physiological basis of the advantage is exhausted or saturates.",
+        "baseline_assumption": "The selective advantage is positive and constant through time.",
+        "scientific_mechanism": "Time-dependent decay of effective viability selection due to environmental depletion, diminishing resource contrast, or saturation of the advantage-conferring context.",
+        "affected_symbols": [
+          "p",
+          "selection_coefficient"
+        ],
+        "rationale": "The parent target mapping is shortcut by a fixed_environment assumption: once selection_coefficient is set, every trajectory has the same logistic shape in p and differs only by overall timescale. A realistic next refinement is to relax that assumption and let the effective selective advantage decay during the run. Vary the observation window length or, equivalently, compare early versus late portions of trajectories while holding the initial allele frequency fixed at the stated contract and using one shared parameter set across all runs. The parent predicts that the per-capita growth ratio dp_dt/(p(1-p)) is constant in time for all trajectories. The child predicts that this ratio declines over time, so late-time approach toward fixation is slower than the early-time gain would imply. This is a changed target mapping for dp_dt itself, not merely an auxiliary hidden trajectory, because the scored derivative of p changes at the same observed p depending on the history/time through the evolving selection strength. The effect is admissible so long as selection remains nonnegative and decays on an observable timescale; if decay is extremely slow, the parent is approximately recovered. A single refitted constant selection_coefficient cannot reproduce both the early fast rise and the later extra slowdown across such conditions, because it enforces one time-invariant logistic curvature throughout each trajectory."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "With one constant selection_coefficient, dp_dt is a fixed logistic function of p, symmetric about p=0.5 up to a global gain and with a single invariant saturation scale set only by p(1-p).",
+          "child_relation": "Let selection_coefficient relax over time as the selective environment is depleted or adaptation saturates, so dp_dt depends on both p and the evolving strength of selection; the p-to-dp_dt relation bends over during a trajectory rather than remaining a single shared logistic shape.",
+          "affected_inputs": [
+            "p",
+            "selection_coefficient"
+          ],
+          "observable_effect": "For trajectories started at the same initial p but observed over longer time windows, the favored allele initially rises nearly as in the parent but later slows more than any single constant-coefficient logistic law predicts, producing reduced late-time slope and altered cumulative curvature."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "genic_drive",
+            "expression": "p*(1 - p)",
+            "role": "baseline frequency-limitation factor from haploid selection"
+          },
+          {
+            "name": "selection_flux",
+            "expression": "selection_coefficient*p*(1 - p)",
+            "role": "instantaneous selective increase under the parent law"
+          }
+        ],
+        "activation_condition": "Observable when selective advantage is not sustained indefinitely on the observation timescale, so the characteristic decay time of effective selection is comparable to or shorter than the time required for substantial allele-frequency change; if selection remains effectively constant over the whole experiment, the refinement is not distinguishable.",
+        "train_hidden_contrast": "In training, moderate-time trajectories would already show slight deviation from a single shared logistic gain; in holdout, longer observation windows or stronger initial selection expose a clearer late-time slowdown from the same depletion mechanism.",
+        "continuation_path": "Recover the parent by taking the relaxation timescale of selection to infinity, so effective selection remains constant during the experiment.",
+        "freedom_change": "parameter_to_state",
+        "promoted_symbol": "selection_coefficient",
+        "promotion_reason": "A fixed parameter cannot represent time-dependent erosion of selective advantage within a trajectory. Promoting selection_coefficient to a state is the minimal way to retain the same biological quantity while allowing sustained directional selection to weaken dynamically.",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "p",
+          "selection_coefficient"
+        ],
+        "structural_role": "timescale",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "decaying effective selection strength",
+        "scientific_mechanism": "Time-dependent decay of effective viability selection due to environmental depletion, diminishing resource contrast, or saturation of the advantage-conferring context.",
+        "embedding_pattern": "saturating_or_thresholded",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the scored dp_dt keeps the same formal genic factor but is modulated by a hidden state with its own saturating relaxation, so the same observed p can map to different dp_dt at different times within one shared parameterization.",
+        "taxonomy_match": "known",
+        "assumption_before": "The selective advantage is positive and constant through time.",
+        "assumption_after": "The effective selective advantage is an internal state that decays over time through a finite-capacity saturation law.",
+        "before_fragment": "selection_coefficient*p*(1 - p)",
+        "after_fragment": "selection_coefficient*p*(1 - p)",
+        "parent_reduction": "Take selection_decay_rate -> 0 so d(selection_coefficient)/dt -> 0 and the initial selection_coefficient is held constant.",
+        "observable_signature": "Holding the initial allele frequency fixed and using one shared parameter set, the parent implies dp_dt/(p*(1 - p)) is time-invariant along each trajectory, whereas the child predicts this ratio declines over time as selection_coefficient relaxes. The contrast is visible on sufficiently long trajectories or when initial selection is large enough that the decay state evolves measurably before fixation.",
+        "shortcut_blocked": "A single constant parent selection_coefficient can match either the early rise or the late slowdown but not both across trajectories observed over different time windows, because it enforces one time-invariant logistic curvature and a constant per-capita growth ratio dp_dt/(p*(1-p)). Refitting all parent parameters still leaves no mechanism for within-trajectory decay of effective selection."
+      },
+      "range_suggestions": {
+        "selection_coefficient": "nonnegative initial state; e.g. 0 to 2 as an initial effective selection scale",
+        "selection_decay_rate": "positive; e.g. 0 to 10/time-unit",
+        "selection_capacity": "positive; e.g. small to moderate positive selection scale comparable to initial selection_coefficient"
+      }
+    },
+    {
+      "generation": 2,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "At any time, dp_dt is a logistic-in-frequency product p*(1-p) scaled by a single effective selection_coefficient, so the frequency dependence is always symmetric with one fixed interior peak at p=1/2.",
+          "child_relation": "Retain positive directional selection but relax the assumption that viability advantage acts linearly in allele frequency; let the realized selection pressure depend on p through a positive saturation or crowding term, so dp_dt remains nonnegative but its frequency-response curvature and peak location shift with p.",
+          "affected_inputs": [
+            "p",
+            "selection_coefficient"
+          ],
+          "observable_effect": "Across trajectories with different observed p values while holding the same selection_coefficient trajectory fixed, the child predicts relatively weaker acceleration at high p (or, equivalently, a shifted interior maximum) than the parent's symmetric p*(1-p) law."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "logistic_kernel",
+            "expression": "p*(1 - p)",
+            "role": "Parent frequency-limitation factor from allele scarcity at either boundary"
+          },
+          {
+            "name": "selection_drive",
+            "expression": "selection_coefficient*p*(1 - p)",
+            "role": "Current target mapping from observed state to allele-frequency change"
+          },
+          {
+            "name": "high_frequency_load",
+            "expression": "p",
+            "role": "Coordinate along which a nonlinear realization of selection can bend the parent symmetric response"
+          }
+        ],
+        "activation_condition": "Observable when trajectories sample a broad interior frequency range, especially moderate-to-high p where a nonlinear realization of the selective advantage can reduce marginal gain relative to the parent while keeping dp_dt nonnegative.",
+        "train_hidden_contrast": "In training, the mechanism appears as systematic deviation from a symmetric logistic frequency response over observed p; in holdout, the same mechanism extends that deviation to later times or stronger surviving selection_coefficient values without changing sign.",
+        "continuation_path": "Recover the parent by taking the added frequency-dependent modulation to its linear or weak-effect limit so the realized advantage becomes proportional to selection_coefficient alone.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A new state is needed if the nonlinear realization of selection is interpreted as a slowly varying ecological or physiological occupancy that is built up by the favored allele and feeds back on its realized advantage; existing states alone do not represent that memory effect.",
+        "gap_statement": "The current model assumes the favored allele's viability advantage enters dp_dt as a single frequency-independent gain multiplying p*(1-p), even though the ecological realization of that advantage can saturate or be attenuated as the favored type becomes common.",
+        "baseline_assumption": "The selective advantage is positive and acts linearly on allele-frequency change at all frequencies, apart from the standard p*(1-p) scarcity factor.",
+        "scientific_mechanism": "Frequency-dependent attenuation of realized viability advantage due to self-limiting ecological context, such as crowding among favored carriers or saturation of the beneficial resource contrast they exploit.",
+        "affected_symbols": [
+          "p",
+          "selection_coefficient"
+        ],
+        "rationale": "A realistic next refinement is to relax the parent's fixed-gain assumption for how selection_coefficient maps into dp_dt. The parent response is selection_coefficient times a symmetric logistic kernel, so for one shared parameterization it enforces the same curvature and peak location in p across all observed times. A child with frequency-dependent attenuation of realized selection changes the target mapping itself, not just an auxiliary trajectory: for the same observed p and selection_coefficient, dp_dt bends downward more strongly at larger p than the parent predicts. The varied condition is allele frequency along observed trajectories; what is held fixed is the same selection_coefficient trajectory or comparable instantaneous values of selection_coefficient. The qualitative contrast is that the parent always has a symmetric interior response with maximum at p=1/2, whereas the child can shift that peak or flatten the high-p side while preserving nonnegative change and invariant boundaries. This is scientifically admissible when favored carriers begin to dominate the ecological context that created their advantage. If the added mechanism is implemented with negligible strength, or if data only cover a narrow band near p=1/2, the contrast may be weak; otherwise one shared refit of the parent cannot reproduce a systematic p-dependent curvature change because its only frequency dependence is the fixed kernel p*(1-p)."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "At any time, dp_dt is a logistic-in-frequency product p*(1-p) scaled by a single effective selection_coefficient, so the frequency dependence is always symmetric with one fixed interior peak at p=1/2.",
+          "child_relation": "Retain positive directional selection but relax the assumption that viability advantage acts linearly in allele frequency; let the realized selection pressure depend on p through a positive saturation or crowding term, so dp_dt remains nonnegative but its frequency-response curvature and peak location shift with p.",
+          "affected_inputs": [
+            "p",
+            "selection_coefficient"
+          ],
+          "observable_effect": "Across trajectories with different observed p values while holding the same selection_coefficient trajectory fixed, the child predicts relatively weaker acceleration at high p (or, equivalently, a shifted interior maximum) than the parent's symmetric p*(1-p) law."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "logistic_kernel",
+            "expression": "p*(1 - p)",
+            "role": "Parent frequency-limitation factor from allele scarcity at either boundary"
+          },
+          {
+            "name": "selection_drive",
+            "expression": "selection_coefficient*p*(1 - p)",
+            "role": "Current target mapping from observed state to allele-frequency change"
+          },
+          {
+            "name": "high_frequency_load",
+            "expression": "p",
+            "role": "Coordinate along which a nonlinear realization of selection can bend the parent symmetric response"
+          }
+        ],
+        "activation_condition": "Observable when trajectories sample a broad interior frequency range, especially moderate-to-high p where a nonlinear realization of the selective advantage can reduce marginal gain relative to the parent while keeping dp_dt nonnegative.",
+        "train_hidden_contrast": "In training, the mechanism appears as systematic deviation from a symmetric logistic frequency response over observed p; in holdout, the same mechanism extends that deviation to later times or stronger surviving selection_coefficient values without changing sign.",
+        "continuation_path": "Recover the parent by taking the added frequency-dependent modulation to its linear or weak-effect limit so the realized advantage becomes proportional to selection_coefficient alone.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A new state is needed if the nonlinear realization of selection is interpreted as a slowly varying ecological or physiological occupancy that is built up by the favored allele and feeds back on its realized advantage; existing states alone do not represent that memory effect.",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "p",
+          "selection_coefficient",
+          "attenuation_occupancy"
+        ],
+        "structural_role": "feedback",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Self-limiting ecological occupancy attenuating realized viability selection",
+        "scientific_mechanism": "Frequency-dependent attenuation of realized viability advantage due to self-limiting ecological context, such as crowding among favored carriers or saturation of the beneficial resource contrast they exploit.",
+        "embedding_pattern": "saturating_or_thresholded",
+        "difficulty_rationale": "This embedding is structurally harder than a coefficient-only correction because the attenuation is a dynamic finite-capacity state coupled to p, so the same instantaneous selection_coefficient can map to different dp_dt depending on occupancy history. That changes the target law itself through a saturating denominator rather than just retuning a shared gain.",
+        "taxonomy_match": "known",
+        "assumption_before": "The selective advantage is positive and acts linearly on allele-frequency change at all frequencies, apart from the standard p*(1-p) scarcity factor.",
+        "assumption_after": "The realized viability advantage is attenuated by a finite-capacity occupancy state generated by favored carriers, so selection remains positive but saturates downward as that occupancy accumulates.",
+        "before_fragment": "selection_coefficient*p*(1 - p)",
+        "after_fragment": "selection_coefficient*p*(1 - p)/(1 + attenuation_occupancy/attenuation_capacity)",
+        "parent_reduction": "The parent is recovered when attenuation_occupancy stays negligible relative to attenuation_capacity, including the large-capacity limit or weak-build/fast-relaxation occupancy dynamics.",
+        "observable_signature": "Across observed trajectories sampling broad interior p, especially sustained moderate-to-high p, the same instantaneous selection_coefficient can produce lower dp_dt after occupancy has accumulated, flattening the high-p side relative to the parent's symmetric p*(1-p) response while keeping dp_dt nonnegative.",
+        "shortcut_blocked": "A single parent parameter set cannot reproduce this contrast across those conditions because its target mapping is always exactly selection_coefficient times p*(1-p), which fixes the curvature and peak location in p once selection_coefficient is given. Refitting selection_decay_rate and selection_capacity only alters the auxiliary selection_coefficient trajectory and cannot create occupancy-history-dependent attenuation of dp_dt at the same observed p and selection_coefficient."
+      },
+      "range_suggestions": {
+        "attenuation_occupancy": "nonnegative initial state; e.g. 0 to 2",
+        "occupancy_buildup_rate": "positive; e.g. 0 to 10/time-unit",
+        "occupancy_relaxation_rate": "positive; e.g. 0 to 10/time-unit",
+        "attenuation_capacity": "positive; e.g. 0.01 to 10"
+      }
+    },
+    {
+      "generation": 3,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "At fixed selection_coefficient, dp_dt increases approximately linearly with p at low favored-allele frequency and is attenuated only by the accumulated occupancy term through a first-order factor 1/(1 + attenuation_occupancy/attenuation_capacity).",
+          "child_relation": "Keep the same states but relax the assumption that attenuation is first-order: realized selection falls with a steeper saturating dependence on attenuation_occupancy, so the p-to-dp_dt mapping bends downward more strongly once occupancy becomes comparable to attenuation_capacity.",
+          "affected_inputs": [
+            "p",
+            "attenuation_occupancy",
+            "attenuation_capacity"
+          ],
+          "observable_effect": "Across trajectories or times with matched p and selection_coefficient but different attenuation_occupancy, the decline in dp_dt with occupancy is weak-to-moderate in the parent and sharply compressed after occupancy approaches capacity in the child."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "occupancy_load",
+            "expression": "attenuation_occupancy/attenuation_capacity",
+            "role": "Dimensionless attenuation burden controlling realized selection suppression"
+          },
+          {
+            "name": "logistic_drive",
+            "expression": "p*(1 - p)",
+            "role": "Baseline allele-frequency opportunity for deterministic viability-driven change"
+          },
+          {
+            "name": "effective_drive_parent",
+            "expression": "selection_coefficient*p*(1 - p)/(1 + attenuation_occupancy/attenuation_capacity)",
+            "role": "Parent target mapping from current states to allele-frequency change"
+          }
+        ],
+        "activation_condition": "Observable when attenuation_occupancy is driven into the same order as or above attenuation_capacity by sustained occupancy buildup, while p remains in the interior (not near 0 or 1) so logistic limitation does not dominate.",
+        "train_hidden_contrast": "In training, modest occupancy already causes some attenuation; in holdout, larger occupancy_load reveals the stronger downward bending of dp_dt that a first-order attenuation law cannot match with one shared parameter set across both low- and high-load regimes.",
+        "continuation_path": "Recover the parent law in the limit where the generalized attenuation nonlinearity reduces to first-order attenuation, or whenever occupancy_load << 1 so both laws agree to leading order.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The current model assumes attenuation of the viability advantage is a simple first-order hyperbolic function of occupancy, which can be too weak when self-limiting ecological or physiological crowding compounds at high favored-carrier occupancy.",
+        "baseline_assumption": "Occupancy attenuates realized selection through a single linear loading term in the denominator.",
+        "scientific_mechanism": "Compounding crowding or saturation among favored carriers causes superlinear loss of realized viability benefit once occupancy accumulates, without changing the sign of selection or adding new evolutionary forces.",
+        "affected_symbols": [
+          "p",
+          "attenuation_occupancy",
+          "attenuation_capacity",
+          "selection_coefficient"
+        ],
+        "rationale": "A realistic next refinement is to change the mathematical form of the already present attenuation process rather than add a new process. The parent target mapping has a single-gain shortcut: for fixed selection_coefficient, p, and attenuation_capacity, dp_dt depends on attenuation_occupancy through one first-order denominator, so the occupancy effect has a fixed curvature. Vary attenuation_occupancy through its existing dynamics by comparing early versus later times, or parameter settings with different occupancy_buildup_rate and occupancy_relaxation_rate, while holding the rest of the model form fixed. Under admissible conditions where attenuation_occupancy/attenuation_capacity reaches order 1 or larger and p stays away from the boundaries, the child would predict stronger compression of dp_dt at high occupancy than the parent. This changes the scored target mapping directly because dp_dt as a function of observed states p, selection_coefficient, and attenuation_occupancy acquires different curvature, not merely different hidden auxiliary trajectories. The effect is scientifically limited if occupancy stays far below capacity throughout observation; then the parent and child are practically indistinguishable to first order."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "At fixed selection_coefficient, dp_dt increases approximately linearly with p at low favored-allele frequency and is attenuated only by the accumulated occupancy term through a first-order factor 1/(1 + attenuation_occupancy/attenuation_capacity).",
+          "child_relation": "Keep the same states but relax the assumption that attenuation is first-order: realized selection falls with a steeper saturating dependence on attenuation_occupancy, so the p-to-dp_dt mapping bends downward more strongly once occupancy becomes comparable to attenuation_capacity.",
+          "affected_inputs": [
+            "p",
+            "attenuation_occupancy",
+            "attenuation_capacity"
+          ],
+          "observable_effect": "Across trajectories or times with matched p and selection_coefficient but different attenuation_occupancy, the decline in dp_dt with occupancy is weak-to-moderate in the parent and sharply compressed after occupancy approaches capacity in the child."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "occupancy_load",
+            "expression": "attenuation_occupancy/attenuation_capacity",
+            "role": "Dimensionless attenuation burden controlling realized selection suppression"
+          },
+          {
+            "name": "logistic_drive",
+            "expression": "p*(1 - p)",
+            "role": "Baseline allele-frequency opportunity for deterministic viability-driven change"
+          },
+          {
+            "name": "effective_drive_parent",
+            "expression": "selection_coefficient*p*(1 - p)/(1 + attenuation_occupancy/attenuation_capacity)",
+            "role": "Parent target mapping from current states to allele-frequency change"
+          }
+        ],
+        "activation_condition": "Observable when attenuation_occupancy is driven into the same order as or above attenuation_capacity by sustained occupancy buildup, while p remains in the interior (not near 0 or 1) so logistic limitation does not dominate.",
+        "train_hidden_contrast": "In training, modest occupancy already causes some attenuation; in holdout, larger occupancy_load reveals the stronger downward bending of dp_dt that a first-order attenuation law cannot match with one shared parameter set across both low- and high-load regimes.",
+        "continuation_path": "Recover the parent law in the limit where the generalized attenuation nonlinearity reduces to first-order attenuation, or whenever occupancy_load << 1 so both laws agree to leading order.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "p",
+          "selection_coefficient",
+          "attenuation_occupancy",
+          "attenuation_capacity"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "nonlinear occupancy attenuation of viability advantage",
+        "scientific_mechanism": "Compounding crowding or saturation among favored carriers causes superlinear loss of realized viability benefit once occupancy accumulates, without changing the sign of selection or adding new evolutionary forces.",
+        "embedding_pattern": "nested_nonlinearity",
+        "difficulty_rationale": "This embedding is harder than a coefficient-only correction because the occupancy and capacity are first combined into a dimensionless load and then passed through a nonlinear map with an added quadratic contribution, changing curvature across load regimes rather than merely rescaling amplitude.",
+        "taxonomy_match": "known",
+        "assumption_before": "Occupancy attenuates realized selection through a single linear loading term in the denominator.",
+        "assumption_after": "Attenuation reflects compounded crowding so the dimensionless occupancy load enters the realized-selection denominator with both first-order and second-order suppression.",
+        "before_fragment": "selection_coefficient*p*(1 - p)/(1 + attenuation_occupancy/attenuation_capacity)",
+        "after_fragment": "selection_coefficient*p*(1 - p)/(1 + attenuation_occupancy/attenuation_capacity + (attenuation_occupancy/attenuation_capacity)**2)",
+        "parent_reduction": "For attenuation_occupancy/attenuation_capacity << 1, the added quadratic term is subleading and the child approaches the parent attenuation law to leading order.",
+        "observable_signature": "When p and selection_coefficient are matched and attenuation_occupancy varies through order-1 multiples of attenuation_capacity, the child predicts nearly parent-like behavior at low occupancy_load but a stronger-than-hyperbolic drop in dp_dt at higher occupancy_load; this is a changed target mapping, not only changed auxiliary trajectories.",
+        "shortcut_blocked": "A single refit of the parent parameters cannot reproduce both the low-load near-parent slope and the high-load stronger suppression because the parent denominator is affine in occupancy_load, giving one fixed curvature class. Retuning selection_coefficient or attenuation_capacity only rescales where attenuation acts, but cannot create the child’s extra downward bending across both modest and large occupancy_load conditions with one shared parameter set."
+      },
+      "range_suggestions": {}
+    },
+    {
+      "generation": 4,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "With selection_coefficient and attenuation_occupancy fixed at an observed instant, dp_dt is a symmetric logistic-like function of p proportional to p*(1-p), so the rise rate always has a single peak at p=1/2 and equal local slopes at complementary frequencies p and 1-p.",
+          "child_relation": "Relax the symmetric viability kernel so that the favored allele's gain per unit time remains nonnegative but becomes asymmetric in p, for example by making realized transmission through the selected phase depend more strongly on the disfavored competitor frequency than on favored-carrier frequency. Then, even at the same selection_coefficient and attenuation_occupancy, dp_dt versus p has shifted curvature and its interior peak moves away from p=1/2.",
+          "affected_inputs": [
+            "p",
+            "selection_coefficient",
+            "attenuation_occupancy"
+          ],
+          "observable_effect": "Across trajectories that pass through the same attenuation level, the favored allele can accelerate most strongly at p<1/2 or p>1/2 rather than exactly at p=1/2; the parent cannot shift that peak because its p-dependence is locked to the symmetric p*(1-p) kernel."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "attenuation_ratio",
+            "expression": "attenuation_occupancy/attenuation_capacity",
+            "role": "Dimensionless crowding or occupancy load controlling attenuation strength"
+          },
+          {
+            "name": "realized_gain_scale",
+            "expression": "selection_coefficient/(1 + attenuation_occupancy/attenuation_capacity + (attenuation_occupancy/attenuation_capacity)**2)",
+            "role": "Instantaneous positive gain prefactor multiplying the frequency kernel"
+          },
+          {
+            "name": "logistic_kernel",
+            "expression": "p*(1 - p)",
+            "role": "Parent symmetric frequency-response shape whose peak is fixed at p=1/2"
+          }
+        ],
+        "activation_condition": "Observable when trajectories or sampled times cover a broad interior allele-frequency range, especially moderate realized_gain_scale and p not too close to 0 or 1, so the location of the interior maximum in dp_dt versus p can be resolved.",
+        "train_hidden_contrast": "The same asymmetry mechanism affects training trajectories through altered early-versus-late acceleration along p, and in holdout it extends to a systematic shift of the peak growth region away from p=1/2 under different occupancy histories.",
+        "continuation_path": "Recover the parent by taking the asymmetry parameter to its symmetry limit, restoring the exact p*(1-p) kernel.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The current model assumes the favored allele's frequency response to directional viability selection is exactly symmetric around p=1/2 after attenuation, which excludes biologically plausible asymmetry in how competitive replacement unfolds across rarity versus commonness.",
+        "baseline_assumption": "The selective response kernel is fixed to the symmetric continuous-time haploid logistic form p*(1-p) at all occupancy and selection states.",
+        "scientific_mechanism": "Non-ideal viability competition or replacement can make the favored allele's realized gain depend asymmetrically on competitor availability versus favored-carrier prevalence, shifting the strongest response away from equal frequencies without introducing mutation, migration, or negative selection.",
+        "affected_symbols": [
+          "p",
+          "selection_coefficient",
+          "attenuation_occupancy",
+          "attenuation_capacity"
+        ],
+        "rationale": "A realistic next refinement is to relax the parent's exact symmetric frequency kernel rather than adding a new process. Hold fixed the current attenuation mechanism and the decaying selection context, and vary the observed allele-frequency position p along trajectories that already satisfy the given initial-condition contract. In the parent, once selection_coefficient and attenuation_occupancy are specified, dp_dt as a function of p is fully determined by one symmetric shape with a peak fixed at p=1/2. A child with an asymmetric but still nonnegative interior frequency kernel changes the target mapping itself, not just auxiliary trajectories: for the same observed selection_coefficient and attenuation_occupancy, the slope and curvature of dp_dt versus p differ and the maximum can occur away from 1/2. This is scientifically admissible in deterministic haploid selection when competitive replacement is not exactly symmetric in rarity and commonness, yet fixation and loss remain invariant and dp_dt stays nonnegative on 0<p<1. The effect is observable only if the sampled trajectories traverse enough of the interior p range; if observations stay very near p=0 or p=1, the contrast weakens. A single refit of existing parent parameters cannot reproduce a shifted peak location across such conditions because those parameters only rescale the amplitude through selection and attenuation, while the p-shape remains exactly p*(1-p)."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "With selection_coefficient and attenuation_occupancy fixed at an observed instant, dp_dt is a symmetric logistic-like function of p proportional to p*(1-p), so the rise rate always has a single peak at p=1/2 and equal local slopes at complementary frequencies p and 1-p.",
+          "child_relation": "Relax the symmetric viability kernel so that the favored allele's gain per unit time remains nonnegative but becomes asymmetric in p, for example by making realized transmission through the selected phase depend more strongly on the disfavored competitor frequency than on favored-carrier frequency. Then, even at the same selection_coefficient and attenuation_occupancy, dp_dt versus p has shifted curvature and its interior peak moves away from p=1/2.",
+          "affected_inputs": [
+            "p",
+            "selection_coefficient",
+            "attenuation_occupancy"
+          ],
+          "observable_effect": "Across trajectories that pass through the same attenuation level, the favored allele can accelerate most strongly at p<1/2 or p>1/2 rather than exactly at p=1/2; the parent cannot shift that peak because its p-dependence is locked to the symmetric p*(1-p) kernel."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "attenuation_ratio",
+            "expression": "attenuation_occupancy/attenuation_capacity",
+            "role": "Dimensionless crowding or occupancy load controlling attenuation strength"
+          },
+          {
+            "name": "realized_gain_scale",
+            "expression": "selection_coefficient/(1 + attenuation_occupancy/attenuation_capacity + (attenuation_occupancy/attenuation_capacity)**2)",
+            "role": "Instantaneous positive gain prefactor multiplying the frequency kernel"
+          },
+          {
+            "name": "logistic_kernel",
+            "expression": "p*(1 - p)",
+            "role": "Parent symmetric frequency-response shape whose peak is fixed at p=1/2"
+          }
+        ],
+        "activation_condition": "Observable when trajectories or sampled times cover a broad interior allele-frequency range, especially moderate realized_gain_scale and p not too close to 0 or 1, so the location of the interior maximum in dp_dt versus p can be resolved.",
+        "train_hidden_contrast": "The same asymmetry mechanism affects training trajectories through altered early-versus-late acceleration along p, and in holdout it extends to a systematic shift of the peak growth region away from p=1/2 under different occupancy histories.",
+        "continuation_path": "Recover the parent by taking the asymmetry parameter to its symmetry limit, restoring the exact p*(1-p) kernel.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "p",
+          "selection_coefficient",
+          "attenuation_occupancy"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Saturating competitor-dependent asymmetry in deterministic viability replacement",
+        "scientific_mechanism": "Non-ideal viability competition or replacement can make the favored allele's realized gain depend asymmetrically on competitor availability versus favored-carrier prevalence, shifting the strongest response away from equal frequencies without introducing mutation, migration, or negative selection.",
+        "embedding_pattern": "saturating_or_thresholded",
+        "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the new saturating factor multiplies the p-kernel and changes its shape, not just its amplitude. The peak location and complementary-frequency symmetry are no longer fixed, creating a target-mapping contrast that cannot be mimicked by rescaling selection or attenuation alone.",
+        "taxonomy_match": "known",
+        "assumption_before": "The selective response kernel is fixed to the symmetric continuous-time haploid logistic form p*(1-p) at all occupancy and selection states.",
+        "assumption_after": "The viability replacement response remains nonnegative but is saturatingly amplified by competitor availability, producing an asymmetric frequency kernel.",
+        "before_fragment": "selection_coefficient*p*(1 - p)/(1 + attenuation_occupancy/attenuation_capacity + (attenuation_occupancy/attenuation_capacity)**2)",
+        "after_fragment": "selection_coefficient*p*(1 - p)*(1 + asymmetry_strength*(1 - p)/(asymmetry_threshold + 1 - p))/(1 + attenuation_occupancy/attenuation_capacity + (attenuation_occupancy/attenuation_capacity)**2)",
+        "parent_reduction": "Setting asymmetry_strength = 0 recovers the parent expression exactly.",
+        "observable_signature": "At fixed observed selection_coefficient and attenuation_occupancy, dp_dt divided by realized_gain_scale is no longer the symmetric kernel p*(1-p): instead it is p*(1-p)*(1 + asymmetry_strength*(1 - p)/(asymmetry_threshold + 1 - p)), so the interior maximum shifts toward lower or higher p depending on the asymmetry and this is visible whenever sampled trajectories span the interior frequency range.",
+        "shortcut_blocked": "A single parent parameter set cannot reproduce this contrast across conditions because all existing parent parameters enter only through the overall positive prefactor selection_coefficient/(1 + attenuation_occupancy/attenuation_capacity + (attenuation_occupancy/attenuation_capacity)**2). Refitting them can change amplitude and auxiliary time courses, but at any instant with the same observed selection_coefficient and attenuation_occupancy the parent's p-shape remains exactly symmetric with its peak fixed at p=1/2, so it cannot match a systematic shifted-peak curvature pattern."
+      },
+      "range_suggestions": {
+        "asymmetry_strength": "[0, 5]",
+        "asymmetry_threshold": "(0, 1]"
+      }
+    },
+    {
+      "generation": 5,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The favored allele gain is the product of p(1-p), a time-relaxing selection coefficient, and a monotone attenuation factor that depends only on the current attenuation_occupancy. Thus for fixed p and selection_coefficient, increasing attenuation_occupancy always depresses dp_dt with one fixed attenuation shape.",
+          "child_relation": "Replace the instantaneous attenuation law by a delayed physiological/ecological burden that builds from attenuation_occupancy and modulates realized selection after a lag. Then dp_dt at the same current p and attenuation_occupancy can differ depending on accumulated burden history, creating a two-timescale attenuation and altered curvature over time.",
+          "affected_inputs": [
+            "p",
+            "attenuation_occupancy",
+            "selection_coefficient"
+          ],
+          "observable_effect": "Under matched initial p and similar early occupancy buildup, the child shows an early faster rise in dp_dt followed by a later sharper slowdown once burden accumulates; the parent with one shared parameter set can only attenuate immediately with one phase and cannot reproduce both the weak early suppression and stronger delayed suppression across the same time course."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "comp_freq",
+            "expression": "1 - p",
+            "role": "Available competitor frequency driving the existing asymmetric amplification"
+          },
+          {
+            "name": "occ_load",
+            "expression": "attenuation_occupancy/attenuation_capacity",
+            "role": "Current normalized occupancy in the parent instantaneous attenuation channel"
+          },
+          {
+            "name": "sel_flux",
+            "expression": "selection_coefficient*p*(1 - p)*(1 + asymmetry_strength*(1 - p)/(asymmetry_threshold + 1 - p))",
+            "role": "Unattenuated selection-driven allele-frequency gain before occupancy suppression"
+          }
+        ],
+        "activation_condition": "Observable when occupancy_buildup_rate is large enough that attenuation_occupancy changes on the experimental timescale, while the added burden-relaxation timescale is not negligible relative to allele-frequency change; specifically, intermediate p away from 0 and 1 and nontrivial occupancy generation are needed so the lagged suppression can separate from immediate suppression.",
+        "train_hidden_contrast": "In training, the mechanism appears as mild hysteresis between rising occupancy and realized dp_dt over time; in holdout, the same delayed burden produces a more pronounced late-phase downturn after similar early trajectories, extending the same two-timescale attenuation rather than introducing a new force.",
+        "continuation_path": "Recover the parent law when the added burden tracks attenuation_occupancy quasi-instantly with vanishing lag or zero coupling, so attenuation again depends effectively on a single current occupancy variable.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A delayed attenuation effect cannot be represented by refitting the current instantaneous function of attenuation_occupancy alone; one additional state is needed to encode the accumulated burden history that changes the target mapping along observed trajectories.",
+        "gap_statement": "The current model assumes attenuation of the viability advantage is an instantaneous function of current occupancy, omitting delayed stress, damage, or ecological deterioration that accumulates from occupancy and feeds back later on realized selection.",
+        "baseline_assumption": "Attenuation responds without memory: the realized viability advantage at time t depends only on the current attenuation_occupancy, not on a lagged accumulated burden generated by past occupancy.",
+        "scientific_mechanism": "Favored carriers can generate a secondary burden such as toxin accumulation, physiological wear, or local habitat deterioration that integrates occupancy over time and attenuates selection with delay.",
+        "affected_symbols": [
+          "p",
+          "selection_coefficient",
+          "attenuation_occupancy",
+          "occupancy_buildup_rate",
+          "occupancy_relaxation_rate",
+          "attenuation_capacity"
+        ],
+        "rationale": "A realistic next refinement is to relax the parent's single-phase attenuation assumption. The parent target mapping from observed states to dp_dt is instantaneous: holding p and selection_coefficient fixed, dp_dt is a one-parameter monotone function of current attenuation_occupancy with a fixed curvature. That means once current occupancy is specified, past occupancy cannot matter. In many viability-selection settings, however, crowding-like occupancy first accumulates quickly while the actual loss of viability advantage emerges after a delay because damage, waste, or local depletion must build up. Vary time along trajectories from the given initial conditions while holding the fixed parameters shared across all runs; compare early versus later portions of trajectories that reach similar attenuation_occupancy levels. The child predicts weaker suppression early and stronger suppression later at comparable current occupancy because delayed burden has not yet, or has already, accumulated. This changes the scored target mapping, not only an auxiliary trajectory, because dp_dt itself becomes history-sensitive through an added state influencing p. The contrast is admissible when occupancy generation is appreciable and observations extend long enough for delayed burden to separate from instantaneous occupancy. Limitation: if occupancy remains tiny or burden relaxes infinitely fast, the effect collapses back to the parent and may be practically unidentifiable."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The favored allele gain is the product of p(1-p), a time-relaxing selection coefficient, and a monotone attenuation factor that depends only on the current attenuation_occupancy. Thus for fixed p and selection_coefficient, increasing attenuation_occupancy always depresses dp_dt with one fixed attenuation shape.",
+          "child_relation": "Replace the instantaneous attenuation law by a delayed physiological/ecological burden that builds from attenuation_occupancy and modulates realized selection after a lag. Then dp_dt at the same current p and attenuation_occupancy can differ depending on accumulated burden history, creating a two-timescale attenuation and altered curvature over time.",
+          "affected_inputs": [
+            "p",
+            "attenuation_occupancy",
+            "selection_coefficient"
+          ],
+          "observable_effect": "Under matched initial p and similar early occupancy buildup, the child shows an early faster rise in dp_dt followed by a later sharper slowdown once burden accumulates; the parent with one shared parameter set can only attenuate immediately with one phase and cannot reproduce both the weak early suppression and stronger delayed suppression across the same time course."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "comp_freq",
+            "expression": "1 - p",
+            "role": "Available competitor frequency driving the existing asymmetric amplification"
+          },
+          {
+            "name": "occ_load",
+            "expression": "attenuation_occupancy/attenuation_capacity",
+            "role": "Current normalized occupancy in the parent instantaneous attenuation channel"
+          },
+          {
+            "name": "sel_flux",
+            "expression": "selection_coefficient*p*(1 - p)*(1 + asymmetry_strength*(1 - p)/(asymmetry_threshold + 1 - p))",
+            "role": "Unattenuated selection-driven allele-frequency gain before occupancy suppression"
+          }
+        ],
+        "activation_condition": "Observable when occupancy_buildup_rate is large enough that attenuation_occupancy changes on the experimental timescale, while the added burden-relaxation timescale is not negligible relative to allele-frequency change; specifically, intermediate p away from 0 and 1 and nontrivial occupancy generation are needed so the lagged suppression can separate from immediate suppression.",
+        "train_hidden_contrast": "In training, the mechanism appears as mild hysteresis between rising occupancy and realized dp_dt over time; in holdout, the same delayed burden produces a more pronounced late-phase downturn after similar early trajectories, extending the same two-timescale attenuation rather than introducing a new force.",
+        "continuation_path": "Recover the parent law when the added burden tracks attenuation_occupancy quasi-instantly with vanishing lag or zero coupling, so attenuation again depends effectively on a single current occupancy variable.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A delayed attenuation effect cannot be represented by refitting the current instantaneous function of attenuation_occupancy alone; one additional state is needed to encode the accumulated burden history that changes the target mapping along observed trajectories.",
+        "scope_kind": "memory",
+        "scope_symbols": [
+          "p",
+          "attenuation_occupancy",
+          "delayed_burden",
+          "selection_coefficient"
+        ],
+        "structural_role": "feedback",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Delayed occupancy-generated burden with saturating buildup",
+        "scientific_mechanism": "Favored carriers can generate a secondary burden such as toxin accumulation, physiological wear, or local habitat deterioration that integrates occupancy over time and attenuates selection with delay.",
+        "embedding_pattern": "saturating_or_thresholded",
+        "difficulty_rationale": "This is harder than a coefficient correction because the target derivative now depends on a hidden dynamic burden state created by past occupancy through a finite-capacity buildup law, so identical current occupancy can map to different dp_dt values at different trajectory phases.",
+        "taxonomy_match": "known",
+        "assumption_before": "The current model assumes attenuation of the viability advantage is an instantaneous function of current occupancy, omitting delayed stress, damage, or ecological deterioration that accumulates from occupancy and feeds back later on realized selection.",
+        "assumption_after": "Attenuation is mediated by a delayed burden state generated from occupancy through a finite-capacity buildup process and relaxed on its own timescale before suppressing realized selection.",
+        "before_fragment": "selection_coefficient*p*(1 - p)*(1 + asymmetry_strength*(1 - p)/(asymmetry_threshold + 1 - p))/(1 + attenuation_occupancy/attenuation_capacity + (attenuation_occupancy/attenuation_capacity)**2)",
+        "after_fragment": "selection_coefficient*p*(1 - p)*(1 + asymmetry_strength*(1 - p)/(asymmetry_threshold + 1 - p))/(1 + delayed_burden/attenuation_capacity + (delayed_burden/attenuation_capacity)**2)",
+        "parent_reduction": "The successor reduces toward the parent when burden_buildup_rate is zero, or approximately when delayed_burden rapidly follows attenuation_occupancy so the burden-mediated attenuation collapses back to an effectively single occupancy-controlled attenuation.",
+        "observable_signature": "Along trajectories started from the declared initial conditions, compare early and later times that have similar attenuation_occupancy and selection_coefficient. The parent predicts nearly the same attenuation at those matched current states because dp_dt depends only on instantaneous occupancy, whereas the child predicts larger dp_dt earlier and smaller dp_dt later once delayed_burden has accumulated; this is a changed target mapping, not merely an auxiliary-state change.",
+        "shortcut_blocked": "Refitting all existing parent parameters still leaves a one-phase instantaneous map from current attenuation_occupancy to suppression. A single shared parent parameter set cannot create trajectory-phase-dependent attenuation at matched current occupancy, so it cannot reproduce both weak early suppression and stronger late suppression across the same admissible runs."
+      },
+      "range_suggestions": {
+        "delayed_burden": "[0, 10]",
+        "burden_buildup_rate": "[0, 5]",
+        "burden_relaxation_rate": "[0, 5]",
+        "burden_half_saturation": "(0, 10]"
+      }
+    }
+  ],
+  "evolution_provenance": {
+    "dimension_track": null,
+    "mechanism_profile": {
+      "allowed_structural_roles": [
+        "contribution",
+        "response_law",
+        "modulation",
+        "interaction",
+        "constraint",
+        "transition",
+        "feedback",
+        "heterogeneity",
+        "timescale",
+        "transport_balance"
+      ],
+      "preferred_scopes": [
+        "unary",
+        "pairwise",
+        "state_coupling",
+        "time_forcing"
+      ],
+      "domain_mechanisms": [
+        {
+          "id": "finite_capacity_or_resource",
+          "description": "finite capacity, resource limitation, or saturation",
+          "operations": [
+            "add_term",
+            "change_assumption"
+          ]
+        },
+        {
+          "id": "regulatory_or_ecological_feedback",
+          "description": "regulatory, ecological, or biochemical feedback",
+          "operations": [
+            "add_term"
+          ]
+        },
+        {
+          "id": "environmental_modulation",
+          "description": "observed environmental or condition-dependent modulation",
+          "operations": [
+            "change_assumption"
+          ]
+        }
+      ],
+      "profile_source": "subject_fallback",
+      "ontology_schema_version": "1.0",
+      "taxonomy_schema_version": "1.0"
+    },
+    "baseline_mechanisms": [
+      "Differential viability causes the favored allele to contribute disproportionately to later generations.",
+      "Frequency limitation slows change when either allele becomes rare."
+    ],
+    "baseline_assumptions": [
+      "The population is effectively infinite and deterministic.",
+      "The selective advantage is positive and constant through time.",
+      "Generations are represented by a continuous-time approximation.",
+      "There is no mutation, migration, or random genetic drift."
+    ],
+    "scientific_constraints": [
+      "The allele frequency must remain between zero and one.",
+      "The derivative must be nonnegative throughout the interior frequency range.",
+      "Complete absence and complete fixation are invariant states."
+    ],
+    "refinement_agenda": [
+      "Add reversible mutation between the alleles.",
+      "Allow frequency-dependent or temporally varying selection.",
+      "Introduce migration from a population with a different allele frequency.",
+      "Replace deterministic change with finite-population sampling."
+    ],
+    "evolution_contracts": [
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "With one constant selection_coefficient, dp_dt is a fixed logistic function of p, symmetric about p=0.5 up to a global gain and with a single invariant saturation scale set only by p(1-p).",
+          "child_relation": "Let selection_coefficient relax over time as the selective environment is depleted or adaptation saturates, so dp_dt depends on both p and the evolving strength of selection; the p-to-dp_dt relation bends over during a trajectory rather than remaining a single shared logistic shape.",
+          "affected_inputs": [
+            "p",
+            "selection_coefficient"
+          ],
+          "observable_effect": "For trajectories started at the same initial p but observed over longer time windows, the favored allele initially rises nearly as in the parent but later slows more than any single constant-coefficient logistic law predicts, producing reduced late-time slope and altered cumulative curvature."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "genic_drive",
+            "expression": "p*(1 - p)",
+            "role": "baseline frequency-limitation factor from haploid selection"
+          },
+          {
+            "name": "selection_flux",
+            "expression": "selection_coefficient*p*(1 - p)",
+            "role": "instantaneous selective increase under the parent law"
+          }
+        ],
+        "activation_condition": "Observable when selective advantage is not sustained indefinitely on the observation timescale, so the characteristic decay time of effective selection is comparable to or shorter than the time required for substantial allele-frequency change; if selection remains effectively constant over the whole experiment, the refinement is not distinguishable.",
+        "train_hidden_contrast": "In training, moderate-time trajectories would already show slight deviation from a single shared logistic gain; in holdout, longer observation windows or stronger initial selection expose a clearer late-time slowdown from the same depletion mechanism.",
+        "continuation_path": "Recover the parent by taking the relaxation timescale of selection to infinity, so effective selection remains constant during the experiment.",
+        "freedom_change": "parameter_to_state",
+        "promoted_symbol": "selection_coefficient",
+        "promotion_reason": "A fixed parameter cannot represent time-dependent erosion of selective advantage within a trajectory. Promoting selection_coefficient to a state is the minimal way to retain the same biological quantity while allowing sustained directional selection to weaken dynamically.",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "p",
+          "selection_coefficient"
+        ],
+        "structural_role": "timescale",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "decaying effective selection strength",
+        "scientific_mechanism": "Time-dependent decay of effective viability selection due to environmental depletion, diminishing resource contrast, or saturation of the advantage-conferring context.",
+        "embedding_pattern": "saturating_or_thresholded",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the scored dp_dt keeps the same formal genic factor but is modulated by a hidden state with its own saturating relaxation, so the same observed p can map to different dp_dt at different times within one shared parameterization.",
+        "taxonomy_match": "known",
+        "assumption_before": "The selective advantage is positive and constant through time.",
+        "assumption_after": "The effective selective advantage is an internal state that decays over time through a finite-capacity saturation law.",
+        "before_fragment": "selection_coefficient*p*(1 - p)",
+        "after_fragment": "selection_coefficient*p*(1 - p)",
+        "parent_reduction": "Take selection_decay_rate -> 0 so d(selection_coefficient)/dt -> 0 and the initial selection_coefficient is held constant.",
+        "observable_signature": "Holding the initial allele frequency fixed and using one shared parameter set, the parent implies dp_dt/(p*(1 - p)) is time-invariant along each trajectory, whereas the child predicts this ratio declines over time as selection_coefficient relaxes. The contrast is visible on sufficiently long trajectories or when initial selection is large enough that the decay state evolves measurably before fixation.",
+        "shortcut_blocked": "A single constant parent selection_coefficient can match either the early rise or the late slowdown but not both across trajectories observed over different time windows, because it enforces one time-invariant logistic curvature and a constant per-capita growth ratio dp_dt/(p*(1-p)). Refitting all parent parameters still leaves no mechanism for within-trajectory decay of effective selection."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "At any time, dp_dt is a logistic-in-frequency product p*(1-p) scaled by a single effective selection_coefficient, so the frequency dependence is always symmetric with one fixed interior peak at p=1/2.",
+          "child_relation": "Retain positive directional selection but relax the assumption that viability advantage acts linearly in allele frequency; let the realized selection pressure depend on p through a positive saturation or crowding term, so dp_dt remains nonnegative but its frequency-response curvature and peak location shift with p.",
+          "affected_inputs": [
+            "p",
+            "selection_coefficient"
+          ],
+          "observable_effect": "Across trajectories with different observed p values while holding the same selection_coefficient trajectory fixed, the child predicts relatively weaker acceleration at high p (or, equivalently, a shifted interior maximum) than the parent's symmetric p*(1-p) law."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "logistic_kernel",
+            "expression": "p*(1 - p)",
+            "role": "Parent frequency-limitation factor from allele scarcity at either boundary"
+          },
+          {
+            "name": "selection_drive",
+            "expression": "selection_coefficient*p*(1 - p)",
+            "role": "Current target mapping from observed state to allele-frequency change"
+          },
+          {
+            "name": "high_frequency_load",
+            "expression": "p",
+            "role": "Coordinate along which a nonlinear realization of selection can bend the parent symmetric response"
+          }
+        ],
+        "activation_condition": "Observable when trajectories sample a broad interior frequency range, especially moderate-to-high p where a nonlinear realization of the selective advantage can reduce marginal gain relative to the parent while keeping dp_dt nonnegative.",
+        "train_hidden_contrast": "In training, the mechanism appears as systematic deviation from a symmetric logistic frequency response over observed p; in holdout, the same mechanism extends that deviation to later times or stronger surviving selection_coefficient values without changing sign.",
+        "continuation_path": "Recover the parent by taking the added frequency-dependent modulation to its linear or weak-effect limit so the realized advantage becomes proportional to selection_coefficient alone.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A new state is needed if the nonlinear realization of selection is interpreted as a slowly varying ecological or physiological occupancy that is built up by the favored allele and feeds back on its realized advantage; existing states alone do not represent that memory effect.",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "p",
+          "selection_coefficient",
+          "attenuation_occupancy"
+        ],
+        "structural_role": "feedback",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Self-limiting ecological occupancy attenuating realized viability selection",
+        "scientific_mechanism": "Frequency-dependent attenuation of realized viability advantage due to self-limiting ecological context, such as crowding among favored carriers or saturation of the beneficial resource contrast they exploit.",
+        "embedding_pattern": "saturating_or_thresholded",
+        "difficulty_rationale": "This embedding is structurally harder than a coefficient-only correction because the attenuation is a dynamic finite-capacity state coupled to p, so the same instantaneous selection_coefficient can map to different dp_dt depending on occupancy history. That changes the target law itself through a saturating denominator rather than just retuning a shared gain.",
+        "taxonomy_match": "known",
+        "assumption_before": "The selective advantage is positive and acts linearly on allele-frequency change at all frequencies, apart from the standard p*(1-p) scarcity factor.",
+        "assumption_after": "The realized viability advantage is attenuated by a finite-capacity occupancy state generated by favored carriers, so selection remains positive but saturates downward as that occupancy accumulates.",
+        "before_fragment": "selection_coefficient*p*(1 - p)",
+        "after_fragment": "selection_coefficient*p*(1 - p)/(1 + attenuation_occupancy/attenuation_capacity)",
+        "parent_reduction": "The parent is recovered when attenuation_occupancy stays negligible relative to attenuation_capacity, including the large-capacity limit or weak-build/fast-relaxation occupancy dynamics.",
+        "observable_signature": "Across observed trajectories sampling broad interior p, especially sustained moderate-to-high p, the same instantaneous selection_coefficient can produce lower dp_dt after occupancy has accumulated, flattening the high-p side relative to the parent's symmetric p*(1-p) response while keeping dp_dt nonnegative.",
+        "shortcut_blocked": "A single parent parameter set cannot reproduce this contrast across those conditions because its target mapping is always exactly selection_coefficient times p*(1-p), which fixes the curvature and peak location in p once selection_coefficient is given. Refitting selection_decay_rate and selection_capacity only alters the auxiliary selection_coefficient trajectory and cannot create occupancy-history-dependent attenuation of dp_dt at the same observed p and selection_coefficient."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "At fixed selection_coefficient, dp_dt increases approximately linearly with p at low favored-allele frequency and is attenuated only by the accumulated occupancy term through a first-order factor 1/(1 + attenuation_occupancy/attenuation_capacity).",
+          "child_relation": "Keep the same states but relax the assumption that attenuation is first-order: realized selection falls with a steeper saturating dependence on attenuation_occupancy, so the p-to-dp_dt mapping bends downward more strongly once occupancy becomes comparable to attenuation_capacity.",
+          "affected_inputs": [
+            "p",
+            "attenuation_occupancy",
+            "attenuation_capacity"
+          ],
+          "observable_effect": "Across trajectories or times with matched p and selection_coefficient but different attenuation_occupancy, the decline in dp_dt with occupancy is weak-to-moderate in the parent and sharply compressed after occupancy approaches capacity in the child."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "occupancy_load",
+            "expression": "attenuation_occupancy/attenuation_capacity",
+            "role": "Dimensionless attenuation burden controlling realized selection suppression"
+          },
+          {
+            "name": "logistic_drive",
+            "expression": "p*(1 - p)",
+            "role": "Baseline allele-frequency opportunity for deterministic viability-driven change"
+          },
+          {
+            "name": "effective_drive_parent",
+            "expression": "selection_coefficient*p*(1 - p)/(1 + attenuation_occupancy/attenuation_capacity)",
+            "role": "Parent target mapping from current states to allele-frequency change"
+          }
+        ],
+        "activation_condition": "Observable when attenuation_occupancy is driven into the same order as or above attenuation_capacity by sustained occupancy buildup, while p remains in the interior (not near 0 or 1) so logistic limitation does not dominate.",
+        "train_hidden_contrast": "In training, modest occupancy already causes some attenuation; in holdout, larger occupancy_load reveals the stronger downward bending of dp_dt that a first-order attenuation law cannot match with one shared parameter set across both low- and high-load regimes.",
+        "continuation_path": "Recover the parent law in the limit where the generalized attenuation nonlinearity reduces to first-order attenuation, or whenever occupancy_load << 1 so both laws agree to leading order.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "p",
+          "selection_coefficient",
+          "attenuation_occupancy",
+          "attenuation_capacity"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "nonlinear occupancy attenuation of viability advantage",
+        "scientific_mechanism": "Compounding crowding or saturation among favored carriers causes superlinear loss of realized viability benefit once occupancy accumulates, without changing the sign of selection or adding new evolutionary forces.",
+        "embedding_pattern": "nested_nonlinearity",
+        "difficulty_rationale": "This embedding is harder than a coefficient-only correction because the occupancy and capacity are first combined into a dimensionless load and then passed through a nonlinear map with an added quadratic contribution, changing curvature across load regimes rather than merely rescaling amplitude.",
+        "taxonomy_match": "known",
+        "assumption_before": "Occupancy attenuates realized selection through a single linear loading term in the denominator.",
+        "assumption_after": "Attenuation reflects compounded crowding so the dimensionless occupancy load enters the realized-selection denominator with both first-order and second-order suppression.",
+        "before_fragment": "selection_coefficient*p*(1 - p)/(1 + attenuation_occupancy/attenuation_capacity)",
+        "after_fragment": "selection_coefficient*p*(1 - p)/(1 + attenuation_occupancy/attenuation_capacity + (attenuation_occupancy/attenuation_capacity)**2)",
+        "parent_reduction": "For attenuation_occupancy/attenuation_capacity << 1, the added quadratic term is subleading and the child approaches the parent attenuation law to leading order.",
+        "observable_signature": "When p and selection_coefficient are matched and attenuation_occupancy varies through order-1 multiples of attenuation_capacity, the child predicts nearly parent-like behavior at low occupancy_load but a stronger-than-hyperbolic drop in dp_dt at higher occupancy_load; this is a changed target mapping, not only changed auxiliary trajectories.",
+        "shortcut_blocked": "A single refit of the parent parameters cannot reproduce both the low-load near-parent slope and the high-load stronger suppression because the parent denominator is affine in occupancy_load, giving one fixed curvature class. Retuning selection_coefficient or attenuation_capacity only rescales where attenuation acts, but cannot create the child’s extra downward bending across both modest and large occupancy_load conditions with one shared parameter set."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "With selection_coefficient and attenuation_occupancy fixed at an observed instant, dp_dt is a symmetric logistic-like function of p proportional to p*(1-p), so the rise rate always has a single peak at p=1/2 and equal local slopes at complementary frequencies p and 1-p.",
+          "child_relation": "Relax the symmetric viability kernel so that the favored allele's gain per unit time remains nonnegative but becomes asymmetric in p, for example by making realized transmission through the selected phase depend more strongly on the disfavored competitor frequency than on favored-carrier frequency. Then, even at the same selection_coefficient and attenuation_occupancy, dp_dt versus p has shifted curvature and its interior peak moves away from p=1/2.",
+          "affected_inputs": [
+            "p",
+            "selection_coefficient",
+            "attenuation_occupancy"
+          ],
+          "observable_effect": "Across trajectories that pass through the same attenuation level, the favored allele can accelerate most strongly at p<1/2 or p>1/2 rather than exactly at p=1/2; the parent cannot shift that peak because its p-dependence is locked to the symmetric p*(1-p) kernel."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "attenuation_ratio",
+            "expression": "attenuation_occupancy/attenuation_capacity",
+            "role": "Dimensionless crowding or occupancy load controlling attenuation strength"
+          },
+          {
+            "name": "realized_gain_scale",
+            "expression": "selection_coefficient/(1 + attenuation_occupancy/attenuation_capacity + (attenuation_occupancy/attenuation_capacity)**2)",
+            "role": "Instantaneous positive gain prefactor multiplying the frequency kernel"
+          },
+          {
+            "name": "logistic_kernel",
+            "expression": "p*(1 - p)",
+            "role": "Parent symmetric frequency-response shape whose peak is fixed at p=1/2"
+          }
+        ],
+        "activation_condition": "Observable when trajectories or sampled times cover a broad interior allele-frequency range, especially moderate realized_gain_scale and p not too close to 0 or 1, so the location of the interior maximum in dp_dt versus p can be resolved.",
+        "train_hidden_contrast": "The same asymmetry mechanism affects training trajectories through altered early-versus-late acceleration along p, and in holdout it extends to a systematic shift of the peak growth region away from p=1/2 under different occupancy histories.",
+        "continuation_path": "Recover the parent by taking the asymmetry parameter to its symmetry limit, restoring the exact p*(1-p) kernel.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "p",
+          "selection_coefficient",
+          "attenuation_occupancy"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Saturating competitor-dependent asymmetry in deterministic viability replacement",
+        "scientific_mechanism": "Non-ideal viability competition or replacement can make the favored allele's realized gain depend asymmetrically on competitor availability versus favored-carrier prevalence, shifting the strongest response away from equal frequencies without introducing mutation, migration, or negative selection.",
+        "embedding_pattern": "saturating_or_thresholded",
+        "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the new saturating factor multiplies the p-kernel and changes its shape, not just its amplitude. The peak location and complementary-frequency symmetry are no longer fixed, creating a target-mapping contrast that cannot be mimicked by rescaling selection or attenuation alone.",
+        "taxonomy_match": "known",
+        "assumption_before": "The selective response kernel is fixed to the symmetric continuous-time haploid logistic form p*(1-p) at all occupancy and selection states.",
+        "assumption_after": "The viability replacement response remains nonnegative but is saturatingly amplified by competitor availability, producing an asymmetric frequency kernel.",
+        "before_fragment": "selection_coefficient*p*(1 - p)/(1 + attenuation_occupancy/attenuation_capacity + (attenuation_occupancy/attenuation_capacity)**2)",
+        "after_fragment": "selection_coefficient*p*(1 - p)*(1 + asymmetry_strength*(1 - p)/(asymmetry_threshold + 1 - p))/(1 + attenuation_occupancy/attenuation_capacity + (attenuation_occupancy/attenuation_capacity)**2)",
+        "parent_reduction": "Setting asymmetry_strength = 0 recovers the parent expression exactly.",
+        "observable_signature": "At fixed observed selection_coefficient and attenuation_occupancy, dp_dt divided by realized_gain_scale is no longer the symmetric kernel p*(1-p): instead it is p*(1-p)*(1 + asymmetry_strength*(1 - p)/(asymmetry_threshold + 1 - p)), so the interior maximum shifts toward lower or higher p depending on the asymmetry and this is visible whenever sampled trajectories span the interior frequency range.",
+        "shortcut_blocked": "A single parent parameter set cannot reproduce this contrast across conditions because all existing parent parameters enter only through the overall positive prefactor selection_coefficient/(1 + attenuation_occupancy/attenuation_capacity + (attenuation_occupancy/attenuation_capacity)**2). Refitting them can change amplitude and auxiliary time courses, but at any instant with the same observed selection_coefficient and attenuation_occupancy the parent's p-shape remains exactly symmetric with its peak fixed at p=1/2, so it cannot match a systematic shifted-peak curvature pattern."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The favored allele gain is the product of p(1-p), a time-relaxing selection coefficient, and a monotone attenuation factor that depends only on the current attenuation_occupancy. Thus for fixed p and selection_coefficient, increasing attenuation_occupancy always depresses dp_dt with one fixed attenuation shape.",
+          "child_relation": "Replace the instantaneous attenuation law by a delayed physiological/ecological burden that builds from attenuation_occupancy and modulates realized selection after a lag. Then dp_dt at the same current p and attenuation_occupancy can differ depending on accumulated burden history, creating a two-timescale attenuation and altered curvature over time.",
+          "affected_inputs": [
+            "p",
+            "attenuation_occupancy",
+            "selection_coefficient"
+          ],
+          "observable_effect": "Under matched initial p and similar early occupancy buildup, the child shows an early faster rise in dp_dt followed by a later sharper slowdown once burden accumulates; the parent with one shared parameter set can only attenuate immediately with one phase and cannot reproduce both the weak early suppression and stronger delayed suppression across the same time course."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "comp_freq",
+            "expression": "1 - p",
+            "role": "Available competitor frequency driving the existing asymmetric amplification"
+          },
+          {
+            "name": "occ_load",
+            "expression": "attenuation_occupancy/attenuation_capacity",
+            "role": "Current normalized occupancy in the parent instantaneous attenuation channel"
+          },
+          {
+            "name": "sel_flux",
+            "expression": "selection_coefficient*p*(1 - p)*(1 + asymmetry_strength*(1 - p)/(asymmetry_threshold + 1 - p))",
+            "role": "Unattenuated selection-driven allele-frequency gain before occupancy suppression"
+          }
+        ],
+        "activation_condition": "Observable when occupancy_buildup_rate is large enough that attenuation_occupancy changes on the experimental timescale, while the added burden-relaxation timescale is not negligible relative to allele-frequency change; specifically, intermediate p away from 0 and 1 and nontrivial occupancy generation are needed so the lagged suppression can separate from immediate suppression.",
+        "train_hidden_contrast": "In training, the mechanism appears as mild hysteresis between rising occupancy and realized dp_dt over time; in holdout, the same delayed burden produces a more pronounced late-phase downturn after similar early trajectories, extending the same two-timescale attenuation rather than introducing a new force.",
+        "continuation_path": "Recover the parent law when the added burden tracks attenuation_occupancy quasi-instantly with vanishing lag or zero coupling, so attenuation again depends effectively on a single current occupancy variable.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A delayed attenuation effect cannot be represented by refitting the current instantaneous function of attenuation_occupancy alone; one additional state is needed to encode the accumulated burden history that changes the target mapping along observed trajectories.",
+        "scope_kind": "memory",
+        "scope_symbols": [
+          "p",
+          "attenuation_occupancy",
+          "delayed_burden",
+          "selection_coefficient"
+        ],
+        "structural_role": "feedback",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Delayed occupancy-generated burden with saturating buildup",
+        "scientific_mechanism": "Favored carriers can generate a secondary burden such as toxin accumulation, physiological wear, or local habitat deterioration that integrates occupancy over time and attenuates selection with delay.",
+        "embedding_pattern": "saturating_or_thresholded",
+        "difficulty_rationale": "This is harder than a coefficient correction because the target derivative now depends on a hidden dynamic burden state created by past occupancy through a finite-capacity buildup law, so identical current occupancy can map to different dp_dt values at different trajectory phases.",
+        "taxonomy_match": "known",
+        "assumption_before": "The current model assumes attenuation of the viability advantage is an instantaneous function of current occupancy, omitting delayed stress, damage, or ecological deterioration that accumulates from occupancy and feeds back later on realized selection.",
+        "assumption_after": "Attenuation is mediated by a delayed burden state generated from occupancy through a finite-capacity buildup process and relaxed on its own timescale before suppressing realized selection.",
+        "before_fragment": "selection_coefficient*p*(1 - p)*(1 + asymmetry_strength*(1 - p)/(asymmetry_threshold + 1 - p))/(1 + attenuation_occupancy/attenuation_capacity + (attenuation_occupancy/attenuation_capacity)**2)",
+        "after_fragment": "selection_coefficient*p*(1 - p)*(1 + asymmetry_strength*(1 - p)/(asymmetry_threshold + 1 - p))/(1 + delayed_burden/attenuation_capacity + (delayed_burden/attenuation_capacity)**2)",
+        "parent_reduction": "The successor reduces toward the parent when burden_buildup_rate is zero, or approximately when delayed_burden rapidly follows attenuation_occupancy so the burden-mediated attenuation collapses back to an effectively single occupancy-controlled attenuation.",
+        "observable_signature": "Along trajectories started from the declared initial conditions, compare early and later times that have similar attenuation_occupancy and selection_coefficient. The parent predicts nearly the same attenuation at those matched current states because dp_dt depends only on instantaneous occupancy, whereas the child predicts larger dp_dt earlier and smaller dp_dt later once delayed_burden has accumulated; this is a changed target mapping, not merely an auxiliary-state change.",
+        "shortcut_blocked": "Refitting all existing parent parameters still leaves a one-phase instantaneous map from current attenuation_occupancy to suppression. A single shared parent parameter set cannot create trajectory-phase-dependent attenuation at matched current occupancy, so it cannot reproduce both weak early suppression and stronger late suppression across the same admissible runs."
+      }
+    ]
+  },
+  "finalization": {
+    "mode": "candidate",
+    "accepted_generations": 5,
+    "novelty": {
+      "answer": "NOT_EVALUATED"
+    },
+    "total_points": 5000,
+    "evaluation_status": "not_evaluated"
+  }
+}

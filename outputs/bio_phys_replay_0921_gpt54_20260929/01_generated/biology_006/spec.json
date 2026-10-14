@@ -1,0 +1,1832 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "x",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        2.5
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "recovery_time_constant",
+      "value": 0.8
+    },
+    {
+      "symbol": "facilitation_time_constant",
+      "value": 0.2
+    },
+    {
+      "symbol": "presynaptic_rate",
+      "value": 15.0
+    },
+    {
+      "symbol": "baseline_utilization",
+      "value": 0.25
+    },
+    {
+      "symbol": "fatigue_build_time_constant",
+      "value": 0.5
+    },
+    {
+      "symbol": "fatigue_recovery_time_constant",
+      "value": 1.2
+    },
+    {
+      "symbol": "release_site_reset_time_constant",
+      "value": 0.05
+    }
+  ],
+  "benchmark_output": "dx_dt",
+  "benchmark_target_state": "x",
+  "observed_variables": [
+    "t",
+    "x",
+    "u",
+    "replenishment_fatigue",
+    "release_site_occupancy"
+  ],
+  "rhs_for_integrator": "(1 - x)/(recovery_time_constant*(1 + replenishment_fatigue)) - presynaptic_rate*(1 - release_site_occupancy)*u*x**2/((1 + replenishment_fatigue)*(1 + baseline_utilization*replenishment_fatigue))",
+  "state_variables": [
+    "x",
+    "u",
+    "replenishment_fatigue",
+    "release_site_occupancy"
+  ],
+  "state_rhs": [
+    "(1 - x)/(recovery_time_constant*(1 + replenishment_fatigue)) - presynaptic_rate*(1 - release_site_occupancy)*u*x**2/((1 + replenishment_fatigue)*(1 + baseline_utilization*replenishment_fatigue))",
+    "(baseline_utilization - u)/facilitation_time_constant + presynaptic_rate*baseline_utilization*(1 - u)",
+    "presynaptic_rate*u*(1 - replenishment_fatigue)/fatigue_build_time_constant - replenishment_fatigue/fatigue_recovery_time_constant",
+    "presynaptic_rate*u*(1 - release_site_occupancy) - release_site_occupancy/release_site_reset_time_constant"
+  ],
+  "initial_conditions": {
+    "x": 0.8,
+    "u": 0.2,
+    "replenishment_fatigue": 0.0,
+    "release_site_occupancy": 0.0
+  },
+  "sanity_expectations": [
+    "All sampled quantities should remain finite and real for the chosen parameters.",
+    "At t=0, replenishment_fatigue=0 and release_site_occupancy=0, so the x-depletion branch initially matches the low-fatigue parent-reduction limit apart from the already-present x**2 nonlinearity.",
+    "Under sustained drive, u should rise above its initial value toward a facilitated level on the facilitation_time_constant scale, while release_site_occupancy and replenishment_fatigue increase from zero to nonzero values.",
+    "As replenishment_fatigue grows, the extra factor 1/(1 + baseline_utilization*replenishment_fatigue) should make the depletion contribution to dx/dt less negative than it would be under the parent equation with the same states; this contrast should be most visible in later, moderately fatigued portions of the trajectory rather than at onset.",
+    "Because release_site_reset_time_constant is short but finite, release_site_occupancy should transiently limit effective depletion at higher drive without pinning occupancy identically to zero.",
+    "x should show an initial decline from 0.8 under net depletion, then potentially partial slowing of decline or approach to a driven steady state as occupancy/fatigue modulation and recovery compete."
+  ],
+  "role_corrections": [
+    "dx_dt: claimed-output/target derivative -> target derivative expression (confirmed; scored quantity is x via its ODE RHS in the inherited system contract)",
+    "t: claimed-input/time axis -> independent variable (confirmed)",
+    "x: claimed-dynamic state -> dependent variable / state variable (confirmed)",
+    "u: claimed-dynamic state -> state variable (confirmed)",
+    "replenishment_fatigue: claimed-dynamic state -> state variable (confirmed)",
+    "release_site_occupancy: claimed-dynamic state -> state variable (confirmed)",
+    "recovery_time_constant: claimed-parameter -> parameter (confirmed)",
+    "facilitation_time_constant: claimed-parameter -> parameter (confirmed)",
+    "presynaptic_rate: claimed-parameter -> parameter (confirmed; fixed by explicit freedom decision and ODE contract)",
+    "baseline_utilization: claimed-parameter -> parameter (confirmed)",
+    "fatigue_build_time_constant: claimed-parameter -> parameter (confirmed)",
+    "fatigue_recovery_time_constant: claimed-parameter -> parameter (confirmed)",
+    "release_site_reset_time_constant: claimed-parameter -> parameter (confirmed)",
+    "equation type: explicit label from local expression -> ode_system (overridden by inherited typed ODE contract, which must be preserved exactly)"
+  ],
+  "rationale": "Preserving the provided ODE-system contract exactly as required: x is the target state, t is the only sampled axis, and all listed symbols remain fixed parameters. The chosen regime is sustained moderate-to-high presynaptic drive, not an extreme asymptote: presynaptic_rate=15 with fast facilitation buildup (0.2), finite replenishment-fatigue buildup/recovery (0.5, 1.2), and rapid but non-instantaneous release-site reset (0.05). This should drive the system from the initial low-fatigue, low-occupancy state into a visible transient where u rises above baseline, release_site_occupancy becomes non-negligible, and replenishment_fatigue accumulates enough for the extra denominator (1 + baseline_utilization*replenishment_fatigue) to matter without putting every sample deep into saturation. The 0 to 2.5 time window is long enough to capture early low-fatigue behavior, intermediate transition, and later sustained fatigued behavior, which directly exposes the recorded distinguishing condition: compare early versus later portions of the same maintained-rate trajectory at similar x or similar effective drive, where the child law predicts less-negative depletion than the parent due to selective extra fatigue attenuation on the depletion branch. Weak/inactive effect honestly noted: exactly at t=0, replenishment_fatigue and release_site_occupancy start at zero, so the added fatigue-specific modulation is initially inactive and the trajectory begins close to the parent reduction; the intended contrast appears only after the reachable states evolve under sustained drive.",
+  "coverage_report": {
+    "groups": [
+      {
+        "generation": 1,
+        "name": "depletion_depth",
+        "expression": "1 - x",
+        "role": "distance from the fully replenished vesicle pool",
+        "train_range": [
+          0.19999999999999996,
+          0.6041124770188506
+        ],
+        "hidden_range": [
+          0.6041166540082221,
+          0.6045065061681952
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.19999999999999996,
+          "max": 0.6041124770188506,
+          "q05": 0.3446653692865604,
+          "median": 0.589375108517163,
+          "q95": 0.60383220155624,
+          "range": 0.40411247701885067,
+          "robust_range": 0.25916683226967957
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.6041166540082221,
+          "max": 0.6045065061681952,
+          "q05": 0.60414268563145,
+          "median": 0.6043427644582937,
+          "q95": 0.6044924043923808,
+          "range": 0.0003898521599731142,
+          "robust_range": 0.0003497187609308172
+        }
+      },
+      {
+        "generation": 1,
+        "name": "use_load",
+        "expression": "presynaptic_rate*u",
+        "role": "instantaneous activity-dependent release demand placed on the pool",
+        "train_range": [
+          3.0,
+          8.571428555668621
+        ],
+        "hidden_range": [
+          8.571428555933101,
+          8.571428569646796
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 3.0,
+          "max": 8.571428555668621,
+          "q05": 6.489191288191423,
+          "median": 8.571132740877502,
+          "q95": 8.571428529267934,
+          "range": 5.571428555668621,
+          "robust_range": 2.082237241076511
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 8.571428555933101,
+          "max": 8.571428569646796,
+          "q05": 8.57142855750862,
+          "median": 8.571428566186762,
+          "q95": 8.571428569442578,
+          "range": 1.371369506841802e-08,
+          "robust_range": 1.193395782195239e-08
+        }
+      },
+      {
+        "generation": 1,
+        "name": "depletion_flux",
+        "expression": "presynaptic_rate*u*x",
+        "role": "current vesicle consumption flux",
+        "train_range": [
+          2.4000000000000004,
+          4.507840700962142
+        ],
+        "hidden_range": [
+          3.3899442321393605,
+          3.393285816652269
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 2.4000000000000004,
+          "max": 4.507840700962142,
+          "q05": 3.3947633271567654,
+          "median": 3.504024554082706,
+          "q95": 4.458599183511572,
+          "range": 2.107840700962142,
+          "robust_range": 1.0638358563548063
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 3.3899442321393605,
+          "max": 3.393285816652269,
+          "q05": 3.390065104422689,
+          "median": 3.391347731140666,
+          "q95": 3.393062689077256,
+          "range": 0.0033415845129085575,
+          "robust_range": 0.0029975846545671203
+        }
+      },
+      {
+        "generation": 2,
+        "name": "release_load",
+        "expression": "presynaptic_rate*u*x",
+        "role": "Parent instantaneous use load driving vesicle depletion",
+        "train_range": [
+          2.4000000000000004,
+          4.507840700962142
+        ],
+        "hidden_range": [
+          3.3899442321393605,
+          3.393285816652269
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 2.4000000000000004,
+          "max": 4.507840700962142,
+          "q05": 3.3947633271567654,
+          "median": 3.504024554082706,
+          "q95": 4.458599183511572,
+          "range": 2.107840700962142,
+          "robust_range": 1.0638358563548063
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 3.3899442321393605,
+          "max": 3.393285816652269,
+          "q05": 3.390065104422689,
+          "median": 3.391347731140666,
+          "q95": 3.393062689077256,
+          "range": 0.0033415845129085575,
+          "robust_range": 0.0029975846545671203
+        }
+      },
+      {
+        "generation": 2,
+        "name": "recovery_drive",
+        "expression": "(1 - x)/(recovery_time_constant*(1 + replenishment_fatigue))",
+        "role": "Instantaneous replenishment drive opposing depletion",
+        "train_range": [
+          0.24999999999999994,
+          0.3865295933781413
+        ],
+        "hidden_range": [
+          0.3865322659428491,
+          0.38678170522133076
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.24999999999999994,
+          "max": 0.3865295933781413,
+          "q05": 0.2607771597570431,
+          "median": 0.37710075056423065,
+          "q95": 0.386350264638838,
+          "range": 0.13652959337814136,
+          "robust_range": 0.1255731048817949
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.3865322659428491,
+          "max": 0.38678170522133076,
+          "q05": 0.3865489217664442,
+          "median": 0.386676938286707,
+          "q95": 0.38677268247534724,
+          "range": 0.0002494392784816446,
+          "robust_range": 0.00022376070890306465
+        }
+      },
+      {
+        "generation": 2,
+        "name": "fatigued_recovery_scale",
+        "expression": "recovery_time_constant*(1 + replenishment_fatigue)",
+        "role": "Effective slowed recovery timescale under sustained use",
+        "train_range": [
+          0.8,
+          1.5629139071580693
+        ],
+        "hidden_range": [
+          1.5629139071601956,
+          1.562913907270444
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.8,
+          "max": 1.5629139071580693,
+          "q05": 1.324175016511232,
+          "median": 1.5629115233278825,
+          "q95": 1.5629139069458258,
+          "range": 0.7629139071580693,
+          "robust_range": 0.23873889043459373
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 1.5629139071601956,
+          "max": 1.562913907270444,
+          "q05": 1.5629139071728615,
+          "median": 1.5629139072426277,
+          "q95": 1.5629139072688023,
+          "range": 1.1024847701435192e-10,
+          "robust_range": 9.59408108514026e-11
+        }
+      },
+      {
+        "generation": 3,
+        "name": "effective_event_drive",
+        "expression": "presynaptic_rate*u*(1 - release_site_occupancy)",
+        "role": "effective rate of release-triggering presynaptic drive after facilitation and site refractoriness",
+        "train_range": [
+          3.0,
+          5.999999993738613
+        ],
+        "hidden_range": [
+          5.999999993843698,
+          5.9999999992921484
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 3.0,
+          "max": 5.999999993738613,
+          "q05": 5.1327882039847745,
+          "median": 5.999882466678386,
+          "q95": 5.9999999832497215,
+          "range": 2.999999993738613,
+          "robust_range": 0.867211779264947
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 5.999999993843698,
+          "max": 5.9999999992921484,
+          "q05": 5.9999999944697,
+          "median": 5.99999999791739,
+          "q95": 5.9999999992110205,
+          "range": 5.448450579592645e-09,
+          "robust_range": 4.741320225321033e-09
+        }
+      },
+      {
+        "generation": 3,
+        "name": "recovery_flux",
+        "expression": "(1 - x)/(recovery_time_constant*(1 + replenishment_fatigue))",
+        "role": "instantaneous replenishment tendency toward refilling",
+        "train_range": [
+          0.24999999999999994,
+          0.3865295933781413
+        ],
+        "hidden_range": [
+          0.3865322659428491,
+          0.38678170522133076
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.24999999999999994,
+          "max": 0.3865295933781413,
+          "q05": 0.2607771597570431,
+          "median": 0.37710075056423065,
+          "q95": 0.386350264638838,
+          "range": 0.13652959337814136,
+          "robust_range": 0.1255731048817949
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.3865322659428491,
+          "max": 0.38678170522133076,
+          "q05": 0.3865489217664442,
+          "median": 0.386676938286707,
+          "q95": 0.38677268247534724,
+          "range": 0.0002494392784816446,
+          "robust_range": 0.00022376070890306465
+        }
+      },
+      {
+        "generation": 3,
+        "name": "depletion_flux_parent",
+        "expression": "presynaptic_rate*u*x*(1 - release_site_occupancy)",
+        "role": "parent linear resource-consumption law used as the baseline contrast coordinate",
+        "train_range": [
+          2.3753251354080915,
+          3.372368012498657
+        ],
+        "hidden_range": [
+          2.372960962710878,
+          2.3753000735134897
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 2.3753251354080915,
+          "max": 3.372368012498657,
+          "q05": 2.377006784026637,
+          "median": 2.462268188189605,
+          "q95": 3.32222342329005,
+          "range": 0.9970428770905655,
+          "robust_range": 0.9452166392634127
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 2.372960962710878,
+          "max": 2.3753000735134897,
+          "q05": 2.373045573333668,
+          "median": 2.3739434124262377,
+          "q95": 2.3751438840220898,
+          "range": 0.0023391108026116214,
+          "robust_range": 0.0020983106884218117
+        }
+      },
+      {
+        "generation": 4,
+        "name": "effective_trigger_rate",
+        "expression": "presynaptic_rate*(1 - release_site_occupancy)",
+        "role": "Rate of presynaptic events that can still effectively trigger release",
+        "train_range": [
+          10.500000008348511,
+          15.0
+        ],
+        "hidden_range": [
+          10.500000000943935,
+          10.500000008208422
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 10.500000008348511,
+          "max": 15.0,
+          "q05": 10.500000022333793,
+          "median": 10.50015671452458,
+          "q95": 11.864794632106051,
+          "range": 4.499999991651489,
+          "robust_range": 1.3647946097722574
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 10.500000000943935,
+          "max": 10.500000008208422,
+          "q05": 10.500000001052129,
+          "median": 10.500000002776648,
+          "q95": 10.500000007373917,
+          "range": 7.2644876780714185e-09,
+          "robust_range": 6.321787537899581e-09
+        }
+      },
+      {
+        "generation": 4,
+        "name": "depletion_drive",
+        "expression": "presynaptic_rate*(1 - release_site_occupancy)*u*x**2",
+        "role": "Parent instantaneous release-dependent depletion demand",
+        "train_range": [
+          0.9403615841315728,
+          2.2859873005935816
+        ],
+        "hidden_range": [
+          0.9384906218690081,
+          0.9403417408370364
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.9403615841315728,
+          "max": 2.2859873005935816,
+          "q05": 0.941693544734121,
+          "median": 1.0116570783043222,
+          "q95": 2.1461048345189475,
+          "range": 1.345625716462009,
+          "robust_range": 1.2044112897848265
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.9384906218690081,
+          "max": 0.9403417408370364,
+          "q05": 0.9385575489834644,
+          "median": 0.9392678879066627,
+          "q95": 0.9402180791900504,
+          "range": 0.0018511189680282536,
+          "robust_range": 0.001660530206585964
+        }
+      },
+      {
+        "generation": 4,
+        "name": "fatigue_load",
+        "expression": "u*replenishment_fatigue",
+        "role": "Joint regime where facilitation is present but replenishment machinery is already stressed",
+        "train_range": [
+          0.0,
+          0.5449385041109494
+        ],
+        "hidden_range": [
+          0.5449385041292828,
+          0.5449385050798958
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 0.5449385041109494,
+          "q05": 0.28347616621293786,
+          "median": 0.5449179946657341,
+          "q95": 0.5449385022808926,
+          "range": 0.5449385041109494,
+          "robust_range": 0.2614623360679547
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.5449385041292828,
+          "max": 0.5449385050798958,
+          "q05": 0.5449385042384954,
+          "median": 0.5449385048400514,
+          "q95": 0.5449385050657396,
+          "range": 9.50613032735248e-10,
+          "robust_range": 8.272441620604809e-10
+        }
+      },
+      {
+        "generation": 5,
+        "name": "effective_release_drive",
+        "expression": "presynaptic_rate*(1 - release_site_occupancy)*u",
+        "role": "Instantaneous event-weighted release demand on the available pool",
+        "train_range": [
+          3.0,
+          5.999999993738613
+        ],
+        "hidden_range": [
+          5.999999993843698,
+          5.9999999992921484
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 3.0,
+          "max": 5.999999993738613,
+          "q05": 5.1327882039847745,
+          "median": 5.999882466678386,
+          "q95": 5.9999999832497215,
+          "range": 2.999999993738613,
+          "robust_range": 0.867211779264947
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 5.999999993843698,
+          "max": 5.9999999992921484,
+          "q05": 5.9999999944697,
+          "median": 5.99999999791739,
+          "q95": 5.9999999992110205,
+          "range": 5.448450579592645e-09,
+          "robust_range": 4.741320225321033e-09
+        }
+      },
+      {
+        "generation": 5,
+        "name": "fatigue_load",
+        "expression": "replenishment_fatigue",
+        "role": "Current level of supply-side stress accumulated under sustained use",
+        "train_range": [
+          0.0,
+          0.9536423839475864
+        ],
+        "hidden_range": [
+          0.9536423839502443,
+          0.9536423840880549
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 0.9536423839475864,
+          "q05": 0.6552187706390401,
+          "median": 0.9536394041598528,
+          "q95": 0.953642383682282,
+          "range": 0.9536423839475864,
+          "robust_range": 0.29842361304324194
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.9536423839502443,
+          "max": 0.9536423840880549,
+          "q05": 0.9536423839660768,
+          "median": 0.9536423840532846,
+          "q95": 0.9536423840860028,
+          "range": 1.3781065177909113e-10,
+          "robust_range": 1.1992595805310202e-10
+        }
+      },
+      {
+        "generation": 5,
+        "name": "depletion_flux_parent",
+        "expression": "presynaptic_rate*(1 - release_site_occupancy)*u*x**2/(1 + replenishment_fatigue)",
+        "role": "Parent effective depletion term to compare against late-train deviations",
+        "train_range": [
+          0.4813376244589099,
+          1.9423741188382786
+        ],
+        "hidden_range": [
+          0.4803799454356577,
+          0.4813274673820678
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.4813376244589099,
+          "max": 1.9423741188382786,
+          "q05": 0.48201940774810065,
+          "median": 0.517832040126508,
+          "q95": 1.331786730524782,
+          "range": 1.4610364943793688,
+          "robust_range": 0.8497673227766813
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.4803799454356577,
+          "max": 0.4813274673820678,
+          "q05": 0.48041420304390137,
+          "median": 0.4807778002634922,
+          "q95": 0.48126416938258665,
+          "range": 0.0009475219464100681,
+          "robust_range": 0.0008499663386852818
+        }
+      }
+    ],
+    "inactive_mechanisms": [],
+    "visible_mechanisms": [
+      "depletion_depth",
+      "use_load",
+      "depletion_flux",
+      "release_load",
+      "recovery_drive",
+      "fatigued_recovery_scale",
+      "effective_event_drive",
+      "recovery_flux",
+      "depletion_flux_parent",
+      "effective_trigger_rate",
+      "depletion_drive",
+      "fatigue_load",
+      "effective_release_drive",
+      "fatigue_load",
+      "depletion_flux_parent"
+    ],
+    "extended_mechanisms": [
+      "depletion_depth",
+      "use_load",
+      "depletion_flux",
+      "release_load",
+      "recovery_drive",
+      "fatigued_recovery_scale",
+      "effective_event_drive",
+      "recovery_flux",
+      "depletion_flux_parent",
+      "effective_trigger_rate",
+      "depletion_drive",
+      "fatigue_load",
+      "effective_release_drive",
+      "fatigue_load",
+      "depletion_flux_parent"
+    ]
+  },
+  "inactive_mechanisms": [],
+  "target_variance": {
+    "train": {
+      "n": 384,
+      "variance": 0.10153453158699893,
+      "range": 1.669212787203425
+    },
+    "hidden": {
+      "n": 128,
+      "variance": 8.656129550278713e-08,
+      "range": 0.0010145505936174914
+    }
+  },
+  "parent_absorption_report": {
+    "status": "ok",
+    "n_points": 512,
+    "fixed_parent_normalized_rmse": 8.09230098883103,
+    "refit": {
+      "status": "not_run",
+      "reason": "no free parent parameters"
+    },
+    "interpretation": "<1e-3 nearly absorbed; 1e-3..1e-2 weak; >1e-2 visible structure"
+  },
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_qBw15UoizPm4B3K5InrRWtsn"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "(1 - x)/(recovery_time_constant*(1 + replenishment_fatigue)) - presynaptic_rate*(1 - release_site_occupancy)*u*x**2/((1 + replenishment_fatigue)*(1 + baseline_utilization*replenishment_fatigue))",
+        "target_symbol": "dx_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "baseline_utilization",
+          "presynaptic_rate",
+          "recovery_time_constant",
+          "release_site_occupancy",
+          "replenishment_fatigue",
+          "u",
+          "x"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "-presynaptic_rate*u*x**2*(1 - release_site_occupancy)/((replenishment_fatigue + 1)*(baseline_utilization*replenishment_f"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_A3pyCGSVqVakc2fgxSOI7Ukx"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "(1 - x)/(recovery_time_constant*(1 + replenishment_fatigue)) - presynaptic_rate*(1 - release_site_occupancy)*u*x**2/((1 + replenishment_fatigue)*(1 + baseline_utilization*replenishment_fatigue))",
+        "target_symbol": "dx_dt",
+        "assignments": {
+          "x": 0.8,
+          "u": 0.2,
+          "replenishment_fatigue": 0.0,
+          "release_site_occupancy": 0.0,
+          "recovery_time_constant": 0.8,
+          "facilitation_time_constant": 0.2,
+          "presynaptic_rate": 15.0,
+          "baseline_utilization": 0.25,
+          "fatigue_build_time_constant": 0.5,
+          "fatigue_recovery_time_constant": 1.2,
+          "release_site_reset_time_constant": 0.05
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": -1.6700000000000004,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_nUwAQZGASDDa3FYgnMeQzJce"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_b4fIMe9seDzArrdFLcFdk72a"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 4,
+  "discipline": "biology",
+  "scenario_text": "Model short-term presynaptic plasticity during a maintained train of action potentials represented by a fixed mean presynaptic rate. One state records the available synaptic-vesicle resource, while another records release facilitation caused by residual presynaptic signaling. Resource recovery, activity-dependent depletion, facilitation buildup, and facilitation decay jointly govern the trajectory. The target is the instantaneous derivative of available vesicle resources.",
+  "record_id": "m2_neuroscience_and_neural_dynamics_20260921_002",
+  "generation": 5,
+  "_n_total": 5000,
+  "mechanism_observation_history": [
+    {
+      "generation": 1,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "dx_dt depends on x and u through a linear recovery term with one fixed recovery_time_constant, so for fixed x and u the recovery contribution has a single slope in depletion depth (1-x).",
+          "child_relation": "Make recovery slow down when facilitation-driven use is sustained, so the recovery contribution becomes state dependent and bends with ongoing u/rate load rather than remaining a single linear-in-(1-x) term.",
+          "affected_inputs": [
+            "x",
+            "u",
+            "presynaptic_rate",
+            "recovery_time_constant"
+          ],
+          "observable_effect": "At matched depletion x, higher sustained facilitation/activity produces a more negative dx_dt than the parent predicts because replenishment is transiently depressed; this creates extra curvature in dx_dt versus x across low- and high-rate conditions."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "depletion_depth",
+            "expression": "1 - x",
+            "role": "distance from the fully replenished vesicle pool"
+          },
+          {
+            "name": "use_load",
+            "expression": "presynaptic_rate*u",
+            "role": "instantaneous activity-dependent release demand placed on the pool"
+          },
+          {
+            "name": "depletion_flux",
+            "expression": "presynaptic_rate*u*x",
+            "role": "current vesicle consumption flux"
+          }
+        ],
+        "activation_condition": "Observable during maintained moderate-to-high presynaptic_rate trains where facilitation elevates u above baseline for long enough that replenishment cannot be treated as having one constant time scale; weakest near very low rate or u approximately baseline_utilization.",
+        "train_hidden_contrast": "Within training, varying presynaptic_rate already changes sustained u and depletion. The same mechanism extends in holdout to stronger trains by predicting disproportionately slower refill at similar x, not just proportionally larger depletion.",
+        "continuation_path": "Recover the parent law when activity-dependent modulation of replenishment vanishes, so the effective recovery time becomes the constant recovery_time_constant independent of u or presynaptic_rate.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A transient depression of replenishment is a dynamical fatigue process with memory; existing x and u do not uniquely encode how long high use has persisted, so a dedicated state is needed to distinguish equal instantaneous x,u pairs reached after short versus prolonged trains.",
+        "gap_statement": "The model assumes vesicle recovery proceeds with a fixed time constant regardless of recent presynaptic use, omitting use-dependent slowing of recruitment/refilling during sustained activity.",
+        "baseline_assumption": "Vesicle recovery and facilitation time scales remain constant.",
+        "scientific_mechanism": "Activity-dependent fatigue of the replenishment machinery or reserve-pool mobilization, causing recovery of available vesicles to slow during prolonged high release demand and relax back afterward.",
+        "affected_symbols": [
+          "x",
+          "u",
+          "presynaptic_rate",
+          "recovery_time_constant"
+        ],
+        "rationale": "Parent response relationship: for observed x and u, dx_dt = (1-x)/recovery_time_constant - presynaptic_rate*u*x, so the recovery part is independent of activity history and has a single linear dependence on depletion depth. Proposed refinement: let sustained release load build a replenishment-fatigue state that slows recovery, changing the scored target mapping itself because dx_dt at the same x can differ depending on recent high-rate/high-u exposure. Distinguishing condition: vary presynaptic_rate across maintained trains while holding the initial conditions and parent parameters shared. Compare times when x is similarly depleted but one condition has experienced stronger sustained facilitation/use. The child predicts more negative dx_dt in the stronger-use condition because recovery is additionally slowed; the parent with one fixed recovery_time_constant cannot reproduce that history-dependent curvature and must assign the same recovery at matched x regardless of prior load. This is scientifically admissible under moderate-to-high rates where facilitation is activated and depletion persists; under weak stimulation the added effect may be too small to separate, which is a limitation rather than hidden evidence."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "dx_dt depends on x and u through a linear recovery term with one fixed recovery_time_constant, so for fixed x and u the recovery contribution has a single slope in depletion depth (1-x).",
+          "child_relation": "Make recovery slow down when facilitation-driven use is sustained, so the recovery contribution becomes state dependent and bends with ongoing u/rate load rather than remaining a single linear-in-(1-x) term.",
+          "affected_inputs": [
+            "x",
+            "u",
+            "presynaptic_rate",
+            "recovery_time_constant"
+          ],
+          "observable_effect": "At matched depletion x, higher sustained facilitation/activity produces a more negative dx_dt than the parent predicts because replenishment is transiently depressed; this creates extra curvature in dx_dt versus x across low- and high-rate conditions."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "depletion_depth",
+            "expression": "1 - x",
+            "role": "distance from the fully replenished vesicle pool"
+          },
+          {
+            "name": "use_load",
+            "expression": "presynaptic_rate*u",
+            "role": "instantaneous activity-dependent release demand placed on the pool"
+          },
+          {
+            "name": "depletion_flux",
+            "expression": "presynaptic_rate*u*x",
+            "role": "current vesicle consumption flux"
+          }
+        ],
+        "activation_condition": "Observable during maintained moderate-to-high presynaptic_rate trains where facilitation elevates u above baseline for long enough that replenishment cannot be treated as having one constant time scale; weakest near very low rate or u approximately baseline_utilization.",
+        "train_hidden_contrast": "Within training, varying presynaptic_rate already changes sustained u and depletion. The same mechanism extends in holdout to stronger trains by predicting disproportionately slower refill at similar x, not just proportionally larger depletion.",
+        "continuation_path": "Recover the parent law when activity-dependent modulation of replenishment vanishes, so the effective recovery time becomes the constant recovery_time_constant independent of u or presynaptic_rate.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A transient depression of replenishment is a dynamical fatigue process with memory; existing x and u do not uniquely encode how long high use has persisted, so a dedicated state is needed to distinguish equal instantaneous x,u pairs reached after short versus prolonged trains.",
+        "scope_kind": "memory",
+        "scope_symbols": [
+          "x",
+          "u",
+          "replenishment_fatigue",
+          "presynaptic_rate"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "activity-dependent slowing of vesicle replenishment",
+        "scientific_mechanism": "Activity-dependent fatigue of the replenishment machinery or reserve-pool mobilization, causing recovery of available vesicles to slow during prolonged high release demand and relax back afterward.",
+        "embedding_pattern": "multiplicative_modulation",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the target law now depends on a latent memory state driven by presynaptic_rate*u, so equal instantaneous x and u can yield different dx_dt values depending on prior sustained load.",
+        "taxonomy_match": "known",
+        "assumption_before": "Vesicle recovery and facilitation time scales remain constant.",
+        "assumption_after": "Recovery time is dynamically lengthened by a replenishment-fatigue state generated by sustained use load and relaxing afterward.",
+        "before_fragment": "(1 - x)/recovery_time_constant - presynaptic_rate*u*x",
+        "after_fragment": "(1 - x)/(recovery_time_constant*(1 + replenishment_fatigue)) - presynaptic_rate*u*x",
+        "parent_reduction": "Setting replenishment_fatigue=0 recovers the parent x dynamics exactly.",
+        "observable_signature": "Across maintained trains with different presynaptic_rate but shared initial conditions and one shared parameter set, compare times with similar x. The parent predicts the same recovery contribution at matched x because it uses a fixed recovery_time_constant, whereas the child predicts smaller recovery after prolonged stronger use because replenishment_fatigue is larger; this directly changes the scored dx_dt mapping, not only an auxiliary trajectory.",
+        "shortcut_blocked": "Refitting one parent recovery_time_constant cannot reproduce both early and late behavior across low- and high-rate conditions, because the parent assigns recovery solely from x and ignores history. Any single parameter set must give the same recovery term at matched x, while the child allows different recovery slopes through replenishment_fatigue accumulated from past presynaptic_rate*u load."
+      },
+      "range_suggestions": {
+        "replenishment_fatigue": "0 to 5",
+        "fatigue_build_time_constant": "positive; typically same order as or slower than facilitation_time_constant",
+        "fatigue_recovery_time_constant": "positive; typically same order as or larger than recovery_time_constant"
+      }
+    },
+    {
+      "generation": 2,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The depletion term in dx_dt is linear in presynaptic_rate through presynaptic_rate*u*x, so after the existing u and replenishment_fatigue states settle, the target mapping versus sustained rate has a single smooth gain set by u and x with no extra high-rate compression of release demand.",
+          "child_relation": "Replace the idealized linear rate-to-release drive with a saturating effective event-drive generated by finite release-site processing/refractory throughput, so depletion grows approximately linearly at low presynaptic_rate but sublinearly at high presynaptic_rate.",
+          "affected_inputs": [
+            "presynaptic_rate",
+            "u",
+            "x"
+          ],
+          "observable_effect": "Across sustained trains with low versus very high fixed presynaptic_rate, the child predicts weaker additional resource loss and a less negative dx_dt at high rate than the parent, even when low-rate behavior is matched."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "release_load",
+            "expression": "presynaptic_rate*u*x",
+            "role": "Parent instantaneous use load driving vesicle depletion"
+          },
+          {
+            "name": "recovery_drive",
+            "expression": "(1 - x)/(recovery_time_constant*(1 + replenishment_fatigue))",
+            "role": "Instantaneous replenishment drive opposing depletion"
+          },
+          {
+            "name": "fatigued_recovery_scale",
+            "expression": "recovery_time_constant*(1 + replenishment_fatigue)",
+            "role": "Effective slowed recovery timescale under sustained use"
+          }
+        ],
+        "activation_condition": "Observable when presynaptic_rate becomes comparable to or larger than the inverse of a finite release-site processing/refractory timescale, while x and u remain in their admissible interior ranges so both depletion and recovery contribute.",
+        "train_hidden_contrast": "In training, modest rates can still look near-linear and resemble the parent; in holdout with higher sustained rates, the child shows compressed depletion growth instead of the parent's continued proportional increase.",
+        "continuation_path": "In the limit of vanishing release-site processing delay or refractory effect, the effective event-drive reduces to presynaptic_rate and the parent law is recovered.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A finite-throughput/refractory occupancy effect has memory under sustained activation; existing states x, u, and replenishment_fatigue do not represent transient site unavailability, so one additional state is needed to generate rate-dependent compression without conflating it with facilitation or vesicle replenishment.",
+        "gap_statement": "The model assumes every increment in mean presynaptic rate produces a proportional increment in effective release opportunities, even during dense maintained firing.",
+        "baseline_assumption": "The presynaptic spike train is represented by a constant mean rate, and that rate drives depletion as an ideal Poisson-like linear hazard with no finite release-site occupancy or refractory bottleneck.",
+        "scientific_mechanism": "Temporary release-site occupancy/refractoriness limits how many presynaptic events can effectively trigger vesicle release per unit time, causing saturation of depletion demand at high firing rates.",
+        "affected_symbols": [
+          "presynaptic_rate",
+          "u",
+          "x"
+        ],
+        "rationale": "A realistic next refinement is to relax the ideal linear-use assumption in the target mapping rather than adding another unrelated fatigue branch. In the parent, holding recovery_time_constant, facilitation_time_constant, baseline_utilization, fatigue time constants, and initial conditions fixed, changing presynaptic_rate alters dx_dt mainly through a single-phase proportional depletion drive presynaptic_rate*u*x, with only indirect modulation by the already modeled u and replenishment_fatigue trajectories. This implies that once those states are matched at moderate rate, the parent cannot also produce a pronounced high-rate compression of further depletion using one shared parameter set. The child instead introduces finite release-site throughput/refractoriness, yielding a concrete curvature change in dx_dt versus presynaptic_rate: approximately parent-like at low rate, but less negative than the parent at high sustained rate because effective event transmission saturates. This contrast is observable under the actual protocol because presynaptic_rate is a supplied fixed condition, x is the scored state, and sustained trains permit any added occupancy state to evolve from its initial condition into an active regime. The effect is scientifically admissible when firing is dense enough that inter-event spacing approaches the release-site reset timescale; at low rates the mechanism is weak and the parent remains a good approximation. This is a target-mapping change, not merely an auxiliary-trajectory embellishment, because dx_dt itself acquires a new nonlinear dependence on supplied presynaptic_rate through the effective depletion factor."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The depletion term in dx_dt is linear in presynaptic_rate through presynaptic_rate*u*x, so after the existing u and replenishment_fatigue states settle, the target mapping versus sustained rate has a single smooth gain set by u and x with no extra high-rate compression of release demand.",
+          "child_relation": "Replace the idealized linear rate-to-release drive with a saturating effective event-drive generated by finite release-site processing/refractory throughput, so depletion grows approximately linearly at low presynaptic_rate but sublinearly at high presynaptic_rate.",
+          "affected_inputs": [
+            "presynaptic_rate",
+            "u",
+            "x"
+          ],
+          "observable_effect": "Across sustained trains with low versus very high fixed presynaptic_rate, the child predicts weaker additional resource loss and a less negative dx_dt at high rate than the parent, even when low-rate behavior is matched."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "release_load",
+            "expression": "presynaptic_rate*u*x",
+            "role": "Parent instantaneous use load driving vesicle depletion"
+          },
+          {
+            "name": "recovery_drive",
+            "expression": "(1 - x)/(recovery_time_constant*(1 + replenishment_fatigue))",
+            "role": "Instantaneous replenishment drive opposing depletion"
+          },
+          {
+            "name": "fatigued_recovery_scale",
+            "expression": "recovery_time_constant*(1 + replenishment_fatigue)",
+            "role": "Effective slowed recovery timescale under sustained use"
+          }
+        ],
+        "activation_condition": "Observable when presynaptic_rate becomes comparable to or larger than the inverse of a finite release-site processing/refractory timescale, while x and u remain in their admissible interior ranges so both depletion and recovery contribute.",
+        "train_hidden_contrast": "In training, modest rates can still look near-linear and resemble the parent; in holdout with higher sustained rates, the child shows compressed depletion growth instead of the parent's continued proportional increase.",
+        "continuation_path": "In the limit of vanishing release-site processing delay or refractory effect, the effective event-drive reduces to presynaptic_rate and the parent law is recovered.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A finite-throughput/refractory occupancy effect has memory under sustained activation; existing states x, u, and replenishment_fatigue do not represent transient site unavailability, so one additional state is needed to generate rate-dependent compression without conflating it with facilitation or vesicle replenishment.",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "presynaptic_rate",
+          "u",
+          "x",
+          "release_site_occupancy"
+        ],
+        "structural_role": "feedback",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "temporary release-site occupancy and refractoriness",
+        "scientific_mechanism": "Temporary release-site occupancy/refractoriness limits how many presynaptic events can effectively trigger vesicle release per unit time, causing saturation of depletion demand at high firing rates.",
+        "embedding_pattern": "auxiliary_state_feedback",
+        "difficulty_rationale": "The added state introduces delayed saturation of effective depletion drive, so the target law depends on both current rate and the dynamically filtered occupancy history. This cannot be reproduced by a coefficient-only correction because the same parameter set must remain approximately linear at low rate yet compress depletion after occupancy accumulates during dense sustained firing.",
+        "taxonomy_match": "known",
+        "assumption_before": "Every presynaptic event contributes proportionally and immediately to depletion with no release-site throughput bottleneck.",
+        "assumption_after": "Only the currently unoccupied fraction of release sites can transmit presynaptic drive into effective depletion, and occupancy evolves dynamically under sustained activation.",
+        "before_fragment": "(1 - x)/(recovery_time_constant*(1 + replenishment_fatigue)) - presynaptic_rate*u*x",
+        "after_fragment": "(1 - x)/(recovery_time_constant*(1 + replenishment_fatigue)) - presynaptic_rate*(1 - release_site_occupancy)*u*x",
+        "parent_reduction": "When release_site_reset_time_constant approaches 0 so release_site_occupancy remains negligible, or equivalently in the low-rate regime where occupancy stays near 0, the parent expression is recovered.",
+        "observable_signature": "Holding recovery and facilitation parameters fixed and comparing sustained low versus very high presynaptic_rate, the parent gives approximately proportional extra depletion once u and replenishment_fatigue are accounted for, whereas the child shows a bend toward less negative dx_dt because release_site_occupancy rises and reduces the effective factor multiplying presynaptic_rate*u*x. This is observable under the supplied protocol because presynaptic_rate is externally set, x is the scored state, and the added occupancy state activates from its finite initial condition during the train.",
+        "shortcut_blocked": "A single refit of the parent parameters cannot create both near-linear low-rate depletion and stronger high-rate compression of dx_dt across sustained-rate conditions, because the parent's direct rate dependence in the target equation remains proportional to presynaptic_rate*u*x once shared u and replenishment_fatigue dynamics are fixed. Altering facilitation or fatigue parameters only rescales or shifts auxiliary trajectories globally and does not supply the distinct finite-throughput occupancy memory needed to bend the target mapping specifically in the high-rate regime."
+      },
+      "range_suggestions": {
+        "release_site_occupancy": "0 to 1",
+        "release_site_reset_time_constant": "positive; typically shorter than or comparable to recovery_time_constant and can be comparable to inverse high presynaptic_rate"
+      }
+    },
+    {
+      "generation": 3,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The depletion term in dx_dt scales linearly with the available resource x through presynaptic_rate*(1 - release_site_occupancy)*u*x, so at fixed u and release_site_occupancy the dependence of resource loss on x has constant slope.",
+          "child_relation": "Relax the linear-release assumption so depletion depends nonlinearly on x, reflecting reduced release probability when only a small fraction of vesicles remain docked/primed and stronger-than-linear depletion only when the pool is well stocked.",
+          "affected_inputs": [
+            "x",
+            "u",
+            "release_site_occupancy",
+            "presynaptic_rate"
+          ],
+          "observable_effect": "At matched intermediate x the successor can show weaker depletion near low x but similar or stronger depletion near high x, producing a bent x-to-dx_dt relation that the parent's single linear x gain cannot match across depletion levels."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "effective_event_drive",
+            "expression": "presynaptic_rate*u*(1 - release_site_occupancy)",
+            "role": "effective rate of release-triggering presynaptic drive after facilitation and site refractoriness"
+          },
+          {
+            "name": "recovery_flux",
+            "expression": "(1 - x)/(recovery_time_constant*(1 + replenishment_fatigue))",
+            "role": "instantaneous replenishment tendency toward refilling"
+          },
+          {
+            "name": "depletion_flux_parent",
+            "expression": "presynaptic_rate*u*x*(1 - release_site_occupancy)",
+            "role": "parent linear resource-consumption law used as the baseline contrast coordinate"
+          }
+        ],
+        "activation_condition": "Observable when x traverses a broad depleted-to-replete range during sustained trains, especially moderate to high effective_event_drive where depletion is appreciable but x remains within 0 to 1 and recovery still contributes.",
+        "train_hidden_contrast": "Within training, early versus later portions of sustained stimulation already sample high-x and lower-x regimes; in holdout, changing presynaptic_rate extends the same contrast by shifting how quickly trajectories move through those x regimes.",
+        "continuation_path": "In the limit that the nonlinear release dependence reduces to proportionality in x, the parent depletion law is recovered exactly.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The current model assumes every increment of available vesicle resource contributes equally to immediate release, i.e. depletion is exactly proportional to x over the full admissible range.",
+        "baseline_assumption": "Release-dependent depletion of the available vesicle pool is linear in the available-resource fraction x.",
+        "scientific_mechanism": "State-dependent release competence within the readily releasable pool: when the pool is nearly depleted, the remaining vesicles are less effectively release-ready on average, so effective depletion grows sublinearly with x rather than strictly linearly.",
+        "affected_symbols": [
+          "x",
+          "u",
+          "release_site_occupancy",
+          "presynaptic_rate"
+        ],
+        "rationale": "A realistic next refinement is to relax the linear x dependence of the depletion term rather than adding another latent process. In the parent, holding presynaptic_rate fixed and comparing times or conditions with similar u and release_site_occupancy, dx_dt changes with x through a straight-line depletion contribution. That creates a single-gain shortcut: one shared slope in x must fit both well-stocked and nearly depleted regimes. A child with nonlinear release competence changes the target mapping itself, not only auxiliary trajectories, because dx_dt as a function of observed x bends. The concrete contrast is obtained during maintained stimulation from the stated initial condition x=0.8 as x declines: at low x the child predicts less additional depletion than the parent's linear law, while near high x it can remain close to the parent. A single refit of existing parent parameters cannot reproduce this changed curvature across both regimes, because those parameters only rescale recovery and the overall linear depletion prefactor, not the shape of depletion versus x. This is scientifically admissible under sustained trains that actually drive x away from 1; if depletion is always tiny and x stays near 1, the difference becomes weak and should be acknowledged as limited."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The depletion term in dx_dt scales linearly with the available resource x through presynaptic_rate*(1 - release_site_occupancy)*u*x, so at fixed u and release_site_occupancy the dependence of resource loss on x has constant slope.",
+          "child_relation": "Relax the linear-release assumption so depletion depends nonlinearly on x, reflecting reduced release probability when only a small fraction of vesicles remain docked/primed and stronger-than-linear depletion only when the pool is well stocked.",
+          "affected_inputs": [
+            "x",
+            "u",
+            "release_site_occupancy",
+            "presynaptic_rate"
+          ],
+          "observable_effect": "At matched intermediate x the successor can show weaker depletion near low x but similar or stronger depletion near high x, producing a bent x-to-dx_dt relation that the parent's single linear x gain cannot match across depletion levels."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "effective_event_drive",
+            "expression": "presynaptic_rate*u*(1 - release_site_occupancy)",
+            "role": "effective rate of release-triggering presynaptic drive after facilitation and site refractoriness"
+          },
+          {
+            "name": "recovery_flux",
+            "expression": "(1 - x)/(recovery_time_constant*(1 + replenishment_fatigue))",
+            "role": "instantaneous replenishment tendency toward refilling"
+          },
+          {
+            "name": "depletion_flux_parent",
+            "expression": "presynaptic_rate*u*x*(1 - release_site_occupancy)",
+            "role": "parent linear resource-consumption law used as the baseline contrast coordinate"
+          }
+        ],
+        "activation_condition": "Observable when x traverses a broad depleted-to-replete range during sustained trains, especially moderate to high effective_event_drive where depletion is appreciable but x remains within 0 to 1 and recovery still contributes.",
+        "train_hidden_contrast": "Within training, early versus later portions of sustained stimulation already sample high-x and lower-x regimes; in holdout, changing presynaptic_rate extends the same contrast by shifting how quickly trajectories move through those x regimes.",
+        "continuation_path": "In the limit that the nonlinear release dependence reduces to proportionality in x, the parent depletion law is recovered exactly.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "x",
+          "u",
+          "release_site_occupancy",
+          "presynaptic_rate"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "State-dependent release competence of the readily releasable pool",
+        "scientific_mechanism": "State-dependent release competence within the readily releasable pool: when the pool is nearly depleted, the remaining vesicles are less effectively release-ready on average, so effective depletion grows sublinearly with x rather than strictly linearly.",
+        "embedding_pattern": "nested_nonlinearity",
+        "difficulty_rationale": "This embedding is harder than a coefficient-only correction because the effective event drive is first assembled from presynaptic_rate, u, and release_site_occupancy, then applied through a nonlinear x-dependent competence law x**2 rather than a single linear gain on x. That changes the shape of the scored target mapping itself across depletion levels, not merely its amplitude.",
+        "taxonomy_match": "known",
+        "assumption_before": "Release-dependent depletion of the available vesicle pool is linear in the available-resource fraction x.",
+        "assumption_after": "Release-dependent depletion reflects state-dependent release competence, so effective consumption scales superlinearly with the nominally available resource fraction.",
+        "before_fragment": "(1 - x)/(recovery_time_constant*(1 + replenishment_fatigue)) - presynaptic_rate*(1 - release_site_occupancy)*u*x",
+        "after_fragment": "(1 - x)/(recovery_time_constant*(1 + replenishment_fatigue)) - presynaptic_rate*(1 - release_site_occupancy)*u*x**2",
+        "parent_reduction": "For x near 1, or more generally when nonlinear competence is approximated as proportional over the sampled range, the child approaches the parent linear depletion law.",
+        "observable_signature": "Holding u and release_site_occupancy approximately matched and comparing early high-x versus later lower-x portions of sustained trains, the parent predicts a straight-line depletion contribution in x whereas the child predicts reduced depletion at low x and relatively preserved depletion at high x. This changed target mapping is observable whenever trajectories actually visit both regimes under the stated initial condition and nontrivial presynaptic drive.",
+        "shortcut_blocked": "A single parent parameter set cannot reproduce this contrast because all existing parent parameters leave depletion affine in x once u and release_site_occupancy are given. Refitting recovery_time_constant, presynaptic_rate, or baseline utilization can only change the overall slope or offset through auxiliary trajectories, not create the low-x versus high-x curvature in dx_dt versus x across the same admissible sustained-train conditions."
+      },
+      "range_suggestions": {}
+    },
+    {
+      "generation": 4,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "At fixed presynaptic_rate, u, and release_site_occupancy, depletion in dx_dt scales as a single quadratic factor u*x**2 times the effective event rate, so the sensitivity of resource loss to facilitation is independent of replenishment state except through multiplicative scaling.",
+          "child_relation": "Relax the assumption that facilitation acts with constant potency across all presynaptic resource states by making depletion sensitivity to u weaken when replenishment_fatigue is high, creating a non-separable interaction between u and replenishment_fatigue in dx_dt.",
+          "affected_inputs": [
+            "u",
+            "replenishment_fatigue",
+            "presynaptic_rate",
+            "release_site_occupancy",
+            "x"
+          ],
+          "observable_effect": "During sustained high-rate trains that build replenishment_fatigue, increasing u no longer produces proportionally equal extra depletion; early-train dx_dt becomes more facilitation-sensitive than late-train dx_dt at matched x and presynaptic_rate."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "effective_trigger_rate",
+            "expression": "presynaptic_rate*(1 - release_site_occupancy)",
+            "role": "Rate of presynaptic events that can still effectively trigger release"
+          },
+          {
+            "name": "depletion_drive",
+            "expression": "presynaptic_rate*(1 - release_site_occupancy)*u*x**2",
+            "role": "Parent instantaneous release-dependent depletion demand"
+          },
+          {
+            "name": "fatigue_load",
+            "expression": "u*replenishment_fatigue",
+            "role": "Joint regime where facilitation is present but replenishment machinery is already stressed"
+          }
+        ],
+        "activation_condition": "Observable when presynaptic_rate is high enough and sustained long enough that replenishment_fatigue reaches moderate values while u remains above baseline; weak or negligible near replenishment_fatigue≈0 or very low presynaptic_rate.",
+        "train_hidden_contrast": "In training, the mechanism appears as mild late-train bending of dx_dt versus u under sustained stimulation; in holdout, the same interaction extends to stronger fatigue regimes where depletion saturates relative to the parent’s separable product form.",
+        "continuation_path": "Recover the parent law in the limit that fatigue-dependent modulation of facilitation potency vanishes, equivalently when replenishment_fatigue stays near zero over the experiment.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The current model assumes facilitation multiplies depletion with fixed efficacy regardless of the current fatigue state of vesicle replenishment, making depletion a separable product of facilitation and fatigue effects.",
+        "baseline_assumption": "Release-dependent depletion is modulated by facilitation and replenishment fatigue through independent multiplicative factors only; fatigue slows recovery but does not reshape how facilitation translates into resource consumption.",
+        "scientific_mechanism": "Under sustained use, residual-calcium-driven facilitation can become less effective at increasing actual vesicle consumption when replenishment/mobilization is fatigued, because extra release drive cannot be converted into proportionally more effective depletion once supply-side readiness is stressed.",
+        "affected_symbols": [
+          "u",
+          "replenishment_fatigue",
+          "presynaptic_rate",
+          "release_site_occupancy",
+          "x"
+        ],
+        "rationale": "A realistic next refinement is to change the assumption of separable depletion gain. In the parent, varying u at fixed presynaptic_rate, x, and release_site_occupancy changes dx_dt through a single multiplicative factor, while replenishment_fatigue only slows the recovery branch. Thus the parent predicts the same facilitation-to-depletion gain shape early and late in a train once x is matched, apart from overall recovery offset. A scientifically plausible refinement is that high replenishment_fatigue reduces how strongly facilitation can convert presynaptic activity into actual vesicle loss, because the supply side becomes the bottleneck. The observable contrast is obtained by varying time within a maintained moderate-to-high-rate train while holding presynaptic_rate fixed and comparing epochs with low versus elevated replenishment_fatigue: the child predicts diminished marginal effect of u on dx_dt in the fatigued epoch, whereas the parent with one shared parameter set preserves a fixed separable u gain in the depletion term. This is admissible because replenishment_fatigue is already a modeled state that can enter a moderate range under sustained drive. The effect is limited when trains are too weak or short to build fatigue, in which case the child should reduce toward the parent."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "At fixed presynaptic_rate, u, and release_site_occupancy, depletion in dx_dt scales as a single quadratic factor u*x**2 times the effective event rate, so the sensitivity of resource loss to facilitation is independent of replenishment state except through multiplicative scaling.",
+          "child_relation": "Relax the assumption that facilitation acts with constant potency across all presynaptic resource states by making depletion sensitivity to u weaken when replenishment_fatigue is high, creating a non-separable interaction between u and replenishment_fatigue in dx_dt.",
+          "affected_inputs": [
+            "u",
+            "replenishment_fatigue",
+            "presynaptic_rate",
+            "release_site_occupancy",
+            "x"
+          ],
+          "observable_effect": "During sustained high-rate trains that build replenishment_fatigue, increasing u no longer produces proportionally equal extra depletion; early-train dx_dt becomes more facilitation-sensitive than late-train dx_dt at matched x and presynaptic_rate."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "effective_trigger_rate",
+            "expression": "presynaptic_rate*(1 - release_site_occupancy)",
+            "role": "Rate of presynaptic events that can still effectively trigger release"
+          },
+          {
+            "name": "depletion_drive",
+            "expression": "presynaptic_rate*(1 - release_site_occupancy)*u*x**2",
+            "role": "Parent instantaneous release-dependent depletion demand"
+          },
+          {
+            "name": "fatigue_load",
+            "expression": "u*replenishment_fatigue",
+            "role": "Joint regime where facilitation is present but replenishment machinery is already stressed"
+          }
+        ],
+        "activation_condition": "Observable when presynaptic_rate is high enough and sustained long enough that replenishment_fatigue reaches moderate values while u remains above baseline; weak or negligible near replenishment_fatigue≈0 or very low presynaptic_rate.",
+        "train_hidden_contrast": "In training, the mechanism appears as mild late-train bending of dx_dt versus u under sustained stimulation; in holdout, the same interaction extends to stronger fatigue regimes where depletion saturates relative to the parent’s separable product form.",
+        "continuation_path": "Recover the parent law in the limit that fatigue-dependent modulation of facilitation potency vanishes, equivalently when replenishment_fatigue stays near zero over the experiment.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "u",
+          "replenishment_fatigue",
+          "presynaptic_rate",
+          "release_site_occupancy",
+          "x"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "fatigue-limited conversion of facilitation into effective vesicle depletion",
+        "scientific_mechanism": "Under sustained use, residual-calcium-driven facilitation can become less effective at increasing actual vesicle consumption when replenishment/mobilization is fatigued, because extra release drive cannot be converted into proportionally more effective depletion once supply-side readiness is stressed.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the effective depletion gain now changes along the trajectory with replenishment_fatigue, bending the dx_dt-versus-u relationship differently across early and late train epochs under one shared parameter set.",
+        "taxonomy_match": "known",
+        "assumption_before": "Facilitation enters the depletion term with fixed potency independent of replenishment fatigue.",
+        "assumption_after": "Facilitation-driven depletion potency is reduced by replenishment fatigue because fatigued supply readiness limits how much extra release drive can consume resources.",
+        "before_fragment": "(1 - x)/(recovery_time_constant*(1 + replenishment_fatigue)) - presynaptic_rate*(1 - release_site_occupancy)*u*x**2",
+        "after_fragment": "(1 - x)/(recovery_time_constant*(1 + replenishment_fatigue)) - presynaptic_rate*(1 - release_site_occupancy)*u*x**2/(1 + replenishment_fatigue)",
+        "parent_reduction": "The parent is recovered when replenishment_fatigue≈0 throughout the experiment, or equivalently when fatigue-dependent modulation of depletion potency is negligible so 1/(1 + replenishment_fatigue)≈1 on the depletion branch.",
+        "observable_signature": "At fixed presynaptic_rate and matched x and release_site_occupancy, the child predicts that the slope of dx_dt with respect to u is approximately proportional to -presynaptic_rate*(1 - release_site_occupancy)*x**2/(1 + replenishment_fatigue), so facilitation has weaker depletion effect in fatigued late-train epochs than in low-fatigue early-train epochs. The parent instead preserves a fatigue-independent u slope on the depletion branch and can only shift dx_dt through the separate recovery term.",
+        "shortcut_blocked": "A single refit of existing parent parameters cannot reproduce both low-fatigue and high-fatigue u sensitivities at matched x, presynaptic_rate, and release_site_occupancy, because the parent depletion term is separable and linear in u with a gain that does not depend on replenishment_fatigue. Retuning recovery_time_constant or baseline utilization can alter offsets or overall trajectory levels, but cannot create the required within-model reduction of marginal facilitation effect specifically in fatigued epochs without also changing early-epoch sensitivity."
+      },
+      "range_suggestions": {}
+    },
+    {
+      "generation": 5,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The depletion term scales with facilitation and available resource as presynaptic_rate*(1 - release_site_occupancy)*u*x**2 divided by a fatigue factor, so for fixed observed u, x, and release_site_occupancy the target depends on replenishment_fatigue only through a simple reciprocal attenuation shared by both recovery and depletion.",
+          "child_relation": "Relax the assumption that replenishment fatigue only rescales both fluxes equally by allowing depletion efficacy itself to saturate more strongly with fatigue than recovery does, creating a nonlinear bending of dx_dt versus replenishment_fatigue at fixed presynaptic_rate, u, x, and release_site_occupancy.",
+          "affected_inputs": [
+            "x",
+            "u",
+            "replenishment_fatigue",
+            "release_site_occupancy",
+            "presynaptic_rate"
+          ],
+          "observable_effect": "During sustained high-rate conditions that build appreciable replenishment_fatigue, the child predicts a stronger flattening or rollover of activity-driven depletion than the parent, so late-train dx_dt becomes less negative than expected from the parent's single reciprocal fatigue scaling even when u remains elevated."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "effective_release_drive",
+            "expression": "presynaptic_rate*(1 - release_site_occupancy)*u",
+            "role": "Instantaneous event-weighted release demand on the available pool"
+          },
+          {
+            "name": "fatigue_load",
+            "expression": "replenishment_fatigue",
+            "role": "Current level of supply-side stress accumulated under sustained use"
+          },
+          {
+            "name": "depletion_flux_parent",
+            "expression": "presynaptic_rate*(1 - release_site_occupancy)*u*x**2/(1 + replenishment_fatigue)",
+            "role": "Parent effective depletion term to compare against late-train deviations"
+          }
+        ],
+        "activation_condition": "Observable when presynaptic_rate is high enough and stimulation long enough that replenishment_fatigue reaches moderate values while x and u remain nonzero; weak or negligible near replenishment_fatigue ≈ 0.",
+        "train_hidden_contrast": "Within training, early versus late portions of the same maintained-rate episode already vary replenishment_fatigue; in holdout, stronger rates or longer trains extend the same contrast by pushing farther into the fatigued regime.",
+        "continuation_path": "Recover the parent law in the limit where the extra fatigue dependence of depletion efficacy vanishes, so fatigue again enters dx_dt only through the shared 1/(1 + replenishment_fatigue) factor.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The current model assumes replenishment fatigue attenuates vesicle recovery and vesicle consumption with the same simple multiplicative factor, which is likely too rigid once supply-side stress specifically limits conversion of facilitation drive into actual depletion.",
+        "baseline_assumption": "Replenishment fatigue acts as a single shared divisor on both recovery and depletion fluxes with identical dependence.",
+        "scientific_mechanism": "Under sustained use, fatigued mobilization/repriming reduces how effectively elevated facilitation and presynaptic drive can recruit releasable vesicles into actual consumption, producing an extra nonlinear saturation of depletion with fatigue beyond the recovery slowdown already present.",
+        "affected_symbols": [
+          "x",
+          "u",
+          "replenishment_fatigue",
+          "release_site_occupancy",
+          "presynaptic_rate"
+        ],
+        "rationale": "A realistic next refinement is to change the fatigue coupling in the scored dx_dt itself, not merely an auxiliary equation. In the parent, if x, u, release_site_occupancy, and presynaptic_rate are held fixed, increasing replenishment_fatigue changes dx_dt through one shared reciprocal factor applied symmetrically to recovery and depletion. That imposes a specific curvature: both positive recovery and negative depletion weaken in lockstep as fatigue rises. Scientifically, however, late in a maintained high-rate train the supply side can become so stressed that extra facilitation no longer converts into proportionally more vesicle consumption, even though depleted pools still recover slowly. Thus the child should let depletion efficacy bend downward more strongly with replenishment_fatigue than recovery does. The observable contrast is obtained by varying sustained-use regime through presynaptic_rate and elapsed time while holding the model form and initial conditions fixed: early in the train, when replenishment_fatigue is near zero, parent and child agree closely; later, after fatigue accumulates to moderate levels, the child predicts dx_dt that is less negative than the parent at comparable u and release drive because depletion saturates more strongly. This is admissible under the current observation protocol because replenishment_fatigue is an existing observed state trajectory, so the changed target mapping is directly testable. A single refit of existing parent parameters cannot fully absorb this across both low- and moderate-fatigue conditions because the parent is constrained to one common fatigue divisor shared by recovery and depletion; changing that divisor's coefficient would move both fluxes together rather than selectively altering the curvature of the depletion branch."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The depletion term scales with facilitation and available resource as presynaptic_rate*(1 - release_site_occupancy)*u*x**2 divided by a fatigue factor, so for fixed observed u, x, and release_site_occupancy the target depends on replenishment_fatigue only through a simple reciprocal attenuation shared by both recovery and depletion.",
+          "child_relation": "Relax the assumption that replenishment fatigue only rescales both fluxes equally by allowing depletion efficacy itself to saturate more strongly with fatigue than recovery does, creating a nonlinear bending of dx_dt versus replenishment_fatigue at fixed presynaptic_rate, u, x, and release_site_occupancy.",
+          "affected_inputs": [
+            "x",
+            "u",
+            "replenishment_fatigue",
+            "release_site_occupancy",
+            "presynaptic_rate"
+          ],
+          "observable_effect": "During sustained high-rate conditions that build appreciable replenishment_fatigue, the child predicts a stronger flattening or rollover of activity-driven depletion than the parent, so late-train dx_dt becomes less negative than expected from the parent's single reciprocal fatigue scaling even when u remains elevated."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "effective_release_drive",
+            "expression": "presynaptic_rate*(1 - release_site_occupancy)*u",
+            "role": "Instantaneous event-weighted release demand on the available pool"
+          },
+          {
+            "name": "fatigue_load",
+            "expression": "replenishment_fatigue",
+            "role": "Current level of supply-side stress accumulated under sustained use"
+          },
+          {
+            "name": "depletion_flux_parent",
+            "expression": "presynaptic_rate*(1 - release_site_occupancy)*u*x**2/(1 + replenishment_fatigue)",
+            "role": "Parent effective depletion term to compare against late-train deviations"
+          }
+        ],
+        "activation_condition": "Observable when presynaptic_rate is high enough and stimulation long enough that replenishment_fatigue reaches moderate values while x and u remain nonzero; weak or negligible near replenishment_fatigue ≈ 0.",
+        "train_hidden_contrast": "Within training, early versus late portions of the same maintained-rate episode already vary replenishment_fatigue; in holdout, stronger rates or longer trains extend the same contrast by pushing farther into the fatigued regime.",
+        "continuation_path": "Recover the parent law in the limit where the extra fatigue dependence of depletion efficacy vanishes, so fatigue again enters dx_dt only through the shared 1/(1 + replenishment_fatigue) factor.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "x",
+          "u",
+          "replenishment_fatigue",
+          "release_site_occupancy",
+          "presynaptic_rate"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "fatigue-dependent saturation of depletion efficacy",
+        "scientific_mechanism": "Under sustained use, fatigued mobilization/repriming reduces how effectively elevated facilitation and presynaptic drive can recruit releasable vesicles into actual consumption, producing an extra nonlinear saturation of depletion with fatigue beyond the recovery slowdown already present.",
+        "embedding_pattern": "multiplicative_modulation",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the added fatigue-dependent modulation selectively bends the depletion branch while leaving the recovery branch on its original fatigue law, changing the target curvature with respect to replenishment_fatigue rather than merely rescaling the whole RHS.",
+        "taxonomy_match": "known",
+        "assumption_before": "Replenishment fatigue acts as a single shared divisor on both recovery and depletion fluxes with identical dependence.",
+        "assumption_after": "Replenishment fatigue still slows recovery as before, but it also separately and multiplicatively saturates depletion efficacy so facilitation-driven consumption weakens more strongly at higher fatigue.",
+        "before_fragment": "(1 - x)/(recovery_time_constant*(1 + replenishment_fatigue)) - presynaptic_rate*(1 - release_site_occupancy)*u*x**2/(1 + replenishment_fatigue)",
+        "after_fragment": "(1 - x)/(recovery_time_constant*(1 + replenishment_fatigue)) - presynaptic_rate*(1 - release_site_occupancy)*u*x**2/((1 + replenishment_fatigue)*(1 + baseline_utilization*replenishment_fatigue))",
+        "parent_reduction": "When baseline_utilization*replenishment_fatigue is negligible, the extra modulation tends to 1 and the parent expression is recovered.",
+        "observable_signature": "At fixed observed x, u, release_site_occupancy, and presynaptic_rate, the parent gives dx_dt versus replenishment_fatigue from one shared reciprocal attenuation of both terms, whereas the child introduces extra downward bending only in the depletion branch. Thus early low-fatigue samples remain close to the parent, but late moderate-fatigue samples show dx_dt less negative than the parent predicts because depletion saturates more strongly than recovery.",
+        "shortcut_blocked": "A single refit of the parent parameters cannot reproduce this contrast across low- and moderate-fatigue conditions because the parent structurally forces recovery and depletion to move together under the same factor 1/(1 + replenishment_fatigue). Retuning recovery_time_constant, presynaptic_rate, or baseline_utilization only rescales amplitudes or auxiliary trajectories, but cannot create selective fatigue curvature in the scored depletion contribution while preserving the low-fatigue behavior with one shared parameter set."
+      },
+      "range_suggestions": {}
+    }
+  ],
+  "evolution_provenance": {
+    "dimension_track": null,
+    "mechanism_profile": {
+      "allowed_structural_roles": [
+        "contribution",
+        "response_law",
+        "modulation",
+        "interaction",
+        "constraint",
+        "transition",
+        "feedback",
+        "heterogeneity",
+        "timescale",
+        "transport_balance"
+      ],
+      "preferred_scopes": [
+        "unary",
+        "pairwise",
+        "state_coupling",
+        "time_forcing"
+      ],
+      "domain_mechanisms": [
+        {
+          "id": "finite_capacity_or_resource",
+          "description": "finite capacity, resource limitation, or saturation",
+          "operations": [
+            "add_term",
+            "change_assumption"
+          ]
+        },
+        {
+          "id": "regulatory_or_ecological_feedback",
+          "description": "regulatory, ecological, or biochemical feedback",
+          "operations": [
+            "add_term"
+          ]
+        },
+        {
+          "id": "environmental_modulation",
+          "description": "observed environmental or condition-dependent modulation",
+          "operations": [
+            "change_assumption"
+          ]
+        }
+      ],
+      "profile_source": "subject_fallback",
+      "ontology_schema_version": "1.0",
+      "taxonomy_schema_version": "1.0"
+    },
+    "baseline_mechanisms": [
+      "Finite-pool recovery of releasable presynaptic vesicles.",
+      "Release-dependent depletion of the available vesicle pool.",
+      "Residual-signal-driven facilitation of release efficacy.",
+      "Relaxation of facilitation between presynaptic events."
+    ],
+    "baseline_assumptions": [
+      "The presynaptic spike train is represented by a constant mean rate.",
+      "All release sites share the same resource and facilitation variables.",
+      "Postsynaptic receptor dynamics do not feed back onto presynaptic release.",
+      "Vesicle recovery and facilitation time scales remain constant."
+    ],
+    "scientific_constraints": [
+      "The available-resource fraction must remain between zero and one.",
+      "The release-efficacy fraction must remain between zero and one.",
+      "Activity-dependent release can only consume currently available resources.",
+      "Recovery must point toward greater availability whenever the pool is depleted."
+    ],
+    "refinement_agenda": [
+      "Replace the mean-rate approximation with discrete presynaptic spike events.",
+      "Add a separate reserve vesicle pool and mobilization process.",
+      "Include postsynaptic receptor desensitization as an additional neural state.",
+      "Allow release probability to depend on recent presynaptic calcium dynamics."
+    ],
+    "evolution_contracts": [
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "dx_dt depends on x and u through a linear recovery term with one fixed recovery_time_constant, so for fixed x and u the recovery contribution has a single slope in depletion depth (1-x).",
+          "child_relation": "Make recovery slow down when facilitation-driven use is sustained, so the recovery contribution becomes state dependent and bends with ongoing u/rate load rather than remaining a single linear-in-(1-x) term.",
+          "affected_inputs": [
+            "x",
+            "u",
+            "presynaptic_rate",
+            "recovery_time_constant"
+          ],
+          "observable_effect": "At matched depletion x, higher sustained facilitation/activity produces a more negative dx_dt than the parent predicts because replenishment is transiently depressed; this creates extra curvature in dx_dt versus x across low- and high-rate conditions."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "depletion_depth",
+            "expression": "1 - x",
+            "role": "distance from the fully replenished vesicle pool"
+          },
+          {
+            "name": "use_load",
+            "expression": "presynaptic_rate*u",
+            "role": "instantaneous activity-dependent release demand placed on the pool"
+          },
+          {
+            "name": "depletion_flux",
+            "expression": "presynaptic_rate*u*x",
+            "role": "current vesicle consumption flux"
+          }
+        ],
+        "activation_condition": "Observable during maintained moderate-to-high presynaptic_rate trains where facilitation elevates u above baseline for long enough that replenishment cannot be treated as having one constant time scale; weakest near very low rate or u approximately baseline_utilization.",
+        "train_hidden_contrast": "Within training, varying presynaptic_rate already changes sustained u and depletion. The same mechanism extends in holdout to stronger trains by predicting disproportionately slower refill at similar x, not just proportionally larger depletion.",
+        "continuation_path": "Recover the parent law when activity-dependent modulation of replenishment vanishes, so the effective recovery time becomes the constant recovery_time_constant independent of u or presynaptic_rate.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A transient depression of replenishment is a dynamical fatigue process with memory; existing x and u do not uniquely encode how long high use has persisted, so a dedicated state is needed to distinguish equal instantaneous x,u pairs reached after short versus prolonged trains.",
+        "scope_kind": "memory",
+        "scope_symbols": [
+          "x",
+          "u",
+          "replenishment_fatigue",
+          "presynaptic_rate"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "activity-dependent slowing of vesicle replenishment",
+        "scientific_mechanism": "Activity-dependent fatigue of the replenishment machinery or reserve-pool mobilization, causing recovery of available vesicles to slow during prolonged high release demand and relax back afterward.",
+        "embedding_pattern": "multiplicative_modulation",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the target law now depends on a latent memory state driven by presynaptic_rate*u, so equal instantaneous x and u can yield different dx_dt values depending on prior sustained load.",
+        "taxonomy_match": "known",
+        "assumption_before": "Vesicle recovery and facilitation time scales remain constant.",
+        "assumption_after": "Recovery time is dynamically lengthened by a replenishment-fatigue state generated by sustained use load and relaxing afterward.",
+        "before_fragment": "(1 - x)/recovery_time_constant - presynaptic_rate*u*x",
+        "after_fragment": "(1 - x)/(recovery_time_constant*(1 + replenishment_fatigue)) - presynaptic_rate*u*x",
+        "parent_reduction": "Setting replenishment_fatigue=0 recovers the parent x dynamics exactly.",
+        "observable_signature": "Across maintained trains with different presynaptic_rate but shared initial conditions and one shared parameter set, compare times with similar x. The parent predicts the same recovery contribution at matched x because it uses a fixed recovery_time_constant, whereas the child predicts smaller recovery after prolonged stronger use because replenishment_fatigue is larger; this directly changes the scored dx_dt mapping, not only an auxiliary trajectory.",
+        "shortcut_blocked": "Refitting one parent recovery_time_constant cannot reproduce both early and late behavior across low- and high-rate conditions, because the parent assigns recovery solely from x and ignores history. Any single parameter set must give the same recovery term at matched x, while the child allows different recovery slopes through replenishment_fatigue accumulated from past presynaptic_rate*u load."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The depletion term in dx_dt is linear in presynaptic_rate through presynaptic_rate*u*x, so after the existing u and replenishment_fatigue states settle, the target mapping versus sustained rate has a single smooth gain set by u and x with no extra high-rate compression of release demand.",
+          "child_relation": "Replace the idealized linear rate-to-release drive with a saturating effective event-drive generated by finite release-site processing/refractory throughput, so depletion grows approximately linearly at low presynaptic_rate but sublinearly at high presynaptic_rate.",
+          "affected_inputs": [
+            "presynaptic_rate",
+            "u",
+            "x"
+          ],
+          "observable_effect": "Across sustained trains with low versus very high fixed presynaptic_rate, the child predicts weaker additional resource loss and a less negative dx_dt at high rate than the parent, even when low-rate behavior is matched."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "release_load",
+            "expression": "presynaptic_rate*u*x",
+            "role": "Parent instantaneous use load driving vesicle depletion"
+          },
+          {
+            "name": "recovery_drive",
+            "expression": "(1 - x)/(recovery_time_constant*(1 + replenishment_fatigue))",
+            "role": "Instantaneous replenishment drive opposing depletion"
+          },
+          {
+            "name": "fatigued_recovery_scale",
+            "expression": "recovery_time_constant*(1 + replenishment_fatigue)",
+            "role": "Effective slowed recovery timescale under sustained use"
+          }
+        ],
+        "activation_condition": "Observable when presynaptic_rate becomes comparable to or larger than the inverse of a finite release-site processing/refractory timescale, while x and u remain in their admissible interior ranges so both depletion and recovery contribute.",
+        "train_hidden_contrast": "In training, modest rates can still look near-linear and resemble the parent; in holdout with higher sustained rates, the child shows compressed depletion growth instead of the parent's continued proportional increase.",
+        "continuation_path": "In the limit of vanishing release-site processing delay or refractory effect, the effective event-drive reduces to presynaptic_rate and the parent law is recovered.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A finite-throughput/refractory occupancy effect has memory under sustained activation; existing states x, u, and replenishment_fatigue do not represent transient site unavailability, so one additional state is needed to generate rate-dependent compression without conflating it with facilitation or vesicle replenishment.",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "presynaptic_rate",
+          "u",
+          "x",
+          "release_site_occupancy"
+        ],
+        "structural_role": "feedback",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "temporary release-site occupancy and refractoriness",
+        "scientific_mechanism": "Temporary release-site occupancy/refractoriness limits how many presynaptic events can effectively trigger vesicle release per unit time, causing saturation of depletion demand at high firing rates.",
+        "embedding_pattern": "auxiliary_state_feedback",
+        "difficulty_rationale": "The added state introduces delayed saturation of effective depletion drive, so the target law depends on both current rate and the dynamically filtered occupancy history. This cannot be reproduced by a coefficient-only correction because the same parameter set must remain approximately linear at low rate yet compress depletion after occupancy accumulates during dense sustained firing.",
+        "taxonomy_match": "known",
+        "assumption_before": "Every presynaptic event contributes proportionally and immediately to depletion with no release-site throughput bottleneck.",
+        "assumption_after": "Only the currently unoccupied fraction of release sites can transmit presynaptic drive into effective depletion, and occupancy evolves dynamically under sustained activation.",
+        "before_fragment": "(1 - x)/(recovery_time_constant*(1 + replenishment_fatigue)) - presynaptic_rate*u*x",
+        "after_fragment": "(1 - x)/(recovery_time_constant*(1 + replenishment_fatigue)) - presynaptic_rate*(1 - release_site_occupancy)*u*x",
+        "parent_reduction": "When release_site_reset_time_constant approaches 0 so release_site_occupancy remains negligible, or equivalently in the low-rate regime where occupancy stays near 0, the parent expression is recovered.",
+        "observable_signature": "Holding recovery and facilitation parameters fixed and comparing sustained low versus very high presynaptic_rate, the parent gives approximately proportional extra depletion once u and replenishment_fatigue are accounted for, whereas the child shows a bend toward less negative dx_dt because release_site_occupancy rises and reduces the effective factor multiplying presynaptic_rate*u*x. This is observable under the supplied protocol because presynaptic_rate is externally set, x is the scored state, and the added occupancy state activates from its finite initial condition during the train.",
+        "shortcut_blocked": "A single refit of the parent parameters cannot create both near-linear low-rate depletion and stronger high-rate compression of dx_dt across sustained-rate conditions, because the parent's direct rate dependence in the target equation remains proportional to presynaptic_rate*u*x once shared u and replenishment_fatigue dynamics are fixed. Altering facilitation or fatigue parameters only rescales or shifts auxiliary trajectories globally and does not supply the distinct finite-throughput occupancy memory needed to bend the target mapping specifically in the high-rate regime."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The depletion term in dx_dt scales linearly with the available resource x through presynaptic_rate*(1 - release_site_occupancy)*u*x, so at fixed u and release_site_occupancy the dependence of resource loss on x has constant slope.",
+          "child_relation": "Relax the linear-release assumption so depletion depends nonlinearly on x, reflecting reduced release probability when only a small fraction of vesicles remain docked/primed and stronger-than-linear depletion only when the pool is well stocked.",
+          "affected_inputs": [
+            "x",
+            "u",
+            "release_site_occupancy",
+            "presynaptic_rate"
+          ],
+          "observable_effect": "At matched intermediate x the successor can show weaker depletion near low x but similar or stronger depletion near high x, producing a bent x-to-dx_dt relation that the parent's single linear x gain cannot match across depletion levels."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "effective_event_drive",
+            "expression": "presynaptic_rate*u*(1 - release_site_occupancy)",
+            "role": "effective rate of release-triggering presynaptic drive after facilitation and site refractoriness"
+          },
+          {
+            "name": "recovery_flux",
+            "expression": "(1 - x)/(recovery_time_constant*(1 + replenishment_fatigue))",
+            "role": "instantaneous replenishment tendency toward refilling"
+          },
+          {
+            "name": "depletion_flux_parent",
+            "expression": "presynaptic_rate*u*x*(1 - release_site_occupancy)",
+            "role": "parent linear resource-consumption law used as the baseline contrast coordinate"
+          }
+        ],
+        "activation_condition": "Observable when x traverses a broad depleted-to-replete range during sustained trains, especially moderate to high effective_event_drive where depletion is appreciable but x remains within 0 to 1 and recovery still contributes.",
+        "train_hidden_contrast": "Within training, early versus later portions of sustained stimulation already sample high-x and lower-x regimes; in holdout, changing presynaptic_rate extends the same contrast by shifting how quickly trajectories move through those x regimes.",
+        "continuation_path": "In the limit that the nonlinear release dependence reduces to proportionality in x, the parent depletion law is recovered exactly.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "x",
+          "u",
+          "release_site_occupancy",
+          "presynaptic_rate"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "State-dependent release competence of the readily releasable pool",
+        "scientific_mechanism": "State-dependent release competence within the readily releasable pool: when the pool is nearly depleted, the remaining vesicles are less effectively release-ready on average, so effective depletion grows sublinearly with x rather than strictly linearly.",
+        "embedding_pattern": "nested_nonlinearity",
+        "difficulty_rationale": "This embedding is harder than a coefficient-only correction because the effective event drive is first assembled from presynaptic_rate, u, and release_site_occupancy, then applied through a nonlinear x-dependent competence law x**2 rather than a single linear gain on x. That changes the shape of the scored target mapping itself across depletion levels, not merely its amplitude.",
+        "taxonomy_match": "known",
+        "assumption_before": "Release-dependent depletion of the available vesicle pool is linear in the available-resource fraction x.",
+        "assumption_after": "Release-dependent depletion reflects state-dependent release competence, so effective consumption scales superlinearly with the nominally available resource fraction.",
+        "before_fragment": "(1 - x)/(recovery_time_constant*(1 + replenishment_fatigue)) - presynaptic_rate*(1 - release_site_occupancy)*u*x",
+        "after_fragment": "(1 - x)/(recovery_time_constant*(1 + replenishment_fatigue)) - presynaptic_rate*(1 - release_site_occupancy)*u*x**2",
+        "parent_reduction": "For x near 1, or more generally when nonlinear competence is approximated as proportional over the sampled range, the child approaches the parent linear depletion law.",
+        "observable_signature": "Holding u and release_site_occupancy approximately matched and comparing early high-x versus later lower-x portions of sustained trains, the parent predicts a straight-line depletion contribution in x whereas the child predicts reduced depletion at low x and relatively preserved depletion at high x. This changed target mapping is observable whenever trajectories actually visit both regimes under the stated initial condition and nontrivial presynaptic drive.",
+        "shortcut_blocked": "A single parent parameter set cannot reproduce this contrast because all existing parent parameters leave depletion affine in x once u and release_site_occupancy are given. Refitting recovery_time_constant, presynaptic_rate, or baseline utilization can only change the overall slope or offset through auxiliary trajectories, not create the low-x versus high-x curvature in dx_dt versus x across the same admissible sustained-train conditions."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "At fixed presynaptic_rate, u, and release_site_occupancy, depletion in dx_dt scales as a single quadratic factor u*x**2 times the effective event rate, so the sensitivity of resource loss to facilitation is independent of replenishment state except through multiplicative scaling.",
+          "child_relation": "Relax the assumption that facilitation acts with constant potency across all presynaptic resource states by making depletion sensitivity to u weaken when replenishment_fatigue is high, creating a non-separable interaction between u and replenishment_fatigue in dx_dt.",
+          "affected_inputs": [
+            "u",
+            "replenishment_fatigue",
+            "presynaptic_rate",
+            "release_site_occupancy",
+            "x"
+          ],
+          "observable_effect": "During sustained high-rate trains that build replenishment_fatigue, increasing u no longer produces proportionally equal extra depletion; early-train dx_dt becomes more facilitation-sensitive than late-train dx_dt at matched x and presynaptic_rate."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "effective_trigger_rate",
+            "expression": "presynaptic_rate*(1 - release_site_occupancy)",
+            "role": "Rate of presynaptic events that can still effectively trigger release"
+          },
+          {
+            "name": "depletion_drive",
+            "expression": "presynaptic_rate*(1 - release_site_occupancy)*u*x**2",
+            "role": "Parent instantaneous release-dependent depletion demand"
+          },
+          {
+            "name": "fatigue_load",
+            "expression": "u*replenishment_fatigue",
+            "role": "Joint regime where facilitation is present but replenishment machinery is already stressed"
+          }
+        ],
+        "activation_condition": "Observable when presynaptic_rate is high enough and sustained long enough that replenishment_fatigue reaches moderate values while u remains above baseline; weak or negligible near replenishment_fatigue≈0 or very low presynaptic_rate.",
+        "train_hidden_contrast": "In training, the mechanism appears as mild late-train bending of dx_dt versus u under sustained stimulation; in holdout, the same interaction extends to stronger fatigue regimes where depletion saturates relative to the parent’s separable product form.",
+        "continuation_path": "Recover the parent law in the limit that fatigue-dependent modulation of facilitation potency vanishes, equivalently when replenishment_fatigue stays near zero over the experiment.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "u",
+          "replenishment_fatigue",
+          "presynaptic_rate",
+          "release_site_occupancy",
+          "x"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "fatigue-limited conversion of facilitation into effective vesicle depletion",
+        "scientific_mechanism": "Under sustained use, residual-calcium-driven facilitation can become less effective at increasing actual vesicle consumption when replenishment/mobilization is fatigued, because extra release drive cannot be converted into proportionally more effective depletion once supply-side readiness is stressed.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the effective depletion gain now changes along the trajectory with replenishment_fatigue, bending the dx_dt-versus-u relationship differently across early and late train epochs under one shared parameter set.",
+        "taxonomy_match": "known",
+        "assumption_before": "Facilitation enters the depletion term with fixed potency independent of replenishment fatigue.",
+        "assumption_after": "Facilitation-driven depletion potency is reduced by replenishment fatigue because fatigued supply readiness limits how much extra release drive can consume resources.",
+        "before_fragment": "(1 - x)/(recovery_time_constant*(1 + replenishment_fatigue)) - presynaptic_rate*(1 - release_site_occupancy)*u*x**2",
+        "after_fragment": "(1 - x)/(recovery_time_constant*(1 + replenishment_fatigue)) - presynaptic_rate*(1 - release_site_occupancy)*u*x**2/(1 + replenishment_fatigue)",
+        "parent_reduction": "The parent is recovered when replenishment_fatigue≈0 throughout the experiment, or equivalently when fatigue-dependent modulation of depletion potency is negligible so 1/(1 + replenishment_fatigue)≈1 on the depletion branch.",
+        "observable_signature": "At fixed presynaptic_rate and matched x and release_site_occupancy, the child predicts that the slope of dx_dt with respect to u is approximately proportional to -presynaptic_rate*(1 - release_site_occupancy)*x**2/(1 + replenishment_fatigue), so facilitation has weaker depletion effect in fatigued late-train epochs than in low-fatigue early-train epochs. The parent instead preserves a fatigue-independent u slope on the depletion branch and can only shift dx_dt through the separate recovery term.",
+        "shortcut_blocked": "A single refit of existing parent parameters cannot reproduce both low-fatigue and high-fatigue u sensitivities at matched x, presynaptic_rate, and release_site_occupancy, because the parent depletion term is separable and linear in u with a gain that does not depend on replenishment_fatigue. Retuning recovery_time_constant or baseline utilization can alter offsets or overall trajectory levels, but cannot create the required within-model reduction of marginal facilitation effect specifically in fatigued epochs without also changing early-epoch sensitivity."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The depletion term scales with facilitation and available resource as presynaptic_rate*(1 - release_site_occupancy)*u*x**2 divided by a fatigue factor, so for fixed observed u, x, and release_site_occupancy the target depends on replenishment_fatigue only through a simple reciprocal attenuation shared by both recovery and depletion.",
+          "child_relation": "Relax the assumption that replenishment fatigue only rescales both fluxes equally by allowing depletion efficacy itself to saturate more strongly with fatigue than recovery does, creating a nonlinear bending of dx_dt versus replenishment_fatigue at fixed presynaptic_rate, u, x, and release_site_occupancy.",
+          "affected_inputs": [
+            "x",
+            "u",
+            "replenishment_fatigue",
+            "release_site_occupancy",
+            "presynaptic_rate"
+          ],
+          "observable_effect": "During sustained high-rate conditions that build appreciable replenishment_fatigue, the child predicts a stronger flattening or rollover of activity-driven depletion than the parent, so late-train dx_dt becomes less negative than expected from the parent's single reciprocal fatigue scaling even when u remains elevated."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "effective_release_drive",
+            "expression": "presynaptic_rate*(1 - release_site_occupancy)*u",
+            "role": "Instantaneous event-weighted release demand on the available pool"
+          },
+          {
+            "name": "fatigue_load",
+            "expression": "replenishment_fatigue",
+            "role": "Current level of supply-side stress accumulated under sustained use"
+          },
+          {
+            "name": "depletion_flux_parent",
+            "expression": "presynaptic_rate*(1 - release_site_occupancy)*u*x**2/(1 + replenishment_fatigue)",
+            "role": "Parent effective depletion term to compare against late-train deviations"
+          }
+        ],
+        "activation_condition": "Observable when presynaptic_rate is high enough and stimulation long enough that replenishment_fatigue reaches moderate values while x and u remain nonzero; weak or negligible near replenishment_fatigue ≈ 0.",
+        "train_hidden_contrast": "Within training, early versus late portions of the same maintained-rate episode already vary replenishment_fatigue; in holdout, stronger rates or longer trains extend the same contrast by pushing farther into the fatigued regime.",
+        "continuation_path": "Recover the parent law in the limit where the extra fatigue dependence of depletion efficacy vanishes, so fatigue again enters dx_dt only through the shared 1/(1 + replenishment_fatigue) factor.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "x",
+          "u",
+          "replenishment_fatigue",
+          "release_site_occupancy",
+          "presynaptic_rate"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "fatigue-dependent saturation of depletion efficacy",
+        "scientific_mechanism": "Under sustained use, fatigued mobilization/repriming reduces how effectively elevated facilitation and presynaptic drive can recruit releasable vesicles into actual consumption, producing an extra nonlinear saturation of depletion with fatigue beyond the recovery slowdown already present.",
+        "embedding_pattern": "multiplicative_modulation",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the added fatigue-dependent modulation selectively bends the depletion branch while leaving the recovery branch on its original fatigue law, changing the target curvature with respect to replenishment_fatigue rather than merely rescaling the whole RHS.",
+        "taxonomy_match": "known",
+        "assumption_before": "Replenishment fatigue acts as a single shared divisor on both recovery and depletion fluxes with identical dependence.",
+        "assumption_after": "Replenishment fatigue still slows recovery as before, but it also separately and multiplicatively saturates depletion efficacy so facilitation-driven consumption weakens more strongly at higher fatigue.",
+        "before_fragment": "(1 - x)/(recovery_time_constant*(1 + replenishment_fatigue)) - presynaptic_rate*(1 - release_site_occupancy)*u*x**2/(1 + replenishment_fatigue)",
+        "after_fragment": "(1 - x)/(recovery_time_constant*(1 + replenishment_fatigue)) - presynaptic_rate*(1 - release_site_occupancy)*u*x**2/((1 + replenishment_fatigue)*(1 + baseline_utilization*replenishment_fatigue))",
+        "parent_reduction": "When baseline_utilization*replenishment_fatigue is negligible, the extra modulation tends to 1 and the parent expression is recovered.",
+        "observable_signature": "At fixed observed x, u, release_site_occupancy, and presynaptic_rate, the parent gives dx_dt versus replenishment_fatigue from one shared reciprocal attenuation of both terms, whereas the child introduces extra downward bending only in the depletion branch. Thus early low-fatigue samples remain close to the parent, but late moderate-fatigue samples show dx_dt less negative than the parent predicts because depletion saturates more strongly than recovery.",
+        "shortcut_blocked": "A single refit of the parent parameters cannot reproduce this contrast across low- and moderate-fatigue conditions because the parent structurally forces recovery and depletion to move together under the same factor 1/(1 + replenishment_fatigue). Retuning recovery_time_constant, presynaptic_rate, or baseline_utilization only rescales amplitudes or auxiliary trajectories, but cannot create selective fatigue curvature in the scored depletion contribution while preserving the low-fatigue behavior with one shared parameter set."
+      }
+    ]
+  },
+  "finalization": {
+    "mode": "candidate",
+    "accepted_generations": 5,
+    "novelty": {
+      "answer": "NOT_EVALUATED"
+    },
+    "total_points": 5000,
+    "evaluation_status": "not_evaluated"
+  }
+}

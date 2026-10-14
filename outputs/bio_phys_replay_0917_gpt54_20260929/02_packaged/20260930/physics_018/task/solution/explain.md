@@ -1,0 +1,3 @@
+Ground truth: du_dt = -gravity * wavenumber * eta * (1 + finite_amplitude_stiffening * depth_compression * (1 + dynamic_stiffness_phase_sensitivity * shape_lag / depth_saturation_scale)) - linear_damping_rate * u - quadratic_damping_rate * (1 + geometry_drag_sensitivity * depth_compression / depth_saturation_scale**2) * u * Abs(u) / (velocity_transition_scale + Abs(u))
+
+Fixed parameters: {'gravity': 9.81, 'wavenumber': 1.2, 'linear_damping_rate': 0.08, 'quadratic_damping_rate': 0.12, 'velocity_transition_scale': 0.08, 'finite_amplitude_stiffening': 80.0, 'depth_relaxation_rate': 2.0, 'depth_saturation_scale': 0.12, 'geometry_drag_sensitivity': 0.8, 'shape_lag_relaxation_rate': 3.0, 'dynamic_stiffness_phase_sensitivity': 0.4}

@@ -1,0 +1,1777 @@
+{
+  "version": 7,
+  "spec": {
+    "equation_type": "ode_system",
+    "integrator": "integrate_system",
+    "dependent_variable": "T_h",
+    "independent_variables": [
+      {
+        "symbol": "t",
+        "range": [
+          0.0,
+          6000.0
+        ],
+        "n_points": 400,
+        "scale": "linear"
+      }
+    ],
+    "parameters": [
+      {
+        "symbol": "contact_conductance",
+        "value": 240.0
+      },
+      {
+        "symbol": "heat_capacity_h",
+        "value": 5000.0
+      },
+      {
+        "symbol": "heat_capacity_c",
+        "value": 4200.0
+      },
+      {
+        "symbol": "conductance_contrast_coeff",
+        "value": 0.004
+      },
+      {
+        "symbol": "contact_adjustment_time",
+        "value": 80.0
+      },
+      {
+        "symbol": "hot_capacity_temp_coeff",
+        "value": 1.2
+      },
+      {
+        "symbol": "hot_capacity_temp_scale",
+        "value": 300.0
+      },
+      {
+        "symbol": "cold_capacity_temp_coeff",
+        "value": 0.9
+      },
+      {
+        "symbol": "cold_capacity_temp_scale",
+        "value": 260.0
+      },
+      {
+        "symbol": "k_internal_hot",
+        "value": 250.0
+      },
+      {
+        "symbol": "hot_interface_capacity_fraction",
+        "value": 0.12
+      }
+    ],
+    "benchmark_output": "dT_h_dt",
+    "benchmark_target_state": "T_h",
+    "observed_variables": [
+      "t",
+      "T_h",
+      "T_c",
+      "g_contact",
+      "T_h_interface"
+    ],
+    "rhs_for_integrator": "-k_internal_hot*(T_h - T_h_interface)/(heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h/(hot_capacity_temp_scale + T_h)))",
+    "state_variables": [
+      "T_h",
+      "T_c",
+      "g_contact",
+      "T_h_interface"
+    ],
+    "state_rhs": [
+      "-k_internal_hot*(T_h - T_h_interface)/(heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h/(hot_capacity_temp_scale + T_h)))",
+      "g_contact*(T_h_interface - T_c)/(heat_capacity_c*(1 + cold_capacity_temp_coeff*T_c/(cold_capacity_temp_scale + T_c)))",
+      "(contact_conductance*(1 + conductance_contrast_coeff*Abs(T_h_interface - T_c)) - g_contact)/contact_adjustment_time",
+      "(k_internal_hot*(T_h - T_h_interface) - g_contact*(T_h_interface - T_c)/hot_interface_capacity_fraction)/(heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h_interface/(hot_capacity_temp_scale + T_h_interface)))"
+    ],
+    "initial_conditions": {
+      "T_h": 370.0,
+      "T_c": 275.0,
+      "g_contact": 370.0,
+      "T_h_interface": 370.0
+    },
+    "sanity_expectations": [
+      "All effective heat-capacity denominators remain positive and finite over the sampled run, so the integrated trajectory should stay real and nonsingular.",
+      "At t=0, T_h_interface = T_h by inherited initial condition, so dT_h/dt starts at 0 exactly; shortly afterward T_h_interface should drop below T_h and the bulk hot body should begin cooling.",
+      "g_contact should relax away from its initial value 370 toward the contrast-dependent preferred conductance contact_conductance*(1 + conductance_contrast_coeff*Abs(T_h_interface - T_c)); because the temperature contrast shrinks over time, the preferred value should also decrease during the run.",
+      "The hottest-body bulk temperature T_h should remain above T_c initially and approach a common equilibrium monotonically after the brief activation transient; T_c should rise overall.",
+      "The same instantaneous bulk contrast T_h-T_c reached at different times need not imply the same dT_h/dt because both g_contact and T_h_interface carry memory; a hysteresis-like spread in dT_h/dt versus T_h-T_c is therefore expected.",
+      "Because the initial interface temperature equals the hot bulk, the added internal-lag mechanism is inactive exactly at the initial instant but becomes active once interfacial cooling creates T_h_interface<T_h; visible deviation from the parent one-phase law should therefore emerge after an initial short transient rather than at the first sample.",
+      "With conductance_contrast_coeff > 0, early large-|T_h_interface-T_c| periods should correspond to larger preferred conductance than late near-equilibrium periods, yielding stronger-than-linear early cooling relative to a constant-conductance baseline once the internal-lag transient passes."
+    ],
+    "role_corrections": [
+      "dT_h_dt: claimed-output/target derivative -> target derivative of state T_h within an ode_system (confirmed structurally for the scalar RHS, but dataset dependent variable is T_h per required contract)",
+      "t: claimed-input/time axis -> independent variable/time axis (confirmed)",
+      "T_h: claimed-dynamic state -> dynamic state and dependent variable/target_state (confirmed)",
+      "T_c: claimed-dynamic state -> dynamic state (confirmed)",
+      "g_contact: claimed-dynamic state -> dynamic state (confirmed; preserved by explicit freedom-change/ODE contract)",
+      "T_h_interface: claimed-dynamic state -> dynamic state (confirmed; added memory state preserved by explicit freedom-change/ODE contract)",
+      "contact_conductance: claimed-parameter -> fixed parameter (confirmed)",
+      "heat_capacity_h: claimed-parameter -> fixed parameter (confirmed)",
+      "heat_capacity_c: claimed-parameter -> fixed parameter (confirmed)",
+      "conductance_contrast_coeff: claimed-parameter -> fixed parameter (confirmed)",
+      "contact_adjustment_time: claimed-parameter -> fixed parameter (confirmed)",
+      "hot_capacity_temp_coeff: claimed-parameter -> fixed parameter (confirmed)",
+      "hot_capacity_temp_scale: claimed-parameter -> fixed parameter (confirmed)",
+      "cold_capacity_temp_coeff: claimed-parameter -> fixed parameter (confirmed)",
+      "cold_capacity_temp_scale: claimed-parameter -> fixed parameter (confirmed)",
+      "k_internal_hot: claimed-parameter -> fixed parameter (confirmed)",
+      "hot_interface_capacity_fraction: claimed-parameter -> fixed parameter (confirmed)"
+    ],
+    "rationale": "The provided typed ODE-system contract is preserved exactly as required: the scored quantity is the target state T_h, sampled only over time, with the inherited four-state system and fixed initial conditions. Although the isolated target expression alone looks explicit in T_h and T_h_interface, the record explicitly declares an add_state freedom change and a validated ODE-system contract, so g_contact and T_h_interface must remain dynamic states rather than being collapsed into parameters. Parameter choices are set to make the intended memory and curvature mechanisms visible without pushing the model into a recovery limit or singular regime. contact_conductance=240 and heat capacities of order 4e3-5e3 give a thermal equilibration timescale of tens of seconds to a few thousand seconds, so a 0-6000 time window captures both early transients and approach toward equilibrium. conductance_contrast_coeff=0.004 with the inherited initial contrast 95 K gives a preferred conductance enhancement factor about 1+0.38, enough to produce observable nonlinear dependence on contrast but not extreme saturation. contact_adjustment_time=80 is not negligible relative to the early cooling timescale, so the conductance state lags its preferred value and the same instantaneous temperature contrast can correspond to different cooling rates at different stages. k_internal_hot=250 is finite and comparable to the contact-transfer scale, so the added hot-side internal buffering state can transiently separate from the bulk instead of being slaved immediately; it is also far from the parent-recovery limit k_internal_hot->infinity. hot_interface_capacity_fraction=0.12 gives the interface subregion enough inertia to matter transiently without dominating the whole hot body. The hot and cold temperature-dependent capacity coefficients/scales are moderate, so absolute-temperature-level curvature remains active over the inherited 275-370 K trajectory while denominators stay safely positive. The inherited initial condition T_h_interface(0)=T_h(0) means the internal-lag effect is initially dormant exactly at t=0, but it activates immediately once interfacial extraction cools the interface region faster than the bulk; this is reported rather than repaired. Exact noiseless input-output pairs should be generated by integrating the inherited state system over the chosen time grid and taking the target output from the resulting T_h trajectory, with no observation noise.",
+    "coverage_report": {
+      "groups": [
+        {
+          "generation": 1,
+          "name": "deltaT",
+          "expression": "T_h - T_c",
+          "role": "instantaneous thermal driving difference across the contact",
+          "train_range": [
+            -2.0294834257583716e-07,
+            95.0
+          ],
+          "hidden_range": [
+            -2.0167925640635076e-07,
+            1.434584646631265e-07
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -2.0294834257583716e-07,
+            "max": 95.0,
+            "q05": -1.2363684049887523e-07,
+            "median": 7.007997737673577e-09,
+            "q95": 0.014259553887859613,
+            "range": 95.00000020294834,
+            "robust_range": 0.014259677524700112
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": -2.0167925640635076e-07,
+            "max": 1.434584646631265e-07,
+            "q05": -1.4091767184254422e-07,
+            "median": -9.539064649288775e-09,
+            "q95": 1.0419424825158786e-07,
+            "range": 3.4513772106947727e-07,
+            "robust_range": 2.451119200941321e-07
+          }
+        },
+        {
+          "generation": 1,
+          "name": "meanT",
+          "expression": "(T_h + T_c)/2",
+          "role": "bulk temperature level, useful to separate contrast-driven from absolute-temperature effects",
+          "train_range": [
+            297.85194874141655,
+            325.73870209317795
+          ],
+          "hidden_range": [
+            297.85194874167456,
+            297.85195021424613
+          ],
+          "train_status": "inactive",
+          "hidden_status": "inactive",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 297.85194874141655,
+            "max": 325.73870209317795,
+            "q05": 297.8519489909494,
+            "median": 297.85194946170145,
+            "q95": 297.8572197879634,
+            "range": 27.8867533517614,
+            "robust_range": 0.005270797014020445
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 297.85194874167456,
+            "max": 297.85195021424613,
+            "q05": 297.85194890919917,
+            "median": 297.85194939445705,
+            "q95": 297.85194995499927,
+            "range": 1.4725715686836338e-06,
+            "robust_range": 1.0458001042934484e-06
+          }
+        },
+        {
+          "generation": 1,
+          "name": "energy_balance_check",
+          "expression": "heat_capacity_h*T_h + heat_capacity_c*T_c",
+          "role": "conserved total internal energy under isolated two-body exchange",
+          "train_range": [
+            2740237.9284784403,
+            3030349.9707025047
+          ],
+          "hidden_range": [
+            2740237.9284807895,
+            2740237.9418903925
+          ],
+          "train_status": "inactive",
+          "hidden_status": "inactive",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 2740237.9284784403,
+            "max": 3030349.9707025047,
+            "q05": 2740237.930750748,
+            "median": 2740237.9350506393,
+            "q95": 2740292.1258708187,
+            "range": 290112.04222406447,
+            "robust_range": 54.195120070595294
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 2740237.9284807895,
+            "max": 2740237.9418903925,
+            "q05": 2740237.9300063094,
+            "median": 2740237.934425189,
+            "q95": 2740237.939529626,
+            "range": 0.013409602921456099,
+            "robust_range": 0.009523316752165556
+          }
+        },
+        {
+          "generation": 2,
+          "name": "abs_deltaT",
+          "expression": "Abs(T_h - T_c)",
+          "role": "Magnitude of thermal contrast controlling conductance strengthening",
+          "train_range": [
+            2.2509993868879974e-11,
+            95.0
+          ],
+          "hidden_range": [
+            8.122924555209465e-11,
+            2.0167925640635076e-07
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 2.2509993868879974e-11,
+            "max": 95.0,
+            "q05": 6.486928327831265e-09,
+            "median": 5.965844707134238e-08,
+            "q95": 0.014259553887859613,
+            "range": 94.99999999997749,
+            "robust_range": 0.014259547400931286
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 8.122924555209465e-11,
+            "max": 2.0167925640635076e-07,
+            "q05": 4.771200678987953e-09,
+            "median": 4.854251756114536e-08,
+            "q95": 1.4355887287820215e-07,
+            "range": 2.0159802716079867e-07,
+            "robust_range": 1.387876721992142e-07
+          }
+        },
+        {
+          "generation": 2,
+          "name": "equilibrium_weighted_temp",
+          "expression": "(heat_capacity_h*T_h + heat_capacity_c*T_c)/(heat_capacity_h + heat_capacity_c)",
+          "role": "Conserved mean temperature under isolation, useful to separate allowed trajectories from environmental leakage",
+          "train_range": [
+            297.85194874765654,
+            329.38586638070706
+          ],
+          "hidden_range": [
+            297.85194874791193,
+            297.85195020547746
+          ],
+          "train_status": "inactive",
+          "hidden_status": "inactive",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 297.85194874765654,
+            "max": 329.38586638070706,
+            "q05": 297.8519489946466,
+            "median": 297.851949462026,
+            "q95": 297.85783976856726,
+            "range": 31.53391763305052,
+            "robust_range": 0.005890773920668835
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 297.85194874791193,
+            "max": 297.85195020547746,
+            "q05": 297.8519489137293,
+            "median": 297.8519493940423,
+            "q95": 297.85194994887246,
+            "range": 1.457565531381988e-06,
+            "robust_range": 1.035143156968843e-06
+          }
+        },
+        {
+          "generation": 3,
+          "name": "delta_T",
+          "expression": "T_h - T_c",
+          "role": "instantaneous driving temperature difference across the contact",
+          "train_range": [
+            -2.0294834257583716e-07,
+            95.0
+          ],
+          "hidden_range": [
+            -2.0167925640635076e-07,
+            1.434584646631265e-07
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -2.0294834257583716e-07,
+            "max": 95.0,
+            "q05": -1.2363684049887523e-07,
+            "median": 7.007997737673577e-09,
+            "q95": 0.014259553887859613,
+            "range": 95.00000020294834,
+            "robust_range": 0.014259677524700112
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": -2.0167925640635076e-07,
+            "max": 1.434584646631265e-07,
+            "q05": -1.4091767184254422e-07,
+            "median": -9.539064649288775e-09,
+            "q95": 1.0419424825158786e-07,
+            "range": 3.4513772106947727e-07,
+            "robust_range": 2.451119200941321e-07
+          }
+        },
+        {
+          "generation": 3,
+          "name": "hot_abs_level",
+          "expression": "T_h",
+          "role": "absolute temperature level of the hotter body controlling its thermal inertia under the refinement",
+          "train_range": [
+            297.85194881317625,
+            370.0
+          ],
+          "hidden_range": [
+            297.8519488134038,
+            297.8519501134065
+          ],
+          "train_status": "inactive",
+          "hidden_status": "inactive",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 297.85194881317625,
+            "max": 370.0,
+            "q05": 297.85194903346667,
+            "median": 297.8519494551632,
+            "q95": 297.86434956490734,
+            "range": 72.14805118682375,
+            "robust_range": 0.012400531440675877
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 297.8519488134038,
+            "max": 297.8519501134065,
+            "q05": 297.8519489612963,
+            "median": 297.85194938968755,
+            "q95": 297.85194988454043,
+            "range": 1.3000026797271858e-06,
+            "robust_range": 9.232441584572371e-07
+          }
+        },
+        {
+          "generation": 3,
+          "name": "transfer_over_capacity",
+          "expression": "g_contact*(T_h - T_c)/heat_capacity_h",
+          "role": "parent cooling-rate scale before relaxing the constant-capacity assumption",
+          "train_range": [
+            -9.741520549477974e-09,
+            7.03
+          ],
+          "hidden_range": [
+            -9.680604413018728e-09,
+            6.886006371506151e-09
+          ],
+          "train_status": "inactive",
+          "hidden_status": "inactive",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -9.741520549477974e-09,
+            "max": 7.03,
+            "q05": -5.934568414653964e-09,
+            "median": 3.363838949549729e-10,
+            "q95": 0.0006977972107219229,
+            "range": 7.030000009741521,
+            "robust_range": 0.0006978031452903376
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": -9.680604413018728e-09,
+            "max": 6.886006371506151e-09,
+            "q05": -6.764048313501776e-09,
+            "median": -4.5787510832676335e-10,
+            "q95": 5.001323966068533e-09,
+            "range": 1.656661078452488e-08,
+            "robust_range": 1.1765372279570309e-08
+          }
+        },
+        {
+          "generation": 4,
+          "name": "hot_storage_factor",
+          "expression": "heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h/(hot_capacity_temp_scale + T_h))",
+          "role": "current effective heat capacity of the initially hotter body",
+          "train_range": [
+            7989.221154880796,
+            8313.432835820895
+          ],
+          "hidden_range": [
+            7989.221154881942,
+            7989.221161428748
+          ],
+          "train_status": "inactive",
+          "hidden_status": "inactive",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 7989.221154880796,
+            "max": 8313.432835820895,
+            "q05": 7989.221155990177,
+            "median": 7989.221158113838,
+            "q95": 7989.283603697064,
+            "range": 324.21168094009863,
+            "robust_range": 0.06244770688681456
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 7989.221154881942,
+            "max": 7989.221161428748,
+            "q05": 7989.2211556267275,
+            "median": 7989.221157784103,
+            "q95": 7989.221160276179,
+            "range": 6.54680570733035e-06,
+            "robust_range": 4.6494515117956325e-06
+          }
+        },
+        {
+          "generation": 4,
+          "name": "cold_temperature_level",
+          "expression": "T_c",
+          "role": "absolute temperature of the initially colder body that would control its thermal storage in the refinement",
+          "train_range": [
+            275.0,
+            297.8519503211385
+          ],
+          "hidden_range": [
+            297.85194866994533,
+            297.85195031508573
+          ],
+          "train_status": "inactive",
+          "hidden_status": "inactive",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 275.0,
+            "max": 297.8519503211385,
+            "q05": 297.85009001101946,
+            "median": 297.8519493345318,
+            "q95": 297.8519499430972,
+            "range": 22.851950321138474,
+            "robust_range": 0.001859932077763915
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 297.85194866994533,
+            "max": 297.85195031508573,
+            "q05": 297.851948857102,
+            "median": 297.8519493992266,
+            "q95": 297.8519500254581,
+            "range": 1.645140400796663e-06,
+            "robust_range": 1.1683561069730786e-06
+          }
+        },
+        {
+          "generation": 5,
+          "name": "C_h_eff",
+          "expression": "heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h/(hot_capacity_temp_scale + T_h))",
+          "role": "Current effective bulk heat capacity of the initially hotter body",
+          "train_range": [
+            7989.221154880796,
+            8313.432835820895
+          ],
+          "hidden_range": [
+            7989.221154881942,
+            7989.221161428748
+          ],
+          "train_status": "inactive",
+          "hidden_status": "inactive",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 7989.221154880796,
+            "max": 8313.432835820895,
+            "q05": 7989.221155990177,
+            "median": 7989.221158113838,
+            "q95": 7989.283603697064,
+            "range": 324.21168094009863,
+            "robust_range": 0.06244770688681456
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 7989.221154881942,
+            "max": 7989.221161428748,
+            "q05": 7989.2211556267275,
+            "median": 7989.221157784103,
+            "q95": 7989.221160276179,
+            "range": 6.54680570733035e-06,
+            "robust_range": 4.6494515117956325e-06
+          }
+        },
+        {
+          "generation": 5,
+          "name": "q_contact_over_Ch",
+          "expression": "g_contact*(T_h - T_c)/(heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h/(hot_capacity_temp_scale + T_h)))",
+          "role": "Parent bulk cooling-rate scale from the contact flux",
+          "train_range": [
+            -6.096664714002285e-09,
+            4.228096947935368
+          ],
+          "hidden_range": [
+            -6.058540762243401e-09,
+            4.309560492826229e-09
+          ],
+          "train_status": "inactive",
+          "hidden_status": "inactive",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -6.096664714002285e-09,
+            "max": 4.228096947935368,
+            "q05": -3.714109483165355e-09,
+            "median": 2.1052358441751224e-10,
+            "q95": 0.0004367082487825369,
+            "range": 4.228096954032033,
+            "robust_range": 0.0004367119628920201
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": -6.058540762243401e-09,
+            "max": 4.309560492826229e-09,
+            "q05": -4.2332338646060375e-09,
+            "median": -2.8655803818914385e-10,
+            "q95": 3.1300447619641567e-09,
+            "range": 1.036810125506963e-08,
+            "robust_range": 7.363278626570194e-09
+          }
+        }
+      ],
+      "inactive_mechanisms": [
+        "meanT",
+        "energy_balance_check",
+        "equilibrium_weighted_temp",
+        "hot_abs_level",
+        "transfer_over_capacity",
+        "hot_storage_factor",
+        "cold_temperature_level",
+        "C_h_eff",
+        "q_contact_over_Ch"
+      ],
+      "visible_mechanisms": [
+        "deltaT",
+        "abs_deltaT",
+        "delta_T"
+      ],
+      "extended_mechanisms": [
+        "deltaT",
+        "abs_deltaT",
+        "delta_T"
+      ]
+    },
+    "inactive_mechanisms": [
+      "meanT",
+      "energy_balance_check",
+      "equilibrium_weighted_temp",
+      "hot_abs_level",
+      "transfer_over_capacity",
+      "hot_storage_factor",
+      "cold_temperature_level",
+      "C_h_eff",
+      "q_contact_over_Ch"
+    ],
+    "target_variance": {
+      "train": {
+        "n": 4500,
+        "variance": 0.014399786636334738,
+        "range": 1.9045027221649202
+      },
+      "hidden": {
+        "n": 500,
+        "variance": 7.041359134200786e-15,
+        "range": 4.1526290712996777e-07
+      }
+    },
+    "parent_absorption_report": {
+      "status": "ok",
+      "n_points": 512,
+      "fixed_parent_normalized_rmse": 2736477.8673180966,
+      "refit": {
+        "status": "not_run",
+        "reason": "no free parent parameters"
+      },
+      "interpretation": "<1e-3 nearly absorbed; 1e-3..1e-2 weak; >1e-2 visible structure"
+    },
+    "noise": 0.0,
+    "_trace": [
+      {
+        "turn": 1,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "analyze_expression",
+            "id": "call_cV5PRirVFkUEzF62V7sXlzWW"
+          }
+        ]
+      },
+      {
+        "tool": "analyze_expression",
+        "input": {
+          "expression": "-k_internal_hot*(T_h - T_h_interface)/(heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h/(hot_capacity_temp_scale + T_h)))",
+          "target_symbol": "dT_h_dt"
+        },
+        "result": {
+          "ok": true,
+          "free_symbols": [
+            "T_h",
+            "T_h_interface",
+            "heat_capacity_h",
+            "hot_capacity_temp_coeff",
+            "hot_capacity_temp_scale",
+            "k_internal_hot"
+          ],
+          "functions_of": {},
+          "target_function_calls": [],
+          "delayed_target_calls": [],
+          "ungoverned_functions": [],
+          "derivatives": [],
+          "max_derivative_order": 0,
+          "integral_kernels": [],
+          "explicitly_solvable_for_target": true,
+          "explicit_solution_preview": [
+            "(-k_internal_hot)*(T_h - T_h_interface)/((heat_capacity_h*(T_h*hot_capacity_temp_coeff/(T_h + hot_capacity_temp_scale) +"
+          ],
+          "classification_hint": "explicit",
+          "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+        }
+      },
+      {
+        "turn": 2,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "check_substitution",
+            "id": "call_wpLgqscDJpun1qJBfVfU9YKS"
+          },
+          {
+            "name": "check_substitution",
+            "id": "call_2oLBMaoaABgbbctue69IbHg6"
+          }
+        ]
+      },
+      {
+        "tool": "check_substitution",
+        "input": {
+          "expression": "-k_internal_hot*(T_h - T_h_interface)/(heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h/(hot_capacity_temp_scale + T_h)))",
+          "target_symbol": "dT_h_dt",
+          "assignments": {
+            "T_h": 370,
+            "T_h_interface": 360,
+            "heat_capacity_h": 5000,
+            "hot_capacity_temp_coeff": 1.2,
+            "hot_capacity_temp_scale": 300,
+            "k_internal_hot": 250
+          }
+        },
+        "result": {
+          "ok": true,
+          "value_real": -0.3007181328545781,
+          "value_imag": 0.0,
+          "is_finite": true,
+          "is_real": true,
+          "verdict": "ok",
+          "residual_free_symbols": []
+        }
+      },
+      {
+        "tool": "check_substitution",
+        "input": {
+          "expression": "-k_internal_hot*(T_h - T_h_interface)/(heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h/(hot_capacity_temp_scale + T_h)))",
+          "target_symbol": "dT_h_dt",
+          "assignments": {
+            "T_h": 300,
+            "T_h_interface": 320,
+            "heat_capacity_h": 5000,
+            "hot_capacity_temp_coeff": 1.2,
+            "hot_capacity_temp_scale": 300,
+            "k_internal_hot": 250
+          }
+        },
+        "result": {
+          "ok": true,
+          "value_real": 0.625,
+          "value_imag": 0.0,
+          "is_finite": true,
+          "is_real": true,
+          "verdict": "ok",
+          "residual_free_symbols": []
+        }
+      },
+      {
+        "turn": 3,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "emit_data_gen_spec",
+            "id": "call_2vIgCRHIA232GCmAaVIZE3oe"
+          }
+        ]
+      },
+      {
+        "tool": "emit_data_gen_spec",
+        "validation_error": "ODE state_variables must preserve the inherited order: expected ['T_h', 'T_c', 'g_contact', 'T_h_interface'], got []"
+      },
+      {
+        "turn": 4,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "emit_data_gen_spec",
+            "id": "call_7X3MEP7tCvh5tOVCOSkMJ2kz"
+          }
+        ]
+      },
+      {
+        "tool": "emit_data_gen_spec",
+        "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+      },
+      {
+        "turn": 5,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "emit_data_gen_spec",
+            "id": "call_wnK0YcHS1UklukJQNwt956Q8"
+          }
+        ]
+      },
+      {
+        "tool": "emit_data_gen_spec",
+        "accepted": true
+      }
+    ],
+    "_provider": "openai",
+    "_num_turns": 5,
+    "discipline": "physics",
+    "scenario_text": "Two finite, internally equilibrated bodies begin at different uniform temperatures and exchange heat through a fixed thermal contact while remaining isolated from their surroundings. Their temperatures evolve jointly as energy is transferred from the hotter body to the colder body. The benchmark targets the instantaneous cooling rate of the initially hotter body over the full approach to mutual equilibrium. Heat capacities and contact conductance are fixed properties of the experimental setup.",
+    "record_id": "m2_statistical_mechanics_and_thermodynamics_20282741_000",
+    "generation": 5,
+    "_n_total": 5000,
+    "mechanism_observation_history": [
+      {
+        "generation": 1,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The target cooling rate is a linear function of the instantaneous temperature difference, dT_h_dt = -(contact_conductance/heat_capacity_h)*(T_h - T_c), with one fixed proportional gain for the entire trajectory.",
+            "child_relation": "Retain heat flow through the same contact but relax the constant-conductance assumption so the effective transfer strength varies with the current inter-body temperature contrast, making dT_h_dt a nonlinear function of (T_h - T_c) even at fixed heat_capacity_h.",
+            "affected_inputs": [
+              "T_h",
+              "T_c",
+              "contact_conductance"
+            ],
+            "observable_effect": "Across runs or time segments with small versus large temperature differences, the cooling-rate-versus-temperature-difference curve is no longer a single straight line: the initial hot-stage slope differs from the near-equilibrium slope, producing trajectory curvature that one constant-gain parent law cannot match with one shared parameter set."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "deltaT",
+              "expression": "T_h - T_c",
+              "role": "instantaneous thermal driving difference across the contact"
+            },
+            {
+              "name": "meanT",
+              "expression": "(T_h + T_c)/2",
+              "role": "bulk temperature level, useful to separate contrast-driven from absolute-temperature effects"
+            },
+            {
+              "name": "energy_balance_check",
+              "expression": "heat_capacity_h*T_h + heat_capacity_c*T_c",
+              "role": "conserved total internal energy under isolated two-body exchange"
+            }
+          ],
+          "activation_condition": "Observable when the admissible experiment spans a nontrivial range of temperature differences so that the contact physics is sampled both far from and near equilibrium; weak or absent if |T_h - T_c| stays in a narrow band where conductance is effectively constant.",
+          "train_hidden_contrast": "In training, modest curvature appears as systematic deviation from a straight cooling-rate-versus-deltaT relation; in holdout with larger initial temperature contrast, the same mechanism strengthens that curvature rather than introducing a different process.",
+          "continuation_path": "Recover the parent law in the limit where the effective conductance becomes independent of temperature difference over the sampled range.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The model idealizes the thermal contact as having a constant conductance, even though real interfaces often change effective conductance with the instantaneous temperature difference because contact microphysics and interstitial transport are not perfectly linear over the full approach to equilibrium.",
+          "baseline_assumption": "The thermal contact conductance is constant and has no response delay.",
+          "scientific_mechanism": "Temperature-difference-dependent thermal contact conductance, causing nonlinear heat-transfer strength across the interface while preserving isolation and energy conservation.",
+          "affected_symbols": [
+            "T_h",
+            "T_c",
+            "contact_conductance",
+            "heat_capacity_h",
+            "heat_capacity_c"
+          ],
+          "rationale": "A natural next refinement is to keep the same two-body isolated exchange mechanism but replace the constant contact-gain assumption with a contrast-dependent one. Vary the instantaneous temperature difference along the observed trajectory while holding the body heat capacities fixed and the system isolated. In the parent, dT_h_dt depends on T_h and T_c only through a single constant multiple of deltaT, so a plot of cooling rate against deltaT is forced to be linear with one slope for the entire experiment. In the child, that slope changes with deltaT, so early-time large-contrast cooling and late-time near-equilibrium cooling cannot both be matched by one shared parent parameter set if the conductance changes appreciably across that range. This is a genuine target-mapping change, not merely an auxiliary-state modification, because the scored derivative of T_h itself changes as a function of the observed states. The effect is scientifically admissible provided the sampled temperature contrast is broad enough for contact nonlinearity to activate; if the experiment stays close to equilibrium, the parent may remain an adequate approximation."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The target cooling rate is a linear function of the instantaneous temperature difference, dT_h_dt = -(contact_conductance/heat_capacity_h)*(T_h - T_c), with one fixed proportional gain for the entire trajectory.",
+            "child_relation": "Retain heat flow through the same contact but relax the constant-conductance assumption so the effective transfer strength varies with the current inter-body temperature contrast, making dT_h_dt a nonlinear function of (T_h - T_c) even at fixed heat_capacity_h.",
+            "affected_inputs": [
+              "T_h",
+              "T_c",
+              "contact_conductance"
+            ],
+            "observable_effect": "Across runs or time segments with small versus large temperature differences, the cooling-rate-versus-temperature-difference curve is no longer a single straight line: the initial hot-stage slope differs from the near-equilibrium slope, producing trajectory curvature that one constant-gain parent law cannot match with one shared parameter set."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "deltaT",
+              "expression": "T_h - T_c",
+              "role": "instantaneous thermal driving difference across the contact"
+            },
+            {
+              "name": "meanT",
+              "expression": "(T_h + T_c)/2",
+              "role": "bulk temperature level, useful to separate contrast-driven from absolute-temperature effects"
+            },
+            {
+              "name": "energy_balance_check",
+              "expression": "heat_capacity_h*T_h + heat_capacity_c*T_c",
+              "role": "conserved total internal energy under isolated two-body exchange"
+            }
+          ],
+          "activation_condition": "Observable when the admissible experiment spans a nontrivial range of temperature differences so that the contact physics is sampled both far from and near equilibrium; weak or absent if |T_h - T_c| stays in a narrow band where conductance is effectively constant.",
+          "train_hidden_contrast": "In training, modest curvature appears as systematic deviation from a straight cooling-rate-versus-deltaT relation; in holdout with larger initial temperature contrast, the same mechanism strengthens that curvature rather than introducing a different process.",
+          "continuation_path": "Recover the parent law in the limit where the effective conductance becomes independent of temperature difference over the sampled range.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "pairwise",
+          "scope_symbols": [
+            "T_h",
+            "T_c"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "nonlinear thermal contact transport",
+          "scientific_mechanism": "Temperature-difference-dependent thermal contact conductance, causing nonlinear heat-transfer strength across the interface while preserving isolation and energy conservation.",
+          "embedding_pattern": "nested_nonlinearity",
+          "difficulty_rationale": "The refinement nests a nonlinear map of a combined state difference, Abs(T_h - T_c), inside the conductance multiplying that same driving difference. This changes the shape of the target mapping itself rather than merely rescaling a constant coefficient, so one must infer both the baseline gain and how that gain varies over the trajectory.",
+          "taxonomy_match": "known",
+          "assumption_before": "The thermal contact conductance is constant and has no response delay.",
+          "assumption_after": "The thermal contact conductance changes monotonically with the instantaneous temperature-difference magnitude while remaining instantaneous and symmetric between the two bodies.",
+          "before_fragment": "-contact_conductance*(T_h - T_c)/heat_capacity_h",
+          "after_fragment": "-contact_conductance*(1 + conductance_contrast_coeff*Abs(T_h - T_c))*(T_h - T_c)/heat_capacity_h",
+          "parent_reduction": "Set conductance_contrast_coeff = 0 to recover the parent expression exactly.",
+          "observable_signature": "At fixed heat capacities, the scored target derivative dT_h_dt versus deltaT = T_h - T_c bends away from a straight line: large-|deltaT| segments cool faster per unit deltaT than near-equilibrium segments when conductance_contrast_coeff > 0. This changed target mapping is directly observable from the supplied states T_h and T_c, not only through auxiliary trajectory differences.",
+          "shortcut_blocked": "A single parent parameter set can only produce dT_h_dt proportional to deltaT with one constant slope contact_conductance/heat_capacity_h. When the same dataset contains both near-equilibrium and large-contrast segments showing different effective slopes in dT_h_dt versus deltaT, no refit of contact_conductance alone can match both regions simultaneously; fitting one region forces systematic error in the other."
+        },
+        "range_suggestions": {
+          "conductance_contrast_coeff": "[0, 1/max(|T_h-T_c|)] in inverse-temperature units for monotone conductance growth without sign reversal over the sampled contrast range"
+        }
+      },
+      {
+        "generation": 2,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The hot-body cooling rate is an instantaneous odd-in-difference function of the current temperature contrast only, dT_h_dt = -G(|T_h-T_c|)(T_h-T_c)/heat_capacity_h, with one shared conductance law throughout the entire relaxation.",
+            "child_relation": "Retain isolation and two-body exchange but allow the effective contact conductance itself to relax toward its contrast-dependent value with finite response time, so the target depends on both current contrast and a lagged contact state. The same instantaneous temperature difference can then produce different dT_h_dt values at early versus late times.",
+            "affected_inputs": [
+              "T_h",
+              "T_c",
+              "contact_conductance",
+              "conductance_contrast_coeff"
+            ],
+            "observable_effect": "For trajectories with the same instantaneous temperature difference magnitude reached at different stages of the run, the child permits different cooling rates because the contact has not yet fully adjusted after large initial contrasts; the parent predicts a single rate for each current contrast."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "deltaT",
+              "expression": "T_h - T_c",
+              "role": "Instantaneous driving temperature difference across the contact"
+            },
+            {
+              "name": "abs_deltaT",
+              "expression": "Abs(T_h - T_c)",
+              "role": "Magnitude of thermal contrast controlling conductance strengthening"
+            },
+            {
+              "name": "equilibrium_weighted_temp",
+              "expression": "(heat_capacity_h*T_h + heat_capacity_c*T_c)/(heat_capacity_h + heat_capacity_c)",
+              "role": "Conserved mean temperature under isolation, useful to separate allowed trajectories from environmental leakage"
+            }
+          ],
+          "activation_condition": "Observable when the contact property adjusts on a timescale not negligible compared with the thermal equilibration timescale, especially after a large initial |T_h-T_c| so that the contrast-dependent preferred conductance changes appreciably during the run.",
+          "train_hidden_contrast": "Within training trajectories, large early temperature contrasts followed by smaller later contrasts expose stronger transient lag; in holdout, the same mechanism persists as a mismatch between early-time and late-time cooling rates at comparable instantaneous |T_h-T_c| values.",
+          "continuation_path": "Recover the parent by taking the contact-adjustment time to zero, so the conductance state instantaneously equals contact_conductance*(1 + conductance_contrast_coeff*Abs(T_h - T_c)).",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "A finite response delay cannot be represented with only the current temperatures because the target would remain a memoryless function of instantaneous contrast. One additional state is needed to encode the lagged contact condition while preserving the existing temperatures and isolation constraint.",
+          "gap_statement": "The current model assumes the contact conductance responds instantaneously to the current temperature difference, excluding finite thermal/mechanical adjustment of the interface that creates hysteresis in the cooling-rate-versus-contrast relation during one relaxation run.",
+          "baseline_assumption": "The thermal contact conductance is constant and has no response delay.",
+          "scientific_mechanism": "Finite-time relaxation of the interfacial conductance toward its contrast-dependent value, representing delayed establishment of the effective thermal contact.",
+          "affected_symbols": [
+            "T_h",
+            "T_c",
+            "contact_conductance",
+            "conductance_contrast_coeff"
+          ],
+          "rationale": "A realistic next refinement is to relax the parent's memoryless contact law rather than adding an unrelated heat-loss path. The parent target mapping has a single-phase shortcut: once T_h and T_c are known, dT_h_dt is fixed, so all points with the same instantaneous temperature difference collapse to one cooling rate regardless of whether they occur immediately after contact or near equilibrium. Holding heat capacities fixed and preserving isolation, vary the stage of the trajectory while examining repeated or comparable values of |T_h-T_c| during relaxation. In the child, a lagged contact state makes the early-time slope shallower or otherwise offset relative to the later-time slope at the same instantaneous contrast because the interface conductance has not fully caught up to the large initial drive. This is a true change in the scored target mapping, not merely an auxiliary-trajectory modification, because dT_h_dt at given observed T_h and T_c is no longer unique without the added state. The effect is admissible when interfacial adjustment is not much faster than bulk thermal equilibration and when the contrast dependence of the preferred conductance is large enough to matter over the sampled temperature range. If the adjustment is effectively instantaneous, the parent is recovered exactly; if it is extremely slow or the contrast sensitivity is tiny, the refinement may be weak."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The hot-body cooling rate is an instantaneous odd-in-difference function of the current temperature contrast only, dT_h_dt = -G(|T_h-T_c|)(T_h-T_c)/heat_capacity_h, with one shared conductance law throughout the entire relaxation.",
+            "child_relation": "Retain isolation and two-body exchange but allow the effective contact conductance itself to relax toward its contrast-dependent value with finite response time, so the target depends on both current contrast and a lagged contact state. The same instantaneous temperature difference can then produce different dT_h_dt values at early versus late times.",
+            "affected_inputs": [
+              "T_h",
+              "T_c",
+              "contact_conductance",
+              "conductance_contrast_coeff"
+            ],
+            "observable_effect": "For trajectories with the same instantaneous temperature difference magnitude reached at different stages of the run, the child permits different cooling rates because the contact has not yet fully adjusted after large initial contrasts; the parent predicts a single rate for each current contrast."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "deltaT",
+              "expression": "T_h - T_c",
+              "role": "Instantaneous driving temperature difference across the contact"
+            },
+            {
+              "name": "abs_deltaT",
+              "expression": "Abs(T_h - T_c)",
+              "role": "Magnitude of thermal contrast controlling conductance strengthening"
+            },
+            {
+              "name": "equilibrium_weighted_temp",
+              "expression": "(heat_capacity_h*T_h + heat_capacity_c*T_c)/(heat_capacity_h + heat_capacity_c)",
+              "role": "Conserved mean temperature under isolation, useful to separate allowed trajectories from environmental leakage"
+            }
+          ],
+          "activation_condition": "Observable when the contact property adjusts on a timescale not negligible compared with the thermal equilibration timescale, especially after a large initial |T_h-T_c| so that the contrast-dependent preferred conductance changes appreciably during the run.",
+          "train_hidden_contrast": "Within training trajectories, large early temperature contrasts followed by smaller later contrasts expose stronger transient lag; in holdout, the same mechanism persists as a mismatch between early-time and late-time cooling rates at comparable instantaneous |T_h-T_c| values.",
+          "continuation_path": "Recover the parent by taking the contact-adjustment time to zero, so the conductance state instantaneously equals contact_conductance*(1 + conductance_contrast_coeff*Abs(T_h - T_c)).",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "A finite response delay cannot be represented with only the current temperatures because the target would remain a memoryless function of instantaneous contrast. One additional state is needed to encode the lagged contact condition while preserving the existing temperatures and isolation constraint.",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "T_h",
+            "T_c",
+            "g_contact"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Delayed interfacial conductance adjustment in two-body heat exchange",
+          "scientific_mechanism": "Finite-time relaxation of the interfacial conductance toward its contrast-dependent value, representing delayed establishment of the effective thermal contact.",
+          "embedding_pattern": "multiplicative_modulation",
+          "difficulty_rationale": "The target now depends on a hidden relaxing multiplier of the existing heat-flow process, so matching the data requires reconstructing a memory state rather than only retuning one static conductance law. This blocks a coefficient-only correction because identical observed temperatures can map to different cooling rates depending on prior contrast history.",
+          "taxonomy_match": "known",
+          "assumption_before": "The thermal contact conductance is constant and has no response delay.",
+          "assumption_after": "The effective contact conductance relaxes with finite time toward a contrast-dependent preferred value.",
+          "before_fragment": "-contact_conductance*(1 + conductance_contrast_coeff*Abs(T_h - T_c))*(T_h - T_c)/heat_capacity_h",
+          "after_fragment": "-g_contact*(T_h - T_c)/heat_capacity_h",
+          "parent_reduction": "In the limit contact_adjustment_time -> 0, g_contact collapses to contact_conductance*(1 + conductance_contrast_coeff*Abs(T_h - T_c)) and the parent target law is recovered.",
+          "observable_signature": "Plotting dT_h_dt against T_h-T_c no longer yields a single curve: early in the run after large initial contrast, the magnitude of dT_h_dt is reduced relative to later times at comparable instantaneous contrast because g_contact lags its preferred value. This changes the scored target mapping itself, not only auxiliary trajectories, whenever contact_adjustment_time is not negligible and conductance_contrast_coeff*Abs(T_h-T_c) varies appreciably over the sampled run.",
+          "shortcut_blocked": "A single refitted parent parameter set still makes dT_h_dt a unique instantaneous function of T_h-T_c, so it cannot reproduce two different cooling-rate magnitudes at the same observed contrast within one trajectory. Refitting contact_conductance and conductance_contrast_coeff can reshape that single curve but cannot create the history-dependent spread caused by the lagged conductance state."
+        },
+        "range_suggestions": {
+          "g_contact": "[contact_conductance, contact_conductance*(1 + conductance_contrast_coeff*Abs(370.0 - 275.0))]",
+          "contact_adjustment_time": "(0, heat_capacity_h/contact_conductance]"
+        }
+      },
+      {
+        "generation": 3,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The scored target obeys dT_h_dt = -(g_contact/heat_capacity_h)*(T_h - T_c), so for any observed state pair (T_h, T_c) and conductance state g_contact the cooling rate is a single linear gain on the temperature difference, independent of the absolute temperature level.",
+            "child_relation": "Retain interfacial transfer but relax the constant-heat-capacity assumption by making the hotter body's effective heat capacity temperature dependent, so the mapping from observed states to dT_h_dt depends on both temperature difference and absolute T_h through a nonlinear denominator.",
+            "affected_inputs": [
+              "T_h",
+              "T_c",
+              "g_contact",
+              "heat_capacity_h"
+            ],
+            "observable_effect": "At the same instantaneous temperature difference and similar g_contact, early high-T_h segments cool at a different rate than later lower-T_h segments because the hotter body's thermal inertia varies with temperature, producing systematic curvature in dT_h_dt versus (T_h - T_c) that the parent's single linear gain cannot match with one parameter set."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "delta_T",
+              "expression": "T_h - T_c",
+              "role": "instantaneous driving temperature difference across the contact"
+            },
+            {
+              "name": "hot_abs_level",
+              "expression": "T_h",
+              "role": "absolute temperature level of the hotter body controlling its thermal inertia under the refinement"
+            },
+            {
+              "name": "transfer_over_capacity",
+              "expression": "g_contact*(T_h - T_c)/heat_capacity_h",
+              "role": "parent cooling-rate scale before relaxing the constant-capacity assumption"
+            }
+          ],
+          "activation_condition": "Observable when the sampled trajectory spans a temperature interval large enough that the hotter body's heat capacity changes appreciably across it; strongest over the early-to-mid transient while T_h remains well above equilibrium and absolute-temperature variation is not negligible compared with the calibration scale of heat capacity.",
+          "train_hidden_contrast": "In training, the mechanism appears as mild systematic deviation from a single proportional collapse of dT_h_dt against g_contact*(T_h-T_c); in holdout, the same absolute-temperature dependence persists over later or earlier parts of the same relaxation trajectory, extending the curvature rather than introducing a new regime.",
+          "continuation_path": "Recover the parent law in the limit of temperature-independent heat capacity for the hot body, i.e. when the heat-capacity variation coefficient tends to zero or over a sufficiently narrow temperature interval.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The current model keeps the hotter body's total heat capacity fixed even though over a wide temperature excursion many materials exhibit measurable temperature dependence in specific heat, altering the instantaneous cooling rate at fixed heat flux.",
+          "baseline_assumption": "Both heat capacities are constant over the sampled temperature interval.",
+          "scientific_mechanism": "Temperature-dependent thermal storage in the initially hotter body changes how much its temperature responds to a given transferred heat rate.",
+          "affected_symbols": [
+            "T_h",
+            "T_c",
+            "g_contact",
+            "heat_capacity_h"
+          ],
+          "rationale": "A realistic next refinement is to relax the constant-heat-capacity assumption for the initially hotter body without adding a new dynamical state, because the omitted effect acts directly on the scored target mapping. In the parent, varying time only changes dT_h_dt through the observed temperature difference and the relaxing conductance state; once g_contact is given, the target is a single-gain linear function of T_h - T_c. The scientific gap is that the same interfacial heat flow need not produce the same temperature rate at high and low absolute T_h when the hot body's heat capacity varies with temperature. Hold fixed the contact-law parameters and compare trajectory segments with similar instantaneous delta_T but different T_h levels, which is admissible along the observed cooling path from 370 K toward equilibrium. The child predicts different slopes there because the denominator changes with T_h, whereas the parent with one shared parameter set cannot simultaneously fit both segments if the variation is appreciable: adjusting heat_capacity_h rescales all times and all state pairs uniformly but cannot create absolute-temperature-dependent curvature in the target mapping. This changes the scored T_h derivative itself, not merely an auxiliary trajectory. The refinement remains consistent with nonnegative temperatures, bounded trajectories, and total-energy conservation if the same heat flux is used with matched opposite signs in T_h and T_c equations. Limitation: if the sampled temperature span is too small or the material's heat-capacity variation is weak, the effect may be hard to distinguish and the parent may remain adequate."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The scored target obeys dT_h_dt = -(g_contact/heat_capacity_h)*(T_h - T_c), so for any observed state pair (T_h, T_c) and conductance state g_contact the cooling rate is a single linear gain on the temperature difference, independent of the absolute temperature level.",
+            "child_relation": "Retain interfacial transfer but relax the constant-heat-capacity assumption by making the hotter body's effective heat capacity temperature dependent, so the mapping from observed states to dT_h_dt depends on both temperature difference and absolute T_h through a nonlinear denominator.",
+            "affected_inputs": [
+              "T_h",
+              "T_c",
+              "g_contact",
+              "heat_capacity_h"
+            ],
+            "observable_effect": "At the same instantaneous temperature difference and similar g_contact, early high-T_h segments cool at a different rate than later lower-T_h segments because the hotter body's thermal inertia varies with temperature, producing systematic curvature in dT_h_dt versus (T_h - T_c) that the parent's single linear gain cannot match with one parameter set."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "delta_T",
+              "expression": "T_h - T_c",
+              "role": "instantaneous driving temperature difference across the contact"
+            },
+            {
+              "name": "hot_abs_level",
+              "expression": "T_h",
+              "role": "absolute temperature level of the hotter body controlling its thermal inertia under the refinement"
+            },
+            {
+              "name": "transfer_over_capacity",
+              "expression": "g_contact*(T_h - T_c)/heat_capacity_h",
+              "role": "parent cooling-rate scale before relaxing the constant-capacity assumption"
+            }
+          ],
+          "activation_condition": "Observable when the sampled trajectory spans a temperature interval large enough that the hotter body's heat capacity changes appreciably across it; strongest over the early-to-mid transient while T_h remains well above equilibrium and absolute-temperature variation is not negligible compared with the calibration scale of heat capacity.",
+          "train_hidden_contrast": "In training, the mechanism appears as mild systematic deviation from a single proportional collapse of dT_h_dt against g_contact*(T_h-T_c); in holdout, the same absolute-temperature dependence persists over later or earlier parts of the same relaxation trajectory, extending the curvature rather than introducing a new regime.",
+          "continuation_path": "Recover the parent law in the limit of temperature-independent heat capacity for the hot body, i.e. when the heat-capacity variation coefficient tends to zero or over a sufficiently narrow temperature interval.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "T_h",
+            "T_c",
+            "g_contact",
+            "heat_capacity_h"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "temperature-dependent heat capacity of the hotter body",
+          "scientific_mechanism": "Temperature-dependent thermal storage in the initially hotter body changes how much its temperature responds to a given transferred heat rate.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "This embedding is structurally harder than a coefficient-only correction because it changes the denominator of the scored target through a bounded saturating function of the evolving state T_h, creating absolute-temperature-dependent curvature rather than a uniform rescaling.",
+          "taxonomy_match": "known",
+          "assumption_before": "Both heat capacities are constant over the sampled temperature interval.",
+          "assumption_after": "The hotter body's effective heat capacity increases or decreases with absolute temperature through a finite saturating response.",
+          "before_fragment": "-g_contact*(T_h - T_c)/heat_capacity_h",
+          "after_fragment": "-g_contact*(T_h - T_c)/(heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h/(hot_capacity_temp_scale + T_h)))",
+          "parent_reduction": "The parent is recovered when hot_capacity_temp_coeff = 0.",
+          "observable_signature": "Along the same cooling trajectory, compare two times with similar delta_T = T_h - T_c and similar g_contact but different absolute T_h. The parent predicts the same dT_h_dt after accounting for delta_T and g_contact, whereas the child predicts systematically different magnitudes because the effective denominator heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h/(hot_capacity_temp_scale + T_h)) changes with T_h. This is observable when T_h traverses a non-negligible fraction of hot_capacity_temp_scale during relaxation.",
+          "shortcut_blocked": "Refitting a single parent heat_capacity_h only rescales the entire target mapping uniformly across all observed states. It cannot make dT_h_dt depend on absolute T_h at fixed delta_T and g_contact, so one shared parent parameter set cannot simultaneously match early high-temperature and later lower-temperature segments when the heat-capacity variation is appreciable."
+        },
+        "range_suggestions": {
+          "hot_capacity_temp_coeff": "[0, 5]",
+          "hot_capacity_temp_scale": "(0, 1000]"
+        }
+      },
+      {
+        "generation": 4,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The hotter-body cooling rate depends on temperature contrast through a linearly proportional numerator divided by a conductance state and a hot-side heat capacity that varies only with T_h, so at fixed T_h-T_c history the target changes as a single effective gain times the contrast.",
+            "child_relation": "Refine the colder body's thermal storage to depend on its own temperature, so the coupled evolution of T_c feeds back into dT_h_dt through a changing partition of conserved energy; the hotter-body cooling rate then acquires additional curvature versus time/contrast because the same remaining temperature difference corresponds to different cold-side warming responses as T_c rises.",
+            "affected_inputs": [
+              "T_h",
+              "T_c",
+              "heat_capacity_c"
+            ],
+            "observable_effect": "Across runs with the same initial temperature difference but different absolute temperature levels within the admissible range, the approach to equilibrium shows different late-stage slowing/acceleration patterns of dT_h_dt after matching early-time slopes; a parent with fixed cold-side heat capacity cannot reproduce both with one parameter set."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "delta_T",
+              "expression": "T_h - T_c",
+              "role": "instantaneous driving temperature contrast across the contact"
+            },
+            {
+              "name": "hot_storage_factor",
+              "expression": "heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h/(hot_capacity_temp_scale + T_h))",
+              "role": "current effective heat capacity of the initially hotter body"
+            },
+            {
+              "name": "cold_temperature_level",
+              "expression": "T_c",
+              "role": "absolute temperature of the initially colder body that would control its thermal storage in the refinement"
+            }
+          ],
+          "activation_condition": "Observable when T_c traverses a non-negligible fraction of a cold-side heat-capacity variation scale during the recorded equilibration, while temperatures remain positive and bounded between initial extrema.",
+          "train_hidden_contrast": "In training, the mechanism appears as modest deviations from a single shared cooling-shape law as T_c warms; in holdout, the same temperature-dependent cold-side storage extends that curvature difference more strongly when the colder body spans a wider absolute-temperature interval.",
+          "continuation_path": "Recover the parent by taking the cold-side heat-capacity temperature-dependence amplitude to zero, or a saturation scale much larger than all realized T_c so the colder body's heat capacity is effectively constant.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The current model lets only the hotter body's heat capacity vary with temperature, implicitly treating the colder body's thermal storage as temperature-independent over the full experiment.",
+          "baseline_assumption": "The initially colder body has constant total heat capacity over the sampled temperature interval.",
+          "scientific_mechanism": "Temperature-dependent heat capacity of the initially colder body alters how rapidly T_c rises for a given heat flux, which feeds back through energy conservation onto the hotter body's cooling trajectory.",
+          "affected_symbols": [
+            "T_h",
+            "T_c",
+            "heat_capacity_c"
+          ],
+          "rationale": "A realistic next refinement is to relax the constant-cold-capacity assumption rather than adding a new process. In the parent, varying conditions through absolute temperature level while holding contact parameters fixed leaves the target mapping effectively controlled by one evolving transfer gain and the hot-side storage law; the cold side only enters through T_c as a passive temperature in the numerator. If instead the colder body’s heat capacity increases or decreases with T_c, then for the same instantaneous contrast the future evolution of T_c, and therefore the subsequent dT_h_dt trajectory, changes in a way tied to absolute temperature level, not just current contrast. A concrete distinguishing condition is to compare experiments with similar initial T_h-T_c but different absolute T_c ranges, holding contact_conductance, conductance_contrast_coeff, contact_adjustment_time, heat_capacity_h, and hot-side capacity parameters fixed. The child predicts a different curvature of dT_h_dt during the approach to equilibrium because warming the colder body changes its storage capacity as the run proceeds; the parent with one shared fixed heat_capacity_c can at best match one effective average cold storage and cannot reproduce both early- and late-stage behavior across those conditions simultaneously. This change remains admissible because it preserves isolation, bounded temperatures, and heat flow direction, and it is observable only when the sampled T_c range is large enough that cold-side capacity variation is not negligible. If the experiment stays in a narrow T_c interval, this refinement may be weak and effectively collapse back to the parent."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The hotter-body cooling rate depends on temperature contrast through a linearly proportional numerator divided by a conductance state and a hot-side heat capacity that varies only with T_h, so at fixed T_h-T_c history the target changes as a single effective gain times the contrast.",
+            "child_relation": "Refine the colder body's thermal storage to depend on its own temperature, so the coupled evolution of T_c feeds back into dT_h_dt through a changing partition of conserved energy; the hotter-body cooling rate then acquires additional curvature versus time/contrast because the same remaining temperature difference corresponds to different cold-side warming responses as T_c rises.",
+            "affected_inputs": [
+              "T_h",
+              "T_c",
+              "heat_capacity_c"
+            ],
+            "observable_effect": "Across runs with the same initial temperature difference but different absolute temperature levels within the admissible range, the approach to equilibrium shows different late-stage slowing/acceleration patterns of dT_h_dt after matching early-time slopes; a parent with fixed cold-side heat capacity cannot reproduce both with one parameter set."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "delta_T",
+              "expression": "T_h - T_c",
+              "role": "instantaneous driving temperature contrast across the contact"
+            },
+            {
+              "name": "hot_storage_factor",
+              "expression": "heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h/(hot_capacity_temp_scale + T_h))",
+              "role": "current effective heat capacity of the initially hotter body"
+            },
+            {
+              "name": "cold_temperature_level",
+              "expression": "T_c",
+              "role": "absolute temperature of the initially colder body that would control its thermal storage in the refinement"
+            }
+          ],
+          "activation_condition": "Observable when T_c traverses a non-negligible fraction of a cold-side heat-capacity variation scale during the recorded equilibration, while temperatures remain positive and bounded between initial extrema.",
+          "train_hidden_contrast": "In training, the mechanism appears as modest deviations from a single shared cooling-shape law as T_c warms; in holdout, the same temperature-dependent cold-side storage extends that curvature difference more strongly when the colder body spans a wider absolute-temperature interval.",
+          "continuation_path": "Recover the parent by taking the cold-side heat-capacity temperature-dependence amplitude to zero, or a saturation scale much larger than all realized T_c so the colder body's heat capacity is effectively constant.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "T_h",
+            "T_c"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "temperature-dependent cold-side thermal storage",
+          "scientific_mechanism": "Temperature-dependent heat capacity of the initially colder body alters how rapidly T_c rises for a given heat flux, which feeds back through energy conservation onto the hotter body's cooling trajectory.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "This is harder than a coefficient-only correction because the new saturating cold-side storage law changes the coupled state evolution, producing shape changes in the target trajectory that depend on absolute cold-side temperature level over time rather than a single global gain adjustment.",
+          "taxonomy_match": "known",
+          "assumption_before": "The initially colder body has constant total heat capacity over the sampled temperature interval.",
+          "assumption_after": "The initially colder body has a saturating temperature-dependent total heat capacity over the sampled temperature interval.",
+          "before_fragment": "-g_contact*(T_h - T_c)/(heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h/(hot_capacity_temp_scale + T_h)))",
+          "after_fragment": "-g_contact*(T_h - T_c)/(heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h/(hot_capacity_temp_scale + T_h)))",
+          "parent_reduction": "The parent is recovered when cold_capacity_temp_coeff = 0, or in the large cold_capacity_temp_scale limit over the realized temperature range.",
+          "observable_signature": "The parent target law itself remains algebraically the same in terms of observed states, but under the supplied ODE system the child produces a different mapping from time and initial conditions to dT_h_dt because T_c warms with a saturating temperature-dependent heat capacity. The distinguishing signature is a level-dependent curvature change: runs with similar initial T_h-T_c but different absolute T_c ranges can share early cooling slopes yet diverge in late-stage dT_h_dt curvature as the cold-side storage changes with T_c.",
+          "shortcut_blocked": "Refitting all existing parent parameters can only choose one fixed heat_capacity_c and therefore one effective cold-side storage profile. That can mimic at most an average response over a narrow range, but it cannot with a single parameter set reproduce both the early-time and late-time cooling-shape differences across runs where T_c explores different fractions of the cold_capacity_temp_scale, because the parent lacks any state-dependent cold-side storage mechanism."
+        },
+        "range_suggestions": {
+          "cold_capacity_temp_coeff": "[0, 5]",
+          "cold_capacity_temp_scale": "(0, 1000]"
+        }
+      },
+      {
+        "generation": 5,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The target maps the observed state pair (T_h, T_c) and conductance state g_contact to dT_h_dt through a single interfacial heat-flow pathway proportional to (T_h - T_c), with all transferred energy immediately and uniformly mixed into each body.",
+            "child_relation": "Retain the same contrast-driven heat-flow pathway but relax the assumption of instantaneous internal equilibration in the hotter body by introducing a finite internal thermalization state that buffers incoming/outgoing heat before the bulk T_h responds, so the cooling rate depends not only on the present contrast but also on the internal lag state.",
+            "affected_inputs": [
+              "T_h",
+              "T_c",
+              "g_contact"
+            ],
+            "observable_effect": "For runs with similar instantaneous (T_h - T_c) and similar g_contact during the transient, the hotter-body cooling rate can be temporarily smaller in magnitude early and then larger later than the parent predicts because some extracted interfacial heat is first supplied from a hotter near-contact region before the bulk temperature fully follows."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "delta_T",
+              "expression": "T_h - T_c",
+              "role": "Driving temperature contrast across the contact"
+            },
+            {
+              "name": "C_h_eff",
+              "expression": "heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h/(hot_capacity_temp_scale + T_h))",
+              "role": "Current effective bulk heat capacity of the initially hotter body"
+            },
+            {
+              "name": "q_contact_over_Ch",
+              "expression": "g_contact*(T_h - T_c)/(heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h/(hot_capacity_temp_scale + T_h)))",
+              "role": "Parent bulk cooling-rate scale from the contact flux"
+            }
+          ],
+          "activation_condition": "Most visible when the hotter body internally equilibrates on a timescale comparable to or slower than the contact-adjustment and bulk cooling timescales, so an internal temperature lag can persist during the observed transient; weak when internal equilibration is much faster than heat exchange.",
+          "train_hidden_contrast": "Within training, the same mechanism appears as early-time suppression of |dT_h_dt| followed by mid-transient catch-up at moderate to large temperature contrast; in holdout with stronger contrast or faster contact transfer, the same lag produces more pronounced curvature changes in the T_h trajectory and thus in the target mapping.",
+          "continuation_path": "Recover the parent law in the limit of vanishing internal equilibration time or vanishing internal temperature split in the hotter body, where the added internal state remains slaved to T_h and the bulk stays effectively uniform.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "A finite internal thermalization lag is a dynamical memory effect and cannot be represented by refitting existing static parameters or the existing conductance state alone; it requires one additional state to store the hotter body's internal nonequilibrium.",
+          "gap_statement": "The current model still assumes the initially hotter body remains perfectly lumped internally even while allowing dynamic contact conductance and temperature-dependent heat capacity.",
+          "baseline_assumption": "Each body remains spatially uniform in temperature.",
+          "scientific_mechanism": "Finite internal thermal resistance within the initially hotter body creates a near-contact subregion that can cool faster than the bulk, introducing transient buffering between interfacial heat extraction and the observed bulk temperature response.",
+          "affected_symbols": [
+            "T_h",
+            "T_c",
+            "g_contact",
+            "heat_capacity_h",
+            "hot_capacity_temp_coeff",
+            "hot_capacity_temp_scale"
+          ],
+          "rationale": "A realistic next refinement is to relax the hotter body's perfect internal mixing assumption while preserving isolation and heat-flow direction. The parent target relation is effectively single-phase: once T_h, T_c, and g_contact are known, the hotter-body cooling rate is fixed by one instantaneous bulk balance. Vary the ratio of internal equilibration time in the hotter body to the contact-driven cooling time, while holding the existing heat capacities, conductance law, and initial temperatures fixed. Under admissible conditions where internal thermalization is not much faster than the experiment, the child predicts a different dT_h_dt-versus-(T_h, T_c, g_contact) curvature: early in the run the observed bulk T_h cools more slowly than the parent because the contact mainly drains a hotter near-interface region, and later the bulk catches up as that internal gradient relaxes. A single refit of existing parent parameters cannot reproduce this transient phase-lag pattern across conditions, because changing heat capacity or conductance only rescales or smoothly retimes the same one-phase mapping rather than introducing state-dependent memory at fixed observed T_h, T_c, and g_contact. The effect is scientifically admissible only when internal gradients remain moderate so both absolute temperatures stay nonnegative and bounded, and it disappears in the fast-internal-equilibration limit, which cleanly recovers the parent."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The target maps the observed state pair (T_h, T_c) and conductance state g_contact to dT_h_dt through a single interfacial heat-flow pathway proportional to (T_h - T_c), with all transferred energy immediately and uniformly mixed into each body.",
+            "child_relation": "Retain the same contrast-driven heat-flow pathway but relax the assumption of instantaneous internal equilibration in the hotter body by introducing a finite internal thermalization state that buffers incoming/outgoing heat before the bulk T_h responds, so the cooling rate depends not only on the present contrast but also on the internal lag state.",
+            "affected_inputs": [
+              "T_h",
+              "T_c",
+              "g_contact"
+            ],
+            "observable_effect": "For runs with similar instantaneous (T_h - T_c) and similar g_contact during the transient, the hotter-body cooling rate can be temporarily smaller in magnitude early and then larger later than the parent predicts because some extracted interfacial heat is first supplied from a hotter near-contact region before the bulk temperature fully follows."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "delta_T",
+              "expression": "T_h - T_c",
+              "role": "Driving temperature contrast across the contact"
+            },
+            {
+              "name": "C_h_eff",
+              "expression": "heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h/(hot_capacity_temp_scale + T_h))",
+              "role": "Current effective bulk heat capacity of the initially hotter body"
+            },
+            {
+              "name": "q_contact_over_Ch",
+              "expression": "g_contact*(T_h - T_c)/(heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h/(hot_capacity_temp_scale + T_h)))",
+              "role": "Parent bulk cooling-rate scale from the contact flux"
+            }
+          ],
+          "activation_condition": "Most visible when the hotter body internally equilibrates on a timescale comparable to or slower than the contact-adjustment and bulk cooling timescales, so an internal temperature lag can persist during the observed transient; weak when internal equilibration is much faster than heat exchange.",
+          "train_hidden_contrast": "Within training, the same mechanism appears as early-time suppression of |dT_h_dt| followed by mid-transient catch-up at moderate to large temperature contrast; in holdout with stronger contrast or faster contact transfer, the same lag produces more pronounced curvature changes in the T_h trajectory and thus in the target mapping.",
+          "continuation_path": "Recover the parent law in the limit of vanishing internal equilibration time or vanishing internal temperature split in the hotter body, where the added internal state remains slaved to T_h and the bulk stays effectively uniform.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "A finite internal thermalization lag is a dynamical memory effect and cannot be represented by refitting existing static parameters or the existing conductance state alone; it requires one additional state to store the hotter body's internal nonequilibrium.",
+          "scope_kind": "memory",
+          "scope_symbols": [
+            "T_h",
+            "T_c",
+            "g_contact",
+            "T_h_interface"
+          ],
+          "structural_role": "feedback",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Internal thermal buffering inside the hotter body",
+          "scientific_mechanism": "Finite internal thermal resistance within the initially hotter body creates a near-contact subregion that can cool faster than the bulk, introducing transient buffering between interfacial heat extraction and the observed bulk temperature response.",
+          "embedding_pattern": "nested_nonlinearity",
+          "difficulty_rationale": "This is harder than a coefficient-only correction because the target derivative now depends on a hidden lag state whose evolution is itself driven by the contrast-dependent contact flow and a temperature-dependent heat-capacity nonlinearity. The mapping from observed temperatures to dT_h_dt is therefore no longer a single instantaneous phase law but a history-dependent two-stage transport balance.",
+          "taxonomy_match": "provisional",
+          "assumption_before": "Each body remains spatially uniform in temperature.",
+          "assumption_after": "The initially hotter body contains a finite-capacity near-contact subregion that can deviate transiently from the observed bulk temperature and exchange heat with it through a finite internal conductance.",
+          "before_fragment": "-g_contact*(T_h - T_c)/(heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h/(hot_capacity_temp_scale + T_h)))",
+          "after_fragment": "-k_internal_hot*(T_h - T_h_interface)/(heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h/(hot_capacity_temp_scale + T_h)))",
+          "parent_reduction": "The parent is recovered when k_internal_hot is large enough that T_h_interface tracks T_h quasi-instantly, with the interface-capacity split becoming dynamically irrelevant so the hotter body remains effectively uniform.",
+          "observable_signature": "At fixed observed T_h, T_c, and g_contact, trajectories with a residual T_h_interface > T_h show weaker instantaneous bulk cooling than the parent early in the transient, followed later by stronger bulk cooling as the internal lag relaxes. This is a changed target mapping, not merely an auxiliary-state change, because dT_h_dt directly depends on T_h_interface rather than solely on the supplied observed pair and conductance state.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce this across conditions because any refit of heat_capacity_h, hot_capacity_temp_coeff, hot_capacity_temp_scale, or the conductance-law parameters still yields one instantaneous mapping from (T_h, T_c, g_contact) to dT_h_dt. The child permits two different cooling rates at the same observed (T_h, T_c, g_contact) depending on internal lag history, so coefficient retuning alone cannot generate the early suppression and later catch-up pattern over the same admissible trajectories."
+        },
+        "range_suggestions": {
+          "T_h_interface": "[300, 420]",
+          "k_internal_hot": "(0, 1000]",
+          "hot_interface_capacity_fraction": "(0, 1)"
+        }
+      }
+    ],
+    "evolution_provenance": {
+      "dimension_track": null,
+      "mechanism_profile": {
+        "allowed_structural_roles": [
+          "contribution",
+          "response_law",
+          "modulation",
+          "interaction",
+          "constraint",
+          "transition",
+          "feedback",
+          "heterogeneity",
+          "timescale",
+          "transport_balance"
+        ],
+        "preferred_scopes": [
+          "unary",
+          "pairwise",
+          "state_coupling",
+          "time_forcing"
+        ],
+        "domain_mechanisms": [
+          {
+            "id": "nonlinear_constitutive_response",
+            "description": "nonlinear constitutive or response law",
+            "operations": [
+              "add_term",
+              "change_assumption"
+            ]
+          },
+          {
+            "id": "coupled_field_or_force",
+            "description": "coupling to an already declared field, force, or state",
+            "operations": [
+              "add_term"
+            ]
+          },
+          {
+            "id": "finite_relaxation_or_threshold",
+            "description": "finite response time or physical threshold",
+            "operations": [
+              "change_assumption"
+            ]
+          }
+        ],
+        "profile_source": "subject_fallback",
+        "ontology_schema_version": "1.0",
+        "taxonomy_schema_version": "1.0"
+      },
+      "baseline_mechanisms": [
+        "Thermal energy transfer driven by the instantaneous temperature difference across the contact.",
+        "Finite thermal storage in each body couples the two temperature trajectories."
+      ],
+      "baseline_assumptions": [
+        "Each body remains spatially uniform in temperature.",
+        "Both heat capacities are constant over the sampled temperature interval.",
+        "The thermal contact conductance is constant and has no response delay.",
+        "The combined two-body system is thermally isolated from its environment."
+      ],
+      "scientific_constraints": [
+        "Both absolute temperatures remain nonnegative.",
+        "Total internal energy of the two bodies is conserved.",
+        "Heat transfer is directed from higher temperature to lower temperature.",
+        "The two temperatures remain bounded by their initial extrema."
+      ],
+      "refinement_agenda": [
+        "Allow heat capacities to vary with temperature.",
+        "Allow contact conductance to depend on temperature or contact state.",
+        "Add heat exchange with a fixed-temperature environment.",
+        "Replace instantaneous contact response with a finite interfacial thermal relaxation process."
+      ],
+      "evolution_contracts": [
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The target cooling rate is a linear function of the instantaneous temperature difference, dT_h_dt = -(contact_conductance/heat_capacity_h)*(T_h - T_c), with one fixed proportional gain for the entire trajectory.",
+            "child_relation": "Retain heat flow through the same contact but relax the constant-conductance assumption so the effective transfer strength varies with the current inter-body temperature contrast, making dT_h_dt a nonlinear function of (T_h - T_c) even at fixed heat_capacity_h.",
+            "affected_inputs": [
+              "T_h",
+              "T_c",
+              "contact_conductance"
+            ],
+            "observable_effect": "Across runs or time segments with small versus large temperature differences, the cooling-rate-versus-temperature-difference curve is no longer a single straight line: the initial hot-stage slope differs from the near-equilibrium slope, producing trajectory curvature that one constant-gain parent law cannot match with one shared parameter set."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "deltaT",
+              "expression": "T_h - T_c",
+              "role": "instantaneous thermal driving difference across the contact"
+            },
+            {
+              "name": "meanT",
+              "expression": "(T_h + T_c)/2",
+              "role": "bulk temperature level, useful to separate contrast-driven from absolute-temperature effects"
+            },
+            {
+              "name": "energy_balance_check",
+              "expression": "heat_capacity_h*T_h + heat_capacity_c*T_c",
+              "role": "conserved total internal energy under isolated two-body exchange"
+            }
+          ],
+          "activation_condition": "Observable when the admissible experiment spans a nontrivial range of temperature differences so that the contact physics is sampled both far from and near equilibrium; weak or absent if |T_h - T_c| stays in a narrow band where conductance is effectively constant.",
+          "train_hidden_contrast": "In training, modest curvature appears as systematic deviation from a straight cooling-rate-versus-deltaT relation; in holdout with larger initial temperature contrast, the same mechanism strengthens that curvature rather than introducing a different process.",
+          "continuation_path": "Recover the parent law in the limit where the effective conductance becomes independent of temperature difference over the sampled range.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "pairwise",
+          "scope_symbols": [
+            "T_h",
+            "T_c"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "nonlinear thermal contact transport",
+          "scientific_mechanism": "Temperature-difference-dependent thermal contact conductance, causing nonlinear heat-transfer strength across the interface while preserving isolation and energy conservation.",
+          "embedding_pattern": "nested_nonlinearity",
+          "difficulty_rationale": "The refinement nests a nonlinear map of a combined state difference, Abs(T_h - T_c), inside the conductance multiplying that same driving difference. This changes the shape of the target mapping itself rather than merely rescaling a constant coefficient, so one must infer both the baseline gain and how that gain varies over the trajectory.",
+          "taxonomy_match": "known",
+          "assumption_before": "The thermal contact conductance is constant and has no response delay.",
+          "assumption_after": "The thermal contact conductance changes monotonically with the instantaneous temperature-difference magnitude while remaining instantaneous and symmetric between the two bodies.",
+          "before_fragment": "-contact_conductance*(T_h - T_c)/heat_capacity_h",
+          "after_fragment": "-contact_conductance*(1 + conductance_contrast_coeff*Abs(T_h - T_c))*(T_h - T_c)/heat_capacity_h",
+          "parent_reduction": "Set conductance_contrast_coeff = 0 to recover the parent expression exactly.",
+          "observable_signature": "At fixed heat capacities, the scored target derivative dT_h_dt versus deltaT = T_h - T_c bends away from a straight line: large-|deltaT| segments cool faster per unit deltaT than near-equilibrium segments when conductance_contrast_coeff > 0. This changed target mapping is directly observable from the supplied states T_h and T_c, not only through auxiliary trajectory differences.",
+          "shortcut_blocked": "A single parent parameter set can only produce dT_h_dt proportional to deltaT with one constant slope contact_conductance/heat_capacity_h. When the same dataset contains both near-equilibrium and large-contrast segments showing different effective slopes in dT_h_dt versus deltaT, no refit of contact_conductance alone can match both regions simultaneously; fitting one region forces systematic error in the other."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The hot-body cooling rate is an instantaneous odd-in-difference function of the current temperature contrast only, dT_h_dt = -G(|T_h-T_c|)(T_h-T_c)/heat_capacity_h, with one shared conductance law throughout the entire relaxation.",
+            "child_relation": "Retain isolation and two-body exchange but allow the effective contact conductance itself to relax toward its contrast-dependent value with finite response time, so the target depends on both current contrast and a lagged contact state. The same instantaneous temperature difference can then produce different dT_h_dt values at early versus late times.",
+            "affected_inputs": [
+              "T_h",
+              "T_c",
+              "contact_conductance",
+              "conductance_contrast_coeff"
+            ],
+            "observable_effect": "For trajectories with the same instantaneous temperature difference magnitude reached at different stages of the run, the child permits different cooling rates because the contact has not yet fully adjusted after large initial contrasts; the parent predicts a single rate for each current contrast."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "deltaT",
+              "expression": "T_h - T_c",
+              "role": "Instantaneous driving temperature difference across the contact"
+            },
+            {
+              "name": "abs_deltaT",
+              "expression": "Abs(T_h - T_c)",
+              "role": "Magnitude of thermal contrast controlling conductance strengthening"
+            },
+            {
+              "name": "equilibrium_weighted_temp",
+              "expression": "(heat_capacity_h*T_h + heat_capacity_c*T_c)/(heat_capacity_h + heat_capacity_c)",
+              "role": "Conserved mean temperature under isolation, useful to separate allowed trajectories from environmental leakage"
+            }
+          ],
+          "activation_condition": "Observable when the contact property adjusts on a timescale not negligible compared with the thermal equilibration timescale, especially after a large initial |T_h-T_c| so that the contrast-dependent preferred conductance changes appreciably during the run.",
+          "train_hidden_contrast": "Within training trajectories, large early temperature contrasts followed by smaller later contrasts expose stronger transient lag; in holdout, the same mechanism persists as a mismatch between early-time and late-time cooling rates at comparable instantaneous |T_h-T_c| values.",
+          "continuation_path": "Recover the parent by taking the contact-adjustment time to zero, so the conductance state instantaneously equals contact_conductance*(1 + conductance_contrast_coeff*Abs(T_h - T_c)).",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "A finite response delay cannot be represented with only the current temperatures because the target would remain a memoryless function of instantaneous contrast. One additional state is needed to encode the lagged contact condition while preserving the existing temperatures and isolation constraint.",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "T_h",
+            "T_c",
+            "g_contact"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Delayed interfacial conductance adjustment in two-body heat exchange",
+          "scientific_mechanism": "Finite-time relaxation of the interfacial conductance toward its contrast-dependent value, representing delayed establishment of the effective thermal contact.",
+          "embedding_pattern": "multiplicative_modulation",
+          "difficulty_rationale": "The target now depends on a hidden relaxing multiplier of the existing heat-flow process, so matching the data requires reconstructing a memory state rather than only retuning one static conductance law. This blocks a coefficient-only correction because identical observed temperatures can map to different cooling rates depending on prior contrast history.",
+          "taxonomy_match": "known",
+          "assumption_before": "The thermal contact conductance is constant and has no response delay.",
+          "assumption_after": "The effective contact conductance relaxes with finite time toward a contrast-dependent preferred value.",
+          "before_fragment": "-contact_conductance*(1 + conductance_contrast_coeff*Abs(T_h - T_c))*(T_h - T_c)/heat_capacity_h",
+          "after_fragment": "-g_contact*(T_h - T_c)/heat_capacity_h",
+          "parent_reduction": "In the limit contact_adjustment_time -> 0, g_contact collapses to contact_conductance*(1 + conductance_contrast_coeff*Abs(T_h - T_c)) and the parent target law is recovered.",
+          "observable_signature": "Plotting dT_h_dt against T_h-T_c no longer yields a single curve: early in the run after large initial contrast, the magnitude of dT_h_dt is reduced relative to later times at comparable instantaneous contrast because g_contact lags its preferred value. This changes the scored target mapping itself, not only auxiliary trajectories, whenever contact_adjustment_time is not negligible and conductance_contrast_coeff*Abs(T_h-T_c) varies appreciably over the sampled run.",
+          "shortcut_blocked": "A single refitted parent parameter set still makes dT_h_dt a unique instantaneous function of T_h-T_c, so it cannot reproduce two different cooling-rate magnitudes at the same observed contrast within one trajectory. Refitting contact_conductance and conductance_contrast_coeff can reshape that single curve but cannot create the history-dependent spread caused by the lagged conductance state."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The scored target obeys dT_h_dt = -(g_contact/heat_capacity_h)*(T_h - T_c), so for any observed state pair (T_h, T_c) and conductance state g_contact the cooling rate is a single linear gain on the temperature difference, independent of the absolute temperature level.",
+            "child_relation": "Retain interfacial transfer but relax the constant-heat-capacity assumption by making the hotter body's effective heat capacity temperature dependent, so the mapping from observed states to dT_h_dt depends on both temperature difference and absolute T_h through a nonlinear denominator.",
+            "affected_inputs": [
+              "T_h",
+              "T_c",
+              "g_contact",
+              "heat_capacity_h"
+            ],
+            "observable_effect": "At the same instantaneous temperature difference and similar g_contact, early high-T_h segments cool at a different rate than later lower-T_h segments because the hotter body's thermal inertia varies with temperature, producing systematic curvature in dT_h_dt versus (T_h - T_c) that the parent's single linear gain cannot match with one parameter set."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "delta_T",
+              "expression": "T_h - T_c",
+              "role": "instantaneous driving temperature difference across the contact"
+            },
+            {
+              "name": "hot_abs_level",
+              "expression": "T_h",
+              "role": "absolute temperature level of the hotter body controlling its thermal inertia under the refinement"
+            },
+            {
+              "name": "transfer_over_capacity",
+              "expression": "g_contact*(T_h - T_c)/heat_capacity_h",
+              "role": "parent cooling-rate scale before relaxing the constant-capacity assumption"
+            }
+          ],
+          "activation_condition": "Observable when the sampled trajectory spans a temperature interval large enough that the hotter body's heat capacity changes appreciably across it; strongest over the early-to-mid transient while T_h remains well above equilibrium and absolute-temperature variation is not negligible compared with the calibration scale of heat capacity.",
+          "train_hidden_contrast": "In training, the mechanism appears as mild systematic deviation from a single proportional collapse of dT_h_dt against g_contact*(T_h-T_c); in holdout, the same absolute-temperature dependence persists over later or earlier parts of the same relaxation trajectory, extending the curvature rather than introducing a new regime.",
+          "continuation_path": "Recover the parent law in the limit of temperature-independent heat capacity for the hot body, i.e. when the heat-capacity variation coefficient tends to zero or over a sufficiently narrow temperature interval.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "T_h",
+            "T_c",
+            "g_contact",
+            "heat_capacity_h"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "temperature-dependent heat capacity of the hotter body",
+          "scientific_mechanism": "Temperature-dependent thermal storage in the initially hotter body changes how much its temperature responds to a given transferred heat rate.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "This embedding is structurally harder than a coefficient-only correction because it changes the denominator of the scored target through a bounded saturating function of the evolving state T_h, creating absolute-temperature-dependent curvature rather than a uniform rescaling.",
+          "taxonomy_match": "known",
+          "assumption_before": "Both heat capacities are constant over the sampled temperature interval.",
+          "assumption_after": "The hotter body's effective heat capacity increases or decreases with absolute temperature through a finite saturating response.",
+          "before_fragment": "-g_contact*(T_h - T_c)/heat_capacity_h",
+          "after_fragment": "-g_contact*(T_h - T_c)/(heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h/(hot_capacity_temp_scale + T_h)))",
+          "parent_reduction": "The parent is recovered when hot_capacity_temp_coeff = 0.",
+          "observable_signature": "Along the same cooling trajectory, compare two times with similar delta_T = T_h - T_c and similar g_contact but different absolute T_h. The parent predicts the same dT_h_dt after accounting for delta_T and g_contact, whereas the child predicts systematically different magnitudes because the effective denominator heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h/(hot_capacity_temp_scale + T_h)) changes with T_h. This is observable when T_h traverses a non-negligible fraction of hot_capacity_temp_scale during relaxation.",
+          "shortcut_blocked": "Refitting a single parent heat_capacity_h only rescales the entire target mapping uniformly across all observed states. It cannot make dT_h_dt depend on absolute T_h at fixed delta_T and g_contact, so one shared parent parameter set cannot simultaneously match early high-temperature and later lower-temperature segments when the heat-capacity variation is appreciable."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The hotter-body cooling rate depends on temperature contrast through a linearly proportional numerator divided by a conductance state and a hot-side heat capacity that varies only with T_h, so at fixed T_h-T_c history the target changes as a single effective gain times the contrast.",
+            "child_relation": "Refine the colder body's thermal storage to depend on its own temperature, so the coupled evolution of T_c feeds back into dT_h_dt through a changing partition of conserved energy; the hotter-body cooling rate then acquires additional curvature versus time/contrast because the same remaining temperature difference corresponds to different cold-side warming responses as T_c rises.",
+            "affected_inputs": [
+              "T_h",
+              "T_c",
+              "heat_capacity_c"
+            ],
+            "observable_effect": "Across runs with the same initial temperature difference but different absolute temperature levels within the admissible range, the approach to equilibrium shows different late-stage slowing/acceleration patterns of dT_h_dt after matching early-time slopes; a parent with fixed cold-side heat capacity cannot reproduce both with one parameter set."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "delta_T",
+              "expression": "T_h - T_c",
+              "role": "instantaneous driving temperature contrast across the contact"
+            },
+            {
+              "name": "hot_storage_factor",
+              "expression": "heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h/(hot_capacity_temp_scale + T_h))",
+              "role": "current effective heat capacity of the initially hotter body"
+            },
+            {
+              "name": "cold_temperature_level",
+              "expression": "T_c",
+              "role": "absolute temperature of the initially colder body that would control its thermal storage in the refinement"
+            }
+          ],
+          "activation_condition": "Observable when T_c traverses a non-negligible fraction of a cold-side heat-capacity variation scale during the recorded equilibration, while temperatures remain positive and bounded between initial extrema.",
+          "train_hidden_contrast": "In training, the mechanism appears as modest deviations from a single shared cooling-shape law as T_c warms; in holdout, the same temperature-dependent cold-side storage extends that curvature difference more strongly when the colder body spans a wider absolute-temperature interval.",
+          "continuation_path": "Recover the parent by taking the cold-side heat-capacity temperature-dependence amplitude to zero, or a saturation scale much larger than all realized T_c so the colder body's heat capacity is effectively constant.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "T_h",
+            "T_c"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "temperature-dependent cold-side thermal storage",
+          "scientific_mechanism": "Temperature-dependent heat capacity of the initially colder body alters how rapidly T_c rises for a given heat flux, which feeds back through energy conservation onto the hotter body's cooling trajectory.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "This is harder than a coefficient-only correction because the new saturating cold-side storage law changes the coupled state evolution, producing shape changes in the target trajectory that depend on absolute cold-side temperature level over time rather than a single global gain adjustment.",
+          "taxonomy_match": "known",
+          "assumption_before": "The initially colder body has constant total heat capacity over the sampled temperature interval.",
+          "assumption_after": "The initially colder body has a saturating temperature-dependent total heat capacity over the sampled temperature interval.",
+          "before_fragment": "-g_contact*(T_h - T_c)/(heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h/(hot_capacity_temp_scale + T_h)))",
+          "after_fragment": "-g_contact*(T_h - T_c)/(heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h/(hot_capacity_temp_scale + T_h)))",
+          "parent_reduction": "The parent is recovered when cold_capacity_temp_coeff = 0, or in the large cold_capacity_temp_scale limit over the realized temperature range.",
+          "observable_signature": "The parent target law itself remains algebraically the same in terms of observed states, but under the supplied ODE system the child produces a different mapping from time and initial conditions to dT_h_dt because T_c warms with a saturating temperature-dependent heat capacity. The distinguishing signature is a level-dependent curvature change: runs with similar initial T_h-T_c but different absolute T_c ranges can share early cooling slopes yet diverge in late-stage dT_h_dt curvature as the cold-side storage changes with T_c.",
+          "shortcut_blocked": "Refitting all existing parent parameters can only choose one fixed heat_capacity_c and therefore one effective cold-side storage profile. That can mimic at most an average response over a narrow range, but it cannot with a single parameter set reproduce both the early-time and late-time cooling-shape differences across runs where T_c explores different fractions of the cold_capacity_temp_scale, because the parent lacks any state-dependent cold-side storage mechanism."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The target maps the observed state pair (T_h, T_c) and conductance state g_contact to dT_h_dt through a single interfacial heat-flow pathway proportional to (T_h - T_c), with all transferred energy immediately and uniformly mixed into each body.",
+            "child_relation": "Retain the same contrast-driven heat-flow pathway but relax the assumption of instantaneous internal equilibration in the hotter body by introducing a finite internal thermalization state that buffers incoming/outgoing heat before the bulk T_h responds, so the cooling rate depends not only on the present contrast but also on the internal lag state.",
+            "affected_inputs": [
+              "T_h",
+              "T_c",
+              "g_contact"
+            ],
+            "observable_effect": "For runs with similar instantaneous (T_h - T_c) and similar g_contact during the transient, the hotter-body cooling rate can be temporarily smaller in magnitude early and then larger later than the parent predicts because some extracted interfacial heat is first supplied from a hotter near-contact region before the bulk temperature fully follows."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "delta_T",
+              "expression": "T_h - T_c",
+              "role": "Driving temperature contrast across the contact"
+            },
+            {
+              "name": "C_h_eff",
+              "expression": "heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h/(hot_capacity_temp_scale + T_h))",
+              "role": "Current effective bulk heat capacity of the initially hotter body"
+            },
+            {
+              "name": "q_contact_over_Ch",
+              "expression": "g_contact*(T_h - T_c)/(heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h/(hot_capacity_temp_scale + T_h)))",
+              "role": "Parent bulk cooling-rate scale from the contact flux"
+            }
+          ],
+          "activation_condition": "Most visible when the hotter body internally equilibrates on a timescale comparable to or slower than the contact-adjustment and bulk cooling timescales, so an internal temperature lag can persist during the observed transient; weak when internal equilibration is much faster than heat exchange.",
+          "train_hidden_contrast": "Within training, the same mechanism appears as early-time suppression of |dT_h_dt| followed by mid-transient catch-up at moderate to large temperature contrast; in holdout with stronger contrast or faster contact transfer, the same lag produces more pronounced curvature changes in the T_h trajectory and thus in the target mapping.",
+          "continuation_path": "Recover the parent law in the limit of vanishing internal equilibration time or vanishing internal temperature split in the hotter body, where the added internal state remains slaved to T_h and the bulk stays effectively uniform.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "A finite internal thermalization lag is a dynamical memory effect and cannot be represented by refitting existing static parameters or the existing conductance state alone; it requires one additional state to store the hotter body's internal nonequilibrium.",
+          "scope_kind": "memory",
+          "scope_symbols": [
+            "T_h",
+            "T_c",
+            "g_contact",
+            "T_h_interface"
+          ],
+          "structural_role": "feedback",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Internal thermal buffering inside the hotter body",
+          "scientific_mechanism": "Finite internal thermal resistance within the initially hotter body creates a near-contact subregion that can cool faster than the bulk, introducing transient buffering between interfacial heat extraction and the observed bulk temperature response.",
+          "embedding_pattern": "nested_nonlinearity",
+          "difficulty_rationale": "This is harder than a coefficient-only correction because the target derivative now depends on a hidden lag state whose evolution is itself driven by the contrast-dependent contact flow and a temperature-dependent heat-capacity nonlinearity. The mapping from observed temperatures to dT_h_dt is therefore no longer a single instantaneous phase law but a history-dependent two-stage transport balance.",
+          "taxonomy_match": "provisional",
+          "assumption_before": "Each body remains spatially uniform in temperature.",
+          "assumption_after": "The initially hotter body contains a finite-capacity near-contact subregion that can deviate transiently from the observed bulk temperature and exchange heat with it through a finite internal conductance.",
+          "before_fragment": "-g_contact*(T_h - T_c)/(heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h/(hot_capacity_temp_scale + T_h)))",
+          "after_fragment": "-k_internal_hot*(T_h - T_h_interface)/(heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h/(hot_capacity_temp_scale + T_h)))",
+          "parent_reduction": "The parent is recovered when k_internal_hot is large enough that T_h_interface tracks T_h quasi-instantly, with the interface-capacity split becoming dynamically irrelevant so the hotter body remains effectively uniform.",
+          "observable_signature": "At fixed observed T_h, T_c, and g_contact, trajectories with a residual T_h_interface > T_h show weaker instantaneous bulk cooling than the parent early in the transient, followed later by stronger bulk cooling as the internal lag relaxes. This is a changed target mapping, not merely an auxiliary-state change, because dT_h_dt directly depends on T_h_interface rather than solely on the supplied observed pair and conductance state.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce this across conditions because any refit of heat_capacity_h, hot_capacity_temp_coeff, hot_capacity_temp_scale, or the conductance-law parameters still yields one instantaneous mapping from (T_h, T_c, g_contact) to dT_h_dt. The child permits two different cooling rates at the same observed (T_h, T_c, g_contact) depending on internal lag history, so coefficient retuning alone cannot generate the early suppression and later catch-up pattern over the same admissible trajectories."
+        }
+      ]
+    },
+    "finalization": {
+      "mode": "candidate",
+      "accepted_generations": 5,
+      "novelty": {
+        "answer": "NOT_EVALUATED"
+      },
+      "total_points": 5000,
+      "evaluation_status": "not_evaluated"
+    }
+  },
+  "contract": {
+    "features": [
+      "t",
+      "T_h",
+      "T_c",
+      "g_contact",
+      "T_h_interface"
+    ],
+    "target": "dT_h_dt",
+    "family": "ode",
+    "expression": "-k_internal_hot*(T_h - T_h_interface)/(heat_capacity_h*(1 + hot_capacity_temp_coeff*T_h/(hot_capacity_temp_scale + T_h)))",
+    "parameters": {
+      "contact_conductance": 240.0,
+      "heat_capacity_h": 5000.0,
+      "heat_capacity_c": 4200.0,
+      "conductance_contrast_coeff": 0.004,
+      "contact_adjustment_time": 80.0,
+      "hot_capacity_temp_coeff": 1.2,
+      "hot_capacity_temp_scale": 300.0,
+      "cold_capacity_temp_coeff": 0.9,
+      "cold_capacity_temp_scale": 260.0,
+      "k_internal_hot": 250.0,
+      "hot_interface_capacity_fraction": 0.12
+    },
+    "implicit_branch": null
+  }
+}

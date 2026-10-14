@@ -1,0 +1,1740 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "U",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        20.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "pressure_gradient_magnitude",
+      "value": 120.0
+    },
+    {
+      "symbol": "fluid_density",
+      "value": 1000.0
+    },
+    {
+      "symbol": "viscous_drag_rate",
+      "value": 0.8
+    },
+    {
+      "symbol": "nonlinear_drag_coefficient",
+      "value": 1.8
+    },
+    {
+      "symbol": "resistance_relaxation_rate",
+      "value": 1.2
+    },
+    {
+      "symbol": "drag_saturation_velocity",
+      "value": 0.12
+    },
+    {
+      "symbol": "slow_resistance_relaxation_rate",
+      "value": 0.18
+    },
+    {
+      "symbol": "slow_resistance_weight",
+      "value": 0.6
+    },
+    {
+      "symbol": "startup_phase_relaxation_rate",
+      "value": 0.5
+    },
+    {
+      "symbol": "startup_phase_coupling",
+      "value": 0.8
+    }
+  ],
+  "benchmark_output": "dU_dt",
+  "benchmark_target_state": "U",
+  "observed_variables": [
+    "t",
+    "U",
+    "R",
+    "Q",
+    "H"
+  ],
+  "rhs_for_integrator": "pressure_gradient_magnitude / fluid_density - viscous_drag_rate * (R + slow_resistance_weight*Q) * U",
+  "state_variables": [
+    "U",
+    "R",
+    "Q",
+    "H"
+  ],
+  "state_rhs": [
+    "pressure_gradient_magnitude / fluid_density - viscous_drag_rate * (R + slow_resistance_weight*Q) * U",
+    "resistance_relaxation_rate * (1 + H) * ((1 + nonlinear_drag_coefficient * drag_saturation_velocity * tanh(U / drag_saturation_velocity)) - R)",
+    "slow_resistance_relaxation_rate * (1 + H) * (tanh(1 + nonlinear_drag_coefficient * drag_saturation_velocity * tanh(U / drag_saturation_velocity)) - Q)",
+    "startup_phase_relaxation_rate * (startup_phase_coupling * tanh(U / drag_saturation_velocity) - H)"
+  ],
+  "initial_conditions": {
+    "U": 0.0,
+    "R": 0.0,
+    "Q": 0.0,
+    "H": 0.0
+  },
+  "sanity_expectations": [
+    "At t=0, dU_dt = pressure_gradient_magnitude/fluid_density = 0.12 exactly because U(0)=R(0)=Q(0)=0, so the trajectory initially accelerates upward from rest.",
+    "H starts at 0, rises transiently as U becomes positive through startup_phase_coupling*tanh(U/drag_saturation_velocity), and later decays back toward 0 as startup intensity weakens near the finite steady regime.",
+    "R should grow more rapidly than Q because resistance_relaxation_rate > slow_resistance_relaxation_rate, while Q should lag and extend drag strengthening over a longer startup interval.",
+    "Because slow_resistance_weight is positive and moderate, the drag term viscous_drag_rate*(R + slow_resistance_weight*Q)*U should show an early fast increase followed by a slower continued increase, producing extra downward bending of U(t) and dU_dt compared with a single-memory-phase response.",
+    "Since drag_saturation_velocity is comparable to reachable U, tanh(U/drag_saturation_velocity) should move away from its linear small-U regime during startup; the resistance targets therefore show visible non-affine curvature rather than remaining nearly parent-linear throughout.",
+    "All states should remain finite and real over the sampled window; U should stay nonnegative for this positive-drive startup from zero initial conditions, and the system should approach a finite dissipative regime rather than exhibiting runaway growth."
+  ],
+  "role_corrections": [
+    "dU_dt: claimed-output/target derivative -> derived quantity from state RHS (overridden: dataset target state is U per typed ODE contract, while dU_dt is the scored derivative produced by the RHS)",
+    "t: claimed-input/time axis -> independent variable/time axis (confirmed)",
+    "U: claimed-dynamic state -> dependent variable and state variable (confirmed)",
+    "R: claimed-dynamic state -> state variable (confirmed)",
+    "Q: claimed-dynamic state -> state variable (confirmed)",
+    "H: claimed-dynamic state -> state variable (confirmed)",
+    "pressure_gradient_magnitude: claimed-parameter -> parameter (confirmed)",
+    "fluid_density: claimed-parameter -> parameter (confirmed)",
+    "viscous_drag_rate: claimed-parameter -> parameter (confirmed)",
+    "nonlinear_drag_coefficient: claimed-parameter -> parameter (confirmed)",
+    "resistance_relaxation_rate: claimed-parameter -> parameter (confirmed)",
+    "drag_saturation_velocity: claimed-parameter -> parameter (confirmed)",
+    "slow_resistance_relaxation_rate: claimed-parameter -> parameter (confirmed)",
+    "slow_resistance_weight: claimed-parameter -> parameter (confirmed)",
+    "startup_phase_relaxation_rate: claimed-parameter -> parameter (confirmed)",
+    "startup_phase_coupling: claimed-parameter -> parameter (confirmed)"
+  ],
+  "rationale": "Preserved the supplied typed ODE-system contract exactly, as required for this explicit add_state freedom decision: t is the only sampled axis, U is the target state, and R, Q, H remain dynamic states rather than fixed coefficients. Although the bare target expression alone looks algebraically explicit in U, the provided structurally validated ODE contract governs how exact trajectory labels are generated, so the correct dataset type here is ode_system with the inherited 4-state RHS and initial conditions unchanged. Parameter choices are positive and keep the dynamics finite and laminar-like while exposing the intended contrast. The pressure-drive scale pressure_gradient_magnitude/fluid_density = 0.12 gives an initial acceleration of 0.12 from rest. Choosing drag_saturation_velocity = 0.12 places the startup in the regime U/drag_saturation_velocity = O(1) within the sampled window, so the tanh-based non-affine resistance targets are activated rather than remaining in the parent-recovery limit. The fast resistance rate 1.2 and slow rate 0.18 create a clear two-timescale drag-establishment process, with the slow branch appreciably lagging the fast branch. The slow_resistance_weight 0.6 makes Q materially affect dU_dt without dominating R. The startup-phase parameters startup_phase_coupling = 0.8 and startup_phase_relaxation_rate = 0.5 satisfy the suggestion that H be O(1) or smaller and persist over early-to-intermediate startup; H can transiently amplify both resistance-establishment rates by a factor up to about 1+H, creating the intended sharper mid-startup drag catch-up. The time window [0,20] with 300 points is long enough to capture the early inertial rise, transient H activation, fast R buildup, slower Q accumulation, and approach toward a finite near-steady regime without placing the whole trajectory only in the asymptotic tail. A representative substitution check on the scored RHS returned a finite real value.",
+  "coverage_report": {
+    "groups": [
+      {
+        "generation": 1,
+        "name": "forcing_to_drag",
+        "expression": "pressure_gradient_magnitude/(fluid_density*viscous_drag_rate)",
+        "role": "Parent steady-speed scale setting the typical startup velocity reached before nonlinear drag matters",
+        "train_range": [
+          0.15,
+          0.15
+        ],
+        "hidden_range": [
+          0.15,
+          0.15
+        ],
+        "train_status": "inactive",
+        "hidden_status": "inactive",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.15,
+          "max": 0.15,
+          "q05": 0.15,
+          "median": 0.15,
+          "q95": 0.15,
+          "range": 0.0,
+          "robust_range": 0.0
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.15,
+          "max": 0.15,
+          "q05": 0.15,
+          "median": 0.15,
+          "q95": 0.15,
+          "range": 0.0,
+          "robust_range": 0.0
+        }
+      },
+      {
+        "generation": 1,
+        "name": "instantaneous_speed_ratio",
+        "expression": "U*fluid_density*viscous_drag_rate/pressure_gradient_magnitude",
+        "role": "Dimensionless occupancy of the parent steady-speed scale; indicates when higher-order drag becomes observable",
+        "train_range": [
+          0.0,
+          0.7871899683992882
+        ],
+        "hidden_range": [
+          0.6152445691592304,
+          0.6159764681435982
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 0.7871899683992882,
+          "q05": 0.5852051645252293,
+          "median": 0.6306659724622394,
+          "q95": 0.7758225450253908,
+          "range": 0.7871899683992882,
+          "robust_range": 0.19061738050016153
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.6152445691592304,
+          "max": 0.6159764681435982,
+          "q05": 0.6152723506370988,
+          "median": 0.6155601710713262,
+          "q95": 0.6159294578134326,
+          "range": 0.0007318989843677626,
+          "robust_range": 0.0006571071763337155
+        }
+      },
+      {
+        "generation": 2,
+        "name": "drive_to_drag_balance",
+        "expression": "pressure_gradient_magnitude/fluid_density - viscous_drag_rate*(1 + nonlinear_drag_coefficient*U)*U",
+        "role": "Parent instantaneous net acceleration law",
+        "train_range": [
+          0.0054599590903949,
+          0.12
+        ],
+        "hidden_range": [
+          0.03378938872123238,
+          0.03390641319278272
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0054599590903949,
+          "max": 0.12,
+          "q05": 0.007399702019049001,
+          "median": 0.031433320869817434,
+          "q95": 0.03867797495320542,
+          "range": 0.1145400409096051,
+          "robust_range": 0.03127827293415642
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.03378938872123238,
+          "max": 0.03390641319278272,
+          "q05": 0.03379690631911954,
+          "median": 0.033855955366795386,
+          "q95": 0.03390197180254751,
+          "range": 0.0001170244715503338,
+          "robust_range": 0.00010506548342797267
+        }
+      },
+      {
+        "generation": 2,
+        "name": "nonlinear_drag_level",
+        "expression": "nonlinear_drag_coefficient*U",
+        "role": "Amplitude regime where drag nonlinearity becomes appreciable",
+        "train_range": [
+          0.0,
+          0.2125412914678078
+        ],
+        "hidden_range": [
+          0.1661160336729922,
+          0.1663136463987715
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 0.2125412914678078,
+          "q05": 0.15800539442181188,
+          "median": 0.17027981256480465,
+          "q95": 0.2094720871568555,
+          "range": 0.2125412914678078,
+          "robust_range": 0.05146669273504362
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.1661160336729922,
+          "max": 0.1663136463987715,
+          "q05": 0.16612353467201665,
+          "median": 0.16620124618925808,
+          "q95": 0.1663009536096268,
+          "range": 0.00019761272577928368,
+          "robust_range": 0.00017741893761014094
+        }
+      },
+      {
+        "generation": 2,
+        "name": "startup_speed_scale",
+        "expression": "pressure_gradient_magnitude/(fluid_density*viscous_drag_rate)",
+        "role": "Parent linear steady-speed scale setting whether startup reaches appreciable drag",
+        "train_range": [
+          0.15,
+          0.15
+        ],
+        "hidden_range": [
+          0.15,
+          0.15
+        ],
+        "train_status": "inactive",
+        "hidden_status": "inactive",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.15,
+          "max": 0.15,
+          "q05": 0.15,
+          "median": 0.15,
+          "q95": 0.15,
+          "range": 0.0,
+          "robust_range": 0.0
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.15,
+          "max": 0.15,
+          "q05": 0.15,
+          "median": 0.15,
+          "q95": 0.15,
+          "range": 0.0,
+          "robust_range": 0.0
+        }
+      },
+      {
+        "generation": 3,
+        "name": "drag_loading",
+        "expression": "R*U",
+        "role": "instantaneous resistive loading already controlling mean-flow deceleration",
+        "train_range": [
+          0.0,
+          0.1319112974986144
+        ],
+        "hidden_range": [
+          0.10517417127032273,
+          0.10531182812159547
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 0.1319112974986144,
+          "q05": 0.06483526174444139,
+          "median": 0.10768569748908202,
+          "q95": 0.13021215029571206,
+          "range": 0.1319112974986144,
+          "robust_range": 0.06537688855127068
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.10517417127032273,
+          "max": 0.10531182812159547,
+          "q05": 0.10517939606709088,
+          "median": 0.1052335276893804,
+          "q95": 0.10530298567106848,
+          "range": 0.00013765685127273275,
+          "robust_range": 0.00012358960397759744
+        }
+      },
+      {
+        "generation": 3,
+        "name": "quasistatic_drag_target",
+        "expression": "1 + nonlinear_drag_coefficient*U",
+        "role": "parent's assumed velocity-dependent resistance target to be relaxed",
+        "train_range": [
+          1.0,
+          1.2125412914678078
+        ],
+        "hidden_range": [
+          1.166116033672992,
+          1.1663136463987716
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 1.0,
+          "max": 1.2125412914678078,
+          "q05": 1.1580053944218118,
+          "median": 1.1702798125648046,
+          "q95": 1.2094720871568554,
+          "range": 0.21254129146780776,
+          "robust_range": 0.05146669273504356
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 1.166116033672992,
+          "max": 1.1663136463987716,
+          "q05": 1.1661235346720167,
+          "median": 1.1662012461892581,
+          "q95": 1.166300953609627,
+          "range": 0.00019761272577945022,
+          "robust_range": 0.00017741893761025196
+        }
+      },
+      {
+        "generation": 3,
+        "name": "startup_nonlinearity_scale",
+        "expression": "nonlinear_drag_coefficient*U",
+        "role": "dimensionless speed level marking where non-affine drag growth becomes observable",
+        "train_range": [
+          0.0,
+          0.2125412914678078
+        ],
+        "hidden_range": [
+          0.1661160336729922,
+          0.1663136463987715
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 0.2125412914678078,
+          "q05": 0.15800539442181188,
+          "median": 0.17027981256480465,
+          "q95": 0.2094720871568555,
+          "range": 0.2125412914678078,
+          "robust_range": 0.05146669273504362
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.1661160336729922,
+          "max": 0.1663136463987715,
+          "q05": 0.16612353467201665,
+          "median": 0.16620124618925808,
+          "q95": 0.1663009536096268,
+          "range": 0.00019761272577928368,
+          "robust_range": 0.00017741893761014094
+        }
+      },
+      {
+        "generation": 4,
+        "name": "drag_load",
+        "expression": "viscous_drag_rate*R*U",
+        "role": "instantaneous dissipative load already opposing pressure-driven acceleration",
+        "train_range": [
+          0.0,
+          0.10552903799889153
+        ],
+        "hidden_range": [
+          0.0841393370162582,
+          0.08424946249727638
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 0.10552903799889153,
+          "q05": 0.051868209395553116,
+          "median": 0.08614855799126563,
+          "q95": 0.10416972023656965,
+          "range": 0.10552903799889153,
+          "robust_range": 0.05230151084101653
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.0841393370162582,
+          "max": 0.08424946249727638,
+          "q05": 0.08414351685367272,
+          "median": 0.08418682215150432,
+          "q95": 0.0842423885368548,
+          "range": 0.0001101254810181862,
+          "robust_range": 9.887168318208073e-05
+        }
+      },
+      {
+        "generation": 4,
+        "name": "normalized_speed",
+        "expression": "U/drag_saturation_velocity",
+        "role": "activation coordinate for the existing non-affine drag-growth regime",
+        "train_range": [
+          0.0,
+          0.9839874604991102
+        ],
+        "hidden_range": [
+          0.769055711449038,
+          0.7699705851794978
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 0.9839874604991102,
+          "q05": 0.7315064556565366,
+          "median": 0.7883324655777992,
+          "q95": 0.9697781812817384,
+          "range": 0.9839874604991102,
+          "robust_range": 0.23827172562520182
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.769055711449038,
+          "max": 0.7699705851794978,
+          "q05": 0.7690904382963735,
+          "median": 0.7694502138391577,
+          "q95": 0.7699118222667907,
+          "range": 0.000914873730459842,
+          "robust_range": 0.0008213839704171999
+        }
+      },
+      {
+        "generation": 4,
+        "name": "resistance_deficit",
+        "expression": "1 + nonlinear_drag_coefficient*drag_saturation_velocity*tanh(U/drag_saturation_velocity) - R",
+        "role": "distance of the current hydraulic-resistance state from its present fast target",
+        "train_range": [
+          -0.0018205298142199844,
+          1.0
+        ],
+        "hidden_range": [
+          -4.88737504800163e-05,
+          -2.8124520083272486e-05
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": -0.0018205298142199844,
+          "max": 1.0,
+          "q05": -0.0017024358654705197,
+          "median": -0.00019281210969912532,
+          "q95": 0.3962734575028922,
+          "range": 1.00182052981422,
+          "robust_range": 0.39797589336836275
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": -4.88737504800163e-05,
+          "max": -2.8124520083272486e-05,
+          "q05": -4.753942298545422e-05,
+          "median": -3.7067122804823605e-05,
+          "q95": -2.8911278470789005e-05,
+          "range": 2.0749230396743812e-05,
+          "robust_range": 1.8628144514665214e-05
+        }
+      },
+      {
+        "generation": 5,
+        "name": "startup_intensity",
+        "expression": "U/drag_saturation_velocity",
+        "role": "Dimensionless speed level indicating whether finite-speed startup corrections are active",
+        "train_range": [
+          0.0,
+          0.9839874604991102
+        ],
+        "hidden_range": [
+          0.769055711449038,
+          0.7699705851794978
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 0.9839874604991102,
+          "q05": 0.7315064556565366,
+          "median": 0.7883324655777992,
+          "q95": 0.9697781812817384,
+          "range": 0.9839874604991102,
+          "robust_range": 0.23827172562520182
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.769055711449038,
+          "max": 0.7699705851794978,
+          "q05": 0.7690904382963735,
+          "median": 0.7694502138391577,
+          "q95": 0.7699118222667907,
+          "range": 0.000914873730459842,
+          "robust_range": 0.0008213839704171999
+        }
+      },
+      {
+        "generation": 5,
+        "name": "fast_drag_deficit",
+        "expression": "1 + nonlinear_drag_coefficient*drag_saturation_velocity*tanh(U/drag_saturation_velocity) - R",
+        "role": "Gap between instantaneous fast-resistance target and realized fast resistance",
+        "train_range": [
+          -0.0018205298142199844,
+          1.0
+        ],
+        "hidden_range": [
+          -4.88737504800163e-05,
+          -2.8124520083272486e-05
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": -0.0018205298142199844,
+          "max": 1.0,
+          "q05": -0.0017024358654705197,
+          "median": -0.00019281210969912532,
+          "q95": 0.3962734575028922,
+          "range": 1.00182052981422,
+          "robust_range": 0.39797589336836275
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": -4.88737504800163e-05,
+          "max": -2.8124520083272486e-05,
+          "q05": -4.753942298545422e-05,
+          "median": -3.7067122804823605e-05,
+          "q95": -2.8911278470789005e-05,
+          "range": 2.0749230396743812e-05,
+          "robust_range": 1.8628144514665214e-05
+        }
+      },
+      {
+        "generation": 5,
+        "name": "slow_drag_deficit",
+        "expression": "tanh(1 + nonlinear_drag_coefficient*drag_saturation_velocity*tanh(U/drag_saturation_velocity)) - Q",
+        "role": "Gap between slow memory target and realized slow resistance",
+        "train_range": [
+          0.006633389597145656,
+          0.7615941559557649
+        ],
+        "hidden_range": [
+          0.003810954305165315,
+          0.00660471975978294
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.006633389597145656,
+          "max": 0.7615941559557649,
+          "q05": 0.008513611983173254,
+          "median": 0.08121898946717387,
+          "q95": 0.6892910185152291,
+          "range": 0.7549607663586192,
+          "robust_range": 0.6807774065320559
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.003810954305165315,
+          "max": 0.00660471975978294,
+          "q05": 0.003917170623946392,
+          "median": 0.005016798984063098,
+          "q95": 0.006425553758937164,
+          "range": 0.002793765454617625,
+          "robust_range": 0.0025083831349907715
+        }
+      }
+    ],
+    "inactive_mechanisms": [
+      "forcing_to_drag",
+      "startup_speed_scale"
+    ],
+    "visible_mechanisms": [
+      "instantaneous_speed_ratio",
+      "drive_to_drag_balance",
+      "nonlinear_drag_level",
+      "drag_loading",
+      "quasistatic_drag_target",
+      "startup_nonlinearity_scale",
+      "drag_load",
+      "normalized_speed",
+      "resistance_deficit",
+      "startup_intensity",
+      "fast_drag_deficit",
+      "slow_drag_deficit"
+    ],
+    "extended_mechanisms": [
+      "slow_drag_deficit"
+    ]
+  },
+  "inactive_mechanisms": [
+    "forcing_to_drag",
+    "startup_speed_scale"
+  ],
+  "target_variance": {
+    "train": {
+      "n": 384,
+      "variance": 0.0005506628992531874,
+      "range": 0.1265372544149539
+    },
+    "hidden": {
+      "n": 128,
+      "variance": 7.911361244782304e-11,
+      "range": 3.064851889186815e-05
+    }
+  },
+  "parent_absorption_report": {
+    "status": "ok",
+    "n_points": 512,
+    "fixed_parent_normalized_rmse": 0.0,
+    "refit": {
+      "status": "not_run",
+      "reason": "no free parent parameters"
+    },
+    "interpretation": "<1e-3 nearly absorbed; 1e-3..1e-2 weak; >1e-2 visible structure"
+  },
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_BGTTPmWTPTkR5PYtsgv8mTGQ"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "pressure_gradient_magnitude / fluid_density - viscous_drag_rate * (R + slow_resistance_weight*Q) * U",
+        "target_symbol": "U"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "Q",
+          "R",
+          "U",
+          "fluid_density",
+          "pressure_gradient_magnitude",
+          "slow_resistance_weight",
+          "viscous_drag_rate"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "pressure_gradient_magnitude/(fluid_density*viscous_drag_rate*(Q*slow_resistance_weight + R))"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_OCaRgy35AcFG6yChFqMejtRv"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "pressure_gradient_magnitude / fluid_density - viscous_drag_rate * (R + slow_resistance_weight*Q) * U",
+        "target_symbol": "U",
+        "assignments": {
+          "pressure_gradient_magnitude": 120,
+          "fluid_density": 1000,
+          "viscous_drag_rate": 0.8,
+          "slow_resistance_weight": 0.6,
+          "R": 0.8,
+          "Q": 0.5,
+          "U": 0.12
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": 0.014399999999999982,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_tqcsAfJvUuXRUSgtBchkKABC"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 3,
+  "discipline": "physics",
+  "scenario_text": "A viscous incompressible fluid in a long straight channel is subjected to a suddenly applied, constant streamwise pressure gradient. The cross-sectionally averaged velocity evolves from its initial value as fluid inertia competes with viscous resistance at the stationary walls. Geometry, fluid properties, and the imposed pressure gradient are fixed across trajectories, so the benchmark targets the instantaneous acceleration along each startup trajectory. The baseline model represents the dominant fully developed laminar response and its relaxation toward a finite steady flow speed.",
+  "record_id": "m2_fluid_dynamics_20282741_000",
+  "generation": 5,
+  "_n_total": 5000,
+  "mechanism_observation_history": [
+    {
+      "generation": 1,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The mean-flow acceleration is an affine function of U with one constant relaxation rate, so every startup trajectory approaches steady state with a single exponential timescale.",
+          "child_relation": "The wall-drag process remains opposing and dissipative but its effective rate increases with flow magnitude, making dU_dt a nonlinear decreasing function of U rather than strictly affine.",
+          "affected_inputs": [
+            "U",
+            "viscous_drag_rate"
+          ],
+          "observable_effect": "Under the same pressure gradient and density, trajectories with larger intermediate U decelerate more strongly relative to the parent prediction, giving a faster late-stage approach and stronger downward curvature of dU_dt versus U than any single linear relaxation law."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "forcing_to_drag",
+            "expression": "pressure_gradient_magnitude/(fluid_density*viscous_drag_rate)",
+            "role": "Parent steady-speed scale setting the typical startup velocity reached before nonlinear drag matters"
+          },
+          {
+            "name": "instantaneous_speed_ratio",
+            "expression": "U*fluid_density*viscous_drag_rate/pressure_gradient_magnitude",
+            "role": "Dimensionless occupancy of the parent steady-speed scale; indicates when higher-order drag becomes observable"
+          }
+        ],
+        "activation_condition": "Observable when the startup reaches moderate mean speeds relative to the parent linear steady scale, i.e. U*fluid_density*viscous_drag_rate/pressure_gradient_magnitude is not asymptotically small while flow remains laminar and fully developed.",
+        "train_hidden_contrast": "Across trajectories with different fixed pressure_gradient_magnitude but common fluid and geometry, weakly forced cases stay near the linear regime while more strongly forced cases show systematically earlier saturation and stronger curvature in dU_dt versus U.",
+        "continuation_path": "Recover the parent law in the low-speed limit where the nonlinear correction to wall resistance vanishes, equivalently for sufficiently small U relative to the drag-activation speed scale.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The current model idealizes viscous wall resistance as exactly linear in mean speed over the full admissible startup range, omitting finite-amplitude corrections to hydraulic resistance that become visible before turbulence or compressibility are relevant.",
+        "baseline_assumption": "Relax the assumption that the wall-drag rate is a constant independent of instantaneous flow amplitude; retain positive opposing drag and finite steady flow.",
+        "scientific_mechanism": "Amplitude-dependent laminar hydraulic resistance, represented as a nonlinear increase of dissipative wall drag with mean velocity due to finite-speed corrections to the cross-sectionally averaged momentum balance.",
+        "affected_symbols": [
+          "U",
+          "viscous_drag_rate",
+          "pressure_gradient_magnitude",
+          "fluid_density"
+        ],
+        "rationale": "A realistic next refinement is to keep the same pressure-driven startup mechanism but replace the constant linear drag law with an amplitude-dependent laminar resistance. The parent target mapping uses a single shared relaxation rate: at fixed pressure_gradient_magnitude, fluid_density, and viscous_drag_rate, dU_dt decreases linearly with U and all trajectories differ only by one exponential timescale and steady level. Varying pressure_gradient_magnitude across trajectories while holding fluid and geometry fixed exposes a concrete limitation: a single parent parameter set predicts the same normalized startup shape for all forcing levels, whereas the refined mechanism predicts that stronger forcing drives U into a regime with extra drag, causing more downward curvature in dU_dt(U) and a lower-than-linear growth of steady speed with forcing. This contrast changes the scored target mapping itself because dU_dt at the same observed U differs from the parent affine relation. The effect is admissible when speeds become large enough for finite-amplitude resistance corrections to matter but still remain laminar, fully developed, and nonnegative. In weak forcing or early time, the correction is negligible and the parent is recovered."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The mean-flow acceleration is an affine function of U with one constant relaxation rate, so every startup trajectory approaches steady state with a single exponential timescale.",
+          "child_relation": "The wall-drag process remains opposing and dissipative but its effective rate increases with flow magnitude, making dU_dt a nonlinear decreasing function of U rather than strictly affine.",
+          "affected_inputs": [
+            "U",
+            "viscous_drag_rate"
+          ],
+          "observable_effect": "Under the same pressure gradient and density, trajectories with larger intermediate U decelerate more strongly relative to the parent prediction, giving a faster late-stage approach and stronger downward curvature of dU_dt versus U than any single linear relaxation law."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "forcing_to_drag",
+            "expression": "pressure_gradient_magnitude/(fluid_density*viscous_drag_rate)",
+            "role": "Parent steady-speed scale setting the typical startup velocity reached before nonlinear drag matters"
+          },
+          {
+            "name": "instantaneous_speed_ratio",
+            "expression": "U*fluid_density*viscous_drag_rate/pressure_gradient_magnitude",
+            "role": "Dimensionless occupancy of the parent steady-speed scale; indicates when higher-order drag becomes observable"
+          }
+        ],
+        "activation_condition": "Observable when the startup reaches moderate mean speeds relative to the parent linear steady scale, i.e. U*fluid_density*viscous_drag_rate/pressure_gradient_magnitude is not asymptotically small while flow remains laminar and fully developed.",
+        "train_hidden_contrast": "Across trajectories with different fixed pressure_gradient_magnitude but common fluid and geometry, weakly forced cases stay near the linear regime while more strongly forced cases show systematically earlier saturation and stronger curvature in dU_dt versus U.",
+        "continuation_path": "Recover the parent law in the low-speed limit where the nonlinear correction to wall resistance vanishes, equivalently for sufficiently small U relative to the drag-activation speed scale.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "unary",
+        "scope_symbols": [
+          "U",
+          "viscous_drag_rate"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Amplitude-dependent laminar wall resistance in pressure-driven channel startup",
+        "scientific_mechanism": "Amplitude-dependent laminar hydraulic resistance, represented as a nonlinear increase of dissipative wall drag with mean velocity due to finite-speed corrections to the cross-sectionally averaged momentum balance.",
+        "embedding_pattern": "multiplicative_modulation",
+        "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the drag process is modulated by the evolving state U itself, changing the target map from affine to curved and altering both transient shape and steady-speed scaling across forcing levels.",
+        "taxonomy_match": "known",
+        "assumption_before": "Wall drag enters as a constant linear relaxation law over the whole admissible startup range.",
+        "assumption_after": "Wall drag remains dissipative but its effective strength increases with instantaneous mean speed through multiplicative amplitude modulation.",
+        "before_fragment": "pressure_gradient_magnitude / fluid_density - viscous_drag_rate * U",
+        "after_fragment": "pressure_gradient_magnitude / fluid_density - viscous_drag_rate * (1 + nonlinear_drag_coefficient * U) * U",
+        "parent_reduction": "nonlinear_drag_coefficient -> 0 or nonlinear_drag_coefficient*U -> 0",
+        "observable_signature": "At fixed fluid_density and viscous_drag_rate, varying pressure_gradient_magnitude changes whether trajectories enter the modulated-drag regime: weakly forced cases retain near-affine dU_dt(U), while stronger forcing produces stronger downward curvature, earlier saturation, and sublinear growth of steady U relative to the parent scaling.",
+        "shortcut_blocked": "A single parent parameter set always implies dU_dt is exactly linear in U and therefore predicts the same normalized one-timescale startup shape across forcing levels. Retuning pressure_gradient_magnitude/fluid_density and viscous_drag_rate cannot create the forcing-dependent curvature in dU_dt versus U or the sublinear steady-speed scaling once moderate U is reached."
+      },
+      "range_suggestions": {
+        "nonlinear_drag_coefficient": "positive and small enough that nonlinear drag is negligible for weak forcing but observable when U*nonlinear_drag_coefficient is O(1) within the laminar startup regime"
+      }
+    },
+    {
+      "generation": 2,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The mean-velocity acceleration is an instantaneous function of U alone: dU_dt = constant drive minus a memoryless drag that grows monotonically with U, so startup trajectories approach steady state with one relaxation phase set by the current velocity.",
+          "child_relation": "Retain the same pressure-drive versus dissipative-drag balance, but relax the assumption that wall resistance adjusts instantaneously; introduce a finite-time hydrodynamic resistance buildup so dU_dt depends on both U and a lagged resistance state, changing the startup curvature even at the same U.",
+          "affected_inputs": [
+            "U"
+          ],
+          "observable_effect": "Under the same constant pressure gradient and zero initial mean velocity, the child can show weaker initial drag and then a delayed drag buildup, producing a more sharply bent startup trajectory and delayed approach to steady flow compared with the parent's single-phase relaxation."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "drive_to_drag_balance",
+            "expression": "pressure_gradient_magnitude/fluid_density - viscous_drag_rate*(1 + nonlinear_drag_coefficient*U)*U",
+            "role": "Parent instantaneous net acceleration law"
+          },
+          {
+            "name": "nonlinear_drag_level",
+            "expression": "nonlinear_drag_coefficient*U",
+            "role": "Amplitude regime where drag nonlinearity becomes appreciable"
+          },
+          {
+            "name": "startup_speed_scale",
+            "expression": "pressure_gradient_magnitude/(fluid_density*viscous_drag_rate)",
+            "role": "Parent linear steady-speed scale setting whether startup reaches appreciable drag"
+          }
+        ],
+        "activation_condition": "Observable when the resistance-adjustment time is not negligible compared with 1/viscous_drag_rate, and forcing is strong enough that U reaches nonlinear_drag_coefficient*U = O(1) during the observed startup window; negligible in quasistatic drag adjustment.",
+        "train_hidden_contrast": "In training, moderate forcing already reveals early-time under-resistance followed by drag catch-up as curvature change in U(t); in holdout, stronger forcing extends the same lag mechanism to a larger transient mismatch between instantaneous U and effective drag, amplifying the contrast without changing the physical regime.",
+        "continuation_path": "Recover the parent when the resistance-adjustment time tends to zero so effective drag becomes an instantaneous function of U again.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A finite lag in hydraulic resistance is a dynamical memory effect and cannot be represented by any algebraic refit of the existing instantaneous U-only law; one additional state is needed to carry the delayed resistance buildup that feeds back on U.",
+        "gap_statement": "The current model assumes amplitude-dependent wall drag responds instantaneously to the current mean velocity, omitting transient development of the cross-sectional shear profile after sudden startup.",
+        "baseline_assumption": "The dissipative wall resistance is an instantaneous algebraic function of the current cross-sectionally averaged velocity.",
+        "scientific_mechanism": "Finite-time establishment of the wall-shear/hydraulic-resistance field during startup of internal flow, creating drag memory relative to the mean velocity.",
+        "affected_symbols": [
+          "U",
+          "viscous_drag_rate",
+          "nonlinear_drag_coefficient",
+          "pressure_gradient_magnitude",
+          "fluid_density"
+        ],
+        "rationale": "The parent maps the observed state U directly to dU_dt through a single-phase relaxation law: for fixed pressure_gradient_magnitude, fluid_density, viscous_drag_rate, and nonlinear_drag_coefficient, the acceleration at a given U is unique and independent of how recently the flow started. That is a realistic shortcut for rapid cross-sectional equilibration, but startup channel flow can exhibit delayed buildup of wall shear, especially when the shear-profile adjustment time is comparable to the mean-velocity evolution time. The scientifically relevant refinement is therefore to relax the instantaneous-drag assumption rather than adding an unrelated force. Varied condition: the dimensionless ratio of resistance-adjustment time to viscous-decay time, with the imposed pressure gradient held constant within each trajectory and geometry/fluid properties fixed. Observable contrast: two trajectories reaching similar U during startup can have different dU_dt because effective drag is still catching up in the child, whereas the parent forces the same dU_dt at that U. This changes the scored target mapping itself, not merely an auxiliary trajectory. The effect is admissible when startup is observed soon after forcing onset and is strongest when forcing is large enough that nonlinear drag matters before drag memory has decayed. Limitation: if resistance adjustment is much faster than velocity evolution, the child collapses back to the parent and the extra state becomes unidentifiable."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The mean-velocity acceleration is an instantaneous function of U alone: dU_dt = constant drive minus a memoryless drag that grows monotonically with U, so startup trajectories approach steady state with one relaxation phase set by the current velocity.",
+          "child_relation": "Retain the same pressure-drive versus dissipative-drag balance, but relax the assumption that wall resistance adjusts instantaneously; introduce a finite-time hydrodynamic resistance buildup so dU_dt depends on both U and a lagged resistance state, changing the startup curvature even at the same U.",
+          "affected_inputs": [
+            "U"
+          ],
+          "observable_effect": "Under the same constant pressure gradient and zero initial mean velocity, the child can show weaker initial drag and then a delayed drag buildup, producing a more sharply bent startup trajectory and delayed approach to steady flow compared with the parent's single-phase relaxation."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "drive_to_drag_balance",
+            "expression": "pressure_gradient_magnitude/fluid_density - viscous_drag_rate*(1 + nonlinear_drag_coefficient*U)*U",
+            "role": "Parent instantaneous net acceleration law"
+          },
+          {
+            "name": "nonlinear_drag_level",
+            "expression": "nonlinear_drag_coefficient*U",
+            "role": "Amplitude regime where drag nonlinearity becomes appreciable"
+          },
+          {
+            "name": "startup_speed_scale",
+            "expression": "pressure_gradient_magnitude/(fluid_density*viscous_drag_rate)",
+            "role": "Parent linear steady-speed scale setting whether startup reaches appreciable drag"
+          }
+        ],
+        "activation_condition": "Observable when the resistance-adjustment time is not negligible compared with 1/viscous_drag_rate, and forcing is strong enough that U reaches nonlinear_drag_coefficient*U = O(1) during the observed startup window; negligible in quasistatic drag adjustment.",
+        "train_hidden_contrast": "In training, moderate forcing already reveals early-time under-resistance followed by drag catch-up as curvature change in U(t); in holdout, stronger forcing extends the same lag mechanism to a larger transient mismatch between instantaneous U and effective drag, amplifying the contrast without changing the physical regime.",
+        "continuation_path": "Recover the parent when the resistance-adjustment time tends to zero so effective drag becomes an instantaneous function of U again.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A finite lag in hydraulic resistance is a dynamical memory effect and cannot be represented by any algebraic refit of the existing instantaneous U-only law; one additional state is needed to carry the delayed resistance buildup that feeds back on U.",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "U",
+          "R"
+        ],
+        "structural_role": "feedback",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Delayed buildup of hydraulic resistance during laminar startup in a channel",
+        "scientific_mechanism": "Finite-time establishment of the wall-shear/hydraulic-resistance field during startup of internal flow, creating drag memory relative to the mean velocity.",
+        "embedding_pattern": "saturating_or_thresholded",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the scored target no longer depends on U through a single algebraic branch; the additional state carries path-dependent resistance saturation toward a finite target, so trajectories with the same U can have different dU_dt depending on resistance history.",
+        "taxonomy_match": "known",
+        "assumption_before": "The dissipative wall resistance is an instantaneous algebraic function of the current cross-sectionally averaged velocity.",
+        "assumption_after": "The wall-shear resistance approaches its velocity-dependent finite target with a nonzero relaxation time during startup.",
+        "before_fragment": "pressure_gradient_magnitude / fluid_density - viscous_drag_rate * (1 + nonlinear_drag_coefficient * U) * U",
+        "after_fragment": "pressure_gradient_magnitude / fluid_density - viscous_drag_rate * R * U",
+        "parent_reduction": "When resistance_relaxation_rate tends to infinity, R = 1 + nonlinear_drag_coefficient*U quasi-instantly and the parent expression is recovered.",
+        "observable_signature": "Compared at fixed pressure_gradient_magnitude, fluid_density, viscous_drag_rate, and nonlinear_drag_coefficient with the same U reached during startup, the child permits larger dU_dt early because R lags below 1 + nonlinear_drag_coefficient*U, followed by drag catch-up as R saturates toward that target; this changes the scored U-to-dU_dt mapping itself under observed startup conditions, especially when resistance_relaxation_rate is only O(viscous_drag_rate).",
+        "shortcut_blocked": "A single parent parameter set cannot reproduce the child across these conditions because the parent enforces a unique dU_dt for each U, whereas the child produces different dU_dt at the same U depending on the lagged resistance state during startup. Refitting viscous_drag_rate or nonlinear_drag_coefficient only reshapes one memoryless curve and cannot create the observed early under-resistance followed by later drag catch-up with one shared parameter set."
+      },
+      "range_suggestions": {
+        "R": "dimensionless resistance factor; startup-memory effects are observable when it evolves from 0 toward values of order 1 + nonlinear_drag_coefficient*U, typically remaining nonnegative in admissible laminar startup trajectories",
+        "resistance_relaxation_rate": "positive; memory is most observable when resistance_relaxation_rate / viscous_drag_rate is O(1), while resistance_relaxation_rate >> viscous_drag_rate approaches the parent quasistatic-drag limit"
+      }
+    },
+    {
+      "generation": 3,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The target acceleration decreases linearly with U at fixed R through dU_dt = pressure_gradient_magnitude/fluid_density - viscous_drag_rate*R*U, with R relaxing toward an affine drag factor 1 + nonlinear_drag_coefficient*U.",
+          "child_relation": "Keep the same forcing-memory structure but relax the affine drag-target assumption so the effective resistance grows nonlinearly with U, causing dU_dt versus U to bend downward more strongly at larger U through the existing R-mediated drag channel.",
+          "affected_inputs": [
+            "U",
+            "R",
+            "nonlinear_drag_coefficient"
+          ],
+          "observable_effect": "Across trajectories spanning weak to stronger startup speeds under the same fixed parameters, the child predicts a faster-than-linear late-startup reduction in acceleration and a lower high-speed asymptotic velocity than the parent, while remaining close to the parent near U≈0."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "drag_loading",
+            "expression": "R*U",
+            "role": "instantaneous resistive loading already controlling mean-flow deceleration"
+          },
+          {
+            "name": "quasistatic_drag_target",
+            "expression": "1 + nonlinear_drag_coefficient*U",
+            "role": "parent's assumed velocity-dependent resistance target to be relaxed"
+          },
+          {
+            "name": "startup_nonlinearity_scale",
+            "expression": "nonlinear_drag_coefficient*U",
+            "role": "dimensionless speed level marking where non-affine drag growth becomes observable"
+          }
+        ],
+        "activation_condition": "Observable when nonlinear_drag_coefficient*U is not small during the sampled startup, so trajectories explore moderate mean speeds before reaching steady state; negligible in the low-speed limit nonlinear_drag_coefficient*U << 1.",
+        "train_hidden_contrast": "In training, moderate-speed segments already show slight downward bending of dU_dt versus U; in holdout, trajectories reaching larger U amplify this same non-affine drag-growth effect into stronger curvature.",
+        "continuation_path": "Recover the parent law in the low-speed limit where the refined drag target is linearized in U, or by taking the added non-affine correction strength to zero.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The current model assumes the laminar resistance target increases only affinely with mean velocity, which is an overly rigid closure once finite-speed corrections make wall-drag growth stronger than linear over the admissible startup range.",
+        "baseline_assumption": "The lagged hydraulic-resistance state relaxes toward the exact instantaneous target 1 + nonlinear_drag_coefficient*U.",
+        "scientific_mechanism": "Non-affine growth of laminar hydraulic resistance with mean velocity, representing higher-order finite-speed corrections to the cross-sectionally averaged wall-shear relation while preserving dissipative drag.",
+        "affected_symbols": [
+          "U",
+          "R",
+          "nonlinear_drag_coefficient",
+          "resistance_relaxation_rate",
+          "viscous_drag_rate"
+        ],
+        "rationale": "Vary the imposed pressure-gradient magnitude across trajectories while holding fluid_density, viscous_drag_rate, resistance_relaxation_rate, and nonlinear_drag_coefficient fixed. In the parent, after accounting for lag through R, acceleration falls with U through an effectively single affine drag-growth law, so one shared parameter set imposes nearly the same dU_dt-versus-U curvature structure at all accessible speeds. A realistic next refinement is to relax that affine resistance-target assumption: at modest startup speeds the child remains close to the parent, but when nonlinear_drag_coefficient*U reaches order unity the resistance should increase faster than linearly, producing stronger downward curvature in the target mapping from observed (U,R) to dU_dt and a lower saturation speed. This changes the scored target relationship itself, not merely the auxiliary R trajectory, because dU_dt directly depends on the resistance level generated by the refined U-to-R target. The effect is admissible in laminar startup provided the added drag growth stays nonnegative and dissipative; it is weak near U=0, so the refinement is specifically justified only when sampled trajectories reach moderate speeds."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The target acceleration decreases linearly with U at fixed R through dU_dt = pressure_gradient_magnitude/fluid_density - viscous_drag_rate*R*U, with R relaxing toward an affine drag factor 1 + nonlinear_drag_coefficient*U.",
+          "child_relation": "Keep the same forcing-memory structure but relax the affine drag-target assumption so the effective resistance grows nonlinearly with U, causing dU_dt versus U to bend downward more strongly at larger U through the existing R-mediated drag channel.",
+          "affected_inputs": [
+            "U",
+            "R",
+            "nonlinear_drag_coefficient"
+          ],
+          "observable_effect": "Across trajectories spanning weak to stronger startup speeds under the same fixed parameters, the child predicts a faster-than-linear late-startup reduction in acceleration and a lower high-speed asymptotic velocity than the parent, while remaining close to the parent near U≈0."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "drag_loading",
+            "expression": "R*U",
+            "role": "instantaneous resistive loading already controlling mean-flow deceleration"
+          },
+          {
+            "name": "quasistatic_drag_target",
+            "expression": "1 + nonlinear_drag_coefficient*U",
+            "role": "parent's assumed velocity-dependent resistance target to be relaxed"
+          },
+          {
+            "name": "startup_nonlinearity_scale",
+            "expression": "nonlinear_drag_coefficient*U",
+            "role": "dimensionless speed level marking where non-affine drag growth becomes observable"
+          }
+        ],
+        "activation_condition": "Observable when nonlinear_drag_coefficient*U is not small during the sampled startup, so trajectories explore moderate mean speeds before reaching steady state; negligible in the low-speed limit nonlinear_drag_coefficient*U << 1.",
+        "train_hidden_contrast": "In training, moderate-speed segments already show slight downward bending of dU_dt versus U; in holdout, trajectories reaching larger U amplify this same non-affine drag-growth effect into stronger curvature.",
+        "continuation_path": "Recover the parent law in the low-speed limit where the refined drag target is linearized in U, or by taking the added non-affine correction strength to zero.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "memory",
+        "scope_symbols": [
+          "U",
+          "R",
+          "nonlinear_drag_coefficient",
+          "drag_saturation_velocity"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "finite-capacity transition in velocity-dependent hydraulic resistance",
+        "scientific_mechanism": "Non-affine growth of laminar hydraulic resistance with mean velocity, representing higher-order finite-speed corrections to the cross-sectionally averaged wall-shear relation while preserving dissipative drag.",
+        "embedding_pattern": "saturating_or_thresholded",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the U-to-R target changes shape across speed scales: it matches the parent slope near zero but transitions to a different effective gain at moderate U, so one constant retuning cannot preserve both low-speed startup behavior and higher-speed curvature.",
+        "taxonomy_match": "known",
+        "assumption_before": "The lagged hydraulic-resistance state relaxes toward the exact instantaneous target 1 + nonlinear_drag_coefficient*U.",
+        "assumption_after": "The lagged hydraulic-resistance state relaxes toward a saturating non-affine resistance target that is linear at low speed and bends to stronger finite-speed drag growth.",
+        "before_fragment": "pressure_gradient_magnitude / fluid_density - viscous_drag_rate * R * U",
+        "after_fragment": "pressure_gradient_magnitude / fluid_density - viscous_drag_rate * R * U",
+        "parent_reduction": "For U/drag_saturation_velocity << 1, tanh(U/drag_saturation_velocity) linearizes and the resistance target becomes 1 + nonlinear_drag_coefficient*U, recovering the parent closure.",
+        "observable_signature": "When pressure_gradient_magnitude varies while fluid_density, viscous_drag_rate, resistance_relaxation_rate, nonlinear_drag_coefficient, and drag_saturation_velocity are held fixed, low-speed trajectories look parent-like but trajectories reaching U comparable to drag_saturation_velocity show extra downward curvature of dU_dt against observed (U,R) and settle to a lower steady velocity than any single affine-target parent fit.",
+        "shortcut_blocked": "Refitting the parent's existing parameters can change the overall drag level or relaxation rate, but with one shared parameter set it cannot produce both the near-origin affine behavior and the stronger moderate-speed bend implied by the saturating target shape. Matching late-startup deceleration by increasing nonlinear_drag_coefficient would spoil the low-speed segments, while matching low-speed segments leaves insufficient curvature and too high a saturation speed."
+      },
+      "range_suggestions": {
+        "drag_saturation_velocity": "positive and of the same order as startup velocities where non-affine drag growth becomes visible; drag_saturation_velocity >> U over all sampled trajectories recovers the parent nearly everywhere, while drag_saturation_velocity comparable to accessible U activates stronger late-startup curvature"
+      }
+    },
+    {
+      "generation": 4,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "At fixed pressure_gradient_magnitude, fluid_density, viscous_drag_rate, and resistance_relaxation_rate, the target acceleration dU_dt decreases with U through a single lagged resistance state R that relaxes with one shared timescale, so startup curvature is controlled by one-phase drag-memory buildup.",
+          "child_relation": "Retain the same pressure-driven minus dissipative structure, but relax the assumption that hydraulic resistance establishes with a single phase: introduce an additional slower wall-shear-memory contribution so dU_dt versus observed (U,R) acquires extra delayed curvature during startup as the effective drag continues to strengthen after the fast resistance contribution has partially equilibrated.",
+          "affected_inputs": [
+            "U",
+            "R",
+            "resistance_relaxation_rate",
+            "viscous_drag_rate"
+          ],
+          "observable_effect": "For trajectories reaching moderate U, the acceleration drops rapidly at early times and then continues to bend downward over a longer startup window instead of approaching its steady-state decay with only one relaxation phase."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "drag_load",
+            "expression": "viscous_drag_rate*R*U",
+            "role": "instantaneous dissipative load already opposing pressure-driven acceleration"
+          },
+          {
+            "name": "normalized_speed",
+            "expression": "U/drag_saturation_velocity",
+            "role": "activation coordinate for the existing non-affine drag-growth regime"
+          },
+          {
+            "name": "resistance_deficit",
+            "expression": "1 + nonlinear_drag_coefficient*drag_saturation_velocity*tanh(U/drag_saturation_velocity) - R",
+            "role": "distance of the current hydraulic-resistance state from its present fast target"
+          }
+        ],
+        "activation_condition": "Observable when startup trajectories reach U comparable to drag_saturation_velocity so the resistance target is evolving noticeably, and when wall-shear establishment contains a slower tail relative to the existing resistance_relaxation_rate timescale; if all sampled times are much longer than both memory timescales or U << drag_saturation_velocity throughout, the effect is weak.",
+        "train_hidden_contrast": "In training, the mechanism appears as extra mid-startup downward bending of dU_dt after the initial transient; in holdout, the same two-phase memory persists over longer or slightly faster trajectories and changes the duration of approach to steady flow rather than merely rescaling the same curve.",
+        "continuation_path": "Recover the parent when the added slow memory amplitude tends to zero or when its relaxation rate collapses onto the existing resistance_relaxation_rate so the two drag-establishment phases become indistinguishable.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A genuinely delayed second stage of wall-shear development cannot be represented by refitting the existing single resistance state alone, because one state enforces a single-phase relaxation shape. A new state is needed to encode additional startup memory that feeds back on U.",
+        "gap_statement": "The current model idealizes hydraulic-resistance establishment as a single relaxation mode, omitting the scientifically plausible slower tail in wall-shear development during startup internal flow.",
+        "baseline_assumption": "The effective wall-drag field adjusts toward its velocity-dependent target with one shared relaxation rate and one memory state.",
+        "scientific_mechanism": "Multi-timescale establishment of the viscous wall-shear profile across the channel during startup, producing a delayed contribution to hydraulic resistance beyond the existing fast lagged drag state.",
+        "affected_symbols": [
+          "U",
+          "R",
+          "resistance_relaxation_rate",
+          "viscous_drag_rate",
+          "drag_saturation_velocity",
+          "nonlinear_drag_coefficient"
+        ],
+        "rationale": "The parent already includes amplitude-dependent drag and finite drag memory, but it constrains the scored target mapping to a single-phase startup response: once U is known and R is observed, dU_dt is just pressure forcing minus one drag load proportional to R*U, with R itself built by one relaxation rate toward a U-dependent target. A realistic next refinement is to relax that one-phase assumption, not to add an unrelated force. Varying condition: the accessible startup speed along trajectories, especially whether U enters the moderate regime U/drag_saturation_velocity = O(1), while pressure_gradient_magnitude, fluid_density, channel geometry, and the model parameters remain fixed across trajectories. Under those fixed conditions, the child predicts a concrete contrast in the scored target: after the initial rise, dU_dt shows an additional delayed decrease because drag continues to build through a slower memory branch even after the fast branch has substantially adjusted. The parent with one shared parameter set cannot reproduce both an early rapid drag buildup and a distinct later continued curvature over the same family of trajectories, because any refit of resistance_relaxation_rate only shifts one relaxation timescale and any refit of nonlinear drag amplitude only rescales the same single-phase shape. This refinement is scientifically admissible in laminar startup flow, preserves dissipative drag opposition and finite steady velocity, and becomes weak in the honest limiting cases where the slower branch is negligible or effectively merges with the existing one."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "At fixed pressure_gradient_magnitude, fluid_density, viscous_drag_rate, and resistance_relaxation_rate, the target acceleration dU_dt decreases with U through a single lagged resistance state R that relaxes with one shared timescale, so startup curvature is controlled by one-phase drag-memory buildup.",
+          "child_relation": "Retain the same pressure-driven minus dissipative structure, but relax the assumption that hydraulic resistance establishes with a single phase: introduce an additional slower wall-shear-memory contribution so dU_dt versus observed (U,R) acquires extra delayed curvature during startup as the effective drag continues to strengthen after the fast resistance contribution has partially equilibrated.",
+          "affected_inputs": [
+            "U",
+            "R",
+            "resistance_relaxation_rate",
+            "viscous_drag_rate"
+          ],
+          "observable_effect": "For trajectories reaching moderate U, the acceleration drops rapidly at early times and then continues to bend downward over a longer startup window instead of approaching its steady-state decay with only one relaxation phase."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "drag_load",
+            "expression": "viscous_drag_rate*R*U",
+            "role": "instantaneous dissipative load already opposing pressure-driven acceleration"
+          },
+          {
+            "name": "normalized_speed",
+            "expression": "U/drag_saturation_velocity",
+            "role": "activation coordinate for the existing non-affine drag-growth regime"
+          },
+          {
+            "name": "resistance_deficit",
+            "expression": "1 + nonlinear_drag_coefficient*drag_saturation_velocity*tanh(U/drag_saturation_velocity) - R",
+            "role": "distance of the current hydraulic-resistance state from its present fast target"
+          }
+        ],
+        "activation_condition": "Observable when startup trajectories reach U comparable to drag_saturation_velocity so the resistance target is evolving noticeably, and when wall-shear establishment contains a slower tail relative to the existing resistance_relaxation_rate timescale; if all sampled times are much longer than both memory timescales or U << drag_saturation_velocity throughout, the effect is weak.",
+        "train_hidden_contrast": "In training, the mechanism appears as extra mid-startup downward bending of dU_dt after the initial transient; in holdout, the same two-phase memory persists over longer or slightly faster trajectories and changes the duration of approach to steady flow rather than merely rescaling the same curve.",
+        "continuation_path": "Recover the parent when the added slow memory amplitude tends to zero or when its relaxation rate collapses onto the existing resistance_relaxation_rate so the two drag-establishment phases become indistinguishable.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A genuinely delayed second stage of wall-shear development cannot be represented by refitting the existing single resistance state alone, because one state enforces a single-phase relaxation shape. A new state is needed to encode additional startup memory that feeds back on U.",
+        "scope_kind": "memory",
+        "scope_symbols": [
+          "U",
+          "R",
+          "Q"
+        ],
+        "structural_role": "feedback",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "two-timescale wall-shear establishment in startup laminar internal flow",
+        "scientific_mechanism": "Multi-timescale establishment of the viscous wall-shear profile across the channel during startup, producing a delayed contribution to hydraulic resistance beyond the existing fast lagged drag state.",
+        "embedding_pattern": "saturating_or_thresholded",
+        "difficulty_rationale": "The refinement is harder than a coefficient-only correction because it changes the target law through an added hidden memory branch with its own saturation-driven relaxation, creating a two-timescale curvature pattern in dU_dt that cannot be reproduced by rescaling a single existing drag amplitude or rate.",
+        "taxonomy_match": "known",
+        "assumption_before": "Hydraulic resistance buildup during startup is adequately represented by a single lagged saturating resistance state.",
+        "assumption_after": "Hydraulic resistance during startup contains both a fast and a slower saturating wall-shear establishment branch that both contribute to drag.",
+        "before_fragment": "pressure_gradient_magnitude / fluid_density - viscous_drag_rate * R * U",
+        "after_fragment": "pressure_gradient_magnitude / fluid_density - viscous_drag_rate * (R + slow_resistance_weight*Q) * U",
+        "parent_reduction": "The parent law is recovered when slow_resistance_weight -> 0, making Q dynamically irrelevant to dU_dt.",
+        "observable_signature": "Holding pressure_gradient_magnitude, fluid_density, viscous_drag_rate, resistance_relaxation_rate, and geometry fixed, trajectories that reach moderate normalized_speed U/drag_saturation_velocity = O(1) show a rapid initial acceleration drop followed by an additional slower downward bending in dU_dt as the hidden slow resistance branch continues to rise after R is already closer to its target. This is a direct change in the scored target mapping because dU_dt depends on Q through the drag term, not merely an auxiliary-state change.",
+        "shortcut_blocked": "A single parent parameter set cannot fit both the early fast drag buildup and the later continued drag strengthening across these conditions, because changing resistance_relaxation_rate only moves one relaxation timescale and changing nonlinear_drag_coefficient or viscous_drag_rate only rescales the same one-phase target relation. The child introduces a structurally distinct delayed drag contribution that remains active over a different startup window."
+      },
+      "range_suggestions": {
+        "Q": "dimensionless slow resistance state, typically between 0 and 1 over startup trajectories because its target is tanh-bounded",
+        "slow_resistance_relaxation_rate": "positive and smaller than or comparable to resistance_relaxation_rate to create a slower drag-establishment tail",
+        "slow_resistance_weight": "positive O(1) or smaller; near 0 recovers the parent, while moderate values make delayed extra curvature observable without overturning laminar drag dominance"
+      }
+    },
+    {
+      "generation": 5,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The scored acceleration is a pressure-driving constant minus a drag term linear in U, with all startup history entering only through drag buildup states R and Q. For fixed observed U, R, and Q, dU_dt decreases linearly with U and has no additional dependence on whether the flow is still accelerating strongly.",
+          "child_relation": "Retain pressure driving and dissipative wall drag, but relax the assumption that the lagged resistance seen by the mean flow adjusts with a fixed relaxation rate. Let the hydraulic-resistance establishment rate itself depend on the current startup intensity so drag builds faster during strong acceleration/high-U startup and more slowly near equilibrium, feeding back into the scored dU_dt through altered resistance-state evolution.",
+          "affected_inputs": [
+            "U",
+            "R",
+            "Q",
+            "resistance_relaxation_rate"
+          ],
+          "observable_effect": "Across trajectories with the same fixed parameters but different portions of startup, the child produces earlier bending-down of U(t) and a stronger mid-startup drop in dU_dt at moderate U than the parent's single-timescale resistance buildup, while recovering similar late-time behavior near steady flow."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "startup_intensity",
+            "expression": "U/drag_saturation_velocity",
+            "role": "Dimensionless speed level indicating whether finite-speed startup corrections are active"
+          },
+          {
+            "name": "fast_drag_deficit",
+            "expression": "1 + nonlinear_drag_coefficient*drag_saturation_velocity*tanh(U/drag_saturation_velocity) - R",
+            "role": "Gap between instantaneous fast-resistance target and realized fast resistance"
+          },
+          {
+            "name": "slow_drag_deficit",
+            "expression": "tanh(1 + nonlinear_drag_coefficient*drag_saturation_velocity*tanh(U/drag_saturation_velocity)) - Q",
+            "role": "Gap between slow memory target and realized slow resistance"
+          }
+        ],
+        "activation_condition": "Observable when startup reaches moderate dimensionless speed |U|/drag_saturation_velocity = O(1) before R and Q have equilibrated, especially when resistance_relaxation_rate is not so large that drag is effectively instantaneous and not so small that all trajectories remain in an almost purely inertial regime over the observation window.",
+        "train_hidden_contrast": "In training, this appears as extra downward curvature of dU_dt versus time and versus U during early-to-intermediate startup; in holdout, the same mechanism extends to trajectories where the pressure-driven rise reaches the nonlinear drag-growth scale faster or slower, shifting when the resistance field catches up without changing the constant forcing assumption.",
+        "continuation_path": "Recover the parent by taking the acceleration-dependent correction to the resistance-establishment law to zero, so the fast and slow resistance branches again relax with their original fixed rates.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A new state is needed because the omitted effect is dynamic resistance-establishment hysteresis, not a static algebraic reshaping of the existing drag target. Existing U, R, and Q can represent current speed and two lagged drag levels, but they cannot separately encode whether the wall-shear profile is temporarily in a rapid-establishment versus slow-establishment phase under the same instantaneous U, R, and Q.",
+        "gap_statement": "The parent assumes drag-memory establishment is single-phase in each branch: each resistance state relaxes toward its target with a fixed rate independent of startup intensity or transient wall-shear development stage.",
+        "baseline_assumption": "The viscous wall-shear/hydraulic-resistance field is established by fixed relaxation timescales only, with no additional transient phase variable controlling how quickly resistance catches up during startup.",
+        "scientific_mechanism": "A transient wall-shear development phase can accelerate the establishment of hydraulic resistance during strong startup and then decay as the cross-sectional viscous profile approaches its developed shape, producing state-dependent drag-memory kinetics even while mean drag remains dissipative.",
+        "affected_symbols": [
+          "U",
+          "R",
+          "Q",
+          "resistance_relaxation_rate",
+          "slow_resistance_relaxation_rate"
+        ],
+        "rationale": "A realistic next refinement is to relax the parent's single-phase assumption for viscous resistance establishment rather than adding a wholly new forcing term. The present scored mapping uses U, R, and Q, but all history dependence enters only through fixed-rate relaxation of R and Q. Vary time along startup trajectories while holding channel geometry, viscosity, density, and imposed pressure gradient fixed. Under admissible conditions where U grows into the nonlinear drag scale before the resistance states have fully caught up, experiments can show a sharper-than-parent onset of drag establishment: acceleration remains near the pressure-driven value at very early times, then bends down more rapidly over an intermediate window, and finally approaches steady state similarly at late times. A single shared parent parameter set cannot reproduce both an initially delayed drag buildup and a later accelerated catch-up if all resistance dynamics are constrained to fixed exponential rates, because changing those rates shifts the whole startup phase uniformly rather than creating a transient change in establishment speed. This is a genuine change to the target mapping because the altered kinetics of resistance states feed back into dU_dt, not merely into unscored auxiliary trajectories. The effect is scientifically admissible in laminar startup without violating positivity or finite steady speed, provided the added phase variable only increases dissipative drag establishment and decays away so the parent is recovered when that extra phase effect is removed."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The scored acceleration is a pressure-driving constant minus a drag term linear in U, with all startup history entering only through drag buildup states R and Q. For fixed observed U, R, and Q, dU_dt decreases linearly with U and has no additional dependence on whether the flow is still accelerating strongly.",
+          "child_relation": "Retain pressure driving and dissipative wall drag, but relax the assumption that the lagged resistance seen by the mean flow adjusts with a fixed relaxation rate. Let the hydraulic-resistance establishment rate itself depend on the current startup intensity so drag builds faster during strong acceleration/high-U startup and more slowly near equilibrium, feeding back into the scored dU_dt through altered resistance-state evolution.",
+          "affected_inputs": [
+            "U",
+            "R",
+            "Q",
+            "resistance_relaxation_rate"
+          ],
+          "observable_effect": "Across trajectories with the same fixed parameters but different portions of startup, the child produces earlier bending-down of U(t) and a stronger mid-startup drop in dU_dt at moderate U than the parent's single-timescale resistance buildup, while recovering similar late-time behavior near steady flow."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "startup_intensity",
+            "expression": "U/drag_saturation_velocity",
+            "role": "Dimensionless speed level indicating whether finite-speed startup corrections are active"
+          },
+          {
+            "name": "fast_drag_deficit",
+            "expression": "1 + nonlinear_drag_coefficient*drag_saturation_velocity*tanh(U/drag_saturation_velocity) - R",
+            "role": "Gap between instantaneous fast-resistance target and realized fast resistance"
+          },
+          {
+            "name": "slow_drag_deficit",
+            "expression": "tanh(1 + nonlinear_drag_coefficient*drag_saturation_velocity*tanh(U/drag_saturation_velocity)) - Q",
+            "role": "Gap between slow memory target and realized slow resistance"
+          }
+        ],
+        "activation_condition": "Observable when startup reaches moderate dimensionless speed |U|/drag_saturation_velocity = O(1) before R and Q have equilibrated, especially when resistance_relaxation_rate is not so large that drag is effectively instantaneous and not so small that all trajectories remain in an almost purely inertial regime over the observation window.",
+        "train_hidden_contrast": "In training, this appears as extra downward curvature of dU_dt versus time and versus U during early-to-intermediate startup; in holdout, the same mechanism extends to trajectories where the pressure-driven rise reaches the nonlinear drag-growth scale faster or slower, shifting when the resistance field catches up without changing the constant forcing assumption.",
+        "continuation_path": "Recover the parent by taking the acceleration-dependent correction to the resistance-establishment law to zero, so the fast and slow resistance branches again relax with their original fixed rates.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A new state is needed because the omitted effect is dynamic resistance-establishment hysteresis, not a static algebraic reshaping of the existing drag target. Existing U, R, and Q can represent current speed and two lagged drag levels, but they cannot separately encode whether the wall-shear profile is temporarily in a rapid-establishment versus slow-establishment phase under the same instantaneous U, R, and Q.",
+        "scope_kind": "memory",
+        "scope_symbols": [
+          "U",
+          "R",
+          "Q",
+          "H"
+        ],
+        "structural_role": "timescale",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Transient startup wall-shear development modulates drag-memory establishment rates",
+        "scientific_mechanism": "A transient wall-shear development phase can accelerate the establishment of hydraulic resistance during strong startup and then decay as the cross-sectional viscous profile approaches its developed shape, producing state-dependent drag-memory kinetics even while mean drag remains dissipative.",
+        "embedding_pattern": "saturating_or_thresholded",
+        "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the extra phase state creates finite-capacity, transiently activated rate modulation: the same instantaneous U, R, and Q can evolve differently depending on whether H has been populated by earlier startup intensity. A single fixed-rate parent cannot mimic both delayed initial drag establishment and faster intermediate catch-up with one shared parameter set.",
+        "taxonomy_match": "known",
+        "assumption_before": "The viscous wall-shear/hydraulic-resistance field is established by fixed relaxation timescales only, with no additional transient phase variable controlling how quickly resistance catches up during startup.",
+        "assumption_after": "A transient startup wall-shear development phase dynamically and saturatingly increases the relaxation rates of resistance establishment during strong startup, then decays away as the profile develops.",
+        "before_fragment": "pressure_gradient_magnitude / fluid_density - viscous_drag_rate * (R + slow_resistance_weight*Q) * U",
+        "after_fragment": "pressure_gradient_magnitude / fluid_density - viscous_drag_rate * (R + slow_resistance_weight*Q) * U",
+        "parent_reduction": "Setting startup_phase_coupling = 0 makes H remain at 0 from its zero initial condition, so the rate multipliers reduce to 1 and the parent system is recovered exactly.",
+        "observable_signature": "Relative to the parent's single-phase relaxation, trajectories that enter |U|/drag_saturation_velocity = O(1) while R and Q still lag show little change at the earliest times, then a visibly earlier and sharper bend-down in dU_dt and U(t) over the intermediate startup window as H rises and temporarily speeds resistance catch-up, followed by near-parent late-time approach once H decays and the resistance deficits close.",
+        "shortcut_blocked": "Refitting all parent parameters cannot reproduce this contrast with one shared parameter set because changing resistance_relaxation_rate or slow_resistance_relaxation_rate uniformly shifts the whole startup timing, whereas the child introduces a transient, saturating phase of enhanced establishment that is weak at launch, strongest at moderate startup intensity before equilibration, and negligible again near steady state. The scored mapping changes consequentially because altered R and Q kinetics feed back into dU_dt over the observed trajectory, not merely into hidden auxiliary dynamics."
+      },
+      "range_suggestions": {
+        "H": "dimensionless startup phase state, typically between 0 and startup_phase_coupling over startup trajectories because it is driven by a tanh-bounded source and decays to 0",
+        "startup_phase_relaxation_rate": "positive and comparable to or smaller than resistance_relaxation_rate so the transient phase persists over early-to-intermediate startup before decaying",
+        "startup_phase_coupling": "positive O(1) or smaller; near 0 recovers the parent, while moderate values create observable temporary acceleration of resistance establishment without destabilizing laminar relaxation"
+      }
+    }
+  ],
+  "evolution_provenance": {
+    "dimension_track": null,
+    "mechanism_profile": {
+      "allowed_structural_roles": [
+        "contribution",
+        "response_law",
+        "modulation",
+        "interaction",
+        "constraint",
+        "transition",
+        "feedback",
+        "heterogeneity",
+        "timescale",
+        "transport_balance"
+      ],
+      "preferred_scopes": [
+        "unary",
+        "pairwise",
+        "state_coupling",
+        "time_forcing"
+      ],
+      "domain_mechanisms": [
+        {
+          "id": "nonlinear_constitutive_response",
+          "description": "nonlinear constitutive or response law",
+          "operations": [
+            "add_term",
+            "change_assumption"
+          ]
+        },
+        {
+          "id": "coupled_field_or_force",
+          "description": "coupling to an already declared field, force, or state",
+          "operations": [
+            "add_term"
+          ]
+        },
+        {
+          "id": "finite_relaxation_or_threshold",
+          "description": "finite response time or physical threshold",
+          "operations": [
+            "change_assumption"
+          ]
+        }
+      ],
+      "profile_source": "subject_fallback",
+      "ontology_schema_version": "1.0",
+      "taxonomy_schema_version": "1.0"
+    },
+    "baseline_mechanisms": [
+      "Constant streamwise pressure forcing of the fluid.",
+      "Fluid inertia represented through evolution of the mean velocity.",
+      "Linear viscous momentum loss to stationary channel walls."
+    ],
+    "baseline_assumptions": [
+      "The fluid is Newtonian and incompressible with constant density and viscosity.",
+      "The channel is straight, rigid, and uniform in cross-section.",
+      "The flow remains laminar and fully developed in the streamwise direction.",
+      "The imposed pressure gradient is constant after startup."
+    ],
+    "scientific_constraints": [
+      "Viscous wall resistance must oppose the direction of the mean flow.",
+      "The steady mean velocity must be finite for nonzero viscosity.",
+      "The dynamics must dissipate deviations from the pressure-driven steady state.",
+      "For nonnegative forcing and a nonnegative initial velocity, the velocity must remain nonnegative."
+    ],
+    "refinement_agenda": [
+      "Add nonlinear inertial resistance when the laminar fully developed approximation becomes inadequate.",
+      "Allow the imposed pressure gradient to vary in time.",
+      "Replace instantaneous wall resistance with additional states representing development of the velocity profile.",
+      "Allow viscosity to depend on shear rate for a non-Newtonian fluid.",
+      "Include wall slip or compliant-wall effects through revised boundary assumptions."
+    ],
+    "evolution_contracts": [
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The mean-flow acceleration is an affine function of U with one constant relaxation rate, so every startup trajectory approaches steady state with a single exponential timescale.",
+          "child_relation": "The wall-drag process remains opposing and dissipative but its effective rate increases with flow magnitude, making dU_dt a nonlinear decreasing function of U rather than strictly affine.",
+          "affected_inputs": [
+            "U",
+            "viscous_drag_rate"
+          ],
+          "observable_effect": "Under the same pressure gradient and density, trajectories with larger intermediate U decelerate more strongly relative to the parent prediction, giving a faster late-stage approach and stronger downward curvature of dU_dt versus U than any single linear relaxation law."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "forcing_to_drag",
+            "expression": "pressure_gradient_magnitude/(fluid_density*viscous_drag_rate)",
+            "role": "Parent steady-speed scale setting the typical startup velocity reached before nonlinear drag matters"
+          },
+          {
+            "name": "instantaneous_speed_ratio",
+            "expression": "U*fluid_density*viscous_drag_rate/pressure_gradient_magnitude",
+            "role": "Dimensionless occupancy of the parent steady-speed scale; indicates when higher-order drag becomes observable"
+          }
+        ],
+        "activation_condition": "Observable when the startup reaches moderate mean speeds relative to the parent linear steady scale, i.e. U*fluid_density*viscous_drag_rate/pressure_gradient_magnitude is not asymptotically small while flow remains laminar and fully developed.",
+        "train_hidden_contrast": "Across trajectories with different fixed pressure_gradient_magnitude but common fluid and geometry, weakly forced cases stay near the linear regime while more strongly forced cases show systematically earlier saturation and stronger curvature in dU_dt versus U.",
+        "continuation_path": "Recover the parent law in the low-speed limit where the nonlinear correction to wall resistance vanishes, equivalently for sufficiently small U relative to the drag-activation speed scale.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "unary",
+        "scope_symbols": [
+          "U",
+          "viscous_drag_rate"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Amplitude-dependent laminar wall resistance in pressure-driven channel startup",
+        "scientific_mechanism": "Amplitude-dependent laminar hydraulic resistance, represented as a nonlinear increase of dissipative wall drag with mean velocity due to finite-speed corrections to the cross-sectionally averaged momentum balance.",
+        "embedding_pattern": "multiplicative_modulation",
+        "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the drag process is modulated by the evolving state U itself, changing the target map from affine to curved and altering both transient shape and steady-speed scaling across forcing levels.",
+        "taxonomy_match": "known",
+        "assumption_before": "Wall drag enters as a constant linear relaxation law over the whole admissible startup range.",
+        "assumption_after": "Wall drag remains dissipative but its effective strength increases with instantaneous mean speed through multiplicative amplitude modulation.",
+        "before_fragment": "pressure_gradient_magnitude / fluid_density - viscous_drag_rate * U",
+        "after_fragment": "pressure_gradient_magnitude / fluid_density - viscous_drag_rate * (1 + nonlinear_drag_coefficient * U) * U",
+        "parent_reduction": "nonlinear_drag_coefficient -> 0 or nonlinear_drag_coefficient*U -> 0",
+        "observable_signature": "At fixed fluid_density and viscous_drag_rate, varying pressure_gradient_magnitude changes whether trajectories enter the modulated-drag regime: weakly forced cases retain near-affine dU_dt(U), while stronger forcing produces stronger downward curvature, earlier saturation, and sublinear growth of steady U relative to the parent scaling.",
+        "shortcut_blocked": "A single parent parameter set always implies dU_dt is exactly linear in U and therefore predicts the same normalized one-timescale startup shape across forcing levels. Retuning pressure_gradient_magnitude/fluid_density and viscous_drag_rate cannot create the forcing-dependent curvature in dU_dt versus U or the sublinear steady-speed scaling once moderate U is reached."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The mean-velocity acceleration is an instantaneous function of U alone: dU_dt = constant drive minus a memoryless drag that grows monotonically with U, so startup trajectories approach steady state with one relaxation phase set by the current velocity.",
+          "child_relation": "Retain the same pressure-drive versus dissipative-drag balance, but relax the assumption that wall resistance adjusts instantaneously; introduce a finite-time hydrodynamic resistance buildup so dU_dt depends on both U and a lagged resistance state, changing the startup curvature even at the same U.",
+          "affected_inputs": [
+            "U"
+          ],
+          "observable_effect": "Under the same constant pressure gradient and zero initial mean velocity, the child can show weaker initial drag and then a delayed drag buildup, producing a more sharply bent startup trajectory and delayed approach to steady flow compared with the parent's single-phase relaxation."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "drive_to_drag_balance",
+            "expression": "pressure_gradient_magnitude/fluid_density - viscous_drag_rate*(1 + nonlinear_drag_coefficient*U)*U",
+            "role": "Parent instantaneous net acceleration law"
+          },
+          {
+            "name": "nonlinear_drag_level",
+            "expression": "nonlinear_drag_coefficient*U",
+            "role": "Amplitude regime where drag nonlinearity becomes appreciable"
+          },
+          {
+            "name": "startup_speed_scale",
+            "expression": "pressure_gradient_magnitude/(fluid_density*viscous_drag_rate)",
+            "role": "Parent linear steady-speed scale setting whether startup reaches appreciable drag"
+          }
+        ],
+        "activation_condition": "Observable when the resistance-adjustment time is not negligible compared with 1/viscous_drag_rate, and forcing is strong enough that U reaches nonlinear_drag_coefficient*U = O(1) during the observed startup window; negligible in quasistatic drag adjustment.",
+        "train_hidden_contrast": "In training, moderate forcing already reveals early-time under-resistance followed by drag catch-up as curvature change in U(t); in holdout, stronger forcing extends the same lag mechanism to a larger transient mismatch between instantaneous U and effective drag, amplifying the contrast without changing the physical regime.",
+        "continuation_path": "Recover the parent when the resistance-adjustment time tends to zero so effective drag becomes an instantaneous function of U again.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A finite lag in hydraulic resistance is a dynamical memory effect and cannot be represented by any algebraic refit of the existing instantaneous U-only law; one additional state is needed to carry the delayed resistance buildup that feeds back on U.",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "U",
+          "R"
+        ],
+        "structural_role": "feedback",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Delayed buildup of hydraulic resistance during laminar startup in a channel",
+        "scientific_mechanism": "Finite-time establishment of the wall-shear/hydraulic-resistance field during startup of internal flow, creating drag memory relative to the mean velocity.",
+        "embedding_pattern": "saturating_or_thresholded",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the scored target no longer depends on U through a single algebraic branch; the additional state carries path-dependent resistance saturation toward a finite target, so trajectories with the same U can have different dU_dt depending on resistance history.",
+        "taxonomy_match": "known",
+        "assumption_before": "The dissipative wall resistance is an instantaneous algebraic function of the current cross-sectionally averaged velocity.",
+        "assumption_after": "The wall-shear resistance approaches its velocity-dependent finite target with a nonzero relaxation time during startup.",
+        "before_fragment": "pressure_gradient_magnitude / fluid_density - viscous_drag_rate * (1 + nonlinear_drag_coefficient * U) * U",
+        "after_fragment": "pressure_gradient_magnitude / fluid_density - viscous_drag_rate * R * U",
+        "parent_reduction": "When resistance_relaxation_rate tends to infinity, R = 1 + nonlinear_drag_coefficient*U quasi-instantly and the parent expression is recovered.",
+        "observable_signature": "Compared at fixed pressure_gradient_magnitude, fluid_density, viscous_drag_rate, and nonlinear_drag_coefficient with the same U reached during startup, the child permits larger dU_dt early because R lags below 1 + nonlinear_drag_coefficient*U, followed by drag catch-up as R saturates toward that target; this changes the scored U-to-dU_dt mapping itself under observed startup conditions, especially when resistance_relaxation_rate is only O(viscous_drag_rate).",
+        "shortcut_blocked": "A single parent parameter set cannot reproduce the child across these conditions because the parent enforces a unique dU_dt for each U, whereas the child produces different dU_dt at the same U depending on the lagged resistance state during startup. Refitting viscous_drag_rate or nonlinear_drag_coefficient only reshapes one memoryless curve and cannot create the observed early under-resistance followed by later drag catch-up with one shared parameter set."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The target acceleration decreases linearly with U at fixed R through dU_dt = pressure_gradient_magnitude/fluid_density - viscous_drag_rate*R*U, with R relaxing toward an affine drag factor 1 + nonlinear_drag_coefficient*U.",
+          "child_relation": "Keep the same forcing-memory structure but relax the affine drag-target assumption so the effective resistance grows nonlinearly with U, causing dU_dt versus U to bend downward more strongly at larger U through the existing R-mediated drag channel.",
+          "affected_inputs": [
+            "U",
+            "R",
+            "nonlinear_drag_coefficient"
+          ],
+          "observable_effect": "Across trajectories spanning weak to stronger startup speeds under the same fixed parameters, the child predicts a faster-than-linear late-startup reduction in acceleration and a lower high-speed asymptotic velocity than the parent, while remaining close to the parent near U≈0."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "drag_loading",
+            "expression": "R*U",
+            "role": "instantaneous resistive loading already controlling mean-flow deceleration"
+          },
+          {
+            "name": "quasistatic_drag_target",
+            "expression": "1 + nonlinear_drag_coefficient*U",
+            "role": "parent's assumed velocity-dependent resistance target to be relaxed"
+          },
+          {
+            "name": "startup_nonlinearity_scale",
+            "expression": "nonlinear_drag_coefficient*U",
+            "role": "dimensionless speed level marking where non-affine drag growth becomes observable"
+          }
+        ],
+        "activation_condition": "Observable when nonlinear_drag_coefficient*U is not small during the sampled startup, so trajectories explore moderate mean speeds before reaching steady state; negligible in the low-speed limit nonlinear_drag_coefficient*U << 1.",
+        "train_hidden_contrast": "In training, moderate-speed segments already show slight downward bending of dU_dt versus U; in holdout, trajectories reaching larger U amplify this same non-affine drag-growth effect into stronger curvature.",
+        "continuation_path": "Recover the parent law in the low-speed limit where the refined drag target is linearized in U, or by taking the added non-affine correction strength to zero.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "memory",
+        "scope_symbols": [
+          "U",
+          "R",
+          "nonlinear_drag_coefficient",
+          "drag_saturation_velocity"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "finite-capacity transition in velocity-dependent hydraulic resistance",
+        "scientific_mechanism": "Non-affine growth of laminar hydraulic resistance with mean velocity, representing higher-order finite-speed corrections to the cross-sectionally averaged wall-shear relation while preserving dissipative drag.",
+        "embedding_pattern": "saturating_or_thresholded",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the U-to-R target changes shape across speed scales: it matches the parent slope near zero but transitions to a different effective gain at moderate U, so one constant retuning cannot preserve both low-speed startup behavior and higher-speed curvature.",
+        "taxonomy_match": "known",
+        "assumption_before": "The lagged hydraulic-resistance state relaxes toward the exact instantaneous target 1 + nonlinear_drag_coefficient*U.",
+        "assumption_after": "The lagged hydraulic-resistance state relaxes toward a saturating non-affine resistance target that is linear at low speed and bends to stronger finite-speed drag growth.",
+        "before_fragment": "pressure_gradient_magnitude / fluid_density - viscous_drag_rate * R * U",
+        "after_fragment": "pressure_gradient_magnitude / fluid_density - viscous_drag_rate * R * U",
+        "parent_reduction": "For U/drag_saturation_velocity << 1, tanh(U/drag_saturation_velocity) linearizes and the resistance target becomes 1 + nonlinear_drag_coefficient*U, recovering the parent closure.",
+        "observable_signature": "When pressure_gradient_magnitude varies while fluid_density, viscous_drag_rate, resistance_relaxation_rate, nonlinear_drag_coefficient, and drag_saturation_velocity are held fixed, low-speed trajectories look parent-like but trajectories reaching U comparable to drag_saturation_velocity show extra downward curvature of dU_dt against observed (U,R) and settle to a lower steady velocity than any single affine-target parent fit.",
+        "shortcut_blocked": "Refitting the parent's existing parameters can change the overall drag level or relaxation rate, but with one shared parameter set it cannot produce both the near-origin affine behavior and the stronger moderate-speed bend implied by the saturating target shape. Matching late-startup deceleration by increasing nonlinear_drag_coefficient would spoil the low-speed segments, while matching low-speed segments leaves insufficient curvature and too high a saturation speed."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "At fixed pressure_gradient_magnitude, fluid_density, viscous_drag_rate, and resistance_relaxation_rate, the target acceleration dU_dt decreases with U through a single lagged resistance state R that relaxes with one shared timescale, so startup curvature is controlled by one-phase drag-memory buildup.",
+          "child_relation": "Retain the same pressure-driven minus dissipative structure, but relax the assumption that hydraulic resistance establishes with a single phase: introduce an additional slower wall-shear-memory contribution so dU_dt versus observed (U,R) acquires extra delayed curvature during startup as the effective drag continues to strengthen after the fast resistance contribution has partially equilibrated.",
+          "affected_inputs": [
+            "U",
+            "R",
+            "resistance_relaxation_rate",
+            "viscous_drag_rate"
+          ],
+          "observable_effect": "For trajectories reaching moderate U, the acceleration drops rapidly at early times and then continues to bend downward over a longer startup window instead of approaching its steady-state decay with only one relaxation phase."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "drag_load",
+            "expression": "viscous_drag_rate*R*U",
+            "role": "instantaneous dissipative load already opposing pressure-driven acceleration"
+          },
+          {
+            "name": "normalized_speed",
+            "expression": "U/drag_saturation_velocity",
+            "role": "activation coordinate for the existing non-affine drag-growth regime"
+          },
+          {
+            "name": "resistance_deficit",
+            "expression": "1 + nonlinear_drag_coefficient*drag_saturation_velocity*tanh(U/drag_saturation_velocity) - R",
+            "role": "distance of the current hydraulic-resistance state from its present fast target"
+          }
+        ],
+        "activation_condition": "Observable when startup trajectories reach U comparable to drag_saturation_velocity so the resistance target is evolving noticeably, and when wall-shear establishment contains a slower tail relative to the existing resistance_relaxation_rate timescale; if all sampled times are much longer than both memory timescales or U << drag_saturation_velocity throughout, the effect is weak.",
+        "train_hidden_contrast": "In training, the mechanism appears as extra mid-startup downward bending of dU_dt after the initial transient; in holdout, the same two-phase memory persists over longer or slightly faster trajectories and changes the duration of approach to steady flow rather than merely rescaling the same curve.",
+        "continuation_path": "Recover the parent when the added slow memory amplitude tends to zero or when its relaxation rate collapses onto the existing resistance_relaxation_rate so the two drag-establishment phases become indistinguishable.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A genuinely delayed second stage of wall-shear development cannot be represented by refitting the existing single resistance state alone, because one state enforces a single-phase relaxation shape. A new state is needed to encode additional startup memory that feeds back on U.",
+        "scope_kind": "memory",
+        "scope_symbols": [
+          "U",
+          "R",
+          "Q"
+        ],
+        "structural_role": "feedback",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "two-timescale wall-shear establishment in startup laminar internal flow",
+        "scientific_mechanism": "Multi-timescale establishment of the viscous wall-shear profile across the channel during startup, producing a delayed contribution to hydraulic resistance beyond the existing fast lagged drag state.",
+        "embedding_pattern": "saturating_or_thresholded",
+        "difficulty_rationale": "The refinement is harder than a coefficient-only correction because it changes the target law through an added hidden memory branch with its own saturation-driven relaxation, creating a two-timescale curvature pattern in dU_dt that cannot be reproduced by rescaling a single existing drag amplitude or rate.",
+        "taxonomy_match": "known",
+        "assumption_before": "Hydraulic resistance buildup during startup is adequately represented by a single lagged saturating resistance state.",
+        "assumption_after": "Hydraulic resistance during startup contains both a fast and a slower saturating wall-shear establishment branch that both contribute to drag.",
+        "before_fragment": "pressure_gradient_magnitude / fluid_density - viscous_drag_rate * R * U",
+        "after_fragment": "pressure_gradient_magnitude / fluid_density - viscous_drag_rate * (R + slow_resistance_weight*Q) * U",
+        "parent_reduction": "The parent law is recovered when slow_resistance_weight -> 0, making Q dynamically irrelevant to dU_dt.",
+        "observable_signature": "Holding pressure_gradient_magnitude, fluid_density, viscous_drag_rate, resistance_relaxation_rate, and geometry fixed, trajectories that reach moderate normalized_speed U/drag_saturation_velocity = O(1) show a rapid initial acceleration drop followed by an additional slower downward bending in dU_dt as the hidden slow resistance branch continues to rise after R is already closer to its target. This is a direct change in the scored target mapping because dU_dt depends on Q through the drag term, not merely an auxiliary-state change.",
+        "shortcut_blocked": "A single parent parameter set cannot fit both the early fast drag buildup and the later continued drag strengthening across these conditions, because changing resistance_relaxation_rate only moves one relaxation timescale and changing nonlinear_drag_coefficient or viscous_drag_rate only rescales the same one-phase target relation. The child introduces a structurally distinct delayed drag contribution that remains active over a different startup window."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The scored acceleration is a pressure-driving constant minus a drag term linear in U, with all startup history entering only through drag buildup states R and Q. For fixed observed U, R, and Q, dU_dt decreases linearly with U and has no additional dependence on whether the flow is still accelerating strongly.",
+          "child_relation": "Retain pressure driving and dissipative wall drag, but relax the assumption that the lagged resistance seen by the mean flow adjusts with a fixed relaxation rate. Let the hydraulic-resistance establishment rate itself depend on the current startup intensity so drag builds faster during strong acceleration/high-U startup and more slowly near equilibrium, feeding back into the scored dU_dt through altered resistance-state evolution.",
+          "affected_inputs": [
+            "U",
+            "R",
+            "Q",
+            "resistance_relaxation_rate"
+          ],
+          "observable_effect": "Across trajectories with the same fixed parameters but different portions of startup, the child produces earlier bending-down of U(t) and a stronger mid-startup drop in dU_dt at moderate U than the parent's single-timescale resistance buildup, while recovering similar late-time behavior near steady flow."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "startup_intensity",
+            "expression": "U/drag_saturation_velocity",
+            "role": "Dimensionless speed level indicating whether finite-speed startup corrections are active"
+          },
+          {
+            "name": "fast_drag_deficit",
+            "expression": "1 + nonlinear_drag_coefficient*drag_saturation_velocity*tanh(U/drag_saturation_velocity) - R",
+            "role": "Gap between instantaneous fast-resistance target and realized fast resistance"
+          },
+          {
+            "name": "slow_drag_deficit",
+            "expression": "tanh(1 + nonlinear_drag_coefficient*drag_saturation_velocity*tanh(U/drag_saturation_velocity)) - Q",
+            "role": "Gap between slow memory target and realized slow resistance"
+          }
+        ],
+        "activation_condition": "Observable when startup reaches moderate dimensionless speed |U|/drag_saturation_velocity = O(1) before R and Q have equilibrated, especially when resistance_relaxation_rate is not so large that drag is effectively instantaneous and not so small that all trajectories remain in an almost purely inertial regime over the observation window.",
+        "train_hidden_contrast": "In training, this appears as extra downward curvature of dU_dt versus time and versus U during early-to-intermediate startup; in holdout, the same mechanism extends to trajectories where the pressure-driven rise reaches the nonlinear drag-growth scale faster or slower, shifting when the resistance field catches up without changing the constant forcing assumption.",
+        "continuation_path": "Recover the parent by taking the acceleration-dependent correction to the resistance-establishment law to zero, so the fast and slow resistance branches again relax with their original fixed rates.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A new state is needed because the omitted effect is dynamic resistance-establishment hysteresis, not a static algebraic reshaping of the existing drag target. Existing U, R, and Q can represent current speed and two lagged drag levels, but they cannot separately encode whether the wall-shear profile is temporarily in a rapid-establishment versus slow-establishment phase under the same instantaneous U, R, and Q.",
+        "scope_kind": "memory",
+        "scope_symbols": [
+          "U",
+          "R",
+          "Q",
+          "H"
+        ],
+        "structural_role": "timescale",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Transient startup wall-shear development modulates drag-memory establishment rates",
+        "scientific_mechanism": "A transient wall-shear development phase can accelerate the establishment of hydraulic resistance during strong startup and then decay as the cross-sectional viscous profile approaches its developed shape, producing state-dependent drag-memory kinetics even while mean drag remains dissipative.",
+        "embedding_pattern": "saturating_or_thresholded",
+        "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the extra phase state creates finite-capacity, transiently activated rate modulation: the same instantaneous U, R, and Q can evolve differently depending on whether H has been populated by earlier startup intensity. A single fixed-rate parent cannot mimic both delayed initial drag establishment and faster intermediate catch-up with one shared parameter set.",
+        "taxonomy_match": "known",
+        "assumption_before": "The viscous wall-shear/hydraulic-resistance field is established by fixed relaxation timescales only, with no additional transient phase variable controlling how quickly resistance catches up during startup.",
+        "assumption_after": "A transient startup wall-shear development phase dynamically and saturatingly increases the relaxation rates of resistance establishment during strong startup, then decays away as the profile develops.",
+        "before_fragment": "pressure_gradient_magnitude / fluid_density - viscous_drag_rate * (R + slow_resistance_weight*Q) * U",
+        "after_fragment": "pressure_gradient_magnitude / fluid_density - viscous_drag_rate * (R + slow_resistance_weight*Q) * U",
+        "parent_reduction": "Setting startup_phase_coupling = 0 makes H remain at 0 from its zero initial condition, so the rate multipliers reduce to 1 and the parent system is recovered exactly.",
+        "observable_signature": "Relative to the parent's single-phase relaxation, trajectories that enter |U|/drag_saturation_velocity = O(1) while R and Q still lag show little change at the earliest times, then a visibly earlier and sharper bend-down in dU_dt and U(t) over the intermediate startup window as H rises and temporarily speeds resistance catch-up, followed by near-parent late-time approach once H decays and the resistance deficits close.",
+        "shortcut_blocked": "Refitting all parent parameters cannot reproduce this contrast with one shared parameter set because changing resistance_relaxation_rate or slow_resistance_relaxation_rate uniformly shifts the whole startup timing, whereas the child introduces a transient, saturating phase of enhanced establishment that is weak at launch, strongest at moderate startup intensity before equilibration, and negligible again near steady state. The scored mapping changes consequentially because altered R and Q kinetics feed back into dU_dt over the observed trajectory, not merely into hidden auxiliary dynamics."
+      }
+    ]
+  },
+  "finalization": {
+    "mode": "candidate",
+    "accepted_generations": 5,
+    "novelty": {
+      "answer": "NOT_EVALUATED"
+    },
+    "total_points": 5000,
+    "evaluation_status": "not_evaluated"
+  }
+}

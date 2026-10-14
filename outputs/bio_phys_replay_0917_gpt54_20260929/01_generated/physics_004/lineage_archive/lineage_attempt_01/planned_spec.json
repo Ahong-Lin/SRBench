@@ -1,0 +1,203 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "N_P",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        80.0
+      ],
+      "n_points": 400,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "lambda_P",
+      "value": 0.08
+    },
+    {
+      "symbol": "lambda_D",
+      "value": 0.03
+    },
+    {
+      "symbol": "k_damage_build",
+      "value": 0.00012
+    },
+    {
+      "symbol": "k_damage_relax",
+      "value": 0.18
+    },
+    {
+      "symbol": "alpha_damage",
+      "value": 0.6
+    },
+    {
+      "symbol": "k_damage_adapt",
+      "value": 0.12
+    }
+  ],
+  "benchmark_output": "dN_P_dt",
+  "benchmark_target_state": "N_P",
+  "observed_variables": [
+    "t",
+    "N_P",
+    "N_D",
+    "M_damage",
+    "M_eff_damage"
+  ],
+  "rhs_for_integrator": "-lambda_P * (1 + alpha_damage * (1 + N_D/(1 + N_D)) * M_eff_damage**2/((1 + M_eff_damage**2) * (1 + M_eff_damage**2/(1 + M_eff_damage**2)))) * N_P",
+  "state_variables": [
+    "N_P",
+    "N_D",
+    "M_damage",
+    "M_eff_damage"
+  ],
+  "state_rhs": [
+    "-lambda_P * (1 + alpha_damage * (1 + N_D/(1 + N_D)) * M_eff_damage**2/((1 + M_eff_damage**2) * (1 + M_eff_damage**2/(1 + M_eff_damage**2)))) * N_P",
+    "lambda_P * (1 + alpha_damage * (1 + N_D/(1 + N_D)) * M_eff_damage**2/((1 + M_eff_damage**2) * (1 + M_eff_damage**2/(1 + M_eff_damage**2)))) * N_P - lambda_D * N_D",
+    "k_damage_build * N_D - k_damage_relax * M_damage",
+    "k_damage_adapt * (1 + tanh(M_damage)) * (M_damage - M_eff_damage)"
+  ],
+  "initial_conditions": {
+    "N_P": 100000.0,
+    "N_D": 0.0,
+    "M_damage": 0.0,
+    "M_eff_damage": 0.0
+  },
+  "sanity_expectations": [
+    "At t=0, N_D = M_damage = M_eff_damage = 0, so dN_P/dt starts exactly at -lambda_P*N_P(0) = -8000 before any daughter-mediated modification activates.",
+    "Because lambda_D < lambda_P and N_D(0)=0, N_D should rise from zero at early times before eventually declining; the target derivative magnitude |dN_P/dt| should initially track near-baseline decay and then become more negative as daughter burden and effective damage build.",
+    "M_damage should lag N_D and M_eff_damage should lag M_damage because their equations contain finite relaxation/adaptation rates; therefore equal N_P at different times need not imply equal dN_P/dt.",
+    "The damage modifier is quadratic in small M_eff_damage, so the earliest deviation from baseline should be weak rather than immediate linear bending in M_eff_damage.",
+    "As M_eff_damage reaches moderate values, the hazard enhancement should increase, but the added attenuation factor means the incremental steepening at larger M_eff_damage is softer than in the previous monotone parent generation; late-time curvature should show flattening of the damage effect rather than unchecked approach to a single stronger monotone gain.",
+    "All sampled outputs should remain real and finite for the chosen parameter set over the stated time window."
+  ],
+  "role_corrections": [
+    "dN_P_dt: claimed-output/target derivative -> derived quantity from system RHS (confirmed as scored derivative, not dependent variable)",
+    "t: claimed-input/time axis -> independent variable (confirmed)",
+    "N_P: claimed-dynamic state -> dependent variable/target_state within ode_system (confirmed)",
+    "N_D: claimed-dynamic state -> dynamic state in ode_system (confirmed)",
+    "M_damage: claimed-dynamic state -> dynamic state in ode_system (confirmed)",
+    "M_eff_damage: claimed-dynamic state -> dynamic state in ode_system (confirmed)",
+    "lambda_P: claimed-parameter -> parameter (confirmed)",
+    "lambda_D: claimed-parameter -> parameter (confirmed)",
+    "k_damage_build: claimed-parameter -> parameter (confirmed)",
+    "k_damage_relax: claimed-parameter -> parameter (confirmed)",
+    "alpha_damage: claimed-parameter -> parameter (confirmed)",
+    "k_damage_adapt: claimed-parameter -> parameter (confirmed)"
+  ],
+  "rationale": "The provided ODE system contract is preserved exactly as required. Although the target expression alone is structurally an explicit algebraic formula for dN_P_dt, the record explicitly supplies a validated coupled ODE-system contract and requires using it; with freedom_change = none, the declared dynamic states remain sampled through time and the listed parameters remain fixed. I choose a single time axis t in [0,80] with 400 points to capture: (i) baseline parent depletion on timescale 1/lambda_P ≈ 12.5, (ii) slower daughter buildup because lambda_D < lambda_P, and (iii) finite lag in hazard modification because k_damage_adapt and k_damage_relax are comparable to lambda_P rather than asymptotically fast. The parameter set is chosen to avoid the recovery limits alpha_damage -> 0, negligible daughter residence, or ultrafast adaptation, while also avoiding complete deep saturation. With N_P(0)=1e5 and N_D(0)=0, daughter production initially rises from zero, driving M_damage through k_damage_build*N_D; the small but nonzero k_damage_build keeps M_damage and M_eff_damage in an order-unity-to-few regime over the window rather than exploding, which is important because the distinguishing successor mechanism is a self-passivating high-damage attenuation layered on top of the earlier daughter-conditioned gain. The chosen values therefore expose three visible stages in one trajectory: early near-baseline parent decay when N_D and damage states are tiny; an intermediate acceleration phase as daughter burden and effective damage grow; and a later softened response where further increases in M_eff_damage have reduced marginal effect because the added attenuation factor suppresses the pure monotone gain inherited from the parent generation. Generation-1 and generation-2 mechanisms remain active and visible here: daughter accumulation matters because lambda_D is not overwhelmingly large, and effective damage lags raw damage because k_damage_adapt is finite. Generation-3 threshold-like onset is also visible because the hazard modifier is quadratic in small M_eff_damage. Generation-4 daughter-conditioned efficacy is active whenever N_D becomes appreciable. The current generation-5 effect supersedes the previous purely monotone damage-response assumption but does not erase those earlier dependencies; instead it modifies the late-time curvature after damage reaches moderate levels. Weak/inactive limit cases are intentionally avoided: alpha_damage is not near zero, lambda_D is not so large that daughters stay negligible, and k_damage_adapt is not so large that M_eff_damage instantaneously tracks M_damage.",
+  "coverage_report": {},
+  "inactive_mechanisms": [],
+  "target_variance": {},
+  "parent_absorption_report": {},
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_IGNfmPoRGxwWm9NohKUS6WoY"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "-lambda_P * (1 + alpha_damage * (1 + N_D/(1 + N_D)) * M_eff_damage**2/((1 + M_eff_damage**2) * (1 + M_eff_damage**2/(1 + M_eff_damage**2)))) * N_P",
+        "target_symbol": "dN_P_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "M_eff_damage",
+          "N_D",
+          "N_P",
+          "alpha_damage",
+          "lambda_P"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "N_P*(-lambda_P)*(M_eff_damage**2*alpha_damage*(N_D/(N_D + 1) + 1)/(((M_eff_damage**2 + 1)*(M_eff_damage**2/(M_eff_damage"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_ZzsNsAHoU78YSKd94HQRZohG"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "-lambda_P * (1 + alpha_damage * (1 + N_D/(1 + N_D)) * M_eff_damage**2/((1 + M_eff_damage**2) * (1 + M_eff_damage**2/(1 + M_eff_damage**2)))) * N_P",
+        "target_symbol": "dN_P_dt",
+        "assignments": {
+          "lambda_P": 0.08,
+          "alpha_damage": 0.6,
+          "N_P": 100000,
+          "N_D": 20000,
+          "M_eff_damage": 1.2
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": -11562.797530226582,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_KxXOQklI8DWSpG7aDnVlWxGg"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_nf5HUGbniGdp72cnGw2nkzW6"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 4
+}

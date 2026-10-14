@@ -1,0 +1,1739 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "P",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        20.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "V_max",
+      "value": 12.0
+    },
+    {
+      "symbol": "K_m",
+      "value": 20.0
+    },
+    {
+      "symbol": "k_Ki_decay",
+      "value": 0.12
+    },
+    {
+      "symbol": "K_i_min",
+      "value": 2.5
+    },
+    {
+      "symbol": "K_icat",
+      "value": 40.0
+    },
+    {
+      "symbol": "k_Islow_relax",
+      "value": 0.18
+    },
+    {
+      "symbol": "K_P_sat",
+      "value": 35.0
+    }
+  ],
+  "benchmark_output": "dP_dt",
+  "benchmark_target_state": "P",
+  "observed_variables": [
+    "t",
+    "S",
+    "P",
+    "K_i",
+    "I_slow"
+  ],
+  "rhs_for_integrator": "V_max*S/((1 + I_slow/K_icat)*(K_m*(1 + P/K_i) + S))",
+  "state_variables": [
+    "S",
+    "P",
+    "K_i",
+    "I_slow"
+  ],
+  "state_rhs": [
+    "-V_max*S/((1 + I_slow/K_icat)*(K_m*(1 + P/K_i) + S))",
+    "V_max*S/((1 + I_slow/K_icat)*(K_m*(1 + P/K_i) + S))",
+    "-k_Ki_decay*P*(K_i - K_i_min)/(K_P_sat + P)",
+    "k_Islow_relax*(P - I_slow)"
+  ],
+  "initial_conditions": {
+    "S": 100.0,
+    "P": 0.0,
+    "K_i": 10.0,
+    "I_slow": 0.0
+  },
+  "sanity_expectations": [
+    "All sampled rates remain finite and nonnegative because S, K_i, K_icat, and the inhibition factors are chosen positive and the denominator stays positive.",
+    "Initially dP/dt is high: at t=0 with the chosen parameters it is about 10, since P=I_slow=0 and S0=100 exceeds K_m.",
+    "Because dS/dt = -dP/dt exactly, S(t)+P(t) should remain approximately 100 along the numerical trajectory.",
+    "I_slow should lag behind P early in the run, so early suppression from the (1 + I_slow/K_icat) factor is weaker than it would be if suppression tracked product instantaneously.",
+    "K_i should decrease monotonically from 10 toward but not below K_i_min=2.5, with the fastest drift at intermediate product and a slowing of drift once P becomes large relative to K_P_sat=35.",
+    "The target rate dP/dt should decline over time, with late-time slowdown stronger than substrate depletion alone would predict because both decreasing K_i and increasing I_slow amplify product-mediated inhibition.",
+    "A visible curvature change should occur around mid-trajectory when P becomes comparable to both K_i0 and K_P_sat: competitive inhibition strengthens noticeably, then the K_i adaptation drive partially saturates rather than accelerating without bound."
+  ],
+  "role_corrections": [
+    "dP_dt: claimed-output/target derivative -> target rate expression derived from ODE state P (confirmed as scored derivative, but dependent variable for the DataGenSpec is P per typed contract)",
+    "t: claimed-input/time axis -> independent variable (confirmed)",
+    "S: claimed-dynamic state -> dynamic state in ode_system contract (confirmed)",
+    "P: claimed-dynamic state -> dynamic state and dependent_variable/target_state (confirmed)",
+    "K_i: claimed-dynamic state -> dynamic state in ode_system contract (confirmed)",
+    "I_slow: claimed-dynamic state -> dynamic state in ode_system contract (confirmed)",
+    "V_max: claimed-parameter -> fixed parameter (confirmed)",
+    "K_m: claimed-parameter -> fixed parameter (confirmed)",
+    "k_Ki_decay: claimed-parameter -> fixed parameter (confirmed)",
+    "K_i_min: claimed-parameter -> fixed parameter (confirmed)",
+    "K_icat: claimed-parameter -> fixed parameter (confirmed)",
+    "k_Islow_relax: claimed-parameter -> fixed parameter (confirmed)",
+    "K_P_sat: claimed-parameter -> fixed parameter (confirmed)"
+  ],
+  "rationale": "The typed ODE contract is preserved exactly: time is the only sampled axis, P is the target state, and the inherited 4-state system defines the trajectory from which dP_dt is read. Although the displayed target expression is algebraically explicit in S, P, K_i, and I_slow, the record explicitly supplies an ODE-system contract with promoted dynamic states K_i and I_slow; per the contract and freedom metadata, these remain dynamic states rather than fixed parameters. The chosen parameter set keeps all denominators positive and finite, while making the intended mechanisms visible over the inherited closed-vessel run: initial S0=100 is well above K_m=20, so the reaction starts near a substantial fraction of V_max; initial K_i0=10 puts product inhibition on the reachable product scale rather than in a negligible limit; K_i_min=2.5 leaves room for appreciable strengthening of competitive inhibition; K_P_sat=35 is comparable to reachable P so the K_i adaptation drive is strong at intermediate product and then saturates rather than remaining purely linear; K_icat=40 places delayed noncompetitive suppression on the same product scale so I_slow buildup matters in mid/late trajectory; k_Islow_relax=0.18 is slow enough to create lag between P and I_slow, but not so slow that the extra suppression remains inactive across the whole window; k_Ki_decay=0.12 is large enough that K_i moves visibly away from 10 toward 2.5 during conversion, without collapsing immediately to the floor. The 0-20 time window with 300 points should capture early near-parent behavior, intermediate curvature changes, and later stronger suppression before complete exhaustion dominates. No noise is added; outputs are exact trajectory-derived rates.",
+  "coverage_report": {
+    "groups": [
+      {
+        "generation": 1,
+        "name": "substrate_saturation",
+        "expression": "S/(K_m + S)",
+        "role": "parent Michaelis-Menten occupancy factor",
+        "train_range": [
+          0.6899928756817384,
+          0.8333333333333334
+        ],
+        "hidden_range": [
+          0.6820530371885127,
+          0.6899279065237978
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.6899928756817384,
+          "max": 0.8333333333333334,
+          "q05": 0.6938206231241041,
+          "median": 0.7387984095617093,
+          "q95": 0.8209783146727647,
+          "range": 0.14334045765159498,
+          "robust_range": 0.12715769154866063
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.6820530371885127,
+          "max": 0.6899279065237978,
+          "q05": 0.6824300652927161,
+          "median": 0.6859000514355209,
+          "q95": 0.6895165022996242,
+          "range": 0.007874869335285029,
+          "robust_range": 0.007086437006908142
+        }
+      },
+      {
+        "generation": 1,
+        "name": "material_balance",
+        "expression": "S + P",
+        "role": "closed-vessel conserved substrate-derived total",
+        "train_range": [
+          99.99999999999999,
+          100.00000000000003
+        ],
+        "hidden_range": [
+          100.0,
+          100.0
+        ],
+        "train_status": "inactive",
+        "hidden_status": "inactive",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 99.99999999999999,
+          "max": 100.00000000000003,
+          "q05": 100.0,
+          "median": 100.0,
+          "q95": 100.00000000000001,
+          "range": 4.263256414560601e-14,
+          "robust_range": 1.4210854715202004e-14
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 100.0,
+          "max": 100.0,
+          "q05": 100.0,
+          "median": 100.0,
+          "q95": 100.0,
+          "range": 0.0,
+          "robust_range": 0.0
+        }
+      },
+      {
+        "generation": 1,
+        "name": "product_to_substrate",
+        "expression": "P/(K_m + S)",
+        "role": "dimensionless indicator of when accumulated product can measurably perturb apparent substrate affinity",
+        "train_range": [
+          0.0,
+          0.8600427459095699
+        ],
+        "hidden_range": [
+          0.860432560857213,
+          0.9076817768689236
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 0.8600427459095699,
+          "q05": 0.07413011196341156,
+          "median": 0.5672095426297435,
+          "q95": 0.8370762612553759,
+          "range": 0.8600427459095699,
+          "robust_range": 0.7629461492919644
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.860432560857213,
+          "max": 0.9076817768689236,
+          "q05": 0.8629009862022545,
+          "median": 0.8845996913868746,
+          "q95": 0.9054196082437029,
+          "range": 0.047249216011710615,
+          "robust_range": 0.042518622041448406
+        }
+      },
+      {
+        "generation": 2,
+        "name": "conversion_fraction",
+        "expression": "P/(S + P)",
+        "role": "progress coordinate in the closed vessel; high values mark regimes where accumulated-product effects are most visible",
+        "train_range": [
+          0.0,
+          0.5548535362217204
+        ],
+        "hidden_range": [
+          0.5549887132446834,
+          0.5709642695389381
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 0.5548535362217204,
+          "q05": 0.08281512230834684,
+          "median": 0.43430755915611013,
+          "q95": 0.5467881036619153,
+          "range": 0.5548535362217204,
+          "robust_range": 0.46397298135356846
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.5549887132446834,
+          "max": 0.5709642695389381,
+          "q05": 0.5558433750827076,
+          "median": 0.5632599977813602,
+          "q95": 0.5702174553071659,
+          "range": 0.015975556294254734,
+          "robust_range": 0.014374080224458297
+        }
+      },
+      {
+        "generation": 2,
+        "name": "inhibition_load",
+        "expression": "P/K_i",
+        "role": "dimensionless baseline product-inhibition strength in the parent law",
+        "train_range": [
+          0.0,
+          11.004065011247112
+        ],
+        "hidden_range": [
+          11.013126726544455,
+          12.167549872474515
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 11.004065011247112,
+          "q05": 0.8352294035068821,
+          "median": 5.946278604568303,
+          "q95": 10.483267331120443,
+          "range": 11.004065011247112,
+          "robust_range": 9.648037927613561
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 11.013126726544455,
+          "max": 12.167549872474515,
+          "q05": 11.070682807354682,
+          "median": 11.58963024872022,
+          "q95": 12.10972610921135,
+          "range": 1.1544231459300605,
+          "robust_range": 1.0390433018566672
+        }
+      },
+      {
+        "generation": 2,
+        "name": "substrate_saturation",
+        "expression": "S/K_m",
+        "role": "dimensionless substrate occupancy regime controlling sensitivity of rate to additional inhibition",
+        "train_range": [
+          2.225732318891398,
+          5.0
+        ],
+        "hidden_range": [
+          2.14517865230531,
+          2.2250564337765835
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 2.225732318891398,
+          "max": 5.0,
+          "q05": 2.2660594816904234,
+          "median": 2.8284622042194494,
+          "q95": 4.585924388458265,
+          "range": 2.774267681108602,
+          "robust_range": 2.3198649067678416
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 2.14517865230531,
+          "max": 2.2250564337765835,
+          "q05": 2.14891272346417,
+          "median": 2.1837000110931992,
+          "q95": 2.220783124586462,
+          "range": 0.07987778147127367,
+          "robust_range": 0.07187040112229193
+        }
+      },
+      {
+        "generation": 3,
+        "name": "prod_sub_ratio",
+        "expression": "P/(S + 1.0e-12)",
+        "role": "extent of product buildup relative to remaining substrate, marking the regime where additional product-induced suppression becomes visible",
+        "train_range": [
+          0.0,
+          1.2464516319241654
+        ],
+        "hidden_range": [
+          1.2471340160633357,
+          1.3308082031427537
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 1.2464516319241654,
+          "q05": 0.09029531199621663,
+          "median": 0.7677463780435668,
+          "q95": 1.2064736745574096,
+          "range": 1.2464516319241654,
+          "robust_range": 1.116178362561193
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 1.2471340160633357,
+          "max": 1.3308082031427537,
+          "q05": 1.2514580772430295,
+          "median": 1.2896918432019486,
+          "q95": 1.3267581001216138,
+          "range": 0.08367418707941798,
+          "robust_range": 0.07530002287858428
+        }
+      },
+      {
+        "generation": 3,
+        "name": "competitive_load",
+        "expression": "P/K_i",
+        "role": "existing competitive inhibition coordinate in the parent mapping",
+        "train_range": [
+          0.0,
+          11.004065011247112
+        ],
+        "hidden_range": [
+          11.013126726544455,
+          12.167549872474515
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 11.004065011247112,
+          "q05": 0.8352294035068821,
+          "median": 5.946278604568303,
+          "q95": 10.483267331120443,
+          "range": 11.004065011247112,
+          "robust_range": 9.648037927613561
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 11.013126726544455,
+          "max": 12.167549872474515,
+          "q05": 11.070682807354682,
+          "median": 11.58963024872022,
+          "q95": 12.10972610921135,
+          "range": 1.1544231459300605,
+          "robust_range": 1.0390433018566672
+        }
+      },
+      {
+        "generation": 4,
+        "name": "noncompetitive_load",
+        "expression": "P/K_icat",
+        "role": "instantaneous turnover-suppression load in the parent law",
+        "train_range": [
+          0.0,
+          1.387133840554301
+        ],
+        "hidden_range": [
+          1.3874717831117083,
+          1.427410673847345
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 1.387133840554301,
+          "q05": 0.2070378057708671,
+          "median": 1.0857688978902753,
+          "q95": 1.3669702591547883,
+          "range": 1.387133840554301,
+          "robust_range": 1.1599324533839213
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 1.3874717831117083,
+          "max": 1.427410673847345,
+          "q05": 1.389608437706769,
+          "median": 1.4081499944534004,
+          "q95": 1.425543638267915,
+          "range": 0.039938890735636834,
+          "robust_range": 0.035935200561145964
+        }
+      },
+      {
+        "generation": 5,
+        "name": "prod_load",
+        "expression": "P",
+        "role": "instantaneous accumulated product burden driving inhibition",
+        "train_range": [
+          0.0,
+          55.48535362217204
+        ],
+        "hidden_range": [
+          55.49887132446833,
+          57.096426953893804
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 55.48535362217204,
+          "q05": 8.281512230834684,
+          "median": 43.430755915611016,
+          "q95": 54.67881036619153,
+          "range": 55.48535362217204,
+          "robust_range": 46.39729813535684
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 55.49887132446833,
+          "max": 57.096426953893804,
+          "q05": 55.584337508270764,
+          "median": 56.32599977813601,
+          "q95": 57.0217455307166,
+          "range": 1.5975556294254716,
+          "robust_range": 1.4374080224458368
+        }
+      },
+      {
+        "generation": 5,
+        "name": "comp_inhib_ratio",
+        "expression": "P/K_i",
+        "role": "current competitive inhibition strength seen by the rate law",
+        "train_range": [
+          0.0,
+          11.004065011247112
+        ],
+        "hidden_range": [
+          11.013126726544455,
+          12.167549872474515
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 11.004065011247112,
+          "q05": 0.8352294035068821,
+          "median": 5.946278604568303,
+          "q95": 10.483267331120443,
+          "range": 11.004065011247112,
+          "robust_range": 9.648037927613561
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 11.013126726544455,
+          "max": 12.167549872474515,
+          "q05": 11.070682807354682,
+          "median": 11.58963024872022,
+          "q95": 12.10972610921135,
+          "range": 1.1544231459300605,
+          "robust_range": 1.0390433018566672
+        }
+      },
+      {
+        "generation": 5,
+        "name": "slow_noncomp_ratio",
+        "expression": "I_slow/K_icat",
+        "role": "current delayed turnover-suppression burden",
+        "train_range": [
+          0.0,
+          1.1682893352852741
+        ],
+        "hidden_range": [
+          1.1689044451829567,
+          1.241048820399602
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 1.1682893352852741,
+          "q05": 0.016344353125939518,
+          "median": 0.6508873137187818,
+          "q95": 1.1315074168878836,
+          "range": 1.1682893352852741,
+          "robust_range": 1.115163063761944
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 1.1689044451829567,
+          "max": 1.241048820399602,
+          "q05": 1.172792171012418,
+          "median": 1.2064138205141215,
+          "q95": 1.237707293513031,
+          "range": 0.0721443752166453,
+          "robust_range": 0.06491512250061304
+        }
+      },
+      {
+        "generation": 5,
+        "name": "binding_margin",
+        "expression": "K_i - K_i_min",
+        "role": "remaining room for further strengthening of competitive inhibition",
+        "train_range": [
+          2.5422597072501096,
+          7.5
+        ],
+        "hidden_range": [
+          2.1925163695492706,
+          2.5393383007844488
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 2.5422597072501096,
+          "max": 7.5,
+          "q05": 2.715820695492185,
+          "median": 4.803871105436237,
+          "q95": 7.415304830685388,
+          "range": 4.95774029274989,
+          "robust_range": 4.699484135193202
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 2.1925163695492706,
+          "max": 2.5393383007844488,
+          "q05": 2.2087564436638245,
+          "median": 2.3600347701666053,
+          "q95": 2.520859549181466,
+          "range": 0.3468219312351781,
+          "robust_range": 0.3121031055176413
+        }
+      }
+    ],
+    "inactive_mechanisms": [
+      "material_balance"
+    ],
+    "visible_mechanisms": [
+      "substrate_saturation",
+      "product_to_substrate",
+      "conversion_fraction",
+      "inhibition_load",
+      "substrate_saturation",
+      "prod_sub_ratio",
+      "competitive_load",
+      "noncompetitive_load",
+      "prod_load",
+      "comp_inhib_ratio",
+      "slow_noncomp_ratio",
+      "binding_margin"
+    ],
+    "extended_mechanisms": [
+      "substrate_saturation",
+      "product_to_substrate",
+      "conversion_fraction",
+      "inhibition_load",
+      "substrate_saturation",
+      "prod_sub_ratio",
+      "competitive_load",
+      "noncompetitive_load",
+      "prod_load",
+      "comp_inhib_ratio",
+      "slow_noncomp_ratio",
+      "binding_margin"
+    ]
+  },
+  "inactive_mechanisms": [
+    "material_balance"
+  ],
+  "target_variance": {
+    "train": {
+      "n": 384,
+      "variance": 5.661308317157243,
+      "range": 9.134358179466581
+    },
+    "hidden": {
+      "n": 128,
+      "variance": 0.0011077753634201595,
+      "range": 0.11448660380593656
+    }
+  },
+  "parent_absorption_report": {
+    "status": "ok",
+    "n_points": 512,
+    "fixed_parent_normalized_rmse": 0.0,
+    "refit": {
+      "status": "not_run",
+      "reason": "no free parent parameters"
+    },
+    "interpretation": "<1e-3 nearly absorbed; 1e-3..1e-2 weak; >1e-2 visible structure"
+  },
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_AfSNUQi9ajFhL8JGkD7TPLnK"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "V_max*S/((1 + I_slow/K_icat)*(K_m*(1 + P/K_i) + S))",
+        "target_symbol": "dP_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "I_slow",
+          "K_i",
+          "K_icat",
+          "K_m",
+          "P",
+          "S",
+          "V_max"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "S*V_max/(((I_slow/K_icat + 1)*(K_m*(1 + P/K_i) + S)))"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_E3rKb6lWEbmxL4nuZcilMKYG"
+        },
+        {
+          "name": "check_substitution",
+          "id": "call_VxAYsJXedylEe8QdZN8HJhNf"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "assignments": {
+          "S": 100,
+          "P": 0,
+          "K_i": 10,
+          "I_slow": 0,
+          "V_max": 12,
+          "K_m": 20,
+          "K_icat": 40
+        },
+        "expression": "V_max*S/((1 + I_slow/K_icat)*(K_m*(1 + P/K_i) + S))",
+        "target_symbol": "dP_dt"
+      },
+      "result": {
+        "ok": true,
+        "value_real": 10.0,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "assignments": {
+          "S": 40,
+          "P": 60,
+          "K_i": 6,
+          "I_slow": 30,
+          "V_max": 12,
+          "K_m": 20,
+          "K_icat": 40
+        },
+        "expression": "V_max*S/((1 + I_slow/K_icat)*(K_m*(1 + P/K_i) + S))",
+        "target_symbol": "dP_dt"
+      },
+      "result": {
+        "ok": true,
+        "value_real": 1.0549450549450547,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_oD1ACPu7OtCfvGGrCotihEIi"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_2wePeyhbGbyV9X1xErCm8RnH"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 4,
+  "discipline": "biology",
+  "scenario_text": "A soluble enzyme converts a finite substrate pool into product in a closed biochemical reaction vessel. Substrate depletion and product accumulation are tracked jointly from specified initial amounts, while enzyme activity and solution conditions remain fixed. The target is the instantaneous product-formation rate along the reaction trajectory.",
+  "record_id": "m2_enzyme_kinetics_and_biochemistry_20260921_003",
+  "generation": 5,
+  "_n_total": 5000,
+  "mechanism_observation_history": [
+    {
+      "generation": 1,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The target rate depends only on substrate through a fixed Michaelis-Menten saturation, so along the closed-vessel trajectory dP_dt is a single decreasing function of S with no direct dependence on accumulated product.",
+          "child_relation": "The target rate depends on both remaining substrate and accumulated product because accumulated product competitively inhibits the enzyme, bending the rate decline more strongly as P rises even at the same S range reached later in the trajectory.",
+          "affected_inputs": [
+            "S",
+            "P"
+          ],
+          "observable_effect": "Compared with the parent, product formation slows disproportionately at later times when product has accumulated; early-time rates remain near the parent law while late-time rates are lower than any single fixed Michaelis-Menten curve fit can match across the full trajectory."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "substrate_saturation",
+            "expression": "S/(K_m + S)",
+            "role": "parent Michaelis-Menten occupancy factor"
+          },
+          {
+            "name": "material_balance",
+            "expression": "S + P",
+            "role": "closed-vessel conserved substrate-derived total"
+          },
+          {
+            "name": "product_to_substrate",
+            "expression": "P/(K_m + S)",
+            "role": "dimensionless indicator of when accumulated product can measurably perturb apparent substrate affinity"
+          }
+        ],
+        "activation_condition": "Observable when product accumulates to a non-negligible fraction of the substrate-affinity scale, i.e. P comparable to the inhibition scale and not restricted to the very early low-conversion regime; with the given closed-vessel initial conditions this occurs naturally at intermediate to late times.",
+        "train_hidden_contrast": "In training, the mechanism already appears as a steeper-than-parent late-trajectory slowdown under the same initial-condition protocol; in holdout, the same product-dependent curvature extends to longer observation windows or parameter settings with stronger inhibition.",
+        "continuation_path": "Recover the parent law in the zero-product-inhibition limit, e.g. inhibition constant taken to infinity so accumulated product no longer alters the rate.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The current model treats the reaction environment as unaffected by its own product accumulation, omitting product inhibition that is common for soluble enzymes in closed assays.",
+        "baseline_assumption": "Relax the assumption that the conversion remains effectively described by a fixed irreversible Michaelis-Menten law independent of accumulated product throughout the observation window.",
+        "scientific_mechanism": "Competitive product inhibition, where product binds the enzyme and increases the apparent substrate affinity scale without violating nonnegativity or closed-vessel material conservation.",
+        "affected_symbols": [
+          "S",
+          "P"
+        ],
+        "rationale": "A realistic next refinement is to let accumulated product feed back on the catalytic rate through product inhibition. The parent target mapping is shortcut by a fixed environment: once S is known, dP_dt is fully determined by one static saturation curve. In the child, dP_dt becomes a joint function of S and P, so the same remaining substrate level can correspond to a lower rate later in the run after more product has accumulated. The varied condition is progression along the observed closed-vessel trajectory, which changes P while conserving S+P; enzyme amount and solution conditions remain fixed. The concrete contrast is that early times with P near zero follow nearly the parent slope, but later times show extra downward curvature in dP_dt versus time or versus depletion progress because P suppresses turnover. This is scientifically admissible when product reaches an appreciable inhibitory scale; if inhibition is weak over the observed range, the effect may be hard to distinguish, and the parent is recovered smoothly in that limit. A single refitted parent parameter set cannot reproduce the specific early-near-parent and late-extra-slow pattern when it arises from direct dependence on accumulated P rather than from S depletion alone."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The target rate depends only on substrate through a fixed Michaelis-Menten saturation, so along the closed-vessel trajectory dP_dt is a single decreasing function of S with no direct dependence on accumulated product.",
+          "child_relation": "The target rate depends on both remaining substrate and accumulated product because accumulated product competitively inhibits the enzyme, bending the rate decline more strongly as P rises even at the same S range reached later in the trajectory.",
+          "affected_inputs": [
+            "S",
+            "P"
+          ],
+          "observable_effect": "Compared with the parent, product formation slows disproportionately at later times when product has accumulated; early-time rates remain near the parent law while late-time rates are lower than any single fixed Michaelis-Menten curve fit can match across the full trajectory."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "substrate_saturation",
+            "expression": "S/(K_m + S)",
+            "role": "parent Michaelis-Menten occupancy factor"
+          },
+          {
+            "name": "material_balance",
+            "expression": "S + P",
+            "role": "closed-vessel conserved substrate-derived total"
+          },
+          {
+            "name": "product_to_substrate",
+            "expression": "P/(K_m + S)",
+            "role": "dimensionless indicator of when accumulated product can measurably perturb apparent substrate affinity"
+          }
+        ],
+        "activation_condition": "Observable when product accumulates to a non-negligible fraction of the substrate-affinity scale, i.e. P comparable to the inhibition scale and not restricted to the very early low-conversion regime; with the given closed-vessel initial conditions this occurs naturally at intermediate to late times.",
+        "train_hidden_contrast": "In training, the mechanism already appears as a steeper-than-parent late-trajectory slowdown under the same initial-condition protocol; in holdout, the same product-dependent curvature extends to longer observation windows or parameter settings with stronger inhibition.",
+        "continuation_path": "Recover the parent law in the zero-product-inhibition limit, e.g. inhibition constant taken to infinity so accumulated product no longer alters the rate.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "S",
+          "P"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "competitive product inhibition in a closed enzyme assay",
+        "scientific_mechanism": "Competitive product inhibition, where product binds the enzyme and increases the apparent substrate affinity scale without violating nonnegativity or closed-vessel material conservation.",
+        "embedding_pattern": "state_coupling",
+        "difficulty_rationale": "This embedding is harder than a coefficient-only correction because the scored target becomes a joint nonlinear function of two evolving states, so the same substrate level can map to different rates depending on accumulated product.",
+        "taxonomy_match": "known",
+        "assumption_before": "The conversion remains effectively described by a fixed irreversible Michaelis-Menten law independent of accumulated product throughout the observation window.",
+        "assumption_after": "Accumulated product competitively inhibits the enzyme, so the effective substrate saturation scale increases with P during the closed-vessel trajectory.",
+        "before_fragment": "V_max*S/(K_m + S)",
+        "after_fragment": "V_max*S/(K_m*(1 + P/K_i) + S)",
+        "parent_reduction": "K_i -> oo recovers the parent expression.",
+        "observable_signature": "Along the observed trajectory, early points with P near zero follow nearly the parent Michaelis-Menten curve, while later points at appreciable P fall below that curve even before substrate is exhausted; equivalently, dP_dt is no longer a single-valued function of S alone but a lower joint function of S and P when P/K_i is appreciable.",
+        "shortcut_blocked": "A single parent parameter set only defines one substrate-only saturation curve, so after refitting V_max and K_m it cannot reproduce both near-parent early behavior at low P and the extra late slowdown caused specifically by increasing P under the same initial-condition protocol. Matching the late decline by altering K_m or V_max would distort the early-time rates because the parent lacks any direct dependence on accumulated product."
+      },
+      "range_suggestions": {
+        "K_i": "positive; typically on the order of the substrate/product concentration scale, from weak inhibition K_i >> initial S to strong inhibition K_i comparable to or below the product accumulated during the run"
+      }
+    },
+    {
+      "generation": 2,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "At fixed V_max, K_m, and K_i, the target rate depends only on the instantaneous pair (S,P) through competitive inhibition, so along the closed-vessel trajectory the decline in dP_dt is fully determined by substrate loss and product buildup with one fixed inhibition strength.",
+          "child_relation": "Allow the inhibition strength to evolve with accumulated product exposure by relaxing the assumption that catalytic properties remain fixed: the effective product-inhibition scale changes during the run, so the mapping from (S,P) to dP_dt acquires additional curvature beyond the parent's single fixed competitive form.",
+          "affected_inputs": [
+            "S",
+            "P",
+            "K_i"
+          ],
+          "observable_effect": "Across trajectories reaching larger P/S conversion, the rate can bend downward more strongly at late times than predicted by any single fixed-K_i competitive curve, while remaining close to the parent law early when little product has accumulated."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "conversion_fraction",
+            "expression": "P/(S + P)",
+            "role": "progress coordinate in the closed vessel; high values mark regimes where accumulated-product effects are most visible"
+          },
+          {
+            "name": "inhibition_load",
+            "expression": "P/K_i",
+            "role": "dimensionless baseline product-inhibition strength in the parent law"
+          },
+          {
+            "name": "substrate_saturation",
+            "expression": "S/K_m",
+            "role": "dimensionless substrate occupancy regime controlling sensitivity of rate to additional inhibition"
+          }
+        ],
+        "activation_condition": "Observable when the run samples appreciable conversion so that P becomes comparable to K_i and product accumulation is not negligible relative to the substrate/product concentration scale; the contrast is weakest when P << K_i throughout the observation window.",
+        "train_hidden_contrast": "In training, moderate conversion already shows mild extra late-time bending of dP_dt versus (S,P); in holdout trajectories extending to higher conversion, the same mechanism amplifies that curvature, producing stronger suppression than the parent's single fixed competitive surface permits.",
+        "continuation_path": "Recover the parent law when the evolving inhibition strength remains effectively constant over the trajectory, e.g. vanishing adaptation/crowding effect or regimes with P small enough that the modulation is negligible.",
+        "freedom_change": "parameter_to_state",
+        "promoted_symbol": "K_i",
+        "promotion_reason": "To express time- and trajectory-dependent inhibition strength within the closed vessel while preserving the existing states S and P, the inhibition constant itself must become a dynamical quantity; fixed parameters cannot encode history-dependent drift in the target mapping.",
+        "gap_statement": "The current model assumes a fixed product-inhibition constant even as product accumulates substantially, omitting plausible progressive changes in the enzyme's effective inhibitory sensitivity during the run.",
+        "baseline_assumption": "Enzyme concentration and catalytic properties remain constant.",
+        "scientific_mechanism": "Progressive alteration of effective product inhibition during turnover, such as slow conformational adaptation or crowding-driven strengthening of inhibitor binding as product accumulates.",
+        "affected_symbols": [
+          "S",
+          "P",
+          "K_i"
+        ],
+        "rationale": "A realistic next refinement is to relax the parent's fixed-environment shortcut specifically in the already-present inhibition mechanism, rather than adding an unrelated side process. The parent says dP_dt is a fixed competitive function of S and P with one shared K_i, so once S and P are known the rate surface cannot change shape during the run. Under the same closed-vessel initial-condition protocol, vary only how far the trajectory proceeds in conversion (hence how large P becomes), while holding V_max, K_m, initial S, and the absence of side reactions fixed. Then the parent predicts one common inhibition curvature across early and late portions of all runs. A child with evolving effective K_i predicts a concrete contrast: little change at low P, but stronger late-time rate suppression when accumulated product exposure is substantial. This is a changed target mapping, not merely altered auxiliary trajectories, because dP_dt at the same observed (S,P) can differ once inhibition strength has drifted. The effect is scientifically admissible when product reaches at least order K_i or when long observation times allow slow adaptation to emerge; if all runs stay in low-conversion regimes, the refinement may be practically unidentifiable and the parent remains an adequate limit."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "At fixed V_max, K_m, and K_i, the target rate depends only on the instantaneous pair (S,P) through competitive inhibition, so along the closed-vessel trajectory the decline in dP_dt is fully determined by substrate loss and product buildup with one fixed inhibition strength.",
+          "child_relation": "Allow the inhibition strength to evolve with accumulated product exposure by relaxing the assumption that catalytic properties remain fixed: the effective product-inhibition scale changes during the run, so the mapping from (S,P) to dP_dt acquires additional curvature beyond the parent's single fixed competitive form.",
+          "affected_inputs": [
+            "S",
+            "P",
+            "K_i"
+          ],
+          "observable_effect": "Across trajectories reaching larger P/S conversion, the rate can bend downward more strongly at late times than predicted by any single fixed-K_i competitive curve, while remaining close to the parent law early when little product has accumulated."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "conversion_fraction",
+            "expression": "P/(S + P)",
+            "role": "progress coordinate in the closed vessel; high values mark regimes where accumulated-product effects are most visible"
+          },
+          {
+            "name": "inhibition_load",
+            "expression": "P/K_i",
+            "role": "dimensionless baseline product-inhibition strength in the parent law"
+          },
+          {
+            "name": "substrate_saturation",
+            "expression": "S/K_m",
+            "role": "dimensionless substrate occupancy regime controlling sensitivity of rate to additional inhibition"
+          }
+        ],
+        "activation_condition": "Observable when the run samples appreciable conversion so that P becomes comparable to K_i and product accumulation is not negligible relative to the substrate/product concentration scale; the contrast is weakest when P << K_i throughout the observation window.",
+        "train_hidden_contrast": "In training, moderate conversion already shows mild extra late-time bending of dP_dt versus (S,P); in holdout trajectories extending to higher conversion, the same mechanism amplifies that curvature, producing stronger suppression than the parent's single fixed competitive surface permits.",
+        "continuation_path": "Recover the parent law when the evolving inhibition strength remains effectively constant over the trajectory, e.g. vanishing adaptation/crowding effect or regimes with P small enough that the modulation is negligible.",
+        "freedom_change": "parameter_to_state",
+        "promoted_symbol": "K_i",
+        "promotion_reason": "To express time- and trajectory-dependent inhibition strength within the closed vessel while preserving the existing states S and P, the inhibition constant itself must become a dynamical quantity; fixed parameters cannot encode history-dependent drift in the target mapping.",
+        "scope_kind": "memory",
+        "scope_symbols": [
+          "S",
+          "P",
+          "K_i"
+        ],
+        "structural_role": "feedback",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "product-driven progressive strengthening of effective inhibition",
+        "scientific_mechanism": "Progressive alteration of effective product inhibition during turnover, such as slow conformational adaptation or crowding-driven strengthening of inhibitor binding as product accumulates.",
+        "embedding_pattern": "competing_processes",
+        "difficulty_rationale": "This embedding is harder than a coefficient-only correction because the promoted K_i state creates a competing process between retention of the initial inhibition scale and product-driven drift toward stronger inhibition, introducing trajectory history into the scored rate law.",
+        "taxonomy_match": "known",
+        "assumption_before": "Enzyme concentration and catalytic properties remain constant.",
+        "assumption_after": "Catalytic inhibitory sensitivity can drift during the run through product-driven adaptation or crowding, so the effective inhibition constant evolves dynamically.",
+        "before_fragment": "V_max*S/(K_m*(1 + P/K_i) + S)",
+        "after_fragment": "V_max*S/(K_m*(1 + P/K_i) + S)",
+        "parent_reduction": "k_Ki_decay = 0",
+        "observable_signature": "At the same observed (S,P), especially at high conversion_fraction and inhibition_load, the child permits lower dP_dt after prolonged product exposure because K_i has drifted downward; early low-P points remain close to the parent. The changed target mapping is visible when trajectories reach appreciable P relative to K_i, not merely in auxiliary state evolution.",
+        "shortcut_blocked": "A single parent parameter set cannot reproduce both near-parent early behavior and extra late-time suppression across runs of different conversion extent, because with fixed K_i the parent assigns one unique dP_dt to each observed (S,P). Here the same (S,P) can correspond to different dP_dt once K_i has evolved through history, so refitting V_max, K_m, and one constant K_i cannot absorb the contrast over all such conditions."
+      },
+      "range_suggestions": {
+        "K_i": "positive initial value on the substrate/product concentration scale; weak-to-strong initial inhibition from much larger than initial S to comparable to product reached during the run",
+        "k_Ki_decay": "positive; near zero recovers parent-like behavior, larger values give appreciable K_i drift over the observation window",
+        "K_i_min": "positive and less than or equal to the initial K_i; asymptotic strengthened-inhibition scale"
+      }
+    },
+    {
+      "generation": 3,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "At fixed V_max, K_m, and evolving K_i, the target rate is a single Michaelis-hyperbolic function of S with competitive product inhibition by P; for any observed trajectory point the P-dependence enters only through the denominator factor 1 + P/K_i, so increasing P can only depress the rate monotonically in one inhibition mode.",
+          "child_relation": "Retain product inhibition but relax the assumption that product acts only competitively: product also lowers catalytic turnover through a noncompetitive component, so dP_dt depends on P through both the apparent affinity term and an additional catalytic suppression term, changing the rate-vs-P curvature and late-time decline shape at the same S.",
+          "affected_inputs": [
+            "S",
+            "P"
+          ],
+          "observable_effect": "Across trajectories that reach low-to-moderate versus high product levels while enzyme loading and medium are fixed, the child shows a stronger-than-competitive drop in product-formation rate at high P, producing extra downward bending of dP_dt versus P/S that the parent cannot match with one shared parameter set without distorting early-time behavior."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "prod_sub_ratio",
+            "expression": "P/(S + 1.0e-12)",
+            "role": "extent of product buildup relative to remaining substrate, marking the regime where additional product-induced suppression becomes visible"
+          },
+          {
+            "name": "competitive_load",
+            "expression": "P/K_i",
+            "role": "existing competitive inhibition coordinate in the parent mapping"
+          },
+          {
+            "name": "substrate_saturation",
+            "expression": "S/(K_m + S)",
+            "role": "baseline substrate-occupancy scale against which extra catalytic suppression changes curvature"
+          }
+        ],
+        "activation_condition": "Observable when product accumulates to a scale comparable to inhibitory binding, i.e. P/K_i is no longer small and substrate is not yet fully exhausted; strongest in mid-to-late trajectory segments with appreciable P and remaining S.",
+        "train_hidden_contrast": "In training, moderate product buildup already reveals mild excess deceleration beyond pure competitive inhibition; in holdout trajectories extending to larger P, the same mechanism amplifies into a clearer late-time rate collapse at similar S/(K_m+S), preserving the same qualitative direction of effect.",
+        "continuation_path": "Recover the parent law when the added noncompetitive product-suppression strength tends to zero.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The current model assumes all product feedback is expressed only as a competitive increase in apparent substrate affinity scale, omitting the realistic possibility that accumulated product also reduces catalytic turnover after binding.",
+        "baseline_assumption": "Product inhibition is purely competitive and affects only the Michaelis denominator, not the catalytic capacity of the enzyme-product-substrate system.",
+        "scientific_mechanism": "Mixed product inhibition: accumulated product can bind a distinct or allosterically coupled enzyme form and reduce effective turnover in addition to competing with substrate binding.",
+        "affected_symbols": [
+          "S",
+          "P"
+        ],
+        "rationale": "A realistic next refinement is to relax the overly idealized inhibition form rather than add an unrelated process. The parent target mapping is single-phase in P: with V_max fixed, product can only act through the competitive denominator, giving one specific monotone decay shape of dP_dt as P rises along the closed-vessel trajectory. Holding enzyme amount, mixing, and solution conditions fixed, and varying only how far the reaction progresses within the admissible observation window, a mixed-inhibition child would predict that at the same remaining substrate scale the rate falls more sharply once product becomes appreciable because P now suppresses both apparent affinity and catalytic turnover. This is a changed target mapping, not merely an auxiliary-state change, since dP_dt as a function of observed S and P acquires different curvature. A single refit of the parent parameters cannot generally reproduce both early moderate-P behavior and stronger late high-P suppression across these conditions: increasing competitive strength enough to match late collapse also over-penalizes the rate when P is still modest, while adjusting V_max rescales all times without creating the extra P-dependent bending. The effect is scientifically admissible when product reaches concentrations comparable to its inhibitory scale and is weak or negligible when P remains small, which also provides a clear parent-recovery regime."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "At fixed V_max, K_m, and evolving K_i, the target rate is a single Michaelis-hyperbolic function of S with competitive product inhibition by P; for any observed trajectory point the P-dependence enters only through the denominator factor 1 + P/K_i, so increasing P can only depress the rate monotonically in one inhibition mode.",
+          "child_relation": "Retain product inhibition but relax the assumption that product acts only competitively: product also lowers catalytic turnover through a noncompetitive component, so dP_dt depends on P through both the apparent affinity term and an additional catalytic suppression term, changing the rate-vs-P curvature and late-time decline shape at the same S.",
+          "affected_inputs": [
+            "S",
+            "P"
+          ],
+          "observable_effect": "Across trajectories that reach low-to-moderate versus high product levels while enzyme loading and medium are fixed, the child shows a stronger-than-competitive drop in product-formation rate at high P, producing extra downward bending of dP_dt versus P/S that the parent cannot match with one shared parameter set without distorting early-time behavior."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "prod_sub_ratio",
+            "expression": "P/(S + 1.0e-12)",
+            "role": "extent of product buildup relative to remaining substrate, marking the regime where additional product-induced suppression becomes visible"
+          },
+          {
+            "name": "competitive_load",
+            "expression": "P/K_i",
+            "role": "existing competitive inhibition coordinate in the parent mapping"
+          },
+          {
+            "name": "substrate_saturation",
+            "expression": "S/(K_m + S)",
+            "role": "baseline substrate-occupancy scale against which extra catalytic suppression changes curvature"
+          }
+        ],
+        "activation_condition": "Observable when product accumulates to a scale comparable to inhibitory binding, i.e. P/K_i is no longer small and substrate is not yet fully exhausted; strongest in mid-to-late trajectory segments with appreciable P and remaining S.",
+        "train_hidden_contrast": "In training, moderate product buildup already reveals mild excess deceleration beyond pure competitive inhibition; in holdout trajectories extending to larger P, the same mechanism amplifies into a clearer late-time rate collapse at similar S/(K_m+S), preserving the same qualitative direction of effect.",
+        "continuation_path": "Recover the parent law when the added noncompetitive product-suppression strength tends to zero.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "pairwise",
+        "scope_symbols": [
+          "S",
+          "P"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "mixed product inhibition with catalytic suppression",
+        "scientific_mechanism": "Mixed product inhibition: accumulated product can bind a distinct or allosterically coupled enzyme form and reduce effective turnover in addition to competing with substrate binding.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This embedding is harder than a coefficient-only correction because the catalytic coefficient is now product-dependent, so the target mapping acquires an additional nonlinear P modulation beyond the parent denominator-only inhibition pathway.",
+        "taxonomy_match": "known",
+        "assumption_before": "Product inhibition is purely competitive and affects only the Michaelis denominator, not the catalytic capacity of the enzyme-product-substrate system.",
+        "assumption_after": "Product inhibition is mixed: accumulated product both increases the apparent substrate-competition term and decreases effective catalytic turnover through a product-dependent coefficient.",
+        "before_fragment": "V_max*S/(K_m*(1 + P/K_i) + S)",
+        "after_fragment": "V_max*S/((1 + P/K_icat)*(K_m*(1 + P/K_i) + S))",
+        "parent_reduction": "K_icat -> oo recovers the parent expression.",
+        "observable_signature": "Relative to the parent's single competitive inhibition curve, the child gives nearly the same rates at low P but shows extra downward curvature of dP_dt versus P at fixed or similar S once P becomes comparable to K_icat and K_i; this is directly visible in the scored target mapping, not only in auxiliary K_i trajectories.",
+        "shortcut_blocked": "A single refit of V_max, K_m, and the K_i-dynamics parameters cannot generally mimic this mixed-inhibition shape across admissible low- and high-product regimes. Raising competitive inhibition enough to match the stronger late-time collapse also suppresses moderate-P rates too strongly, while changing V_max rescales the whole trajectory without creating the added P-dependent curvature from the multiplicative catalytic term."
+      },
+      "range_suggestions": {
+        "K_icat": "positive and on the product concentration scale; much larger than typical P gives near-parent behavior, while comparable to product reached during the run yields appreciable noncompetitive turnover suppression"
+      }
+    },
+    {
+      "generation": 4,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "phase_shift",
+          "parent_relation": "The product rate is an instantaneous monotone function of the current substrate and product states, with product suppression acting immediately through competitive and noncompetitive factors.",
+          "child_relation": "Introduce a delayed buildup of product-induced turnover suppression so the rate depends on current S and P together with a slowly relaxing inhibition state; early product accumulation follows near-competitive inhibition only, while later the same P produces stronger turnover loss.",
+          "affected_inputs": [
+            "S",
+            "P"
+          ],
+          "observable_effect": "At similar measured P levels reached along one trajectory, the child can sustain a higher early dP_dt and then bend downward more sharply later, creating a history-dependent lag in suppression that the parent's instantaneous P-only inhibition cannot match with one shared parameter set."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "substrate_saturation",
+            "expression": "S/(K_m + S)",
+            "role": "baseline substrate occupancy scale before inhibition corrections"
+          },
+          {
+            "name": "competitive_load",
+            "expression": "P/K_i",
+            "role": "instantaneous competitive product inhibition strength"
+          },
+          {
+            "name": "noncompetitive_load",
+            "expression": "P/K_icat",
+            "role": "instantaneous turnover-suppression load in the parent law"
+          }
+        ],
+        "activation_condition": "Observable when product accumulates on a timescale comparable to slow establishment of allosteric or conformational product suppression, so K_icat-scale inhibition is appreciable only after finite exposure rather than immediately; weak when suppression equilibration is much faster than the reaction.",
+        "train_hidden_contrast": "Across runs with differing initial substrate pools but fixed enzyme conditions, the child predicts similar early rates at matched low-to-moderate P yet stronger late-stage downturn after sustained product exposure; the same lagged suppression mechanism is visible in training trajectories and becomes clearer in longer holdout trajectories.",
+        "continuation_path": "Recover the parent by taking the suppression-relaxation timescale to zero so the added inhibition state instantaneously equals P, restoring immediate mixed inhibition as a function of current product alone.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A separate slow inhibitory occupancy or conformational state is needed because current S and P alone cannot encode exposure history; without an added state, any refit remains an instantaneous mapping from present P to suppression.",
+        "gap_statement": "The model assumes noncompetitive product suppression responds instantaneously to the current product concentration, omitting delayed establishment of product-bound inactive enzyme or slow allosteric/crowding adaptation.",
+        "baseline_assumption": "Release the assumption that the noncompetitive product-suppression factor is always in instantaneous equilibrium with product concentration.",
+        "scientific_mechanism": "Slow accumulation of an inactive or low-turnover enzyme state induced by product binding or product-driven conformational adaptation, which relaxes toward a product-dependent occupancy over time.",
+        "affected_symbols": [
+          "S",
+          "P"
+        ],
+        "rationale": "Parent response shortcut: a single-phase instantaneous product-feedback law where the same current P simultaneously sets both competitive inhibition and turnover suppression. Varying condition: the reaction trajectory is followed over time under different initial substrate amounts, with enzyme properties and vessel conditions fixed. Held fixed: V_max, K_m, initial K_i, K_i adaptation law, and any new slow suppression kinetics shared across runs. Concrete contrast: in the parent, once P is known, the noncompetitive suppression magnitude is fixed immediately, so matched P implies essentially matched turnover penalty aside from S and K_i differences. In the child, suppression can lag behind P, so early after product begins accumulating the rate remains higher than the parent would allow, followed by a later sharper decline as the slow inhibitory state catches up. This changes the scored target mapping dP_dt, not merely an auxiliary trajectory, because the instantaneous rate at given observed S and P can differ depending on prior exposure. The effect is admissible when slow suppression develops on the experiment timescale and product reaches values comparable to the turnover-suppression scale; if equilibration is effectively instantaneous, the refinement collapses back to the parent."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "phase_shift",
+          "parent_relation": "The product rate is an instantaneous monotone function of the current substrate and product states, with product suppression acting immediately through competitive and noncompetitive factors.",
+          "child_relation": "Introduce a delayed buildup of product-induced turnover suppression so the rate depends on current S and P together with a slowly relaxing inhibition state; early product accumulation follows near-competitive inhibition only, while later the same P produces stronger turnover loss.",
+          "affected_inputs": [
+            "S",
+            "P"
+          ],
+          "observable_effect": "At similar measured P levels reached along one trajectory, the child can sustain a higher early dP_dt and then bend downward more sharply later, creating a history-dependent lag in suppression that the parent's instantaneous P-only inhibition cannot match with one shared parameter set."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "substrate_saturation",
+            "expression": "S/(K_m + S)",
+            "role": "baseline substrate occupancy scale before inhibition corrections"
+          },
+          {
+            "name": "competitive_load",
+            "expression": "P/K_i",
+            "role": "instantaneous competitive product inhibition strength"
+          },
+          {
+            "name": "noncompetitive_load",
+            "expression": "P/K_icat",
+            "role": "instantaneous turnover-suppression load in the parent law"
+          }
+        ],
+        "activation_condition": "Observable when product accumulates on a timescale comparable to slow establishment of allosteric or conformational product suppression, so K_icat-scale inhibition is appreciable only after finite exposure rather than immediately; weak when suppression equilibration is much faster than the reaction.",
+        "train_hidden_contrast": "Across runs with differing initial substrate pools but fixed enzyme conditions, the child predicts similar early rates at matched low-to-moderate P yet stronger late-stage downturn after sustained product exposure; the same lagged suppression mechanism is visible in training trajectories and becomes clearer in longer holdout trajectories.",
+        "continuation_path": "Recover the parent by taking the suppression-relaxation timescale to zero so the added inhibition state instantaneously equals P, restoring immediate mixed inhibition as a function of current product alone.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A separate slow inhibitory occupancy or conformational state is needed because current S and P alone cannot encode exposure history; without an added state, any refit remains an instantaneous mapping from present P to suppression.",
+        "scope_kind": "memory",
+        "scope_symbols": [
+          "S",
+          "P",
+          "I_slow"
+        ],
+        "structural_role": "feedback",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Delayed product-induced noncompetitive suppression through slow inactive-enzyme occupancy or conformational adaptation.",
+        "scientific_mechanism": "Slow accumulation of an inactive or low-turnover enzyme state induced by product binding or product-driven conformational adaptation, which relaxes toward a product-dependent occupancy over time.",
+        "embedding_pattern": "nested_nonlinearity",
+        "difficulty_rationale": "The refinement is harder than a coefficient correction because the quantity entering the nonlinear suppression denominator is no longer the observed product directly but a dynamical state generated from past product exposure, producing a nested nonlinear memory effect.",
+        "taxonomy_match": "known",
+        "assumption_before": "Noncompetitive product suppression is in instantaneous equilibrium with current product concentration.",
+        "assumption_after": "Noncompetitive product suppression is mediated by a slow inhibitory occupancy or conformational state that relaxes toward current product concentration.",
+        "before_fragment": "V_max*S/((1 + P/K_icat)*(K_m*(1 + P/K_i) + S))",
+        "after_fragment": "V_max*S/((1 + I_slow/K_icat)*(K_m*(1 + P/K_i) + S))",
+        "parent_reduction": "In the fast-relaxation limit where I_slow tracks P, the child reduces to the parent law.",
+        "observable_signature": "Along trajectories with different initial substrate pools but shared parameters, the child shows near-parent competitive inhibition at early times because I_slow lags behind rising P, then a later sharper decline once I_slow approaches accumulated product exposure. Thus at comparable observed S and P, dP_dt can be higher earlier and lower later than any instantaneous parent mapping, directly altering the scored target relation rather than only an auxiliary state.",
+        "shortcut_blocked": "The parent uses a single instantaneous suppression factor P/K_icat, so once current S, P, and K_i are fixed it assigns one unique dP_dt. No single refit of V_max, K_m, K_icat, k_Ki_decay, or K_i_min can make suppression weak early and stronger later at matched observed S and P across the stated conditions, because exposure history is absent unless a separate memory state is added."
+      },
+      "range_suggestions": {
+        "I_slow": "nonnegative and on the product concentration scale; starting near zero gives delayed noncompetitive suppression, while values comparable to reached product concentrations produce appreciable turnover loss",
+        "k_Islow_relax": "positive; small relative to the characteristic reaction-progress timescale yields visible lag, large yields near-instantaneous recovery of the parent law"
+      }
+    },
+    {
+      "generation": 5,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The target rate decreases with product through an instantaneous competitive factor P/K_i and a single delayed noncompetitive suppression load I_slow, so product inhibition enters as one smooth phase of slowing tied directly to P and one linear relaxation toward P.",
+          "child_relation": "Retain the same inhibited Michaelis structure but relax the assumption that the competitive product-inhibition strength adapts linearly with cumulative product exposure; instead make that adaptation saturate with product so the target shows an early strong curvature change that later plateaus in its sensitivity to further product accumulation.",
+          "affected_inputs": [
+            "P",
+            "K_i"
+          ],
+          "observable_effect": "Across trajectories with the same initial substrate and enzyme settings, the child predicts that dP_dt versus P can bend more sharply at intermediate product levels and then partially stabilize because competitive inhibition strengthening saturates, whereas the parent keeps progressively changing inhibition strength in a single exponential-like fashion."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "prod_load",
+            "expression": "P",
+            "role": "instantaneous accumulated product burden driving inhibition"
+          },
+          {
+            "name": "comp_inhib_ratio",
+            "expression": "P/K_i",
+            "role": "current competitive inhibition strength seen by the rate law"
+          },
+          {
+            "name": "slow_noncomp_ratio",
+            "expression": "I_slow/K_icat",
+            "role": "current delayed turnover-suppression burden"
+          },
+          {
+            "name": "binding_margin",
+            "expression": "K_i - K_i_min",
+            "role": "remaining room for further strengthening of competitive inhibition"
+          }
+        ],
+        "activation_condition": "Observable when product rises to a scale comparable to the adaptation-driving range so that K_i has moved appreciably away from its initial value but not yet fully to K_i_min; if product stays very low or K_i remains near constant, the contrast is weak.",
+        "train_hidden_contrast": "In training, moderate product accumulation already reveals departure from a single-phase decline in competitive inhibition scale; in holdout, later-time higher-product segments extend this into a visible plateau of K_i evolution and corresponding dP_dt curvature change.",
+        "continuation_path": "Recover the parent by taking the saturation of the revised K_i adaptation law to be effectively absent over the observed product range, so the adaptation reduces to the current linear-in-P decay form.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The model assumes the product-driven evolution of the effective competitive inhibition constant is proportional to P at all product levels, implying unlimited growth in adaptation drive as product accumulates before the asymptote is reached.",
+        "baseline_assumption": "The effective inhibition-scale dynamics obey first-order decay with a product-proportional driving term -k_Ki_decay*P*(K_i-K_i_min).",
+        "scientific_mechanism": "Product-induced strengthening of competitive inhibition often reflects finite-site conformational or crowding adaptation, so the drive for further reduction in K_i should itself saturate as product occupancy/exposure becomes high.",
+        "affected_symbols": [
+          "P",
+          "K_i"
+        ],
+        "rationale": "A realistic next refinement is to relax the linear exposure assumption in the K_i state equation, not to add a wholly new process. The parent target mapping has a single-phase shortcut: for fixed V_max, K_m, K_icat, and k_Islow_relax, the scored rate changes with product through one instantaneous competitive term and one delayed suppression state, while the competitive-adaptation state K_i is driven by a linearly increasing function of P. Varying time along the standard closed-vessel trajectory changes P while initial conditions and enzyme conditions are held fixed. Under admissible conditions where product reaches moderate to high levels and K_i is still above K_i_min, the child would show a different dP_dt-versus-P curvature: early product rise can strengthen inhibition noticeably, but later increases in P produce diminishing additional change in K_i and therefore a partial flattening of the rate-law distortion. A single parent parameter set cannot reproduce both an initially strong adaptation response and a later saturation of that same adaptation drive if both are visible on the same observed trajectory, because its K_i dynamics remain proportional to P throughout. This affects the target mapping directly, not only an auxiliary state, since K_i enters the denominator of dP_dt. The contrast is limited when P never leaves the low-product regime or when K_i is already near K_i_min, in which case the refinement may be practically unidentifiable."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The target rate decreases with product through an instantaneous competitive factor P/K_i and a single delayed noncompetitive suppression load I_slow, so product inhibition enters as one smooth phase of slowing tied directly to P and one linear relaxation toward P.",
+          "child_relation": "Retain the same inhibited Michaelis structure but relax the assumption that the competitive product-inhibition strength adapts linearly with cumulative product exposure; instead make that adaptation saturate with product so the target shows an early strong curvature change that later plateaus in its sensitivity to further product accumulation.",
+          "affected_inputs": [
+            "P",
+            "K_i"
+          ],
+          "observable_effect": "Across trajectories with the same initial substrate and enzyme settings, the child predicts that dP_dt versus P can bend more sharply at intermediate product levels and then partially stabilize because competitive inhibition strengthening saturates, whereas the parent keeps progressively changing inhibition strength in a single exponential-like fashion."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "prod_load",
+            "expression": "P",
+            "role": "instantaneous accumulated product burden driving inhibition"
+          },
+          {
+            "name": "comp_inhib_ratio",
+            "expression": "P/K_i",
+            "role": "current competitive inhibition strength seen by the rate law"
+          },
+          {
+            "name": "slow_noncomp_ratio",
+            "expression": "I_slow/K_icat",
+            "role": "current delayed turnover-suppression burden"
+          },
+          {
+            "name": "binding_margin",
+            "expression": "K_i - K_i_min",
+            "role": "remaining room for further strengthening of competitive inhibition"
+          }
+        ],
+        "activation_condition": "Observable when product rises to a scale comparable to the adaptation-driving range so that K_i has moved appreciably away from its initial value but not yet fully to K_i_min; if product stays very low or K_i remains near constant, the contrast is weak.",
+        "train_hidden_contrast": "In training, moderate product accumulation already reveals departure from a single-phase decline in competitive inhibition scale; in holdout, later-time higher-product segments extend this into a visible plateau of K_i evolution and corresponding dP_dt curvature change.",
+        "continuation_path": "Recover the parent by taking the saturation of the revised K_i adaptation law to be effectively absent over the observed product range, so the adaptation reduces to the current linear-in-P decay form.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "P",
+          "K_i"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "finite-capacity product-driven adaptation of competitive inhibition strength",
+        "scientific_mechanism": "Product-induced strengthening of competitive inhibition often reflects finite-site conformational or crowding adaptation, so the drive for further reduction in K_i should itself saturate as product occupancy/exposure becomes high.",
+        "embedding_pattern": "saturating_or_thresholded",
+        "difficulty_rationale": "This embedding is harder than a coefficient-only correction because it changes the shape of the product-to-K_i drive from unbounded linear growth to a finite-capacity saturating response, which in turn changes the trajectory-level curvature of the scored dP_dt mapping through K_i rather than merely rescaling an existing term.",
+        "taxonomy_match": "known",
+        "assumption_before": "Competitive inhibition-scale adaptation is driven proportionally by product at all product levels.",
+        "assumption_after": "Competitive inhibition-scale adaptation is driven by product with finite-capacity saturation at high product burden.",
+        "before_fragment": "V_max*S/((1 + I_slow/K_icat)*(K_m*(1 + P/K_i) + S))",
+        "after_fragment": "V_max*S/((1 + I_slow/K_icat)*(K_m*(1 + P/K_i) + S))",
+        "parent_reduction": "As K_P_sat becomes much larger than observed P, the saturating drive behaves approximately linearly in P over the sampled trajectory after absorbing the scale into k_Ki_decay.",
+        "observable_signature": "With fixed initial substrate and enzyme settings, plotting dP_dt against P along the trajectory shows stronger intermediate bending followed by partial stabilization once product reaches the adaptation-driving range, because K_i evolution slows despite further product accumulation; the parent instead maintains a single-phase increase in adaptation drive proportional to P.",
+        "shortcut_blocked": "A single parent parameter set cannot reproduce both an initially strong adaptation response and a later saturation of that same adaptation drive when both regimes are visible on one observed trajectory, because its K_i dynamics remain proportional to P throughout. Refitting V_max, K_m, K_icat, k_Ki_decay, or k_Islow_relax can shift rate scale or timing but cannot create the finite-capacity plateau in product-driven K_i evolution that directly feeds back into the scored dP_dt mapping."
+      },
+      "range_suggestions": {
+        "K_P_sat": "positive and on the product concentration scale; values comparable to reachable P produce visible saturation of K_i adaptation, while much larger values make the revised law approach the parent over the observed trajectory"
+      }
+    }
+  ],
+  "evolution_provenance": {
+    "dimension_track": null,
+    "mechanism_profile": {
+      "allowed_structural_roles": [
+        "response_law",
+        "modulation",
+        "interaction",
+        "constraint",
+        "transition",
+        "feedback"
+      ],
+      "preferred_scopes": [
+        "unary",
+        "pairwise",
+        "multiway",
+        "state_coupling"
+      ],
+      "domain_mechanisms": [
+        {
+          "id": "enzyme_inhibition",
+          "description": "competitive, noncompetitive, or allosteric inhibition",
+          "operations": [
+            "add_term",
+            "change_assumption"
+          ]
+        },
+        {
+          "id": "finite_enzyme_capacity",
+          "description": "finite enzyme occupancy or catalytic capacity",
+          "operations": [
+            "add_term",
+            "change_assumption"
+          ]
+        },
+        {
+          "id": "temperature_rate_modulation",
+          "description": "temperature-dependent kinetic rate",
+          "operations": [
+            "change_assumption"
+          ]
+        },
+        {
+          "id": "product_feedback",
+          "description": "product inhibition or feedback regulation",
+          "operations": [
+            "add_term"
+          ]
+        }
+      ],
+      "profile_source": "subfield",
+      "ontology_schema_version": "1.0",
+      "taxonomy_schema_version": "1.0"
+    },
+    "baseline_mechanisms": [
+      "Enzyme-catalyzed conversion of substrate into product.",
+      "Substrate depletion coupled to product accumulation in a closed vessel."
+    ],
+    "baseline_assumptions": [
+      "The reaction is effectively irreversible during the observation window.",
+      "Enzyme concentration and catalytic properties remain constant.",
+      "The vessel is well mixed and has no material exchange with its surroundings.",
+      "No side reactions consume substrate or product."
+    ],
+    "scientific_constraints": [
+      "Substrate and product concentrations must remain nonnegative.",
+      "The combined substrate-derived material must be conserved.",
+      "Product accumulation must be directionally nondecreasing in the baseline model."
+    ],
+    "refinement_agenda": [
+      "Add reversible product binding and reverse catalysis.",
+      "Add product inhibition of the forward catalytic step.",
+      "Include enzyme inactivation over time.",
+      "Add a competing side reaction that diverts substrate."
+    ],
+    "evolution_contracts": [
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The target rate depends only on substrate through a fixed Michaelis-Menten saturation, so along the closed-vessel trajectory dP_dt is a single decreasing function of S with no direct dependence on accumulated product.",
+          "child_relation": "The target rate depends on both remaining substrate and accumulated product because accumulated product competitively inhibits the enzyme, bending the rate decline more strongly as P rises even at the same S range reached later in the trajectory.",
+          "affected_inputs": [
+            "S",
+            "P"
+          ],
+          "observable_effect": "Compared with the parent, product formation slows disproportionately at later times when product has accumulated; early-time rates remain near the parent law while late-time rates are lower than any single fixed Michaelis-Menten curve fit can match across the full trajectory."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "substrate_saturation",
+            "expression": "S/(K_m + S)",
+            "role": "parent Michaelis-Menten occupancy factor"
+          },
+          {
+            "name": "material_balance",
+            "expression": "S + P",
+            "role": "closed-vessel conserved substrate-derived total"
+          },
+          {
+            "name": "product_to_substrate",
+            "expression": "P/(K_m + S)",
+            "role": "dimensionless indicator of when accumulated product can measurably perturb apparent substrate affinity"
+          }
+        ],
+        "activation_condition": "Observable when product accumulates to a non-negligible fraction of the substrate-affinity scale, i.e. P comparable to the inhibition scale and not restricted to the very early low-conversion regime; with the given closed-vessel initial conditions this occurs naturally at intermediate to late times.",
+        "train_hidden_contrast": "In training, the mechanism already appears as a steeper-than-parent late-trajectory slowdown under the same initial-condition protocol; in holdout, the same product-dependent curvature extends to longer observation windows or parameter settings with stronger inhibition.",
+        "continuation_path": "Recover the parent law in the zero-product-inhibition limit, e.g. inhibition constant taken to infinity so accumulated product no longer alters the rate.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "S",
+          "P"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "competitive product inhibition in a closed enzyme assay",
+        "scientific_mechanism": "Competitive product inhibition, where product binds the enzyme and increases the apparent substrate affinity scale without violating nonnegativity or closed-vessel material conservation.",
+        "embedding_pattern": "state_coupling",
+        "difficulty_rationale": "This embedding is harder than a coefficient-only correction because the scored target becomes a joint nonlinear function of two evolving states, so the same substrate level can map to different rates depending on accumulated product.",
+        "taxonomy_match": "known",
+        "assumption_before": "The conversion remains effectively described by a fixed irreversible Michaelis-Menten law independent of accumulated product throughout the observation window.",
+        "assumption_after": "Accumulated product competitively inhibits the enzyme, so the effective substrate saturation scale increases with P during the closed-vessel trajectory.",
+        "before_fragment": "V_max*S/(K_m + S)",
+        "after_fragment": "V_max*S/(K_m*(1 + P/K_i) + S)",
+        "parent_reduction": "K_i -> oo recovers the parent expression.",
+        "observable_signature": "Along the observed trajectory, early points with P near zero follow nearly the parent Michaelis-Menten curve, while later points at appreciable P fall below that curve even before substrate is exhausted; equivalently, dP_dt is no longer a single-valued function of S alone but a lower joint function of S and P when P/K_i is appreciable.",
+        "shortcut_blocked": "A single parent parameter set only defines one substrate-only saturation curve, so after refitting V_max and K_m it cannot reproduce both near-parent early behavior at low P and the extra late slowdown caused specifically by increasing P under the same initial-condition protocol. Matching the late decline by altering K_m or V_max would distort the early-time rates because the parent lacks any direct dependence on accumulated product."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "At fixed V_max, K_m, and K_i, the target rate depends only on the instantaneous pair (S,P) through competitive inhibition, so along the closed-vessel trajectory the decline in dP_dt is fully determined by substrate loss and product buildup with one fixed inhibition strength.",
+          "child_relation": "Allow the inhibition strength to evolve with accumulated product exposure by relaxing the assumption that catalytic properties remain fixed: the effective product-inhibition scale changes during the run, so the mapping from (S,P) to dP_dt acquires additional curvature beyond the parent's single fixed competitive form.",
+          "affected_inputs": [
+            "S",
+            "P",
+            "K_i"
+          ],
+          "observable_effect": "Across trajectories reaching larger P/S conversion, the rate can bend downward more strongly at late times than predicted by any single fixed-K_i competitive curve, while remaining close to the parent law early when little product has accumulated."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "conversion_fraction",
+            "expression": "P/(S + P)",
+            "role": "progress coordinate in the closed vessel; high values mark regimes where accumulated-product effects are most visible"
+          },
+          {
+            "name": "inhibition_load",
+            "expression": "P/K_i",
+            "role": "dimensionless baseline product-inhibition strength in the parent law"
+          },
+          {
+            "name": "substrate_saturation",
+            "expression": "S/K_m",
+            "role": "dimensionless substrate occupancy regime controlling sensitivity of rate to additional inhibition"
+          }
+        ],
+        "activation_condition": "Observable when the run samples appreciable conversion so that P becomes comparable to K_i and product accumulation is not negligible relative to the substrate/product concentration scale; the contrast is weakest when P << K_i throughout the observation window.",
+        "train_hidden_contrast": "In training, moderate conversion already shows mild extra late-time bending of dP_dt versus (S,P); in holdout trajectories extending to higher conversion, the same mechanism amplifies that curvature, producing stronger suppression than the parent's single fixed competitive surface permits.",
+        "continuation_path": "Recover the parent law when the evolving inhibition strength remains effectively constant over the trajectory, e.g. vanishing adaptation/crowding effect or regimes with P small enough that the modulation is negligible.",
+        "freedom_change": "parameter_to_state",
+        "promoted_symbol": "K_i",
+        "promotion_reason": "To express time- and trajectory-dependent inhibition strength within the closed vessel while preserving the existing states S and P, the inhibition constant itself must become a dynamical quantity; fixed parameters cannot encode history-dependent drift in the target mapping.",
+        "scope_kind": "memory",
+        "scope_symbols": [
+          "S",
+          "P",
+          "K_i"
+        ],
+        "structural_role": "feedback",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "product-driven progressive strengthening of effective inhibition",
+        "scientific_mechanism": "Progressive alteration of effective product inhibition during turnover, such as slow conformational adaptation or crowding-driven strengthening of inhibitor binding as product accumulates.",
+        "embedding_pattern": "competing_processes",
+        "difficulty_rationale": "This embedding is harder than a coefficient-only correction because the promoted K_i state creates a competing process between retention of the initial inhibition scale and product-driven drift toward stronger inhibition, introducing trajectory history into the scored rate law.",
+        "taxonomy_match": "known",
+        "assumption_before": "Enzyme concentration and catalytic properties remain constant.",
+        "assumption_after": "Catalytic inhibitory sensitivity can drift during the run through product-driven adaptation or crowding, so the effective inhibition constant evolves dynamically.",
+        "before_fragment": "V_max*S/(K_m*(1 + P/K_i) + S)",
+        "after_fragment": "V_max*S/(K_m*(1 + P/K_i) + S)",
+        "parent_reduction": "k_Ki_decay = 0",
+        "observable_signature": "At the same observed (S,P), especially at high conversion_fraction and inhibition_load, the child permits lower dP_dt after prolonged product exposure because K_i has drifted downward; early low-P points remain close to the parent. The changed target mapping is visible when trajectories reach appreciable P relative to K_i, not merely in auxiliary state evolution.",
+        "shortcut_blocked": "A single parent parameter set cannot reproduce both near-parent early behavior and extra late-time suppression across runs of different conversion extent, because with fixed K_i the parent assigns one unique dP_dt to each observed (S,P). Here the same (S,P) can correspond to different dP_dt once K_i has evolved through history, so refitting V_max, K_m, and one constant K_i cannot absorb the contrast over all such conditions."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "At fixed V_max, K_m, and evolving K_i, the target rate is a single Michaelis-hyperbolic function of S with competitive product inhibition by P; for any observed trajectory point the P-dependence enters only through the denominator factor 1 + P/K_i, so increasing P can only depress the rate monotonically in one inhibition mode.",
+          "child_relation": "Retain product inhibition but relax the assumption that product acts only competitively: product also lowers catalytic turnover through a noncompetitive component, so dP_dt depends on P through both the apparent affinity term and an additional catalytic suppression term, changing the rate-vs-P curvature and late-time decline shape at the same S.",
+          "affected_inputs": [
+            "S",
+            "P"
+          ],
+          "observable_effect": "Across trajectories that reach low-to-moderate versus high product levels while enzyme loading and medium are fixed, the child shows a stronger-than-competitive drop in product-formation rate at high P, producing extra downward bending of dP_dt versus P/S that the parent cannot match with one shared parameter set without distorting early-time behavior."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "prod_sub_ratio",
+            "expression": "P/(S + 1.0e-12)",
+            "role": "extent of product buildup relative to remaining substrate, marking the regime where additional product-induced suppression becomes visible"
+          },
+          {
+            "name": "competitive_load",
+            "expression": "P/K_i",
+            "role": "existing competitive inhibition coordinate in the parent mapping"
+          },
+          {
+            "name": "substrate_saturation",
+            "expression": "S/(K_m + S)",
+            "role": "baseline substrate-occupancy scale against which extra catalytic suppression changes curvature"
+          }
+        ],
+        "activation_condition": "Observable when product accumulates to a scale comparable to inhibitory binding, i.e. P/K_i is no longer small and substrate is not yet fully exhausted; strongest in mid-to-late trajectory segments with appreciable P and remaining S.",
+        "train_hidden_contrast": "In training, moderate product buildup already reveals mild excess deceleration beyond pure competitive inhibition; in holdout trajectories extending to larger P, the same mechanism amplifies into a clearer late-time rate collapse at similar S/(K_m+S), preserving the same qualitative direction of effect.",
+        "continuation_path": "Recover the parent law when the added noncompetitive product-suppression strength tends to zero.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "pairwise",
+        "scope_symbols": [
+          "S",
+          "P"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "mixed product inhibition with catalytic suppression",
+        "scientific_mechanism": "Mixed product inhibition: accumulated product can bind a distinct or allosterically coupled enzyme form and reduce effective turnover in addition to competing with substrate binding.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This embedding is harder than a coefficient-only correction because the catalytic coefficient is now product-dependent, so the target mapping acquires an additional nonlinear P modulation beyond the parent denominator-only inhibition pathway.",
+        "taxonomy_match": "known",
+        "assumption_before": "Product inhibition is purely competitive and affects only the Michaelis denominator, not the catalytic capacity of the enzyme-product-substrate system.",
+        "assumption_after": "Product inhibition is mixed: accumulated product both increases the apparent substrate-competition term and decreases effective catalytic turnover through a product-dependent coefficient.",
+        "before_fragment": "V_max*S/(K_m*(1 + P/K_i) + S)",
+        "after_fragment": "V_max*S/((1 + P/K_icat)*(K_m*(1 + P/K_i) + S))",
+        "parent_reduction": "K_icat -> oo recovers the parent expression.",
+        "observable_signature": "Relative to the parent's single competitive inhibition curve, the child gives nearly the same rates at low P but shows extra downward curvature of dP_dt versus P at fixed or similar S once P becomes comparable to K_icat and K_i; this is directly visible in the scored target mapping, not only in auxiliary K_i trajectories.",
+        "shortcut_blocked": "A single refit of V_max, K_m, and the K_i-dynamics parameters cannot generally mimic this mixed-inhibition shape across admissible low- and high-product regimes. Raising competitive inhibition enough to match the stronger late-time collapse also suppresses moderate-P rates too strongly, while changing V_max rescales the whole trajectory without creating the added P-dependent curvature from the multiplicative catalytic term."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "phase_shift",
+          "parent_relation": "The product rate is an instantaneous monotone function of the current substrate and product states, with product suppression acting immediately through competitive and noncompetitive factors.",
+          "child_relation": "Introduce a delayed buildup of product-induced turnover suppression so the rate depends on current S and P together with a slowly relaxing inhibition state; early product accumulation follows near-competitive inhibition only, while later the same P produces stronger turnover loss.",
+          "affected_inputs": [
+            "S",
+            "P"
+          ],
+          "observable_effect": "At similar measured P levels reached along one trajectory, the child can sustain a higher early dP_dt and then bend downward more sharply later, creating a history-dependent lag in suppression that the parent's instantaneous P-only inhibition cannot match with one shared parameter set."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "substrate_saturation",
+            "expression": "S/(K_m + S)",
+            "role": "baseline substrate occupancy scale before inhibition corrections"
+          },
+          {
+            "name": "competitive_load",
+            "expression": "P/K_i",
+            "role": "instantaneous competitive product inhibition strength"
+          },
+          {
+            "name": "noncompetitive_load",
+            "expression": "P/K_icat",
+            "role": "instantaneous turnover-suppression load in the parent law"
+          }
+        ],
+        "activation_condition": "Observable when product accumulates on a timescale comparable to slow establishment of allosteric or conformational product suppression, so K_icat-scale inhibition is appreciable only after finite exposure rather than immediately; weak when suppression equilibration is much faster than the reaction.",
+        "train_hidden_contrast": "Across runs with differing initial substrate pools but fixed enzyme conditions, the child predicts similar early rates at matched low-to-moderate P yet stronger late-stage downturn after sustained product exposure; the same lagged suppression mechanism is visible in training trajectories and becomes clearer in longer holdout trajectories.",
+        "continuation_path": "Recover the parent by taking the suppression-relaxation timescale to zero so the added inhibition state instantaneously equals P, restoring immediate mixed inhibition as a function of current product alone.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A separate slow inhibitory occupancy or conformational state is needed because current S and P alone cannot encode exposure history; without an added state, any refit remains an instantaneous mapping from present P to suppression.",
+        "scope_kind": "memory",
+        "scope_symbols": [
+          "S",
+          "P",
+          "I_slow"
+        ],
+        "structural_role": "feedback",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Delayed product-induced noncompetitive suppression through slow inactive-enzyme occupancy or conformational adaptation.",
+        "scientific_mechanism": "Slow accumulation of an inactive or low-turnover enzyme state induced by product binding or product-driven conformational adaptation, which relaxes toward a product-dependent occupancy over time.",
+        "embedding_pattern": "nested_nonlinearity",
+        "difficulty_rationale": "The refinement is harder than a coefficient correction because the quantity entering the nonlinear suppression denominator is no longer the observed product directly but a dynamical state generated from past product exposure, producing a nested nonlinear memory effect.",
+        "taxonomy_match": "known",
+        "assumption_before": "Noncompetitive product suppression is in instantaneous equilibrium with current product concentration.",
+        "assumption_after": "Noncompetitive product suppression is mediated by a slow inhibitory occupancy or conformational state that relaxes toward current product concentration.",
+        "before_fragment": "V_max*S/((1 + P/K_icat)*(K_m*(1 + P/K_i) + S))",
+        "after_fragment": "V_max*S/((1 + I_slow/K_icat)*(K_m*(1 + P/K_i) + S))",
+        "parent_reduction": "In the fast-relaxation limit where I_slow tracks P, the child reduces to the parent law.",
+        "observable_signature": "Along trajectories with different initial substrate pools but shared parameters, the child shows near-parent competitive inhibition at early times because I_slow lags behind rising P, then a later sharper decline once I_slow approaches accumulated product exposure. Thus at comparable observed S and P, dP_dt can be higher earlier and lower later than any instantaneous parent mapping, directly altering the scored target relation rather than only an auxiliary state.",
+        "shortcut_blocked": "The parent uses a single instantaneous suppression factor P/K_icat, so once current S, P, and K_i are fixed it assigns one unique dP_dt. No single refit of V_max, K_m, K_icat, k_Ki_decay, or K_i_min can make suppression weak early and stronger later at matched observed S and P across the stated conditions, because exposure history is absent unless a separate memory state is added."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The target rate decreases with product through an instantaneous competitive factor P/K_i and a single delayed noncompetitive suppression load I_slow, so product inhibition enters as one smooth phase of slowing tied directly to P and one linear relaxation toward P.",
+          "child_relation": "Retain the same inhibited Michaelis structure but relax the assumption that the competitive product-inhibition strength adapts linearly with cumulative product exposure; instead make that adaptation saturate with product so the target shows an early strong curvature change that later plateaus in its sensitivity to further product accumulation.",
+          "affected_inputs": [
+            "P",
+            "K_i"
+          ],
+          "observable_effect": "Across trajectories with the same initial substrate and enzyme settings, the child predicts that dP_dt versus P can bend more sharply at intermediate product levels and then partially stabilize because competitive inhibition strengthening saturates, whereas the parent keeps progressively changing inhibition strength in a single exponential-like fashion."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "prod_load",
+            "expression": "P",
+            "role": "instantaneous accumulated product burden driving inhibition"
+          },
+          {
+            "name": "comp_inhib_ratio",
+            "expression": "P/K_i",
+            "role": "current competitive inhibition strength seen by the rate law"
+          },
+          {
+            "name": "slow_noncomp_ratio",
+            "expression": "I_slow/K_icat",
+            "role": "current delayed turnover-suppression burden"
+          },
+          {
+            "name": "binding_margin",
+            "expression": "K_i - K_i_min",
+            "role": "remaining room for further strengthening of competitive inhibition"
+          }
+        ],
+        "activation_condition": "Observable when product rises to a scale comparable to the adaptation-driving range so that K_i has moved appreciably away from its initial value but not yet fully to K_i_min; if product stays very low or K_i remains near constant, the contrast is weak.",
+        "train_hidden_contrast": "In training, moderate product accumulation already reveals departure from a single-phase decline in competitive inhibition scale; in holdout, later-time higher-product segments extend this into a visible plateau of K_i evolution and corresponding dP_dt curvature change.",
+        "continuation_path": "Recover the parent by taking the saturation of the revised K_i adaptation law to be effectively absent over the observed product range, so the adaptation reduces to the current linear-in-P decay form.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "P",
+          "K_i"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "finite-capacity product-driven adaptation of competitive inhibition strength",
+        "scientific_mechanism": "Product-induced strengthening of competitive inhibition often reflects finite-site conformational or crowding adaptation, so the drive for further reduction in K_i should itself saturate as product occupancy/exposure becomes high.",
+        "embedding_pattern": "saturating_or_thresholded",
+        "difficulty_rationale": "This embedding is harder than a coefficient-only correction because it changes the shape of the product-to-K_i drive from unbounded linear growth to a finite-capacity saturating response, which in turn changes the trajectory-level curvature of the scored dP_dt mapping through K_i rather than merely rescaling an existing term.",
+        "taxonomy_match": "known",
+        "assumption_before": "Competitive inhibition-scale adaptation is driven proportionally by product at all product levels.",
+        "assumption_after": "Competitive inhibition-scale adaptation is driven by product with finite-capacity saturation at high product burden.",
+        "before_fragment": "V_max*S/((1 + I_slow/K_icat)*(K_m*(1 + P/K_i) + S))",
+        "after_fragment": "V_max*S/((1 + I_slow/K_icat)*(K_m*(1 + P/K_i) + S))",
+        "parent_reduction": "As K_P_sat becomes much larger than observed P, the saturating drive behaves approximately linearly in P over the sampled trajectory after absorbing the scale into k_Ki_decay.",
+        "observable_signature": "With fixed initial substrate and enzyme settings, plotting dP_dt against P along the trajectory shows stronger intermediate bending followed by partial stabilization once product reaches the adaptation-driving range, because K_i evolution slows despite further product accumulation; the parent instead maintains a single-phase increase in adaptation drive proportional to P.",
+        "shortcut_blocked": "A single parent parameter set cannot reproduce both an initially strong adaptation response and a later saturation of that same adaptation drive when both regimes are visible on one observed trajectory, because its K_i dynamics remain proportional to P throughout. Refitting V_max, K_m, K_icat, k_Ki_decay, or k_Islow_relax can shift rate scale or timing but cannot create the finite-capacity plateau in product-driven K_i evolution that directly feeds back into the scored dP_dt mapping."
+      }
+    ]
+  },
+  "finalization": {
+    "mode": "candidate",
+    "accepted_generations": 5,
+    "novelty": {
+      "answer": "NOT_EVALUATED"
+    },
+    "total_points": 5000,
+    "evaluation_status": "not_evaluated"
+  }
+}

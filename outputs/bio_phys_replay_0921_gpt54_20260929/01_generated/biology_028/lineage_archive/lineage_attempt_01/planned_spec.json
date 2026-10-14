@@ -1,0 +1,261 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "T_c",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        7200.0
+      ],
+      "n_points": 301,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "effective_heat_capacity",
+      "value": 250000.0
+    },
+    {
+      "symbol": "heat_loss_sensitivity",
+      "value": 0.9
+    },
+    {
+      "symbol": "thermal_set_point",
+      "value": 37.0
+    },
+    {
+      "symbol": "heat_loss_curvature",
+      "value": 0.18
+    },
+    {
+      "symbol": "thermoeffector_adjustment_time",
+      "value": 600.0
+    },
+    {
+      "symbol": "recruitment_time_acceleration",
+      "value": 0.9
+    },
+    {
+      "symbol": "recruitment_activation_scale",
+      "value": 0.4
+    },
+    {
+      "symbol": "slow_effector_weight",
+      "value": 0.35
+    },
+    {
+      "symbol": "slow_recruitment_time",
+      "value": 1800.0
+    },
+    {
+      "symbol": "slow_recruitment_threshold",
+      "value": 0.3
+    },
+    {
+      "symbol": "metabolic_suppression_strength",
+      "value": 0.25
+    },
+    {
+      "symbol": "metabolic_adjustment_time",
+      "value": 3600.0
+    }
+  ],
+  "benchmark_output": "dT_c_dt",
+  "benchmark_target_state": "T_c",
+  "observed_variables": [
+    "t",
+    "T_c",
+    "H",
+    "H_slow",
+    "metabolic_heat_production"
+  ],
+  "rhs_for_integrator": "(metabolic_heat_production - metabolic_heat_production*((1 - slow_effector_weight)*H + slow_effector_weight*H_slow))/effective_heat_capacity",
+  "state_variables": [
+    "T_c",
+    "H",
+    "H_slow",
+    "metabolic_heat_production"
+  ],
+  "state_rhs": [
+    "(metabolic_heat_production - metabolic_heat_production*((1 - slow_effector_weight)*H + slow_effector_weight*H_slow))/effective_heat_capacity",
+    "(exp((heat_loss_sensitivity + heat_loss_curvature*(T_c - thermal_set_point)**2)*(T_c - thermal_set_point)) - H)/((thermoeffector_adjustment_time)/(1 + recruitment_time_acceleration*Piecewise((0, T_c - thermal_set_point <= 0), ((T_c - thermal_set_point)/(recruitment_activation_scale + (T_c - thermal_set_point)), True))))",
+    "(1 + (exp((heat_loss_sensitivity + heat_loss_curvature*(T_c - thermal_set_point)**2)*(T_c - thermal_set_point)) - 1)*Piecewise((0, T_c - thermal_set_point <= 0), ((T_c - thermal_set_point)/(slow_recruitment_threshold + (T_c - thermal_set_point)), True)) - H_slow)/slow_recruitment_time",
+    "((1 - metabolic_suppression_strength*Piecewise((0, T_c - thermal_set_point <= 0), ((T_c - thermal_set_point)/(slow_recruitment_threshold + (T_c - thermal_set_point)), True)))*metabolic_heat_production - metabolic_heat_production)/metabolic_adjustment_time"
+  ],
+  "initial_conditions": {
+    "T_c": 38.0,
+    "H": 1.0,
+    "H_slow": 1.0,
+    "metabolic_heat_production": 80.0
+  },
+  "sanity_expectations": [
+    "At t=0, T_c exceeds thermal_set_point, so the Piecewise above-set-point gates in H, H_slow, and metabolic_heat_production dynamics are active immediately.",
+    "Because H(0)=H_slow(0)=1, the initial dT_c_dt is approximately zero; after a short lag, H should increase and dT_c_dt should become negative, giving delayed cooling onset.",
+    "H should rise faster than H_slow over the early trajectory because slow_recruitment_time is larger than the fast effective recruitment time.",
+    "The combined factor ((1 - slow_effector_weight)*H + slow_effector_weight*H_slow) should exceed 1 during recovery, so T_c should relax downward toward thermal_set_point under fixed conditions.",
+    "metabolic_heat_production should remain positive and decline only modestly, with slower dynamics than H, adding late-phase cooling support rather than dominating the earliest response.",
+    "As T_c approaches thermal_set_point from above, recruitment acceleration and threshold gating should weaken, so H, H_slow, and metabolic suppression tendencies should all move back toward their near-equilibrium regimes.",
+    "With nonzero slow_effector_weight and metabolic_suppression_strength, later portions of recovery should differ from a single-phase parent-like relaxation: a slower shoulder from H_slow buildup and modest extra late-phase cooling from reduced metabolic_heat_production should be visible in exact trajectories."
+  ],
+  "role_corrections": [
+    "dT_c_dt: claimed-output/target derivative -> derived quantity in system RHS (confirmed as target derivative, not emitted dependent variable)",
+    "t: claimed-input/time axis -> independent variable (confirmed)",
+    "T_c: claimed-dynamic state -> dependent variable/target_state (confirmed)",
+    "H: claimed-dynamic state -> state variable (confirmed)",
+    "H_slow: claimed-dynamic state -> state variable (confirmed)",
+    "metabolic_heat_production: claimed-dynamic state -> state variable (confirmed; preserved due to explicit freedom_change parameter_to_state)",
+    "effective_heat_capacity: claimed-parameter -> parameter (confirmed)",
+    "heat_loss_sensitivity: claimed-parameter -> parameter (confirmed)",
+    "thermal_set_point: claimed-parameter -> parameter (confirmed)",
+    "heat_loss_curvature: claimed-parameter -> parameter (confirmed)",
+    "thermoeffector_adjustment_time: claimed-parameter -> parameter (confirmed)",
+    "recruitment_time_acceleration: claimed-parameter -> parameter (confirmed)",
+    "recruitment_activation_scale: claimed-parameter -> parameter (confirmed)",
+    "slow_effector_weight: claimed-parameter -> parameter (confirmed)",
+    "slow_recruitment_time: claimed-parameter -> parameter (confirmed)",
+    "slow_recruitment_threshold: claimed-parameter -> parameter (confirmed)",
+    "metabolic_suppression_strength: claimed-parameter -> parameter (confirmed)",
+    "metabolic_adjustment_time: claimed-parameter -> parameter (confirmed)"
+  ],
+  "rationale": "The validated upstream ODE-system contract is preserved exactly: time t is the sole sampled axis; T_c is the dependent variable and target state; H, H_slow, and metabolic_heat_production are additional dynamic states; and all listed parameter symbols remain fixed parameters. Structural analysis of the displayed target expression confirms it is the RHS for dT_c_dt and is compatible with the target-state equation in the inherited system. The explicit freedom decision promoting metabolic_heat_production to a state is preserved rather than overwritten by algebra. Parameter choices are selected to make the intended mechanisms active but mild. The initial condition T_c(0)=38 with thermal_set_point=37 activates the above-set-point gates immediately. heat_loss_curvature=0.18 gives noticeable state-dependent steepening of heat-loss equilibrium without blow-up over mild temperature elevations. thermoeffector_adjustment_time=600 s together with recruitment_time_acceleration=0.9 and recruitment_activation_scale=0.4 yields visibly faster early H recruitment when T_c is above set point, while slowing as T_c approaches the set point. slow_effector_weight=0.35 and slow_recruitment_time=1800 s preserve a meaningful but not dominant slower branch, producing a second recovery phase rather than collapsing to the parent or saturating completely. slow_recruitment_threshold=0.3 keeps both H_slow recruitment and metabolic suppression active for the inherited initial elevation but not maximally saturated near equilibrium. metabolic_suppression_strength=0.25 and metabolic_adjustment_time=3600 s create modest late-phase metabolic decline, enough to expose phase dependence in dT_c_dt without driving metabolism unrealistically low. The representative substitutions checked on the target RHS were finite and real. A 0-7200 s observation window with 301 points should capture delayed onset, fast recruitment, slower H_slow buildup, and slower metabolic suppression within one exact trajectory family under fixed ambient conditions.",
+  "coverage_report": {},
+  "inactive_mechanisms": [],
+  "target_variance": {},
+  "parent_absorption_report": {},
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_zHuZbIxt79uqJtJHbU1pFXjT"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "(metabolic_heat_production - metabolic_heat_production*((1 - slow_effector_weight)*H + slow_effector_weight*H_slow))/effective_heat_capacity",
+        "target_symbol": "dT_c_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "H",
+          "H_slow",
+          "effective_heat_capacity",
+          "metabolic_heat_production",
+          "slow_effector_weight"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "(-metabolic_heat_production*(H*(1 - slow_effector_weight) + H_slow*slow_effector_weight) + metabolic_heat_production)/ef"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_ArcgQ6HfI0A8hCSuT63WLIom"
+        },
+        {
+          "name": "check_substitution",
+          "id": "call_jOfpKbjM2cdZF9Q1b2OhFKB6"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "(metabolic_heat_production - metabolic_heat_production*((1 - slow_effector_weight)*H + slow_effector_weight*H_slow))/effective_heat_capacity",
+        "target_symbol": "dT_c_dt",
+        "assignments": {
+          "H": 1.0,
+          "H_slow": 1.0,
+          "effective_heat_capacity": 250000.0,
+          "metabolic_heat_production": 80.0,
+          "slow_effector_weight": 0.35
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": 0.0,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "(metabolic_heat_production - metabolic_heat_production*((1 - slow_effector_weight)*H + slow_effector_weight*H_slow))/effective_heat_capacity",
+        "target_symbol": "dT_c_dt",
+        "assignments": {
+          "H": 1.25,
+          "H_slow": 1.05,
+          "effective_heat_capacity": 250000.0,
+          "metabolic_heat_production": 72.0,
+          "slow_effector_weight": 0.35
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": -5.184000000000002e-05,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_hToQmIk6mCYKeaQExiTECVge"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_7TCrYQenMFzZrHt9nihr6QLY"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 4
+}

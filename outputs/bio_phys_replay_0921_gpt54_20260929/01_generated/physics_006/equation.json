@@ -1,0 +1,393 @@
+{
+  "base_id": "m2_electromagnetism_20280761_001",
+  "generation": 5,
+  "operation": "change_assumption",
+  "model_family": "ode",
+  "equation_type": "ode_system",
+  "target_symbol": "dV_C_dt",
+  "expression": "-V_C/(capacitance*(1 + cap_temp_coeff*(T_C - T_ref))*(1 + cap_voltage_coeff*V_C**2)*resistance*(1 + temp_coeff*(T_R - T_ref) + resistance_temp_quadratic_coeff*(T_R - T_ref)**2))",
+  "symbols": [
+    "dV_C_dt",
+    "t",
+    "V_C",
+    "T_R",
+    "T_C",
+    "resistance",
+    "capacitance",
+    "temp_coeff",
+    "cap_temp_coeff",
+    "thermal_capacitance",
+    "thermal_resistance",
+    "T_ref",
+    "T_ambient",
+    "resistance_temp_quadratic_coeff",
+    "cap_thermal_capacitance",
+    "cap_thermal_resistance",
+    "resistor_to_cap_thermal_resistance",
+    "cap_voltage_coeff"
+  ],
+  "symbol_descriptions": [
+    "Time derivative of the capacitor voltage during resistive discharge, in volts per second",
+    "Time in seconds",
+    "Voltage across the capacitor in volts",
+    "Resistor temperature in kelvin",
+    "Capacitor body temperature in kelvin",
+    "Reference resistance of the resistor at T_ref, in ohms",
+    "Reference capacitance at T_ref, in farads",
+    "Linear temperature coefficient of resistance, in inverse kelvin",
+    "Linear temperature coefficient of capacitance referenced to T_ref, in inverse kelvin",
+    "Lumped thermal capacitance of the resistor, in joules per kelvin",
+    "Thermal resistance from resistor to ambient, in kelvin per watt",
+    "Reference temperature at which resistance equals the parameter resistance, in kelvin",
+    "Ambient temperature surrounding the resistor, in kelvin",
+    "Quadratic temperature coefficient of resistance referenced to T_ref, in inverse kelvin squared",
+    "Lumped thermal capacitance of the capacitor body, in joules per kelvin",
+    "Thermal resistance from capacitor to ambient, in kelvin per watt",
+    "Thermal resistance between resistor and capacitor bodies, in kelvin per watt",
+    "Quadratic voltage coefficient of capacitance, setting weak voltage dependence of effective capacitance, in inverse volt squared"
+  ],
+  "symbol_properties": [
+    "O",
+    "V",
+    "S",
+    "S",
+    "S",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P"
+  ],
+  "new_symbol_range_suggestions": {
+    "cap_voltage_coeff": "Weak voltage dependence that preserves positive capacitance over the sampled range, e.g. from near 0 up to about 1e-2 per volt squared in sign and magnitude consistent with the chosen capacitor technology and |cap_voltage_coeff|*V_C**2 < 1 over the experiment"
+  },
+  "derivation_notes": "The ideal linear capacitor assumption is relaxed by letting the effective capacitance be capacitance*(1 + cap_temp_coeff*(T_C - T_ref))*(1 + cap_voltage_coeff*V_C**2), representing weak field-dependent dielectric response. This directly changes the target mapping because the discharge time constant now depends on instantaneous voltage as well as thermal state, while the thermal subsystem is left unchanged as a first-order continuation.",
+  "change_summary": "The successor refines the capacitor law from temperature-only capacitance drift to combined temperature and voltage dependence. This adds explicit same-temperature V_C dependence to the normalized decay rate, producing voltage-dependent semilog curvature across discharge trajectories.",
+  "assumption_audit": {
+    "released_assumption": "Capacitance is independent of capacitor voltage and depends only on reference value plus first-order temperature drift.",
+    "outcome": "law_refinement",
+    "quantity": "capacitance",
+    "quantity_role": "fixed_parameter",
+    "mechanism": "Voltage-dependent dielectric permittivity or depletion effects make the effective capacitance vary with capacitor voltage, altering the RC time constant during discharge.",
+    "reference_condition": {},
+    "parent_reduction": "Taking cap_voltage_coeff -> 0 recovers the parent temperature-only capacitance law and the original target equation."
+  },
+  "add_term_audit": null,
+  "evolution_contract": {
+    "operation": "change_assumption",
+    "parent_shortcut": "single_gain",
+    "response_change": {
+      "type": "curvature_change",
+      "parent_relation": "The target mapping is first-order in V_C with an effective decay gain set only by the instantaneous temperature-dependent RC product, so at fixed T_R and T_C the normalized slope dV_C_dt/V_C is independent of discharge amplitude.",
+      "child_relation": "Refine the capacitor from an ideal linear capacitor to a weakly voltage-dependent capacitor, so the effective capacitance and hence dV_C_dt/V_C also depend on V_C. The normalized decay rate then changes along a trajectory as voltage falls, even at the same temperatures.",
+      "affected_inputs": [
+        "V_C",
+        "T_R",
+        "T_C",
+        "capacitance"
+      ],
+      "observable_effect": "Across trajectories started at different initial voltages but with the same component parameters and similar initial temperatures, the child predicts different early-time normalized decay rates and a voltage-dependent bending of the semilog voltage trace that the parent cannot match with one shared parameter set."
+    },
+    "diagnostic_groups": [
+      {
+        "name": "rc_thermal_gain",
+        "expression": "1/(capacitance*(1 + cap_temp_coeff*(T_C - T_ref))*resistance*(1 + temp_coeff*(T_R - T_ref) + resistance_temp_quadratic_coeff*(T_R - T_ref)**2))",
+        "role": "Parent instantaneous linear discharge gain set by thermal state"
+      },
+      {
+        "name": "voltage_excursion",
+        "expression": "V_C",
+        "role": "Electrical operating level whose effect is omitted by the parent ideal-capacitor law"
+      },
+      {
+        "name": "stored_energy_scale",
+        "expression": "capacitance*V_C**2/2",
+        "role": "Magnitude of electric stress/energy where voltage-dependent capacitance becomes observable"
+      }
+    ],
+    "activation_condition": "Observable when the capacitor technology exhibits non-negligible capacitance change over the sampled voltage range, e.g. moderate-to-large initial V_C excursions compared with the device's small-signal regime, while temperatures remain in the admissible range so thermal effects do not completely dominate.",
+    "train_hidden_contrast": "In training, thermal variation already changes the decay gain; extending to holdout trajectories with a broader spread of initial voltages reveals additional within-trajectory curvature and cross-trajectory normalized-slope differences tied to V_C itself, not just to T_R or T_C.",
+    "continuation_path": "Recover the parent by taking the voltage dependence of capacitance to zero, so capacitance depends only on T_C and the target returns to a purely linear-in-V_C form at fixed thermal state.",
+    "freedom_change": "none",
+    "promoted_symbol": null,
+    "promotion_reason": "",
+    "scope_kind": "state_coupling",
+    "scope_symbols": [
+      "V_C",
+      "T_C",
+      "T_R"
+    ],
+    "structural_role": "response_law",
+    "domain_mechanism_id": "",
+    "domain_mechanism": "Field-dependent capacitor dielectric response during resistive discharge",
+    "scientific_mechanism": "Voltage-dependent dielectric permittivity or depletion effects make the effective capacitance vary with capacitor voltage, altering the RC time constant during discharge even without adding a new state.",
+    "embedding_pattern": "nested_nonlinearity",
+    "difficulty_rationale": "This is harder than a coefficient-only correction because the target denominator now contains a nonlinear map of a combined electrical state, 1 + cap_voltage_coeff*V_C**2, nested inside the RC gain. That creates within-trajectory curvature and cross-trajectory same-temperature amplitude dependence that cannot be reproduced by merely rescaling capacitance or thermal coefficients.",
+    "taxonomy_match": "known",
+    "assumption_before": "The capacitor is electrically linear apart from temperature drift, so capacitance depends only on T_C.",
+    "assumption_after": "The capacitor has weak voltage-dependent capacitance in addition to temperature drift, so the RC time constant varies with both V_C and thermal state.",
+    "before_fragment": "-V_C/(capacitance*(1 + cap_temp_coeff*(T_C - T_ref))*resistance*(1 + temp_coeff*(T_R - T_ref) + resistance_temp_quadratic_coeff*(T_R - T_ref)**2))",
+    "after_fragment": "-V_C/(capacitance*(1 + cap_temp_coeff*(T_C - T_ref))*(1 + cap_voltage_coeff*V_C**2)*resistance*(1 + temp_coeff*(T_R - T_ref) + resistance_temp_quadratic_coeff*(T_R - T_ref)**2))",
+    "parent_reduction": "Taking cap_voltage_coeff -> 0 recovers the parent temperature-only capacitance law and target mapping.",
+    "observable_signature": "At matched T_R and T_C, the parent predicts identical normalized decay rate dV_C_dt/V_C for different voltage amplitudes, whereas the child predicts a systematic V_C-dependent normalized rate and extra semilog-trace bending. This contrast is observable by varying initial V_C while holding resistance, capacitance reference, and thermal parameters fixed.",
+    "shortcut_blocked": "A single parent parameter set cannot reproduce this contrast because all parent parameters act through temperature-dependent gain only; with the same thermal state, the parent normalized slope is amplitude-independent. Retuning capacitance or thermal coefficients can shift overall gain or thermal evolution, but cannot create explicit same-temperature dependence on V_C across trajectories started at different voltages."
+  },
+  "dimension_track": null,
+  "mechanism_profile": {
+    "allowed_structural_roles": [
+      "contribution",
+      "response_law",
+      "modulation",
+      "interaction",
+      "constraint",
+      "transition",
+      "feedback",
+      "heterogeneity",
+      "timescale",
+      "transport_balance"
+    ],
+    "preferred_scopes": [
+      "unary",
+      "pairwise",
+      "state_coupling",
+      "time_forcing"
+    ],
+    "domain_mechanisms": [
+      {
+        "id": "nonlinear_constitutive_response",
+        "description": "nonlinear constitutive or response law",
+        "operations": [
+          "add_term",
+          "change_assumption"
+        ]
+      },
+      {
+        "id": "coupled_field_or_force",
+        "description": "coupling to an already declared field, force, or state",
+        "operations": [
+          "add_term"
+        ]
+      },
+      {
+        "id": "finite_relaxation_or_threshold",
+        "description": "finite response time or physical threshold",
+        "operations": [
+          "change_assumption"
+        ]
+      }
+    ],
+    "profile_source": "subject_fallback",
+    "ontology_schema_version": "1.0",
+    "taxonomy_schema_version": "1.0"
+  },
+  "evolution_plan": {
+    "operation": "change_assumption",
+    "parent_shortcut": "single_gain",
+    "response_change": {
+      "type": "curvature_change",
+      "parent_relation": "The target mapping is first-order in V_C with an effective decay gain set only by the instantaneous temperature-dependent RC product, so at fixed T_R and T_C the normalized slope dV_C_dt/V_C is independent of discharge amplitude.",
+      "child_relation": "Refine the capacitor from an ideal linear capacitor to a weakly voltage-dependent capacitor, so the effective capacitance and hence dV_C_dt/V_C also depend on V_C. The normalized decay rate then changes along a trajectory as voltage falls, even at the same temperatures.",
+      "affected_inputs": [
+        "V_C",
+        "T_R",
+        "T_C",
+        "capacitance"
+      ],
+      "observable_effect": "Across trajectories started at different initial voltages but with the same component parameters and similar initial temperatures, the child predicts different early-time normalized decay rates and a voltage-dependent bending of the semilog voltage trace that the parent cannot match with one shared parameter set."
+    },
+    "diagnostic_groups": [
+      {
+        "name": "rc_thermal_gain",
+        "expression": "1/(capacitance*(1 + cap_temp_coeff*(T_C - T_ref))*resistance*(1 + temp_coeff*(T_R - T_ref) + resistance_temp_quadratic_coeff*(T_R - T_ref)**2))",
+        "role": "Parent instantaneous linear discharge gain set by thermal state"
+      },
+      {
+        "name": "voltage_excursion",
+        "expression": "V_C",
+        "role": "Electrical operating level whose effect is omitted by the parent ideal-capacitor law"
+      },
+      {
+        "name": "stored_energy_scale",
+        "expression": "capacitance*V_C**2/2",
+        "role": "Magnitude of electric stress/energy where voltage-dependent capacitance becomes observable"
+      }
+    ],
+    "activation_condition": "Observable when the capacitor technology exhibits non-negligible capacitance change over the sampled voltage range, e.g. moderate-to-large initial V_C excursions compared with the device's small-signal regime, while temperatures remain in the admissible range so thermal effects do not completely dominate.",
+    "train_hidden_contrast": "In training, thermal variation already changes the decay gain; extending to holdout trajectories with a broader spread of initial voltages reveals additional within-trajectory curvature and cross-trajectory normalized-slope differences tied to V_C itself, not just to T_R or T_C.",
+    "continuation_path": "Recover the parent by taking the voltage dependence of capacitance to zero, so capacitance depends only on T_C and the target returns to a purely linear-in-V_C form at fixed thermal state.",
+    "freedom_change": "none",
+    "promoted_symbol": null,
+    "promotion_reason": "",
+    "gap_statement": "The current model assumes the capacitor is electrically linear apart from temperature drift, omitting the common case that capacitance also depends on the instantaneous applied voltage.",
+    "baseline_assumption": "Capacitance is independent of capacitor voltage and depends only on reference value plus first-order temperature drift.",
+    "scientific_mechanism": "Voltage-dependent dielectric permittivity or depletion effects make the effective capacitance vary with capacitor voltage, altering the RC time constant during discharge even without adding a new state.",
+    "affected_symbols": [
+      "V_C",
+      "T_C",
+      "capacitance"
+    ],
+    "rationale": "A realistic next refinement is to relax the ideal-linear-capacitor assumption rather than adding a new dissipative branch. The parent target law maps positive V_C to dV_C_dt through a single effective gain controlled only by T_R and T_C; therefore, for two trajectories with the same temperatures but different initial voltages, dV_C_dt/V_C is initially the same. In many capacitors, especially high-permittivity ceramics or other field-sensitive dielectrics, capacitance changes with applied voltage, so the child law makes the decay rate depend on both thermal state and voltage level. The distinguishing condition is variation of initial V_C across trajectories while resistance, capacitance reference, and ambient/thermal parameters are held fixed. Then the child predicts that a higher-voltage trajectory can have a systematically different early-time normalized slope and a different curvature as V_C decreases, beyond what the parent can reproduce by one shared refit of thermal coefficients, because those coefficients affect all trajectories through temperature only and do not create an explicit same-temperature dependence on V_C. This refinement changes the scored mapping directly, not merely auxiliary thermal trajectories. It is scientifically admissible so long as the capacitance remains positive and monotone enough that dV_C_dt stays nonpositive and stored energy still decreases; if the benchmark voltage range is too small or the chosen capacitor technology is nearly voltage-invariant, the effect may be weak."
+  },
+  "selected_embedding_pattern": {
+    "description": "Combine declared quantities before applying a nonlinear map, such as relative speed followed by quadratic drag.",
+    "difficulty_level": 8,
+    "operations": [
+      "add_term",
+      "change_assumption"
+    ],
+    "model_families": [
+      "static",
+      "ode"
+    ],
+    "minimum_active_quantities": 2,
+    "weight": 8,
+    "id": "nested_nonlinearity"
+  },
+  "ode_system": {
+    "time_symbol": "t",
+    "target_state": "V_C",
+    "states": [
+      {
+        "symbol": "V_C",
+        "rhs": "-V_C/(capacitance*(1 + cap_temp_coeff*(T_C - T_ref))*(1 + cap_voltage_coeff*V_C**2)*resistance*(1 + temp_coeff*(T_R - T_ref) + resistance_temp_quadratic_coeff*(T_R - T_ref)**2))",
+        "initial_condition": 12.0,
+        "description": "Voltage across the capacitor in volts"
+      },
+      {
+        "symbol": "T_R",
+        "rhs": "(V_C**2/(resistance*(1 + temp_coeff*(T_R - T_ref) + resistance_temp_quadratic_coeff*(T_R - T_ref)**2)) - (T_R - T_ambient)/thermal_resistance - (T_R - T_C)/resistor_to_cap_thermal_resistance)/thermal_capacitance",
+        "initial_condition": 300.0,
+        "description": "Resistor temperature in kelvin"
+      },
+      {
+        "symbol": "T_C",
+        "rhs": "((T_R - T_C)/resistor_to_cap_thermal_resistance - (T_C - T_ambient)/cap_thermal_resistance)/cap_thermal_capacitance",
+        "initial_condition": 300.0,
+        "description": "Capacitor body temperature in kelvin"
+      }
+    ]
+  },
+  "scenario_text": "A charged capacitor discharges through a fixed resistor in an isolated single-loop circuit. Its capacitor voltage is followed from an independently selected initial voltage while the component values remain fixed and known. The target is the instantaneous rate of change of capacitor voltage along each trajectory. The benchmark isolates dissipative electric-energy release into the resistor.",
+  "freedom_change": "none",
+  "promoted_symbol": null,
+  "promotion_reason": "",
+  "parent_shortcut": "single_gain",
+  "response_change": {
+    "type": "curvature_change",
+    "parent_relation": "The target mapping is first-order in V_C with an effective decay gain set only by the instantaneous temperature-dependent RC product, so at fixed T_R and T_C the normalized slope dV_C_dt/V_C is independent of discharge amplitude.",
+    "child_relation": "Refine the capacitor from an ideal linear capacitor to a weakly voltage-dependent capacitor, so the effective capacitance and hence dV_C_dt/V_C also depend on V_C. The normalized decay rate then changes along a trajectory as voltage falls, even at the same temperatures.",
+    "affected_inputs": [
+      "V_C",
+      "T_R",
+      "T_C",
+      "capacitance"
+    ],
+    "observable_effect": "Across trajectories started at different initial voltages but with the same component parameters and similar initial temperatures, the child predicts different early-time normalized decay rates and a voltage-dependent bending of the semilog voltage trace that the parent cannot match with one shared parameter set."
+  },
+  "diagnostic_groups": [
+    {
+      "name": "rc_thermal_gain",
+      "expression": "1/(capacitance*(1 + cap_temp_coeff*(T_C - T_ref))*resistance*(1 + temp_coeff*(T_R - T_ref) + resistance_temp_quadratic_coeff*(T_R - T_ref)**2))",
+      "role": "Parent instantaneous linear discharge gain set by thermal state"
+    },
+    {
+      "name": "voltage_excursion",
+      "expression": "V_C",
+      "role": "Electrical operating level whose effect is omitted by the parent ideal-capacitor law"
+    },
+    {
+      "name": "stored_energy_scale",
+      "expression": "capacitance*V_C**2/2",
+      "role": "Magnitude of electric stress/energy where voltage-dependent capacitance becomes observable"
+    }
+  ],
+  "activation_condition": "Observable when the capacitor technology exhibits non-negligible capacitance change over the sampled voltage range, e.g. moderate-to-large initial V_C excursions compared with the device's small-signal regime, while temperatures remain in the admissible range so thermal effects do not completely dominate.",
+  "train_hidden_contrast": "In training, thermal variation already changes the decay gain; extending to holdout trajectories with a broader spread of initial voltages reveals additional within-trajectory curvature and cross-trajectory normalized-slope differences tied to V_C itself, not just to T_R or T_C.",
+  "continuation_path": "Recover the parent by taking the voltage dependence of capacitance to zero, so capacitance depends only on T_C and the target returns to a purely linear-in-V_C form at fixed thermal state.",
+  "dependent_variable": {
+    "symbol": "dV_C_dt",
+    "description": "Time derivative of the capacitor voltage during resistive discharge, in volts per second"
+  },
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "description": "Time in seconds"
+    }
+  ],
+  "state_variables": [
+    {
+      "symbol": "V_C",
+      "description": "Voltage across the capacitor in volts"
+    },
+    {
+      "symbol": "T_R",
+      "description": "Resistor temperature in kelvin"
+    },
+    {
+      "symbol": "T_C",
+      "description": "Capacitor body temperature in kelvin"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "resistance",
+      "description": "Reference resistance of the resistor at T_ref, in ohms"
+    },
+    {
+      "symbol": "capacitance",
+      "description": "Reference capacitance at T_ref, in farads"
+    },
+    {
+      "symbol": "temp_coeff",
+      "description": "Linear temperature coefficient of resistance, in inverse kelvin"
+    },
+    {
+      "symbol": "cap_temp_coeff",
+      "description": "Linear temperature coefficient of capacitance referenced to T_ref, in inverse kelvin"
+    },
+    {
+      "symbol": "thermal_capacitance",
+      "description": "Lumped thermal capacitance of the resistor, in joules per kelvin"
+    },
+    {
+      "symbol": "thermal_resistance",
+      "description": "Thermal resistance from resistor to ambient, in kelvin per watt"
+    },
+    {
+      "symbol": "T_ref",
+      "description": "Reference temperature at which resistance equals the parameter resistance, in kelvin"
+    },
+    {
+      "symbol": "T_ambient",
+      "description": "Ambient temperature surrounding the resistor, in kelvin"
+    },
+    {
+      "symbol": "resistance_temp_quadratic_coeff",
+      "description": "Quadratic temperature coefficient of resistance referenced to T_ref, in inverse kelvin squared"
+    },
+    {
+      "symbol": "cap_thermal_capacitance",
+      "description": "Lumped thermal capacitance of the capacitor body, in joules per kelvin"
+    },
+    {
+      "symbol": "cap_thermal_resistance",
+      "description": "Thermal resistance from capacitor to ambient, in kelvin per watt"
+    },
+    {
+      "symbol": "resistor_to_cap_thermal_resistance",
+      "description": "Thermal resistance between resistor and capacitor bodies, in kelvin per watt"
+    },
+    {
+      "symbol": "cap_voltage_coeff",
+      "description": "Quadratic voltage coefficient of capacitance, setting weak voltage dependence of effective capacitance, in inverse volt squared"
+    }
+  ]
+}

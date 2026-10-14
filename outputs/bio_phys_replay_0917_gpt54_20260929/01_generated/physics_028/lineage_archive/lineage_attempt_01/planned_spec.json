@@ -1,0 +1,218 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "omega",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        20.0
+      ],
+      "n_points": 401,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "mass",
+      "value": 1.0
+    },
+    {
+      "symbol": "gravity",
+      "value": 9.81
+    },
+    {
+      "symbol": "center_of_mass_distance",
+      "value": 0.5
+    },
+    {
+      "symbol": "moment_of_inertia",
+      "value": 0.25
+    },
+    {
+      "symbol": "damping_coefficient",
+      "value": 0.08
+    },
+    {
+      "symbol": "quadratic_drag_coefficient",
+      "value": 0.02
+    },
+    {
+      "symbol": "wake_relaxation_time",
+      "value": 0.8
+    },
+    {
+      "symbol": "wake_drive_gain",
+      "value": 0.06
+    },
+    {
+      "symbol": "aerodynamic_stiffness_gain",
+      "value": 0.7
+    },
+    {
+      "symbol": "amplitude_softening_gain",
+      "value": 0.8
+    }
+  ],
+  "benchmark_output": "domega_dt",
+  "benchmark_target_state": "omega",
+  "observed_variables": [
+    "t",
+    "theta",
+    "omega",
+    "wake_intensity"
+  ],
+  "rhs_for_integrator": "-(mass * gravity * center_of_mass_distance / moment_of_inertia) * sin(theta) / (1 + aerodynamic_stiffness_gain * (1 + amplitude_softening_gain * (1 - cos(theta))) * Max(wake_intensity - 1, 0)) - (damping_coefficient / moment_of_inertia) * omega - (quadratic_drag_coefficient / moment_of_inertia) * wake_intensity * omega * Abs(omega)",
+  "state_variables": [
+    "theta",
+    "omega",
+    "wake_intensity"
+  ],
+  "state_rhs": [
+    "omega",
+    "-(mass * gravity * center_of_mass_distance / moment_of_inertia) * sin(theta) / (1 + aerodynamic_stiffness_gain * (1 + amplitude_softening_gain * (1 - cos(theta))) * Max(wake_intensity - 1, 0)) - (damping_coefficient / moment_of_inertia) * omega - (quadratic_drag_coefficient / moment_of_inertia) * wake_intensity * omega * Abs(omega)",
+    "(1 - wake_intensity) / wake_relaxation_time + wake_drive_gain * omega**2"
+  ],
+  "initial_conditions": {
+    "theta": 1.0,
+    "omega": 0.0,
+    "wake_intensity": 1.0
+  },
+  "sanity_expectations": [
+    "At t=0, omega=0 and wake_intensity=1, so the quadratic-drag term is exactly zero and the wake-softening factor is inactive; the initial angular acceleration is set only by gravity through - (mass*gravity*center_of_mass_distance/moment_of_inertia) * sin(theta).",
+    "Soon after release, as |omega| grows from zero, domega_dt should differ from the purely gravity-only prediction by an odd viscous term, and at larger |omega| the additional omega*Abs(omega) term should steepen the motion-opposing deceleration relative to a linear-in-omega law.",
+    "Because wake_intensity obeys (1-wake_intensity)/wake_relaxation_time + wake_drive_gain*omega^2, it should rise above 1 during faster passages and relax back toward 1 during slower intervals; it should remain positive and order unity for the chosen parameters.",
+    "When wake_intensity exceeds 1, the restoring term magnitude at a given theta should be smaller than it would be at wake_intensity=1, and this reduction should be stronger at larger |theta| because of the factor 1 + amplitude_softening_gain*(1-cos(theta)).",
+    "Near small |theta| or whenever wake_intensity is close to 1, the amplitude-dependent softening becomes weak and the system locally resembles the parent wake-softened law or, if wake stays near 1, the still earlier damped pendulum law.",
+    "Across later oscillations with similar instantaneous theta and omega but different recent motion history, segments with larger wake_intensity should show stronger quadratic drag and weaker restoring acceleration than low-wake segments."
+  ],
+  "role_corrections": [
+    "domega_dt: claimed-output/target derivative -> dependent target is omega in the typed ODE system (overridden by contract: target labels the RHS for d(omega)/dt, not an independent sampled variable)",
+    "t: claimed-input/time axis -> independent variable t (confirmed)",
+    "theta: claimed-dynamic state -> dynamic state in ode_system, not independent sampled axis (confirmed)",
+    "omega: claimed-dynamic state -> dependent_variable/target_state omega in ode_system (confirmed)",
+    "wake_intensity: claimed-dynamic state -> dynamic state in ode_system (confirmed)",
+    "mass: claimed-parameter -> parameter (confirmed)",
+    "gravity: claimed-parameter -> parameter (confirmed)",
+    "center_of_mass_distance: claimed-parameter -> parameter (confirmed)",
+    "moment_of_inertia: claimed-parameter -> parameter (confirmed)",
+    "damping_coefficient: claimed-parameter -> parameter (confirmed)",
+    "quadratic_drag_coefficient: claimed-parameter -> parameter (confirmed)",
+    "wake_relaxation_time: claimed-parameter -> parameter (confirmed)",
+    "wake_drive_gain: claimed-parameter -> parameter (confirmed)",
+    "aerodynamic_stiffness_gain: claimed-parameter -> parameter (confirmed)",
+    "amplitude_softening_gain: claimed-parameter -> parameter (confirmed)"
+  ],
+  "rationale": "The provided typed ODE contract must be preserved, so this is an ode_system with time as the only sampled axis and omega as the target state whose RHS supplies the exact labels. Structural analysis of the target RHS alone looks explicit in domega_dt, but that does not override the declared system contract for this record. Chosen parameters keep the motion in a realistic underdamped pendulum regime while allowing the recorded mechanisms to become visible along the trajectory. With mass*gravity*center_of_mass_distance/moment_of_inertia = 19.62 s^-2, the small-angle natural timescale is about 0.71 s per radian-frequency inverse and the period is about 1.42 s, so a 20 s window covers many oscillations and wake build/relax cycles. The damping_coefficient/moment_of_inertia = 0.32 s^-1 is weak to moderate, so viscous damping is visible but does not immediately suppress motion. The quadratic drag coefficient gives an additional speed-dependent odd contribution that is negligible near omega≈0 but noticeable at moderate speeds reached during the swing, exposing the curvature change versus the linear-damping parent. wake_relaxation_time = 0.8 s is comparable to but somewhat shorter than the swing period, so wake memory is observable without becoming so slow that wake_intensity drifts unrealistically far from ambient. wake_drive_gain = 0.06 makes wake_intensity rise above 1 during faster passages, which activates both wake-modulated drag and restoring softening. aerodynamic_stiffness_gain = 0.7 and amplitude_softening_gain = 0.8 are positive, moderate values: they do not threaten denominator positivity, but they make high-wake, larger-deflection segments show visibly weaker restoring acceleration than low-wake or small-angle segments. The inherited initial state starts at wake_intensity=1 and omega=0, so wake-mediated effects are initially inactive and become visible only after the trajectory develops nonzero speed; this is a genuine limitation of the given initial condition, not repaired here. Exact noiseless input-output pairs should therefore be generated by integrating the inherited 3-state system over time and reading out omega(t) as the dependent variable with its coupled states available internally to compute the target mapping.",
+  "coverage_report": {},
+  "inactive_mechanisms": [],
+  "target_variance": {},
+  "parent_absorption_report": {},
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_nMnsKh2AGEtiiXa7SZFfilwP"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "-(mass * gravity * center_of_mass_distance / moment_of_inertia) * sin(theta) / (1 + aerodynamic_stiffness_gain * (1 + amplitude_softening_gain * (1 - cos(theta))) * Max(wake_intensity - 1, 0)) - (damping_coefficient / moment_of_inertia) * omega - (quadratic_drag_coefficient / moment_of_inertia) * wake_intensity * omega * Abs(omega)",
+        "target_symbol": "domega_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "aerodynamic_stiffness_gain",
+          "amplitude_softening_gain",
+          "center_of_mass_distance",
+          "damping_coefficient",
+          "gravity",
+          "mass",
+          "moment_of_inertia",
+          "omega",
+          "quadratic_drag_coefficient",
+          "theta",
+          "wake_intensity"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "-damping_coefficient*omega/moment_of_inertia + (-center_of_mass_distance*gravity*mass/moment_of_inertia)*sin(theta)/(aer"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_jQuWrok6pmX8DdkX9pu7nDu6"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "-(mass * gravity * center_of_mass_distance / moment_of_inertia) * sin(theta) / (1 + aerodynamic_stiffness_gain * (1 + amplitude_softening_gain * (1 - cos(theta))) * Max(wake_intensity - 1, 0)) - (damping_coefficient / moment_of_inertia) * omega - (quadratic_drag_coefficient / moment_of_inertia) * wake_intensity * omega * Abs(omega)",
+        "target_symbol": "domega_dt",
+        "assignments": {
+          "mass": 1,
+          "gravity": 9.81,
+          "center_of_mass_distance": 0.5,
+          "moment_of_inertia": 0.25,
+          "damping_coefficient": 0.08,
+          "quadratic_drag_coefficient": 0.02,
+          "wake_relaxation_time": 0.8,
+          "wake_drive_gain": 0.06,
+          "aerodynamic_stiffness_gain": 0.7,
+          "amplitude_softening_gain": 0.8,
+          "theta": 1.0,
+          "omega": 1.2,
+          "wake_intensity": 1.3
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": -13.35949496634877,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_ovGVpAt78woLbgjNZvqZzPA9"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 3
+}

@@ -1,0 +1,1832 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "V_C",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        2.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "resistance",
+      "value": 50.0
+    },
+    {
+      "symbol": "capacitance",
+      "value": 0.01
+    },
+    {
+      "symbol": "temp_coeff",
+      "value": 0.004
+    },
+    {
+      "symbol": "cap_temp_coeff",
+      "value": 0.0005
+    },
+    {
+      "symbol": "thermal_capacitance",
+      "value": 0.2
+    },
+    {
+      "symbol": "thermal_resistance",
+      "value": 8.0
+    },
+    {
+      "symbol": "T_ref",
+      "value": 300.0
+    },
+    {
+      "symbol": "T_ambient",
+      "value": 300.0
+    },
+    {
+      "symbol": "resistance_temp_quadratic_coeff",
+      "value": 1e-06
+    },
+    {
+      "symbol": "cap_thermal_capacitance",
+      "value": 1.5
+    },
+    {
+      "symbol": "cap_thermal_resistance",
+      "value": 20.0
+    },
+    {
+      "symbol": "resistor_to_cap_thermal_resistance",
+      "value": 6.0
+    },
+    {
+      "symbol": "cap_voltage_coeff",
+      "value": 0.002
+    }
+  ],
+  "benchmark_output": "dV_C_dt",
+  "benchmark_target_state": "V_C",
+  "observed_variables": [
+    "t",
+    "V_C",
+    "T_R",
+    "T_C"
+  ],
+  "rhs_for_integrator": "-V_C/(capacitance*(1 + cap_temp_coeff*(T_C - T_ref))*(1 + cap_voltage_coeff*V_C**2)*resistance*(1 + temp_coeff*(T_R - T_ref) + resistance_temp_quadratic_coeff*(T_R - T_ref)**2))",
+  "state_variables": [
+    "V_C",
+    "T_R",
+    "T_C"
+  ],
+  "state_rhs": [
+    "-V_C/(capacitance*(1 + cap_temp_coeff*(T_C - T_ref))*(1 + cap_voltage_coeff*V_C**2)*resistance*(1 + temp_coeff*(T_R - T_ref) + resistance_temp_quadratic_coeff*(T_R - T_ref)**2))",
+    "(V_C**2/(resistance*(1 + temp_coeff*(T_R - T_ref) + resistance_temp_quadratic_coeff*(T_R - T_ref)**2)) - (T_R - T_ambient)/thermal_resistance - (T_R - T_C)/resistor_to_cap_thermal_resistance)/thermal_capacitance",
+    "((T_R - T_C)/resistor_to_cap_thermal_resistance - (T_C - T_ambient)/cap_thermal_resistance)/cap_thermal_capacitance"
+  ],
+  "initial_conditions": {
+    "V_C": 12.0,
+    "T_R": 300.0,
+    "T_C": 300.0
+  },
+  "sanity_expectations": [
+    "V_C(t) should remain nonnegative and decrease monotonically from 12 V over the sampled window because the RHS for dV_C_dt is negative for positive V_C with all chosen denominator factors positive.",
+    "The normalized decay rate -dV_C_dt/V_C should not stay constant in time: it should vary due to both thermal feedback and the explicit factor 1 + cap_voltage_coeff*V_C^2, giving noticeable semilog curvature rather than a perfect exponential.",
+    "T_R should initially rise above 300 K because Joule heating starts at about 2.88 W, then its heating rate should weaken as V_C falls.",
+    "T_C should warm more slowly than T_R and generally lag it, so there should be periods where T_R > T_C > T_ambient rather than instantaneous thermal tracking.",
+    "Because resistance has positive temperature coefficients, resistor self-heating should tend to reduce the magnitude of the discharge rate relative to an isothermal RC with the same instantaneous V_C and T_C.",
+    "The quadratic resistance term should remain a mild correction over the realized temperature excursion, bending the T_R dependence slightly rather than dominating it.",
+    "The voltage-dependent capacitance factor should be largest near the start of discharge and relax toward 1 as V_C decays, so the normalized slope magnitude should generally increase as voltage falls if thermal changes are not overpowering at that moment."
+  ],
+  "role_corrections": [
+    "dV_C_dt: claimed-output/target derivative -> target derivative expression within ode_system contract (confirmed)",
+    "t: claimed-input/time axis -> independent variable/time axis (confirmed)",
+    "V_C: claimed-dynamic state -> dependent variable and state variable (confirmed)",
+    "T_R: claimed-dynamic state -> state variable (confirmed)",
+    "T_C: claimed-dynamic state -> state variable (confirmed)",
+    "resistance: claimed-parameter -> parameter (confirmed)",
+    "capacitance: claimed-parameter -> parameter (confirmed)",
+    "temp_coeff: claimed-parameter -> parameter (confirmed)",
+    "cap_temp_coeff: claimed-parameter -> parameter (confirmed)",
+    "thermal_capacitance: claimed-parameter -> parameter (confirmed)",
+    "thermal_resistance: claimed-parameter -> parameter (confirmed)",
+    "T_ref: claimed-parameter -> parameter (confirmed)",
+    "T_ambient: claimed-parameter -> parameter (confirmed)",
+    "resistance_temp_quadratic_coeff: claimed-parameter -> parameter (confirmed)",
+    "cap_thermal_capacitance: claimed-parameter -> parameter (confirmed)",
+    "cap_thermal_resistance: claimed-parameter -> parameter (confirmed)",
+    "resistor_to_cap_thermal_resistance: claimed-parameter -> parameter (confirmed)",
+    "cap_voltage_coeff: claimed-parameter -> parameter (confirmed)",
+    "equation_type: explicit-from-standalone-expression -> ode_system per supplied validated ODE contract (confirmed by required contract override)"
+  ],
+  "rationale": "Structure check: the standalone target expression is explicit in dV_C_dt, but the supplied typed ODE system contract is the governing object for data generation and must be inherited exactly. The declared roles agree with the contract: V_C, T_R, and T_C are dynamic states; t is the sole sampled axis; all listed component and thermal symbols are fixed parameters. The chosen parameters keep all denominator factors positive near and throughout the intended operating region while making the recorded mechanisms visible without pushing into extreme saturation. Electrical time scale at reference conditions is RC = 50*0.01 = 0.5 s, so sampling t in [0,2] s captures several decay constants plus thermal evolution. Initial discharge power is about 12^2/50 = 2.88 W, enough to produce modest resistor self-heating over a 0.2 J/K thermal mass with 8 K/W cooling, so T_R should rise perceptibly before relaxing, activating electrothermal feedback. The capacitor thermal channel is slower and weaker (1.5 J/K, 20 K/W to ambient, 6 K/W coupling from resistor), so T_C should lag T_R, exposing the added thermal-memory effect rather than collapsing to the proxy limit. The resistor linear TCR 0.004 1/K gives a realistic metallic positive temperature dependence; the quadratic term 1e-6 1/K^2 is mild, so curvature in resistance-vs-temperature is present but not dominant. The capacitance temperature coefficient 5e-4 1/K is small but active over several-kelvin excursions. The voltage coefficient 0.002 1/V^2 yields 1 + cap_voltage_coeff*V_C^2 = 1.288 at the inherited initial 12 V, strong enough to create visible voltage-dependent normalized-slope curvature while respecting the positivity guidance and staying far from singularity. Ambient and reference temperatures are matched at 300 K so heating signatures are attributable to self-dissipation rather than imposed offsets. This plan preserves the inherited initial conditions exactly and produces exact noiseless trajectories and exact target derivatives from the system RHS.",
+  "coverage_report": {
+    "groups": [
+      {
+        "generation": 1,
+        "name": "rc_rate",
+        "expression": "V_C/(resistance*capacitance)",
+        "role": "Parent instantaneous discharge scale",
+        "train_range": [
+          0.7730817785230584,
+          24.0
+        ],
+        "hidden_range": [
+          0.5187191265354938,
+          0.770676325649275
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.7730817785230584,
+          "max": 24.0,
+          "q05": 0.9250615015218443,
+          "median": 4.617678694088246,
+          "q95": 20.78887635943625,
+          "range": 23.226918221476943,
+          "robust_range": 19.863814857914406
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.5187191265354938,
+          "max": 0.770676325649275,
+          "q05": 0.5290930060861417,
+          "median": 0.6322887838916085,
+          "q95": 0.7555759142657554,
+          "range": 0.2519571991137812,
+          "robust_range": 0.2264829081796137
+        }
+      },
+      {
+        "generation": 1,
+        "name": "joule_drive",
+        "expression": "V_C**2/resistance",
+        "role": "Electrical power available to heat the resistor and perturb the decay rate",
+        "train_range": [
+          0.0029882771814218755,
+          2.88
+        ],
+        "hidden_range": [
+          0.0013453476611687283,
+          0.002969709994581337
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0029882771814218755,
+          "max": 2.88,
+          "q05": 0.004278742118307053,
+          "median": 0.10661705761859022,
+          "q95": 2.1609031645989205,
+          "range": 2.877011722818578,
+          "robust_range": 2.1566244224806135
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.0013453476611687283,
+          "max": 0.002969709994581337,
+          "q05": 0.00139970014442038,
+          "median": 0.0019989503877030678,
+          "q95": 0.0028544811124136473,
+          "range": 0.0016243623334126088,
+          "robust_range": 0.0014547809679932673
+        }
+      },
+      {
+        "generation": 1,
+        "name": "stored_energy",
+        "expression": "capacitance*V_C**2/2",
+        "role": "Finite energy budget governing how much thermal drift can accumulate",
+        "train_range": [
+          0.0007470692953554689,
+          0.72
+        ],
+        "hidden_range": [
+          0.00033633691529218207,
+          0.0007424274986453343
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0007470692953554689,
+          "max": 0.72,
+          "q05": 0.0010696855295767632,
+          "median": 0.026654264404647555,
+          "q95": 0.5402257911497301,
+          "range": 0.7192529307046445,
+          "robust_range": 0.5391561056201534
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.00033633691529218207,
+          "max": 0.0007424274986453343,
+          "q05": 0.000349925036105095,
+          "median": 0.0004997375969257669,
+          "q95": 0.0007136202781034118,
+          "range": 0.0004060905833531522,
+          "robust_range": 0.0003636952419983168
+        }
+      },
+      {
+        "generation": 2,
+        "name": "electrothermal_load",
+        "expression": "V_C**2/resistance",
+        "role": "Sets the heating scale that drives resistor-temperature excursions and thus activates temperature-dependent element drift",
+        "train_range": [
+          0.0029882771814218755,
+          2.88
+        ],
+        "hidden_range": [
+          0.0013453476611687283,
+          0.002969709994581337
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0029882771814218755,
+          "max": 2.88,
+          "q05": 0.004278742118307053,
+          "median": 0.10661705761859022,
+          "q95": 2.1609031645989205,
+          "range": 2.877011722818578,
+          "robust_range": 2.1566244224806135
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.0013453476611687283,
+          "max": 0.002969709994581337,
+          "q05": 0.00139970014442038,
+          "median": 0.0019989503877030678,
+          "q95": 0.0028544811124136473,
+          "range": 0.0016243623334126088,
+          "robust_range": 0.0014547809679932673
+        }
+      },
+      {
+        "generation": 2,
+        "name": "resistance_temp_factor",
+        "expression": "1 + temp_coeff*(T_R - T_ref)",
+        "role": "Parent electrothermal modulation of resistance already present in the target mapping",
+        "train_range": [
+          1.0,
+          1.0090600337182813
+        ],
+        "hidden_range": [
+          1.0019074559747858,
+          1.0023470008875137
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 1.0,
+          "max": 1.0090600337182813,
+          "q05": 1.0024511662432405,
+          "median": 1.0056610724883537,
+          "q95": 1.009010359397314,
+          "range": 0.009060033718281346,
+          "robust_range": 0.006559193154073606
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 1.0019074559747858,
+          "max": 1.0023470008875137,
+          "q05": 1.0019266108230265,
+          "median": 1.0021117748014534,
+          "q95": 1.0023219702828394,
+          "range": 0.0004395449127279072,
+          "robust_range": 0.0003953594598129495
+        }
+      },
+      {
+        "generation": 2,
+        "name": "resistor_overheat",
+        "expression": "T_R - T_ref",
+        "role": "Temperature excursion whose effect is currently assumed to act only on resistance",
+        "train_range": [
+          0.0,
+          2.2650084295703437
+        ],
+        "hidden_range": [
+          0.4768639936964405,
+          0.5867502218784466
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 2.2650084295703437,
+          "q05": 0.612791560810092,
+          "median": 1.4152681220884062,
+          "q95": 2.2525898493285523,
+          "range": 2.2650084295703437,
+          "robust_range": 1.6397982885184603
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.4768639936964405,
+          "max": 0.5867502218784466,
+          "q05": 0.4816527057566134,
+          "median": 0.5279437003633802,
+          "q95": 0.5804925707099073,
+          "range": 0.10988622818200611,
+          "robust_range": 0.09883986495329394
+        }
+      },
+      {
+        "generation": 3,
+        "name": "thermal_excursion",
+        "expression": "T_R - T_ref",
+        "role": "Dimensionless-sign thermal offset controlling departure from reference component values",
+        "train_range": [
+          0.0,
+          2.2650084295703437
+        ],
+        "hidden_range": [
+          0.4768639936964405,
+          0.5867502218784466
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 2.2650084295703437,
+          "q05": 0.612791560810092,
+          "median": 1.4152681220884062,
+          "q95": 2.2525898493285523,
+          "range": 2.2650084295703437,
+          "robust_range": 1.6397982885184603
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.4768639936964405,
+          "max": 0.5867502218784466,
+          "q05": 0.4816527057566134,
+          "median": 0.5279437003633802,
+          "q95": 0.5804925707099073,
+          "range": 0.10988622818200611,
+          "robust_range": 0.09883986495329394
+        }
+      },
+      {
+        "generation": 3,
+        "name": "electrothermal_loading",
+        "expression": "V_C**2/(resistance*(1 + temp_coeff*(T_R - T_ref)))",
+        "role": "Instantaneous Joule-heating scale that determines whether resistor self-heating reaches the nonlinear thermal-coefficient regime",
+        "train_range": [
+          0.0029812682949041207,
+          2.88
+        ],
+        "hidden_range": [
+          0.0013427863553124265,
+          0.0029627564026747724
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0029812682949041207,
+          "max": 2.88,
+          "q05": 0.004267666705744024,
+          "median": 0.10592126215685987,
+          "q95": 2.151853569982596,
+          "range": 2.8770187317050957,
+          "robust_range": 2.147585903276852
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.0013427863553124265,
+          "max": 0.0029627564026747724,
+          "q05": 0.0013970086464165318,
+          "median": 0.0019947379396647565,
+          "q95": 0.002847868430769756,
+          "range": 0.001619970047362346,
+          "robust_range": 0.0014508597843532244
+        }
+      },
+      {
+        "generation": 3,
+        "name": "discharge_gain_parent",
+        "expression": "1/(capacitance*(1 + cap_temp_coeff*(T_R - T_ref))*resistance*(1 + temp_coeff*(T_R - T_ref)))",
+        "role": "Parent proportional mapping from V_C to discharge rate at the observed temperature",
+        "train_range": [
+          1.979800494564066,
+          2.0
+        ],
+        "hidden_range": [
+          1.9947317845967465,
+          1.9957165083010968
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 1.979800494564066,
+          "max": 2.0,
+          "q05": 1.979910241537673,
+          "median": 1.9873352840663239,
+          "q95": 1.994498548670081,
+          "range": 0.020199505435934073,
+          "robust_range": 0.014588307132407996
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 1.9947317845967465,
+          "max": 1.9957165083010968,
+          "q05": 1.9947878377941974,
+          "median": 1.9952586586741248,
+          "q95": 1.9956735769531682,
+          "range": 0.000984723704350321,
+          "robust_range": 0.000885739158970722
+        }
+      },
+      {
+        "generation": 4,
+        "name": "delta_TR",
+        "expression": "T_R - T_ref",
+        "role": "Resistor thermal excursion controlling present resistance nonlinearity in the parent",
+        "train_range": [
+          0.0,
+          2.2650084295703437
+        ],
+        "hidden_range": [
+          0.4768639936964405,
+          0.5867502218784466
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 2.2650084295703437,
+          "q05": 0.612791560810092,
+          "median": 1.4152681220884062,
+          "q95": 2.2525898493285523,
+          "range": 2.2650084295703437,
+          "robust_range": 1.6397982885184603
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.4768639936964405,
+          "max": 0.5867502218784466,
+          "q05": 0.4816527057566134,
+          "median": 0.5279437003633802,
+          "q95": 0.5804925707099073,
+          "range": 0.10988622818200611,
+          "robust_range": 0.09883986495329394
+        }
+      },
+      {
+        "generation": 4,
+        "name": "tau_elec_inst",
+        "expression": "capacitance*(1 + cap_temp_coeff*(T_R - T_ref))*resistance*(1 + temp_coeff*(T_R - T_ref) + resistance_temp_quadratic_coeff*(T_R - T_ref)**2)",
+        "role": "Parent instantaneous RC time constant implied by the algebraic temperature-following assumption",
+        "train_range": [
+          0.5,
+          0.5051039672663347
+        ],
+        "hidden_range": [
+          0.5010732851118294,
+          0.5013207044634619
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.5,
+          "max": 0.5051039672663347,
+          "q05": 0.5013793443415107,
+          "median": 0.503187358480239,
+          "q95": 0.5050759412605138,
+          "range": 0.005103967266334664,
+          "robust_range": 0.003696596919003148
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.5010732851118294,
+          "max": 0.5013207044634619,
+          "q05": 0.5010840666000775,
+          "median": 0.5011882914497107,
+          "q95": 0.5013066137907634,
+          "range": 0.0002474193516325274,
+          "robust_range": 0.00022254719068581785
+        }
+      },
+      {
+        "generation": 4,
+        "name": "p_joule",
+        "expression": "V_C**2/(resistance*(1 + temp_coeff*(T_R - T_ref) + resistance_temp_quadratic_coeff*(T_R - T_ref)**2))",
+        "role": "Electrical heating rate that drives resistor temperature and indirectly reveals when thermal lag effects can accumulate",
+        "train_range": [
+          0.002981267267462757,
+          2.88
+        ],
+        "hidden_range": [
+          0.001342786050545191,
+          0.002962755385058071
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.002981267267462757,
+          "max": 2.88,
+          "q05": 0.00426766491396239,
+          "median": 0.10592097835323053,
+          "q95": 2.1518512008284065,
+          "range": 2.877018732732537,
+          "robust_range": 2.147583535914444
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.001342786050545191,
+          "max": 0.002962755385058071,
+          "q05": 0.001397008322947075,
+          "median": 0.00199473738485092,
+          "q95": 0.0028478674733371664,
+          "range": 0.00161996933451288,
+          "robust_range": 0.0014508591503900913
+        }
+      },
+      {
+        "generation": 5,
+        "name": "rc_thermal_gain",
+        "expression": "1/(capacitance*(1 + cap_temp_coeff*(T_C - T_ref))*resistance*(1 + temp_coeff*(T_R - T_ref) + resistance_temp_quadratic_coeff*(T_R - T_ref)**2))",
+        "role": "Parent instantaneous linear discharge gain set by thermal state",
+        "train_range": [
+          1.9819569936631936,
+          2.0
+        ],
+        "hidden_range": [
+          1.9950700232929748,
+          1.9959409976469291
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 1.9819569936631936,
+          "max": 2.0,
+          "q05": 1.9820552027004479,
+          "median": 1.9885961370344116,
+          "q95": 1.9948638869625885,
+          "range": 0.018043006336806444,
+          "robust_range": 0.012808684262140657
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 1.9950700232929748,
+          "max": 1.9959409976469291,
+          "q05": 1.995119571352985,
+          "median": 1.9955358841528759,
+          "q95": 1.995902997886574,
+          "range": 0.0008709743539543346,
+          "robust_range": 0.0007834265335890933
+        }
+      },
+      {
+        "generation": 5,
+        "name": "voltage_excursion",
+        "expression": "V_C",
+        "role": "Electrical operating level whose effect is omitted by the parent ideal-capacitor law",
+        "train_range": [
+          0.3865408892615292,
+          12.0
+        ],
+        "hidden_range": [
+          0.2593595632677469,
+          0.3853381628246375
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.3865408892615292,
+          "max": 12.0,
+          "q05": 0.46253075076092215,
+          "median": 2.308839347044123,
+          "q95": 10.394438179718126,
+          "range": 11.613459110738471,
+          "robust_range": 9.931907428957203
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.2593595632677469,
+          "max": 0.3853381628246375,
+          "q05": 0.26454650304307087,
+          "median": 0.31614439194580424,
+          "q95": 0.3777879571328777,
+          "range": 0.1259785995568906,
+          "robust_range": 0.11324145408980685
+        }
+      },
+      {
+        "generation": 5,
+        "name": "stored_energy_scale",
+        "expression": "capacitance*V_C**2/2",
+        "role": "Magnitude of electric stress/energy where voltage-dependent capacitance becomes observable",
+        "train_range": [
+          0.0007470692953554689,
+          0.72
+        ],
+        "hidden_range": [
+          0.00033633691529218207,
+          0.0007424274986453343
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0007470692953554689,
+          "max": 0.72,
+          "q05": 0.0010696855295767632,
+          "median": 0.026654264404647555,
+          "q95": 0.5402257911497301,
+          "range": 0.7192529307046445,
+          "robust_range": 0.5391561056201534
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.00033633691529218207,
+          "max": 0.0007424274986453343,
+          "q05": 0.000349925036105095,
+          "median": 0.0004997375969257669,
+          "q95": 0.0007136202781034118,
+          "range": 0.0004060905833531522,
+          "robust_range": 0.0003636952419983168
+        }
+      }
+    ],
+    "inactive_mechanisms": [],
+    "visible_mechanisms": [
+      "rc_rate",
+      "joule_drive",
+      "stored_energy",
+      "electrothermal_load",
+      "resistance_temp_factor",
+      "resistor_overheat",
+      "thermal_excursion",
+      "electrothermal_loading",
+      "discharge_gain_parent",
+      "delta_TR",
+      "tau_elec_inst",
+      "p_joule",
+      "rc_thermal_gain",
+      "voltage_excursion",
+      "stored_energy_scale"
+    ],
+    "extended_mechanisms": [
+      "rc_rate",
+      "joule_drive",
+      "stored_energy",
+      "electrothermal_load",
+      "resistance_temp_factor",
+      "resistor_overheat",
+      "thermal_excursion",
+      "electrothermal_loading",
+      "discharge_gain_parent",
+      "delta_TR",
+      "tau_elec_inst",
+      "p_joule",
+      "rc_thermal_gain",
+      "voltage_excursion",
+      "stored_energy_scale"
+    ]
+  },
+  "inactive_mechanisms": [],
+  "target_variance": {
+    "train": {
+      "n": 384,
+      "variance": 28.31508079421717,
+      "range": 17.862597651221968
+    },
+    "hidden": {
+      "n": 128,
+      "variance": 0.005318005110127004,
+      "range": 0.2509516302013134
+    }
+  },
+  "parent_absorption_report": {
+    "status": "ok",
+    "n_points": 512,
+    "fixed_parent_normalized_rmse": 0.6187403111900304,
+    "refit": {
+      "status": "not_run",
+      "reason": "no free parent parameters"
+    },
+    "interpretation": "<1e-3 nearly absorbed; 1e-3..1e-2 weak; >1e-2 visible structure"
+  },
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_dZOTi4KyyRmodxXu6lwQro7V"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "-V_C/(capacitance*(1 + cap_temp_coeff*(T_C - T_ref))*(1 + cap_voltage_coeff*V_C**2)*resistance*(1 + temp_coeff*(T_R - T_ref) + resistance_temp_quadratic_coeff*(T_R - T_ref)**2))",
+        "target_symbol": "dV_C_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "T_C",
+          "T_R",
+          "T_ref",
+          "V_C",
+          "cap_temp_coeff",
+          "cap_voltage_coeff",
+          "capacitance",
+          "resistance",
+          "resistance_temp_quadratic_coeff",
+          "temp_coeff"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "(-V_C)/((capacitance*resistance*(V_C**2*cap_voltage_coeff + 1)*(cap_temp_coeff*(T_C - T_ref) + 1)*(resistance_temp_quadr"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_YKSy82q3PnnV6MPBjhNOJmnl"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "-V_C/(capacitance*(1 + cap_temp_coeff*(T_C - T_ref))*(1 + cap_voltage_coeff*V_C**2)*resistance*(1 + temp_coeff*(T_R - T_ref) + resistance_temp_quadratic_coeff*(T_R - T_ref)**2))",
+        "target_symbol": "dV_C_dt",
+        "assignments": {
+          "V_C": 12,
+          "T_R": 300,
+          "T_C": 300,
+          "T_ref": 300,
+          "capacitance": 0.01,
+          "cap_temp_coeff": 0.0005,
+          "cap_voltage_coeff": 0.002,
+          "resistance": 50,
+          "temp_coeff": 0.004,
+          "resistance_temp_quadratic_coeff": 1e-06
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": -18.633540372670808,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_pn02tmspn1hJtVUyUsM7V4aG"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 3,
+  "discipline": "physics",
+  "scenario_text": "A charged capacitor discharges through a fixed resistor in an isolated single-loop circuit. Its capacitor voltage is followed from an independently selected initial voltage while the component values remain fixed and known. The target is the instantaneous rate of change of capacitor voltage along each trajectory. The benchmark isolates dissipative electric-energy release into the resistor.",
+  "record_id": "m2_electromagnetism_20280761_001",
+  "generation": 5,
+  "_n_total": 5000,
+  "mechanism_observation_history": [
+    {
+      "generation": 1,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The discharge slope is a single linear gain of V_C, so all trajectories are exact exponentials with one shared time constant 1/(resistance*capacitance).",
+          "child_relation": "Allow the resistor value to vary with its own temperature during self-heating, so dV_C/dt remains proportional to V_C but the proportionality changes along the trajectory through thermal feedback from dissipated power.",
+          "affected_inputs": [
+            "V_C",
+            "resistance",
+            "capacitance"
+          ],
+          "observable_effect": "Across trajectories started from different initial capacitor voltages with the same fixed components, high-voltage discharges show a different early-to-late decay rate than low-voltage discharges because stronger initial Joule heating changes the effective resistance during the run."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "rc_rate",
+            "expression": "V_C/(resistance*capacitance)",
+            "role": "Parent instantaneous discharge scale"
+          },
+          {
+            "name": "joule_drive",
+            "expression": "V_C**2/resistance",
+            "role": "Electrical power available to heat the resistor and perturb the decay rate"
+          },
+          {
+            "name": "stored_energy",
+            "expression": "capacitance*V_C**2/2",
+            "role": "Finite energy budget governing how much thermal drift can accumulate"
+          }
+        ],
+        "activation_condition": "Observable when the resistor's thermal time and temperature coefficient are large enough that Joule heating during the measured discharge is not negligible; strongest for larger initial V_C because heating scales with V_C**2/resistance, and weak in near-isothermal low-power discharge.",
+        "train_hidden_contrast": "The same mechanism appears in training through modest voltage-dependent deviations from a pure exponential and extends in holdout as stronger trajectory-to-trajectory curvature differences at larger initial V_C under the same fixed component values.",
+        "continuation_path": "In the isothermal limit, or vanishing resistor temperature coefficient, or negligible self-heating, the thermal state stays effectively constant and the parent RC law is recovered.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "Thermal memory cannot be represented with only the existing electrical state V_C and fixed parameters, because the changed discharge rate depends on accumulated dissipated power, not only the instantaneous voltage.",
+        "gap_statement": "The parent omits resistor self-heating, treating the environment as fixed even though dissipated electrical power can change resistance during discharge.",
+        "baseline_assumption": "Resistance is constant.",
+        "scientific_mechanism": "Electrothermal feedback: Joule heating in the resistor changes its temperature and hence its effective resistance during the isolated discharge.",
+        "affected_symbols": [
+          "V_C",
+          "resistance",
+          "capacitance"
+        ],
+        "rationale": "A realistic next refinement is to relax the constant-resistance assumption by introducing resistor temperature dynamics. In the parent, with resistance and capacitance fixed, varying only the independently chosen initial capacitor voltage changes only the amplitude of the same exponential family; the normalized slope dV_C_dt/V_C is constant in time and identical across trajectories. In the child, higher initial V_C produces larger initial dissipation V_C**2/resistance, which heats the resistor more strongly and changes the effective RC time constant during the same run, creating trajectory curvature differences beyond a single shared exponential. This changes the scored target mapping itself, not merely an auxiliary trajectory, because the instantaneous dV_C_dt at a given observed V_C can differ depending on thermal history. The contrast is admissible when self-heating is appreciable over the observation window; if the resistor remains effectively isothermal, the refinement becomes inactive and the parent law is the appropriate limit."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The discharge slope is a single linear gain of V_C, so all trajectories are exact exponentials with one shared time constant 1/(resistance*capacitance).",
+          "child_relation": "Allow the resistor value to vary with its own temperature during self-heating, so dV_C/dt remains proportional to V_C but the proportionality changes along the trajectory through thermal feedback from dissipated power.",
+          "affected_inputs": [
+            "V_C",
+            "resistance",
+            "capacitance"
+          ],
+          "observable_effect": "Across trajectories started from different initial capacitor voltages with the same fixed components, high-voltage discharges show a different early-to-late decay rate than low-voltage discharges because stronger initial Joule heating changes the effective resistance during the run."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "rc_rate",
+            "expression": "V_C/(resistance*capacitance)",
+            "role": "Parent instantaneous discharge scale"
+          },
+          {
+            "name": "joule_drive",
+            "expression": "V_C**2/resistance",
+            "role": "Electrical power available to heat the resistor and perturb the decay rate"
+          },
+          {
+            "name": "stored_energy",
+            "expression": "capacitance*V_C**2/2",
+            "role": "Finite energy budget governing how much thermal drift can accumulate"
+          }
+        ],
+        "activation_condition": "Observable when the resistor's thermal time and temperature coefficient are large enough that Joule heating during the measured discharge is not negligible; strongest for larger initial V_C because heating scales with V_C**2/resistance, and weak in near-isothermal low-power discharge.",
+        "train_hidden_contrast": "The same mechanism appears in training through modest voltage-dependent deviations from a pure exponential and extends in holdout as stronger trajectory-to-trajectory curvature differences at larger initial V_C under the same fixed component values.",
+        "continuation_path": "In the isothermal limit, or vanishing resistor temperature coefficient, or negligible self-heating, the thermal state stays effectively constant and the parent RC law is recovered.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "Thermal memory cannot be represented with only the existing electrical state V_C and fixed parameters, because the changed discharge rate depends on accumulated dissipated power, not only the instantaneous voltage.",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "V_C",
+          "T_R"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Self-heating of a resistive element with temperature-dependent resistance",
+        "scientific_mechanism": "Electrothermal feedback: Joule heating in the resistor changes its temperature and hence its effective resistance during the isolated discharge.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "The discharge coefficient is no longer a single shared constant but a dynamic function of an internal thermal state driven by past dissipation. This introduces memory and trajectory-dependent curvature that cannot be reproduced by a coefficient-only correction applied uniformly across all initial voltages.",
+        "taxonomy_match": "known",
+        "assumption_before": "Resistance is constant.",
+        "assumption_after": "Resistance depends on the resistor's evolving temperature under lumped electrothermal dynamics.",
+        "before_fragment": "-V_C/(resistance*capacitance)",
+        "after_fragment": "-V_C/(capacitance*resistance*(1 + temp_coeff*(T_R - T_ref)))",
+        "parent_reduction": "If temp_coeff -> 0, or T_R -> T_ref for all t, the child target law becomes -V_C/(resistance*capacitance).",
+        "observable_signature": "Parent: for fixed resistance and capacitance, the normalized slope dV_C_dt/V_C is time-constant and identical across trajectories differing only in initial V_C. Child: the normalized slope equals -1/(capacitance*resistance*(1 + temp_coeff*(T_R - T_ref))) and drifts during the run; high-initial-voltage trajectories heat the resistor more, so at the same observed V_C they can have a different instantaneous dV_C_dt than low-voltage trajectories because T_R encodes prior power dissipation.",
+        "shortcut_blocked": "A single refitted parent parameter set only changes one global time constant, preserving exact exponential decay and identical normalized slope across all trajectories. It cannot reproduce systematic initial-voltage-dependent early-versus-late curvature under one shared parameter set, because the child mapping depends on thermal history through T_R rather than only the instantaneous observed V_C."
+      },
+      "range_suggestions": {
+        "T_R": "Near ambient operating temperatures with moderate self-heating, e.g. T_ambient to T_ambient + resistance/(temp_coeff + 1/resistance) in kelvin for benchmark exploration",
+        "temp_coeff": "Positive resistor TCR typical of metals, e.g. 0 to 1/100 per kelvin",
+        "thermal_capacitance": "Positive lumped heat capacity, e.g. 1/10000 to 10 joule per kelvin",
+        "thermal_resistance": "Positive thermal resistance to ambient, e.g. 1/100 to 1000 kelvin per watt",
+        "T_ref": "Reference laboratory temperature, e.g. 250 to 350 kelvin",
+        "T_ambient": "Ambient temperature near T_ref, e.g. 250 to 350 kelvin"
+      }
+    },
+    {
+      "generation": 2,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "interaction_emergence",
+          "parent_relation": "The target mapping is dV_C_dt = -V_C/(capacitance*resistance*(1 + temp_coeff*(T_R - T_ref))), so temperature only changes the discharge rate through the resistor's resistance while capacitance is assumed temperature-invariant.",
+          "child_relation": "Refine the capacitance assumption so the target depends on both resistance heating and capacitance drift with temperature, making the effective RC time constant a non-separable function of T_R and V_C through self-heating.",
+          "affected_inputs": [
+            "V_C",
+            "T_R",
+            "capacitance",
+            "temp_coeff"
+          ],
+          "observable_effect": "Across trajectories with different initial capacitor voltages but the same fixed component parameters, stronger self-heating changes not only resistance but also capacitance, producing a different curvature of V_C(t) and hence of dV_C_dt versus V_C than the parent can match with one shared parameter set."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "electrothermal_load",
+            "expression": "V_C**2/resistance",
+            "role": "Sets the heating scale that drives resistor-temperature excursions and thus activates temperature-dependent element drift"
+          },
+          {
+            "name": "resistance_temp_factor",
+            "expression": "1 + temp_coeff*(T_R - T_ref)",
+            "role": "Parent electrothermal modulation of resistance already present in the target mapping"
+          },
+          {
+            "name": "resistor_overheat",
+            "expression": "T_R - T_ref",
+            "role": "Temperature excursion whose effect is currently assumed to act only on resistance"
+          }
+        ],
+        "activation_condition": "Observable when Joule heating makes |T_R - T_ref| large enough that temperature drift of capacitance is no longer negligible compared with the existing resistance change, while remaining in the moderate operating range where a first-order temperature correction is admissible.",
+        "train_hidden_contrast": "In training, moderate variation of initial voltage already changes self-heating and reveals slight trajectory-shape differences beyond a single temperature-dependent resistance law; in holdout, larger but still admissible heating amplifies this same RC interaction rather than introducing a new regime.",
+        "continuation_path": "Recover the parent law in the limit of zero capacitance temperature coefficient or negligible resistor temperature rise, so capacitance is effectively constant.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The model includes resistor self-heating but still treats capacitance as perfectly temperature-invariant, omitting a realistic temperature dependence of the RC storage element that can alter the scored voltage-decay rate.",
+        "baseline_assumption": "Capacitance is constant even as resistor temperature departs from the reference temperature during discharge.",
+        "scientific_mechanism": "Temperature-dependent capacitance of the capacitor, approximated over a moderate thermal range by a first-order drift with the resistor-temperature excursion as a lumped local thermal proxy.",
+        "affected_symbols": [
+          "V_C",
+          "T_R",
+          "capacitance"
+        ],
+        "rationale": "A natural next refinement is to relax the parent's constant-capacitance assumption rather than adding an unrelated new state. The parent target mapping already has electrothermal feedback, but it uses a fixed-environment shortcut in the sense that only one component property in the RC constant responds to the thermal state. Holding resistance, thermal parameters, ambient temperature, and the observation protocol fixed while varying initial capacitor voltage changes the amount of Joule heating and therefore T_R(t). In the parent, this alters dV_C_dt only through one multiplicative resistance factor. In the child, the same T_R excursion also changes capacitance, so the target mapping gains an additional temperature-mediated interaction in the denominator. This changes the slope and curvature of dV_C_dt along otherwise comparable trajectories, not merely the auxiliary temperature trajectory. A single refit of the parent's existing parameters cannot generally reproduce both low-heating and higher-heating trajectory families if their apparent effective time constants shift with temperature in a way inconsistent with resistance-only scaling. This is scientifically admissible when the resistor and capacitor are thermally coupled closely enough that T_R serves as a usable local thermal proxy, and when temperature excursions remain moderate so a first-order capacitance correction is valid. If that thermal coupling is weak in a particular apparatus, the effect may be small; the refinement is therefore a hypothesis about a realistic next level of model fidelity, not a claim of universal dominance."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "interaction_emergence",
+          "parent_relation": "The target mapping is dV_C_dt = -V_C/(capacitance*resistance*(1 + temp_coeff*(T_R - T_ref))), so temperature only changes the discharge rate through the resistor's resistance while capacitance is assumed temperature-invariant.",
+          "child_relation": "Refine the capacitance assumption so the target depends on both resistance heating and capacitance drift with temperature, making the effective RC time constant a non-separable function of T_R and V_C through self-heating.",
+          "affected_inputs": [
+            "V_C",
+            "T_R",
+            "capacitance",
+            "temp_coeff"
+          ],
+          "observable_effect": "Across trajectories with different initial capacitor voltages but the same fixed component parameters, stronger self-heating changes not only resistance but also capacitance, producing a different curvature of V_C(t) and hence of dV_C_dt versus V_C than the parent can match with one shared parameter set."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "electrothermal_load",
+            "expression": "V_C**2/resistance",
+            "role": "Sets the heating scale that drives resistor-temperature excursions and thus activates temperature-dependent element drift"
+          },
+          {
+            "name": "resistance_temp_factor",
+            "expression": "1 + temp_coeff*(T_R - T_ref)",
+            "role": "Parent electrothermal modulation of resistance already present in the target mapping"
+          },
+          {
+            "name": "resistor_overheat",
+            "expression": "T_R - T_ref",
+            "role": "Temperature excursion whose effect is currently assumed to act only on resistance"
+          }
+        ],
+        "activation_condition": "Observable when Joule heating makes |T_R - T_ref| large enough that temperature drift of capacitance is no longer negligible compared with the existing resistance change, while remaining in the moderate operating range where a first-order temperature correction is admissible.",
+        "train_hidden_contrast": "In training, moderate variation of initial voltage already changes self-heating and reveals slight trajectory-shape differences beyond a single temperature-dependent resistance law; in holdout, larger but still admissible heating amplifies this same RC interaction rather than introducing a new regime.",
+        "continuation_path": "Recover the parent law in the limit of zero capacitance temperature coefficient or negligible resistor temperature rise, so capacitance is effectively constant.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "V_C",
+          "T_R",
+          "capacitance",
+          "resistance",
+          "temp_coeff",
+          "cap_temp_coeff"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Electrothermal modification of the RC time constant through temperature-dependent capacitance",
+        "scientific_mechanism": "Temperature-dependent capacitance of the capacitor, approximated over a moderate thermal range by a first-order drift with the resistor-temperature excursion as a lumped local thermal proxy.",
+        "embedding_pattern": "nested_nonlinearity",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the thermal state now enters two coupled multiplicative factors inside the decay denominator, so self-heating changes the target through a nested nonlinear RC law rather than a single shared gain.",
+        "taxonomy_match": "known",
+        "assumption_before": "Capacitance is constant even as resistor temperature departs from the reference temperature during discharge.",
+        "assumption_after": "Capacitance drifts linearly with local temperature over the moderate operating range, using T_R as a lumped thermal proxy.",
+        "before_fragment": "-V_C/(capacitance*resistance*(1 + temp_coeff*(T_R - T_ref)))",
+        "after_fragment": "-V_C/(capacitance*(1 + cap_temp_coeff*(T_R - T_ref))*resistance*(1 + temp_coeff*(T_R - T_ref)))",
+        "parent_reduction": "Set cap_temp_coeff = 0 to recover the parent exactly; approximately the same reduction holds when T_R - T_ref is negligible.",
+        "observable_signature": "Holding resistance, capacitance, thermal parameters, ambient temperature, and the observation protocol fixed while varying initial capacitor voltage changes self-heating and therefore T_R(t). In the parent, the scored mapping changes only through resistance_temp_factor, so one shared parameter set implies resistance-only modulation of the RC constant. In the child, the same T_R excursion also multiplies capacitance by 1 + cap_temp_coeff*(T_R - T_ref), so higher-heating trajectories show a distinct change in the slope and curvature of dV_C_dt versus V_C beyond resistance-only scaling. This is observable when the capacitor is thermally coupled closely enough to the resistor that T_R is a usable local proxy and the excursion remains within the moderate first-order drift regime.",
+        "shortcut_blocked": "A single refit of the parent parameters cannot generally absorb this change across low-heating and higher-heating trajectories because the parent allows only one temperature-dependent factor in the target denominator. Retuning resistance, capacitance, or temp_coeff can match one heating range, but it cannot reproduce a shared dataset where the effective RC time constant varies with T_R through both resistance and capacitance using the same parameter set; the mismatch appears in trajectory curvature, not just an overall timescale shift."
+      },
+      "range_suggestions": {
+        "cap_temp_coeff": "Small first-order capacitance temperature coefficient over the admissible thermal range, e.g. -1/1000 to 1/1000 per kelvin"
+      }
+    },
+    {
+      "generation": 3,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The target mapping is first-order linear in V_C with a temperature-dependent time constant, so at any observed T_R the discharge rate scales as a single proportional gain times V_C.",
+          "child_relation": "Replace the linear resistance-temperature law with a higher-order temperature dependence of effective resistance, so the target remains nonpositive but its magnitude acquires nonlinear curvature with T_R rather than a single affine thermal gain.",
+          "affected_inputs": [
+            "V_C",
+            "T_R",
+            "temp_coeff"
+          ],
+          "observable_effect": "Across trajectories with different self-heating levels, dV_C_dt versus T_R bends away from the parent's straight thermal trend, producing systematically different early-to-late discharge-rate curvature at the same V_C that one shared linear thermal coefficient cannot match."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "thermal_excursion",
+            "expression": "T_R - T_ref",
+            "role": "Dimensionless-sign thermal offset controlling departure from reference component values"
+          },
+          {
+            "name": "electrothermal_loading",
+            "expression": "V_C**2/(resistance*(1 + temp_coeff*(T_R - T_ref)))",
+            "role": "Instantaneous Joule-heating scale that determines whether resistor self-heating reaches the nonlinear thermal-coefficient regime"
+          },
+          {
+            "name": "discharge_gain_parent",
+            "expression": "1/(capacitance*(1 + cap_temp_coeff*(T_R - T_ref))*resistance*(1 + temp_coeff*(T_R - T_ref)))",
+            "role": "Parent proportional mapping from V_C to discharge rate at the observed temperature"
+          }
+        ],
+        "activation_condition": "Observable when resistor self-heating drives |T_R - T_ref| beyond the strictly linear coefficient range but still within a moderate safe temperature excursion where a polynomial resistance law is physically admissible; strongest for larger initial V_C and weaker cooling.",
+        "train_hidden_contrast": "In training, modest thermal excursions already make the effective decay rate drift with T_R; in holdout, larger excursions reveal curvature in that drift rather than the parent's straight-line thermal scaling.",
+        "continuation_path": "Recover the parent law in the limit that higher-order thermal dependence of resistance is negligible over the realized temperature excursion, leaving only the linear temp_coeff term.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The resistor's temperature dependence is idealized as strictly linear over the whole admissible self-heating range, even though real resistors commonly show mild curvature in R(T) once the excursion is no longer infinitesimal.",
+        "baseline_assumption": "The parent assumes effective resistance is R(T_R)=resistance*(1 + temp_coeff*(T_R - T_ref)) with no higher-order thermal correction.",
+        "scientific_mechanism": "Nonlinear resistivity versus temperature in the heated resistor changes both Joule heating and the RC discharge constant as temperature rises.",
+        "affected_symbols": [
+          "V_C",
+          "T_R",
+          "resistance",
+          "temp_coeff",
+          "capacitance",
+          "cap_temp_coeff",
+          "T_ref"
+        ],
+        "rationale": "A realistic next refinement is to relax the strictly linear resistor temperature law rather than adding an unrelated new state. The parent target mapping is dV_C_dt = -gain(T_R)*V_C with gain(T_R) determined by an affine resistance factor and affine capacitance factor. Holding component parameters fixed while varying initial capacitor voltage changes how much the resistor self-heats along each trajectory; because T_R is an observed state, this directly affects the scored target mapping, not just an auxiliary trajectory. Under the child refinement, gain(T_R) becomes nonlinearly curved in thermal excursion, so two trajectories that reach different temperature ranges show a systematic difference in discharge-rate curvature versus T_R that a single refitted linear temp_coeff cannot reproduce across both ranges. This is scientifically admissible for moderate positive-temperature excursions from Joule heating in an isolated RC discharge, especially with larger initial voltage and finite thermal resistance. The refinement preserves the sign constraint dV_C_dt<=0 for V_C>=0 and reduces smoothly to the parent when higher-order thermal terms are negligible. Its limitation is that if all trajectories stay very near T_ref, the curvature is too small to distinguish and the parent may remain adequate."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The target mapping is first-order linear in V_C with a temperature-dependent time constant, so at any observed T_R the discharge rate scales as a single proportional gain times V_C.",
+          "child_relation": "Replace the linear resistance-temperature law with a higher-order temperature dependence of effective resistance, so the target remains nonpositive but its magnitude acquires nonlinear curvature with T_R rather than a single affine thermal gain.",
+          "affected_inputs": [
+            "V_C",
+            "T_R",
+            "temp_coeff"
+          ],
+          "observable_effect": "Across trajectories with different self-heating levels, dV_C_dt versus T_R bends away from the parent's straight thermal trend, producing systematically different early-to-late discharge-rate curvature at the same V_C that one shared linear thermal coefficient cannot match."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "thermal_excursion",
+            "expression": "T_R - T_ref",
+            "role": "Dimensionless-sign thermal offset controlling departure from reference component values"
+          },
+          {
+            "name": "electrothermal_loading",
+            "expression": "V_C**2/(resistance*(1 + temp_coeff*(T_R - T_ref)))",
+            "role": "Instantaneous Joule-heating scale that determines whether resistor self-heating reaches the nonlinear thermal-coefficient regime"
+          },
+          {
+            "name": "discharge_gain_parent",
+            "expression": "1/(capacitance*(1 + cap_temp_coeff*(T_R - T_ref))*resistance*(1 + temp_coeff*(T_R - T_ref)))",
+            "role": "Parent proportional mapping from V_C to discharge rate at the observed temperature"
+          }
+        ],
+        "activation_condition": "Observable when resistor self-heating drives |T_R - T_ref| beyond the strictly linear coefficient range but still within a moderate safe temperature excursion where a polynomial resistance law is physically admissible; strongest for larger initial V_C and weaker cooling.",
+        "train_hidden_contrast": "In training, modest thermal excursions already make the effective decay rate drift with T_R; in holdout, larger excursions reveal curvature in that drift rather than the parent's straight-line thermal scaling.",
+        "continuation_path": "Recover the parent law in the limit that higher-order thermal dependence of resistance is negligible over the realized temperature excursion, leaving only the linear temp_coeff term.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "V_C",
+          "T_R"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "temperature-curved resistor law in electrothermal RC discharge",
+        "scientific_mechanism": "Nonlinear resistivity versus temperature in the heated resistor changes both Joule heating and the RC discharge constant as temperature rises.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the coefficient of discharge depends nonlinearly on the evolving state T_R, and that same state-dependent resistance also feeds back through thermal power dissipation, changing the target mapping across trajectories rather than just rescaling one gain.",
+        "taxonomy_match": "known",
+        "assumption_before": "The parent assumes effective resistance is R(T_R)=resistance*(1 + temp_coeff*(T_R - T_ref)) with no higher-order thermal correction.",
+        "assumption_after": "The effective resistance has mild quadratic curvature in temperature excursion, R(T_R)=resistance*(1 + temp_coeff*(T_R - T_ref) + resistance_temp_quadratic_coeff*(T_R - T_ref)**2).",
+        "before_fragment": "-V_C/(capacitance*(1 + cap_temp_coeff*(T_R - T_ref))*resistance*(1 + temp_coeff*(T_R - T_ref)))",
+        "after_fragment": "-V_C/(capacitance*(1 + cap_temp_coeff*(T_R - T_ref))*resistance*(1 + temp_coeff*(T_R - T_ref) + resistance_temp_quadratic_coeff*(T_R - T_ref)**2))",
+        "parent_reduction": "The parent is recovered exactly at resistance_temp_quadratic_coeff = 0.",
+        "observable_signature": "At fixed observed V_C, the parent predicts dV_C_dt as a straight affine-temperature gain in the resistance factor, whereas the child predicts a curved dependence on T_R. This target-mapping change is observable on trajectories with different self-heating amplitudes because the same V_C reached at different T_R gives a systematically different discharge rate than the parent's one-linear-coefficient law allows.",
+        "shortcut_blocked": "A single refitted parent temp_coeff can only impose one affine resistance trend versus thermal excursion. It cannot simultaneously match near-reference behavior and larger-excursion curvature in dV_C_dt versus T_R across trajectories generated by different initial voltages and cooling conditions, because the child introduces a genuine second-order dependence on the observed state T_R rather than a global gain rescaling."
+      },
+      "range_suggestions": {
+        "resistance_temp_quadratic_coeff": "Small mild-curvature coefficient for resistor thermal law, e.g. between -1/1000000 and 1/1000000 per kelvin**2, chosen so 1 + temp_coeff*(T_R - T_ref) + resistance_temp_quadratic_coeff*(T_R - T_ref)**2 stays positive over the admissible temperature range"
+      }
+    },
+    {
+      "generation": 4,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The target mapping is first-order RC discharge with electrothermal feedback, where resistor heating depends only on self-generated Joule power and cooling to a fixed ambient; thus dV_C_dt as a function of observed (V_C, T_R) is fully determined by the instantaneous resistor temperature and has no memory of capacitor temperature lag.",
+          "child_relation": "Relax the assumption that the capacitor effective capacitance follows resistor temperature instantaneously and instead let the capacitor have its own thermal state that evolves with lag relative to the resistor. Then dV_C_dt depends on V_C, T_R, and the capacitor temperature state, creating history-dependent curvature in the discharge rate because the capacitance drift no longer tracks resistor heating algebraically.",
+          "affected_inputs": [
+            "V_C",
+            "T_R",
+            "capacitance",
+            "cap_temp_coeff"
+          ],
+          "observable_effect": "Across trajectories with the same instantaneous V_C and similar T_R reached at different times during discharge, the child permits different dV_C_dt values due to delayed capacitor warming/cooling, producing a measurable early/late-time curvature difference in voltage decay that the parent cannot represent."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "delta_TR",
+            "expression": "T_R - T_ref",
+            "role": "Resistor thermal excursion controlling present resistance nonlinearity in the parent"
+          },
+          {
+            "name": "tau_elec_inst",
+            "expression": "capacitance*(1 + cap_temp_coeff*(T_R - T_ref))*resistance*(1 + temp_coeff*(T_R - T_ref) + resistance_temp_quadratic_coeff*(T_R - T_ref)**2)",
+            "role": "Parent instantaneous RC time constant implied by the algebraic temperature-following assumption"
+          },
+          {
+            "name": "p_joule",
+            "expression": "V_C**2/(resistance*(1 + temp_coeff*(T_R - T_ref) + resistance_temp_quadratic_coeff*(T_R - T_ref)**2))",
+            "role": "Electrical heating rate that drives resistor temperature and indirectly reveals when thermal lag effects can accumulate"
+          }
+        ],
+        "activation_condition": "Observable when resistor self-heating is strong enough that T_R departs appreciably from T_ref during the discharge and the capacitor thermal equilibration is not effectively instantaneous compared with the electrical decay, so thermal lag can separate capacitor temperature from resistor temperature over part of the trajectory.",
+        "train_hidden_contrast": "In training, moderate self-heating already bends the decay through T_R; in holdout, longer or hotter trajectories amplify the mismatch between instantaneous T_R and the capacitance-setting temperature, extending the same lag mechanism rather than introducing a new process.",
+        "continuation_path": "Recover the parent law in the limit of vanishing capacitor thermal lag, where the new capacitor thermal state rapidly equilibrates to T_R so capacitance again becomes an algebraic function of T_R alone.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "Existing states do not encode any thermal memory for the capacitor. A separate capacitor-temperature state is needed because delayed capacitance response cannot be represented by refitting the current instantaneous function of V_C and T_R alone.",
+        "gap_statement": "The model assumes the capacitor's temperature-dependent capacitance can be approximated using the resistor temperature as an instantaneous proxy, omitting capacitor thermal inertia and local temperature mismatch.",
+        "baseline_assumption": "Temperature-dependent capacitance is taken as an instantaneous algebraic function of resistor temperature rather than the capacitor's own evolving temperature.",
+        "scientific_mechanism": "Finite thermal coupling and heat capacity of the capacitor create a delayed capacitor temperature, so the effective capacitance responds with thermal lag to resistor heating and ambient cooling.",
+        "affected_symbols": [
+          "V_C",
+          "T_R",
+          "capacitance",
+          "cap_temp_coeff"
+        ],
+        "rationale": "A natural next refinement is to separate the capacitor's thermal response from the resistor's. The parent already includes resistor self-heating and uses T_R as a lumped proxy for capacitance drift, which is reasonable only when capacitor temperature closely tracks resistor temperature. Here the varied condition is the strength and duration of self-heating along trajectories, while component reference parameters and initial V_C remain fixed under the experiment contract. Under appreciable heating, the parent predicts a unique target slope once V_C and T_R are known, because capacitance is instantaneously tied to T_R. The child predicts that two times with the same V_C and similar T_R can still have different dV_C_dt if the capacitor temperature lags: early in a discharge the resistor may heat quickly while the capacitor remains cooler, keeping capacitance nearer its reference value; later, the capacitor may stay warm even as resistor heating subsides, altering the decay slope. This is a genuine change to the scored target mapping, not only to an auxiliary trajectory, because dV_C_dt would depend on an additional evolving state. The effect is admissible when thermal coupling between resistor and capacitor is finite and resistor heating is non-negligible; if coupling is extremely fast or cap_temp_coeff is tiny, the refinement may be weak, and the parent is recovered."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The target mapping is first-order RC discharge with electrothermal feedback, where resistor heating depends only on self-generated Joule power and cooling to a fixed ambient; thus dV_C_dt as a function of observed (V_C, T_R) is fully determined by the instantaneous resistor temperature and has no memory of capacitor temperature lag.",
+          "child_relation": "Relax the assumption that the capacitor effective capacitance follows resistor temperature instantaneously and instead let the capacitor have its own thermal state that evolves with lag relative to the resistor. Then dV_C_dt depends on V_C, T_R, and the capacitor temperature state, creating history-dependent curvature in the discharge rate because the capacitance drift no longer tracks resistor heating algebraically.",
+          "affected_inputs": [
+            "V_C",
+            "T_R",
+            "capacitance",
+            "cap_temp_coeff"
+          ],
+          "observable_effect": "Across trajectories with the same instantaneous V_C and similar T_R reached at different times during discharge, the child permits different dV_C_dt values due to delayed capacitor warming/cooling, producing a measurable early/late-time curvature difference in voltage decay that the parent cannot represent."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "delta_TR",
+            "expression": "T_R - T_ref",
+            "role": "Resistor thermal excursion controlling present resistance nonlinearity in the parent"
+          },
+          {
+            "name": "tau_elec_inst",
+            "expression": "capacitance*(1 + cap_temp_coeff*(T_R - T_ref))*resistance*(1 + temp_coeff*(T_R - T_ref) + resistance_temp_quadratic_coeff*(T_R - T_ref)**2)",
+            "role": "Parent instantaneous RC time constant implied by the algebraic temperature-following assumption"
+          },
+          {
+            "name": "p_joule",
+            "expression": "V_C**2/(resistance*(1 + temp_coeff*(T_R - T_ref) + resistance_temp_quadratic_coeff*(T_R - T_ref)**2))",
+            "role": "Electrical heating rate that drives resistor temperature and indirectly reveals when thermal lag effects can accumulate"
+          }
+        ],
+        "activation_condition": "Observable when resistor self-heating is strong enough that T_R departs appreciably from T_ref during the discharge and the capacitor thermal equilibration is not effectively instantaneous compared with the electrical decay, so thermal lag can separate capacitor temperature from resistor temperature over part of the trajectory.",
+        "train_hidden_contrast": "In training, moderate self-heating already bends the decay through T_R; in holdout, longer or hotter trajectories amplify the mismatch between instantaneous T_R and the capacitance-setting temperature, extending the same lag mechanism rather than introducing a new process.",
+        "continuation_path": "Recover the parent law in the limit of vanishing capacitor thermal lag, where the new capacitor thermal state rapidly equilibrates to T_R so capacitance again becomes an algebraic function of T_R alone.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "Existing states do not encode any thermal memory for the capacitor. A separate capacitor-temperature state is needed because delayed capacitance response cannot be represented by refitting the current instantaneous function of V_C and T_R alone.",
+        "scope_kind": "memory",
+        "scope_symbols": [
+          "V_C",
+          "T_R",
+          "T_C"
+        ],
+        "structural_role": "timescale",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Delayed capacitor thermal equilibration under resistor self-heating and ambient cooling",
+        "scientific_mechanism": "Finite thermal coupling and heat capacity of the capacitor create a delayed capacitor temperature, so the effective capacitance responds with thermal lag to resistor heating and ambient cooling.",
+        "embedding_pattern": "saturating_or_thresholded",
+        "difficulty_rationale": "This embedding adds a finite-capacity thermal relaxation channel, so the target derivative is no longer a single instantaneous function of the observed resistor temperature. The added state introduces history dependence and a relaxation-limited approach of T_C toward T_R/ambient, which cannot be mimicked by a coefficient-only correction without losing the time-ordering contrast.",
+        "taxonomy_match": "known",
+        "assumption_before": "The capacitor's temperature-dependent capacitance is approximated by using resistor temperature instantaneously.",
+        "assumption_after": "The capacitor has its own finite thermal capacity and finite thermal coupling, so capacitance depends on a lagged capacitor temperature state.",
+        "before_fragment": "-V_C/(capacitance*(1 + cap_temp_coeff*(T_R - T_ref))*resistance*(1 + temp_coeff*(T_R - T_ref) + resistance_temp_quadratic_coeff*(T_R - T_ref)**2))",
+        "after_fragment": "-V_C/(capacitance*(1 + cap_temp_coeff*(T_C - T_ref))*resistance*(1 + temp_coeff*(T_R - T_ref) + resistance_temp_quadratic_coeff*(T_R - T_ref)**2))",
+        "parent_reduction": "In the fast-equilibration limit where T_C tracks T_R, the after fragment collapses to the parent fragment.",
+        "observable_signature": "Parent: at any sampled moment, dV_C_dt is uniquely determined by V_C and T_R through an instantaneous RC time constant. Child: under appreciable self-heating and finite capacitor thermal lag, two moments with similar V_C and T_R but different prior heating histories can have different dV_C_dt because T_C differs, yielding an early-versus-late curvature split in voltage decay. This is a changed target mapping, not merely an auxiliary-state change, because T_C enters the target RHS directly.",
+        "shortcut_blocked": "A single refitted parent parameter set still maps each instantaneous (V_C, T_R) pair to exactly one dV_C_dt value, so it cannot represent the child’s one-to-many history-conditioned slope at similar V_C and T_R across trajectories or across times within a trajectory. Retuning capacitance or cap_temp_coeff only rescales that instantaneous surface and cannot create the missing thermal-memory branch."
+      },
+      "range_suggestions": {
+        "T_C": "Near ambient-to-moderately heated capacitor temperatures, e.g. 290 to 360 kelvin, with initial value typically close to T_ambient or T_ref",
+        "cap_thermal_capacitance": "Positive capacitor thermal capacitance, e.g. 0.01 to 100 joule per kelvin depending on package size",
+        "cap_thermal_resistance": "Positive thermal resistance from capacitor to ambient, e.g. 1 to 1000 kelvin per watt",
+        "resistor_to_cap_thermal_resistance": "Positive inter-component thermal resistance, e.g. 0.1 to 1000 kelvin per watt; finite values activate thermal lag while very small values approach the parent proxy assumption"
+      }
+    },
+    {
+      "generation": 5,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The target mapping is first-order in V_C with an effective decay gain set only by the instantaneous temperature-dependent RC product, so at fixed T_R and T_C the normalized slope dV_C_dt/V_C is independent of discharge amplitude.",
+          "child_relation": "Refine the capacitor from an ideal linear capacitor to a weakly voltage-dependent capacitor, so the effective capacitance and hence dV_C_dt/V_C also depend on V_C. The normalized decay rate then changes along a trajectory as voltage falls, even at the same temperatures.",
+          "affected_inputs": [
+            "V_C",
+            "T_R",
+            "T_C",
+            "capacitance"
+          ],
+          "observable_effect": "Across trajectories started at different initial voltages but with the same component parameters and similar initial temperatures, the child predicts different early-time normalized decay rates and a voltage-dependent bending of the semilog voltage trace that the parent cannot match with one shared parameter set."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "rc_thermal_gain",
+            "expression": "1/(capacitance*(1 + cap_temp_coeff*(T_C - T_ref))*resistance*(1 + temp_coeff*(T_R - T_ref) + resistance_temp_quadratic_coeff*(T_R - T_ref)**2))",
+            "role": "Parent instantaneous linear discharge gain set by thermal state"
+          },
+          {
+            "name": "voltage_excursion",
+            "expression": "V_C",
+            "role": "Electrical operating level whose effect is omitted by the parent ideal-capacitor law"
+          },
+          {
+            "name": "stored_energy_scale",
+            "expression": "capacitance*V_C**2/2",
+            "role": "Magnitude of electric stress/energy where voltage-dependent capacitance becomes observable"
+          }
+        ],
+        "activation_condition": "Observable when the capacitor technology exhibits non-negligible capacitance change over the sampled voltage range, e.g. moderate-to-large initial V_C excursions compared with the device's small-signal regime, while temperatures remain in the admissible range so thermal effects do not completely dominate.",
+        "train_hidden_contrast": "In training, thermal variation already changes the decay gain; extending to holdout trajectories with a broader spread of initial voltages reveals additional within-trajectory curvature and cross-trajectory normalized-slope differences tied to V_C itself, not just to T_R or T_C.",
+        "continuation_path": "Recover the parent by taking the voltage dependence of capacitance to zero, so capacitance depends only on T_C and the target returns to a purely linear-in-V_C form at fixed thermal state.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The current model assumes the capacitor is electrically linear apart from temperature drift, omitting the common case that capacitance also depends on the instantaneous applied voltage.",
+        "baseline_assumption": "Capacitance is independent of capacitor voltage and depends only on reference value plus first-order temperature drift.",
+        "scientific_mechanism": "Voltage-dependent dielectric permittivity or depletion effects make the effective capacitance vary with capacitor voltage, altering the RC time constant during discharge even without adding a new state.",
+        "affected_symbols": [
+          "V_C",
+          "T_C",
+          "capacitance"
+        ],
+        "rationale": "A realistic next refinement is to relax the ideal-linear-capacitor assumption rather than adding a new dissipative branch. The parent target law maps positive V_C to dV_C_dt through a single effective gain controlled only by T_R and T_C; therefore, for two trajectories with the same temperatures but different initial voltages, dV_C_dt/V_C is initially the same. In many capacitors, especially high-permittivity ceramics or other field-sensitive dielectrics, capacitance changes with applied voltage, so the child law makes the decay rate depend on both thermal state and voltage level. The distinguishing condition is variation of initial V_C across trajectories while resistance, capacitance reference, and ambient/thermal parameters are held fixed. Then the child predicts that a higher-voltage trajectory can have a systematically different early-time normalized slope and a different curvature as V_C decreases, beyond what the parent can reproduce by one shared refit of thermal coefficients, because those coefficients affect all trajectories through temperature only and do not create an explicit same-temperature dependence on V_C. This refinement changes the scored mapping directly, not merely auxiliary thermal trajectories. It is scientifically admissible so long as the capacitance remains positive and monotone enough that dV_C_dt stays nonpositive and stored energy still decreases; if the benchmark voltage range is too small or the chosen capacitor technology is nearly voltage-invariant, the effect may be weak."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The target mapping is first-order in V_C with an effective decay gain set only by the instantaneous temperature-dependent RC product, so at fixed T_R and T_C the normalized slope dV_C_dt/V_C is independent of discharge amplitude.",
+          "child_relation": "Refine the capacitor from an ideal linear capacitor to a weakly voltage-dependent capacitor, so the effective capacitance and hence dV_C_dt/V_C also depend on V_C. The normalized decay rate then changes along a trajectory as voltage falls, even at the same temperatures.",
+          "affected_inputs": [
+            "V_C",
+            "T_R",
+            "T_C",
+            "capacitance"
+          ],
+          "observable_effect": "Across trajectories started at different initial voltages but with the same component parameters and similar initial temperatures, the child predicts different early-time normalized decay rates and a voltage-dependent bending of the semilog voltage trace that the parent cannot match with one shared parameter set."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "rc_thermal_gain",
+            "expression": "1/(capacitance*(1 + cap_temp_coeff*(T_C - T_ref))*resistance*(1 + temp_coeff*(T_R - T_ref) + resistance_temp_quadratic_coeff*(T_R - T_ref)**2))",
+            "role": "Parent instantaneous linear discharge gain set by thermal state"
+          },
+          {
+            "name": "voltage_excursion",
+            "expression": "V_C",
+            "role": "Electrical operating level whose effect is omitted by the parent ideal-capacitor law"
+          },
+          {
+            "name": "stored_energy_scale",
+            "expression": "capacitance*V_C**2/2",
+            "role": "Magnitude of electric stress/energy where voltage-dependent capacitance becomes observable"
+          }
+        ],
+        "activation_condition": "Observable when the capacitor technology exhibits non-negligible capacitance change over the sampled voltage range, e.g. moderate-to-large initial V_C excursions compared with the device's small-signal regime, while temperatures remain in the admissible range so thermal effects do not completely dominate.",
+        "train_hidden_contrast": "In training, thermal variation already changes the decay gain; extending to holdout trajectories with a broader spread of initial voltages reveals additional within-trajectory curvature and cross-trajectory normalized-slope differences tied to V_C itself, not just to T_R or T_C.",
+        "continuation_path": "Recover the parent by taking the voltage dependence of capacitance to zero, so capacitance depends only on T_C and the target returns to a purely linear-in-V_C form at fixed thermal state.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "V_C",
+          "T_C",
+          "T_R"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Field-dependent capacitor dielectric response during resistive discharge",
+        "scientific_mechanism": "Voltage-dependent dielectric permittivity or depletion effects make the effective capacitance vary with capacitor voltage, altering the RC time constant during discharge even without adding a new state.",
+        "embedding_pattern": "nested_nonlinearity",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the target denominator now contains a nonlinear map of a combined electrical state, 1 + cap_voltage_coeff*V_C**2, nested inside the RC gain. That creates within-trajectory curvature and cross-trajectory same-temperature amplitude dependence that cannot be reproduced by merely rescaling capacitance or thermal coefficients.",
+        "taxonomy_match": "known",
+        "assumption_before": "The capacitor is electrically linear apart from temperature drift, so capacitance depends only on T_C.",
+        "assumption_after": "The capacitor has weak voltage-dependent capacitance in addition to temperature drift, so the RC time constant varies with both V_C and thermal state.",
+        "before_fragment": "-V_C/(capacitance*(1 + cap_temp_coeff*(T_C - T_ref))*resistance*(1 + temp_coeff*(T_R - T_ref) + resistance_temp_quadratic_coeff*(T_R - T_ref)**2))",
+        "after_fragment": "-V_C/(capacitance*(1 + cap_temp_coeff*(T_C - T_ref))*(1 + cap_voltage_coeff*V_C**2)*resistance*(1 + temp_coeff*(T_R - T_ref) + resistance_temp_quadratic_coeff*(T_R - T_ref)**2))",
+        "parent_reduction": "Taking cap_voltage_coeff -> 0 recovers the parent temperature-only capacitance law and target mapping.",
+        "observable_signature": "At matched T_R and T_C, the parent predicts identical normalized decay rate dV_C_dt/V_C for different voltage amplitudes, whereas the child predicts a systematic V_C-dependent normalized rate and extra semilog-trace bending. This contrast is observable by varying initial V_C while holding resistance, capacitance reference, and thermal parameters fixed.",
+        "shortcut_blocked": "A single parent parameter set cannot reproduce this contrast because all parent parameters act through temperature-dependent gain only; with the same thermal state, the parent normalized slope is amplitude-independent. Retuning capacitance or thermal coefficients can shift overall gain or thermal evolution, but cannot create explicit same-temperature dependence on V_C across trajectories started at different voltages."
+      },
+      "range_suggestions": {
+        "cap_voltage_coeff": "Weak voltage dependence that preserves positive capacitance over the sampled range, e.g. from near 0 up to about 1e-2 per volt squared in sign and magnitude consistent with the chosen capacitor technology and |cap_voltage_coeff|*V_C**2 < 1 over the experiment"
+      }
+    }
+  ],
+  "evolution_provenance": {
+    "dimension_track": null,
+    "mechanism_profile": {
+      "allowed_structural_roles": [
+        "contribution",
+        "response_law",
+        "modulation",
+        "interaction",
+        "constraint",
+        "transition",
+        "feedback",
+        "heterogeneity",
+        "timescale",
+        "transport_balance"
+      ],
+      "preferred_scopes": [
+        "unary",
+        "pairwise",
+        "state_coupling",
+        "time_forcing"
+      ],
+      "domain_mechanisms": [
+        {
+          "id": "nonlinear_constitutive_response",
+          "description": "nonlinear constitutive or response law",
+          "operations": [
+            "add_term",
+            "change_assumption"
+          ]
+        },
+        {
+          "id": "coupled_field_or_force",
+          "description": "coupling to an already declared field, force, or state",
+          "operations": [
+            "add_term"
+          ]
+        },
+        {
+          "id": "finite_relaxation_or_threshold",
+          "description": "finite response time or physical threshold",
+          "operations": [
+            "change_assumption"
+          ]
+        }
+      ],
+      "profile_source": "subject_fallback",
+      "ontology_schema_version": "1.0",
+      "taxonomy_schema_version": "1.0"
+    },
+    "baseline_mechanisms": [
+      "Charge depletion from the capacitor through a resistive path.",
+      "Dissipation of stored electric energy in the resistor."
+    ],
+    "baseline_assumptions": [
+      "Resistance and capacitance are constant.",
+      "The connecting wires have negligible inductance.",
+      "There is no external voltage source during discharge.",
+      "The capacitor has no leakage path other than the specified resistor."
+    ],
+    "scientific_constraints": [
+      "For positive capacitor voltage, its time derivative is nonpositive.",
+      "The capacitor voltage remains nonnegative for the specified initial conditions.",
+      "The stored electric energy cannot increase during the isolated discharge."
+    ],
+    "refinement_agenda": [
+      "Add parasitic wire inductance.",
+      "Include capacitor leakage through a second resistive path.",
+      "Allow voltage-dependent capacitance.",
+      "Apply a time-dependent external source."
+    ],
+    "evolution_contracts": [
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The discharge slope is a single linear gain of V_C, so all trajectories are exact exponentials with one shared time constant 1/(resistance*capacitance).",
+          "child_relation": "Allow the resistor value to vary with its own temperature during self-heating, so dV_C/dt remains proportional to V_C but the proportionality changes along the trajectory through thermal feedback from dissipated power.",
+          "affected_inputs": [
+            "V_C",
+            "resistance",
+            "capacitance"
+          ],
+          "observable_effect": "Across trajectories started from different initial capacitor voltages with the same fixed components, high-voltage discharges show a different early-to-late decay rate than low-voltage discharges because stronger initial Joule heating changes the effective resistance during the run."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "rc_rate",
+            "expression": "V_C/(resistance*capacitance)",
+            "role": "Parent instantaneous discharge scale"
+          },
+          {
+            "name": "joule_drive",
+            "expression": "V_C**2/resistance",
+            "role": "Electrical power available to heat the resistor and perturb the decay rate"
+          },
+          {
+            "name": "stored_energy",
+            "expression": "capacitance*V_C**2/2",
+            "role": "Finite energy budget governing how much thermal drift can accumulate"
+          }
+        ],
+        "activation_condition": "Observable when the resistor's thermal time and temperature coefficient are large enough that Joule heating during the measured discharge is not negligible; strongest for larger initial V_C because heating scales with V_C**2/resistance, and weak in near-isothermal low-power discharge.",
+        "train_hidden_contrast": "The same mechanism appears in training through modest voltage-dependent deviations from a pure exponential and extends in holdout as stronger trajectory-to-trajectory curvature differences at larger initial V_C under the same fixed component values.",
+        "continuation_path": "In the isothermal limit, or vanishing resistor temperature coefficient, or negligible self-heating, the thermal state stays effectively constant and the parent RC law is recovered.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "Thermal memory cannot be represented with only the existing electrical state V_C and fixed parameters, because the changed discharge rate depends on accumulated dissipated power, not only the instantaneous voltage.",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "V_C",
+          "T_R"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Self-heating of a resistive element with temperature-dependent resistance",
+        "scientific_mechanism": "Electrothermal feedback: Joule heating in the resistor changes its temperature and hence its effective resistance during the isolated discharge.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "The discharge coefficient is no longer a single shared constant but a dynamic function of an internal thermal state driven by past dissipation. This introduces memory and trajectory-dependent curvature that cannot be reproduced by a coefficient-only correction applied uniformly across all initial voltages.",
+        "taxonomy_match": "known",
+        "assumption_before": "Resistance is constant.",
+        "assumption_after": "Resistance depends on the resistor's evolving temperature under lumped electrothermal dynamics.",
+        "before_fragment": "-V_C/(resistance*capacitance)",
+        "after_fragment": "-V_C/(capacitance*resistance*(1 + temp_coeff*(T_R - T_ref)))",
+        "parent_reduction": "If temp_coeff -> 0, or T_R -> T_ref for all t, the child target law becomes -V_C/(resistance*capacitance).",
+        "observable_signature": "Parent: for fixed resistance and capacitance, the normalized slope dV_C_dt/V_C is time-constant and identical across trajectories differing only in initial V_C. Child: the normalized slope equals -1/(capacitance*resistance*(1 + temp_coeff*(T_R - T_ref))) and drifts during the run; high-initial-voltage trajectories heat the resistor more, so at the same observed V_C they can have a different instantaneous dV_C_dt than low-voltage trajectories because T_R encodes prior power dissipation.",
+        "shortcut_blocked": "A single refitted parent parameter set only changes one global time constant, preserving exact exponential decay and identical normalized slope across all trajectories. It cannot reproduce systematic initial-voltage-dependent early-versus-late curvature under one shared parameter set, because the child mapping depends on thermal history through T_R rather than only the instantaneous observed V_C."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "interaction_emergence",
+          "parent_relation": "The target mapping is dV_C_dt = -V_C/(capacitance*resistance*(1 + temp_coeff*(T_R - T_ref))), so temperature only changes the discharge rate through the resistor's resistance while capacitance is assumed temperature-invariant.",
+          "child_relation": "Refine the capacitance assumption so the target depends on both resistance heating and capacitance drift with temperature, making the effective RC time constant a non-separable function of T_R and V_C through self-heating.",
+          "affected_inputs": [
+            "V_C",
+            "T_R",
+            "capacitance",
+            "temp_coeff"
+          ],
+          "observable_effect": "Across trajectories with different initial capacitor voltages but the same fixed component parameters, stronger self-heating changes not only resistance but also capacitance, producing a different curvature of V_C(t) and hence of dV_C_dt versus V_C than the parent can match with one shared parameter set."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "electrothermal_load",
+            "expression": "V_C**2/resistance",
+            "role": "Sets the heating scale that drives resistor-temperature excursions and thus activates temperature-dependent element drift"
+          },
+          {
+            "name": "resistance_temp_factor",
+            "expression": "1 + temp_coeff*(T_R - T_ref)",
+            "role": "Parent electrothermal modulation of resistance already present in the target mapping"
+          },
+          {
+            "name": "resistor_overheat",
+            "expression": "T_R - T_ref",
+            "role": "Temperature excursion whose effect is currently assumed to act only on resistance"
+          }
+        ],
+        "activation_condition": "Observable when Joule heating makes |T_R - T_ref| large enough that temperature drift of capacitance is no longer negligible compared with the existing resistance change, while remaining in the moderate operating range where a first-order temperature correction is admissible.",
+        "train_hidden_contrast": "In training, moderate variation of initial voltage already changes self-heating and reveals slight trajectory-shape differences beyond a single temperature-dependent resistance law; in holdout, larger but still admissible heating amplifies this same RC interaction rather than introducing a new regime.",
+        "continuation_path": "Recover the parent law in the limit of zero capacitance temperature coefficient or negligible resistor temperature rise, so capacitance is effectively constant.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "V_C",
+          "T_R",
+          "capacitance",
+          "resistance",
+          "temp_coeff",
+          "cap_temp_coeff"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Electrothermal modification of the RC time constant through temperature-dependent capacitance",
+        "scientific_mechanism": "Temperature-dependent capacitance of the capacitor, approximated over a moderate thermal range by a first-order drift with the resistor-temperature excursion as a lumped local thermal proxy.",
+        "embedding_pattern": "nested_nonlinearity",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the thermal state now enters two coupled multiplicative factors inside the decay denominator, so self-heating changes the target through a nested nonlinear RC law rather than a single shared gain.",
+        "taxonomy_match": "known",
+        "assumption_before": "Capacitance is constant even as resistor temperature departs from the reference temperature during discharge.",
+        "assumption_after": "Capacitance drifts linearly with local temperature over the moderate operating range, using T_R as a lumped thermal proxy.",
+        "before_fragment": "-V_C/(capacitance*resistance*(1 + temp_coeff*(T_R - T_ref)))",
+        "after_fragment": "-V_C/(capacitance*(1 + cap_temp_coeff*(T_R - T_ref))*resistance*(1 + temp_coeff*(T_R - T_ref)))",
+        "parent_reduction": "Set cap_temp_coeff = 0 to recover the parent exactly; approximately the same reduction holds when T_R - T_ref is negligible.",
+        "observable_signature": "Holding resistance, capacitance, thermal parameters, ambient temperature, and the observation protocol fixed while varying initial capacitor voltage changes self-heating and therefore T_R(t). In the parent, the scored mapping changes only through resistance_temp_factor, so one shared parameter set implies resistance-only modulation of the RC constant. In the child, the same T_R excursion also multiplies capacitance by 1 + cap_temp_coeff*(T_R - T_ref), so higher-heating trajectories show a distinct change in the slope and curvature of dV_C_dt versus V_C beyond resistance-only scaling. This is observable when the capacitor is thermally coupled closely enough to the resistor that T_R is a usable local proxy and the excursion remains within the moderate first-order drift regime.",
+        "shortcut_blocked": "A single refit of the parent parameters cannot generally absorb this change across low-heating and higher-heating trajectories because the parent allows only one temperature-dependent factor in the target denominator. Retuning resistance, capacitance, or temp_coeff can match one heating range, but it cannot reproduce a shared dataset where the effective RC time constant varies with T_R through both resistance and capacitance using the same parameter set; the mismatch appears in trajectory curvature, not just an overall timescale shift."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The target mapping is first-order linear in V_C with a temperature-dependent time constant, so at any observed T_R the discharge rate scales as a single proportional gain times V_C.",
+          "child_relation": "Replace the linear resistance-temperature law with a higher-order temperature dependence of effective resistance, so the target remains nonpositive but its magnitude acquires nonlinear curvature with T_R rather than a single affine thermal gain.",
+          "affected_inputs": [
+            "V_C",
+            "T_R",
+            "temp_coeff"
+          ],
+          "observable_effect": "Across trajectories with different self-heating levels, dV_C_dt versus T_R bends away from the parent's straight thermal trend, producing systematically different early-to-late discharge-rate curvature at the same V_C that one shared linear thermal coefficient cannot match."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "thermal_excursion",
+            "expression": "T_R - T_ref",
+            "role": "Dimensionless-sign thermal offset controlling departure from reference component values"
+          },
+          {
+            "name": "electrothermal_loading",
+            "expression": "V_C**2/(resistance*(1 + temp_coeff*(T_R - T_ref)))",
+            "role": "Instantaneous Joule-heating scale that determines whether resistor self-heating reaches the nonlinear thermal-coefficient regime"
+          },
+          {
+            "name": "discharge_gain_parent",
+            "expression": "1/(capacitance*(1 + cap_temp_coeff*(T_R - T_ref))*resistance*(1 + temp_coeff*(T_R - T_ref)))",
+            "role": "Parent proportional mapping from V_C to discharge rate at the observed temperature"
+          }
+        ],
+        "activation_condition": "Observable when resistor self-heating drives |T_R - T_ref| beyond the strictly linear coefficient range but still within a moderate safe temperature excursion where a polynomial resistance law is physically admissible; strongest for larger initial V_C and weaker cooling.",
+        "train_hidden_contrast": "In training, modest thermal excursions already make the effective decay rate drift with T_R; in holdout, larger excursions reveal curvature in that drift rather than the parent's straight-line thermal scaling.",
+        "continuation_path": "Recover the parent law in the limit that higher-order thermal dependence of resistance is negligible over the realized temperature excursion, leaving only the linear temp_coeff term.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "V_C",
+          "T_R"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "temperature-curved resistor law in electrothermal RC discharge",
+        "scientific_mechanism": "Nonlinear resistivity versus temperature in the heated resistor changes both Joule heating and the RC discharge constant as temperature rises.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the coefficient of discharge depends nonlinearly on the evolving state T_R, and that same state-dependent resistance also feeds back through thermal power dissipation, changing the target mapping across trajectories rather than just rescaling one gain.",
+        "taxonomy_match": "known",
+        "assumption_before": "The parent assumes effective resistance is R(T_R)=resistance*(1 + temp_coeff*(T_R - T_ref)) with no higher-order thermal correction.",
+        "assumption_after": "The effective resistance has mild quadratic curvature in temperature excursion, R(T_R)=resistance*(1 + temp_coeff*(T_R - T_ref) + resistance_temp_quadratic_coeff*(T_R - T_ref)**2).",
+        "before_fragment": "-V_C/(capacitance*(1 + cap_temp_coeff*(T_R - T_ref))*resistance*(1 + temp_coeff*(T_R - T_ref)))",
+        "after_fragment": "-V_C/(capacitance*(1 + cap_temp_coeff*(T_R - T_ref))*resistance*(1 + temp_coeff*(T_R - T_ref) + resistance_temp_quadratic_coeff*(T_R - T_ref)**2))",
+        "parent_reduction": "The parent is recovered exactly at resistance_temp_quadratic_coeff = 0.",
+        "observable_signature": "At fixed observed V_C, the parent predicts dV_C_dt as a straight affine-temperature gain in the resistance factor, whereas the child predicts a curved dependence on T_R. This target-mapping change is observable on trajectories with different self-heating amplitudes because the same V_C reached at different T_R gives a systematically different discharge rate than the parent's one-linear-coefficient law allows.",
+        "shortcut_blocked": "A single refitted parent temp_coeff can only impose one affine resistance trend versus thermal excursion. It cannot simultaneously match near-reference behavior and larger-excursion curvature in dV_C_dt versus T_R across trajectories generated by different initial voltages and cooling conditions, because the child introduces a genuine second-order dependence on the observed state T_R rather than a global gain rescaling."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The target mapping is first-order RC discharge with electrothermal feedback, where resistor heating depends only on self-generated Joule power and cooling to a fixed ambient; thus dV_C_dt as a function of observed (V_C, T_R) is fully determined by the instantaneous resistor temperature and has no memory of capacitor temperature lag.",
+          "child_relation": "Relax the assumption that the capacitor effective capacitance follows resistor temperature instantaneously and instead let the capacitor have its own thermal state that evolves with lag relative to the resistor. Then dV_C_dt depends on V_C, T_R, and the capacitor temperature state, creating history-dependent curvature in the discharge rate because the capacitance drift no longer tracks resistor heating algebraically.",
+          "affected_inputs": [
+            "V_C",
+            "T_R",
+            "capacitance",
+            "cap_temp_coeff"
+          ],
+          "observable_effect": "Across trajectories with the same instantaneous V_C and similar T_R reached at different times during discharge, the child permits different dV_C_dt values due to delayed capacitor warming/cooling, producing a measurable early/late-time curvature difference in voltage decay that the parent cannot represent."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "delta_TR",
+            "expression": "T_R - T_ref",
+            "role": "Resistor thermal excursion controlling present resistance nonlinearity in the parent"
+          },
+          {
+            "name": "tau_elec_inst",
+            "expression": "capacitance*(1 + cap_temp_coeff*(T_R - T_ref))*resistance*(1 + temp_coeff*(T_R - T_ref) + resistance_temp_quadratic_coeff*(T_R - T_ref)**2)",
+            "role": "Parent instantaneous RC time constant implied by the algebraic temperature-following assumption"
+          },
+          {
+            "name": "p_joule",
+            "expression": "V_C**2/(resistance*(1 + temp_coeff*(T_R - T_ref) + resistance_temp_quadratic_coeff*(T_R - T_ref)**2))",
+            "role": "Electrical heating rate that drives resistor temperature and indirectly reveals when thermal lag effects can accumulate"
+          }
+        ],
+        "activation_condition": "Observable when resistor self-heating is strong enough that T_R departs appreciably from T_ref during the discharge and the capacitor thermal equilibration is not effectively instantaneous compared with the electrical decay, so thermal lag can separate capacitor temperature from resistor temperature over part of the trajectory.",
+        "train_hidden_contrast": "In training, moderate self-heating already bends the decay through T_R; in holdout, longer or hotter trajectories amplify the mismatch between instantaneous T_R and the capacitance-setting temperature, extending the same lag mechanism rather than introducing a new process.",
+        "continuation_path": "Recover the parent law in the limit of vanishing capacitor thermal lag, where the new capacitor thermal state rapidly equilibrates to T_R so capacitance again becomes an algebraic function of T_R alone.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "Existing states do not encode any thermal memory for the capacitor. A separate capacitor-temperature state is needed because delayed capacitance response cannot be represented by refitting the current instantaneous function of V_C and T_R alone.",
+        "scope_kind": "memory",
+        "scope_symbols": [
+          "V_C",
+          "T_R",
+          "T_C"
+        ],
+        "structural_role": "timescale",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Delayed capacitor thermal equilibration under resistor self-heating and ambient cooling",
+        "scientific_mechanism": "Finite thermal coupling and heat capacity of the capacitor create a delayed capacitor temperature, so the effective capacitance responds with thermal lag to resistor heating and ambient cooling.",
+        "embedding_pattern": "saturating_or_thresholded",
+        "difficulty_rationale": "This embedding adds a finite-capacity thermal relaxation channel, so the target derivative is no longer a single instantaneous function of the observed resistor temperature. The added state introduces history dependence and a relaxation-limited approach of T_C toward T_R/ambient, which cannot be mimicked by a coefficient-only correction without losing the time-ordering contrast.",
+        "taxonomy_match": "known",
+        "assumption_before": "The capacitor's temperature-dependent capacitance is approximated by using resistor temperature instantaneously.",
+        "assumption_after": "The capacitor has its own finite thermal capacity and finite thermal coupling, so capacitance depends on a lagged capacitor temperature state.",
+        "before_fragment": "-V_C/(capacitance*(1 + cap_temp_coeff*(T_R - T_ref))*resistance*(1 + temp_coeff*(T_R - T_ref) + resistance_temp_quadratic_coeff*(T_R - T_ref)**2))",
+        "after_fragment": "-V_C/(capacitance*(1 + cap_temp_coeff*(T_C - T_ref))*resistance*(1 + temp_coeff*(T_R - T_ref) + resistance_temp_quadratic_coeff*(T_R - T_ref)**2))",
+        "parent_reduction": "In the fast-equilibration limit where T_C tracks T_R, the after fragment collapses to the parent fragment.",
+        "observable_signature": "Parent: at any sampled moment, dV_C_dt is uniquely determined by V_C and T_R through an instantaneous RC time constant. Child: under appreciable self-heating and finite capacitor thermal lag, two moments with similar V_C and T_R but different prior heating histories can have different dV_C_dt because T_C differs, yielding an early-versus-late curvature split in voltage decay. This is a changed target mapping, not merely an auxiliary-state change, because T_C enters the target RHS directly.",
+        "shortcut_blocked": "A single refitted parent parameter set still maps each instantaneous (V_C, T_R) pair to exactly one dV_C_dt value, so it cannot represent the child’s one-to-many history-conditioned slope at similar V_C and T_R across trajectories or across times within a trajectory. Retuning capacitance or cap_temp_coeff only rescales that instantaneous surface and cannot create the missing thermal-memory branch."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The target mapping is first-order in V_C with an effective decay gain set only by the instantaneous temperature-dependent RC product, so at fixed T_R and T_C the normalized slope dV_C_dt/V_C is independent of discharge amplitude.",
+          "child_relation": "Refine the capacitor from an ideal linear capacitor to a weakly voltage-dependent capacitor, so the effective capacitance and hence dV_C_dt/V_C also depend on V_C. The normalized decay rate then changes along a trajectory as voltage falls, even at the same temperatures.",
+          "affected_inputs": [
+            "V_C",
+            "T_R",
+            "T_C",
+            "capacitance"
+          ],
+          "observable_effect": "Across trajectories started at different initial voltages but with the same component parameters and similar initial temperatures, the child predicts different early-time normalized decay rates and a voltage-dependent bending of the semilog voltage trace that the parent cannot match with one shared parameter set."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "rc_thermal_gain",
+            "expression": "1/(capacitance*(1 + cap_temp_coeff*(T_C - T_ref))*resistance*(1 + temp_coeff*(T_R - T_ref) + resistance_temp_quadratic_coeff*(T_R - T_ref)**2))",
+            "role": "Parent instantaneous linear discharge gain set by thermal state"
+          },
+          {
+            "name": "voltage_excursion",
+            "expression": "V_C",
+            "role": "Electrical operating level whose effect is omitted by the parent ideal-capacitor law"
+          },
+          {
+            "name": "stored_energy_scale",
+            "expression": "capacitance*V_C**2/2",
+            "role": "Magnitude of electric stress/energy where voltage-dependent capacitance becomes observable"
+          }
+        ],
+        "activation_condition": "Observable when the capacitor technology exhibits non-negligible capacitance change over the sampled voltage range, e.g. moderate-to-large initial V_C excursions compared with the device's small-signal regime, while temperatures remain in the admissible range so thermal effects do not completely dominate.",
+        "train_hidden_contrast": "In training, thermal variation already changes the decay gain; extending to holdout trajectories with a broader spread of initial voltages reveals additional within-trajectory curvature and cross-trajectory normalized-slope differences tied to V_C itself, not just to T_R or T_C.",
+        "continuation_path": "Recover the parent by taking the voltage dependence of capacitance to zero, so capacitance depends only on T_C and the target returns to a purely linear-in-V_C form at fixed thermal state.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "V_C",
+          "T_C",
+          "T_R"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Field-dependent capacitor dielectric response during resistive discharge",
+        "scientific_mechanism": "Voltage-dependent dielectric permittivity or depletion effects make the effective capacitance vary with capacitor voltage, altering the RC time constant during discharge even without adding a new state.",
+        "embedding_pattern": "nested_nonlinearity",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the target denominator now contains a nonlinear map of a combined electrical state, 1 + cap_voltage_coeff*V_C**2, nested inside the RC gain. That creates within-trajectory curvature and cross-trajectory same-temperature amplitude dependence that cannot be reproduced by merely rescaling capacitance or thermal coefficients.",
+        "taxonomy_match": "known",
+        "assumption_before": "The capacitor is electrically linear apart from temperature drift, so capacitance depends only on T_C.",
+        "assumption_after": "The capacitor has weak voltage-dependent capacitance in addition to temperature drift, so the RC time constant varies with both V_C and thermal state.",
+        "before_fragment": "-V_C/(capacitance*(1 + cap_temp_coeff*(T_C - T_ref))*resistance*(1 + temp_coeff*(T_R - T_ref) + resistance_temp_quadratic_coeff*(T_R - T_ref)**2))",
+        "after_fragment": "-V_C/(capacitance*(1 + cap_temp_coeff*(T_C - T_ref))*(1 + cap_voltage_coeff*V_C**2)*resistance*(1 + temp_coeff*(T_R - T_ref) + resistance_temp_quadratic_coeff*(T_R - T_ref)**2))",
+        "parent_reduction": "Taking cap_voltage_coeff -> 0 recovers the parent temperature-only capacitance law and target mapping.",
+        "observable_signature": "At matched T_R and T_C, the parent predicts identical normalized decay rate dV_C_dt/V_C for different voltage amplitudes, whereas the child predicts a systematic V_C-dependent normalized rate and extra semilog-trace bending. This contrast is observable by varying initial V_C while holding resistance, capacitance reference, and thermal parameters fixed.",
+        "shortcut_blocked": "A single parent parameter set cannot reproduce this contrast because all parent parameters act through temperature-dependent gain only; with the same thermal state, the parent normalized slope is amplitude-independent. Retuning capacitance or thermal coefficients can shift overall gain or thermal evolution, but cannot create explicit same-temperature dependence on V_C across trajectories started at different voltages."
+      }
+    ]
+  },
+  "finalization": {
+    "mode": "candidate",
+    "accepted_generations": 5,
+    "novelty": {
+      "answer": "NOT_EVALUATED"
+    },
+    "total_points": 5000,
+    "evaluation_status": "not_evaluated"
+  }
+}

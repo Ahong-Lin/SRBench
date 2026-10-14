@@ -1,0 +1,3 @@
+Ground truth: new_infection_rate = s*c*(q*i)**(1 + susceptible_curvature_modulation*s + infectious_curvature_modulation*i)/(exposure_half_saturation/((1 + susceptible_saturation_modulation*s)*(1 + infectious_threshold_modulation*i)) + (q*i)**(1 + susceptible_curvature_modulation*s + infectious_curvature_modulation*i))*(1 + infectious_redundancy_shape*i/(1 + q*i))
+
+Fixed parameters: {'exposure_half_saturation': 0.15, 'susceptible_saturation_modulation': 3.0, 'susceptible_curvature_modulation': 1.2, 'infectious_threshold_modulation': 2.0, 'infectious_curvature_modulation': 1.0, 'infectious_redundancy_shape': 1.5}

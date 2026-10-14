@@ -1,0 +1,208 @@
+{
+  "equation_type": "explicit",
+  "integrator": "evaluate_explicit",
+  "dependent_variable": "m_inf",
+  "independent_variables": [
+    {
+      "symbol": "V",
+      "range": [
+        -100.0,
+        40.0
+      ],
+      "n_points": 181,
+      "scale": "linear"
+    },
+    {
+      "symbol": "I_cond",
+      "range": [
+        0.4,
+        1.6
+      ],
+      "n_points": 121,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "V_half",
+      "value": -35.0
+    },
+    {
+      "symbol": "slope_factor",
+      "value": 9.0
+    },
+    {
+      "symbol": "I_ref",
+      "value": 1.0
+    },
+    {
+      "symbol": "ionic_shift_max",
+      "value": 12.0
+    },
+    {
+      "symbol": "ionic_scale",
+      "value": 0.35
+    },
+    {
+      "symbol": "slope_ionic_frac",
+      "value": 0.3
+    },
+    {
+      "symbol": "slope_ionic_scale",
+      "value": 0.4
+    },
+    {
+      "symbol": "shift_level_frac",
+      "value": 0.45
+    },
+    {
+      "symbol": "shift_voltage_scale",
+      "value": 14.0
+    },
+    {
+      "symbol": "shift_curvature_frac",
+      "value": 0.6
+    }
+  ],
+  "benchmark_output": null,
+  "benchmark_target_state": null,
+  "observed_variables": [],
+  "rhs_for_integrator": "(exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale) + shift_curvature_frac*tanh((I_cond - I_ref)/ionic_scale)*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))) + exp(2*(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale) + shift_curvature_frac*tanh((I_cond - I_ref)/ionic_scale)*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))))/(1 + exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale) + shift_curvature_frac*tanh((I_cond - I_ref)/ionic_scale)*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))) + exp(2*(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale) + shift_curvature_frac*tanh((I_cond - I_ref)/ionic_scale)*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))))",
+  "state_variables": [],
+  "state_rhs": [],
+  "initial_conditions": {},
+  "sanity_expectations": [
+    "For every fixed I_cond in the sampled range, m_inf(V,I_cond) should remain bounded strictly between 0 and 1 and increase monotonically with V over the sweep.",
+    "Across I_cond values below and above I_ref=1, activation curves should show visible horizontal displacement, with the displacement approaching saturation toward the I_cond range edges rather than growing linearly without bound.",
+    "Transition width in V should differ across ionic conditions because the effective slope factor is slope_factor*(1 + slope_ionic_frac*tanh((I_cond-I_ref)/slope_ionic_scale)); curves at high and low I_cond should not be explainable by a pure horizontal translation alone.",
+    "Because shift_curvature_frac is nonzero, the voltage displacement between two ionic conditions should be quantile dependent: the low-activation foot and high-activation shoulder should shift by different amounts, so equal-m_inf contours in the (V,I_cond) plane are bent rather than approximately parallel.",
+    "At I_cond near I_ref, ionic effects should weaken and the surface should approach the reference two-stage activation curve centered near V_half, but not dominate the full dataset since many sampled conditions lie away from I_ref.",
+    "No singular or complex values should occur across the chosen domain because the effective slope denominator remains positive for all sampled I_cond with the selected parameters."
+  ],
+  "role_corrections": [
+    "m_inf: claimed-output/target derivative -> dependent_variable (confirmed: explicit static target, no derivatives present)",
+    "V: V->V (confirmed: free sampled input axis in explicit expression)",
+    "I_cond: V->V (confirmed: free sampled input axis in explicit expression and preserved by freedom_change=none)",
+    "V_half: P->P (confirmed: free symbol not sampled under declared roles)",
+    "slope_factor: P->P (confirmed: fixed parameter controlling voltage scale)",
+    "I_ref: P->P (confirmed: fixed reference parameter)",
+    "ionic_shift_max: P->P (confirmed: fixed parameter)",
+    "ionic_scale: P->P (confirmed: fixed parameter)",
+    "slope_ionic_frac: P->P (confirmed: fixed parameter)",
+    "slope_ionic_scale: P->P (confirmed: fixed parameter)",
+    "shift_level_frac: P->P (confirmed: fixed parameter)",
+    "shift_voltage_scale: P->P (confirmed: fixed parameter)",
+    "shift_curvature_frac: P->P (confirmed: fixed parameter; suggested bounded magnitude adopted)"
+  ],
+  "rationale": "Structure check shows an explicit algebraic relation for m_inf with free symbols V and I_cond and no derivatives, integrals, delays, or hidden dynamic states, so this is a static two-input response surface. The freedom decision is none, so the declared sampled inputs V and I_cond are preserved. Parameter choices are biologically sensible and chosen to expose, rather than erase, the intended mechanisms: V_half=-35 mV and slope_factor=9 mV place the activation transition within a standard voltage-clamp window; ionic_shift_max=12 mV is large enough to produce visible ionic-condition-dependent displacement but not so large as to force all curves into saturation over the chosen voltage range; ionic_scale=0.35 and slope_ionic_scale=0.4 are comparable to the sampled I_cond span around I_ref=1, so ionic effects are active but only partly saturated across the dataset. slope_ionic_frac=0.3 keeps the effective slope positive and allows noticeable broadening/sharpening without singularity. shift_level_frac=0.45 and shift_curvature_frac=0.6, with shift_voltage_scale=14 mV, make the ionic shift visibly quantile dependent across the foot, midpoint, and shoulder of activation while remaining bounded; this directly targets the recorded child-vs-parent distinction that equal-m_inf contours in (V,I_cond) should bend rather than behave like nearly parallel translated sigmoids. The V range -100 to 40 mV spans well below and above the transition so both tails and the central rise are visible; the I_cond range 0.4 to 1.6 straddles I_ref and is broad enough that the tanh-based ionic modulation changes appreciably on both sides of reference. No recovery limit such as shift_curvature_frac≈0, shift_level_frac≈0, or slope_ionic_frac≈0 is selected, because those would suppress the intended contrast. A representative substitution was checked and is finite and real.",
+  "coverage_report": {},
+  "inactive_mechanisms": [],
+  "target_variance": {},
+  "parent_absorption_report": {},
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_K7MSqyBs03BBaJ7xQFtHIMCM"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "(exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale) + shift_curvature_frac*tanh((I_cond - I_ref)/ionic_scale)*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))) + exp(2*(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale) + shift_curvature_frac*tanh((I_cond - I_ref)/ionic_scale)*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))))/(1 + exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale) + shift_curvature_frac*tanh((I_cond - I_ref)/ionic_scale)*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))) + exp(2*(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale) + shift_curvature_frac*tanh((I_cond - I_ref)/ionic_scale)*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))))",
+        "target_symbol": "m_inf"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "I_cond",
+          "I_ref",
+          "V",
+          "V_half",
+          "ionic_scale",
+          "ionic_shift_max",
+          "shift_curvature_frac",
+          "shift_level_frac",
+          "shift_voltage_scale",
+          "slope_factor",
+          "slope_ionic_frac",
+          "slope_ionic_scale"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "(exp(2*(V - (V_half + ionic_shift_max*(shift_curvature_frac*tanh((I_cond - I_ref)/ionic_scale)*tanh((V - V_half)/shift_v"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_aCnh42HPO3QjhHjXKhZJRixw"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "(exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale) + shift_curvature_frac*tanh((I_cond - I_ref)/ionic_scale)*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))) + exp(2*(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale) + shift_curvature_frac*tanh((I_cond - I_ref)/ionic_scale)*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))))/(1 + exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale) + shift_curvature_frac*tanh((I_cond - I_ref)/ionic_scale)*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))) + exp(2*(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale) + shift_curvature_frac*tanh((I_cond - I_ref)/ionic_scale)*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))))",
+        "target_symbol": "m_inf",
+        "assignments": {
+          "V": -20,
+          "I_cond": 1.2,
+          "V_half": -35,
+          "slope_factor": 9,
+          "I_ref": 1,
+          "ionic_shift_max": 12,
+          "ionic_scale": 0.35,
+          "slope_ionic_frac": 0.3,
+          "slope_ionic_scale": 0.4,
+          "shift_level_frac": 0.45,
+          "shift_voltage_scale": 14,
+          "shift_curvature_frac": 0.6
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": 0.8127001261153739,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_0zasjekm16tHjGXVELJGpOFs"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 3
+}

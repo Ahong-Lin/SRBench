@@ -1,0 +1,1568 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "N1",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        1.2
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "dispersal_rate",
+      "value": 0.003
+    },
+    {
+      "symbol": "crowding_sensitivity",
+      "value": 2.0
+    },
+    {
+      "symbol": "crowding_saturation",
+      "value": 0.005
+    },
+    {
+      "symbol": "adaptation_relaxation_rate",
+      "value": 0.08
+    },
+    {
+      "symbol": "adaptation_crowding_sensitivity",
+      "value": 1.5
+    },
+    {
+      "symbol": "adaptation_crowding_saturation",
+      "value": 0.01
+    }
+  ],
+  "benchmark_output": "dN1_dt",
+  "benchmark_target_state": "N1",
+  "observed_variables": [
+    "t",
+    "N1",
+    "N2",
+    "propensity",
+    "adaptation_rate"
+  ],
+  "rhs_for_integrator": "dispersal_rate*N2*propensity*(1 + crowding_sensitivity*N2/(1 + crowding_saturation*(N1 + N2))) - dispersal_rate*N1*(1 + crowding_sensitivity*N1/(1 + crowding_saturation*(N1 + N2)))",
+  "state_variables": [
+    "N1",
+    "N2",
+    "propensity",
+    "adaptation_rate"
+  ],
+  "state_rhs": [
+    "dispersal_rate*N2*propensity*(1 + crowding_sensitivity*N2/(1 + crowding_saturation*(N1 + N2))) - dispersal_rate*N1*(1 + crowding_sensitivity*N1/(1 + crowding_saturation*(N1 + N2)))",
+    "dispersal_rate*N1*(1 + crowding_sensitivity*N1/(1 + crowding_saturation*(N1 + N2))) - dispersal_rate*N2*propensity*(1 + crowding_sensitivity*N2/(1 + crowding_saturation*(N1 + N2)))",
+    "adaptation_rate*((1 + crowding_sensitivity*N2/(1 + crowding_saturation*(N1 + N2))) - propensity)",
+    "adaptation_relaxation_rate*((1 + adaptation_crowding_sensitivity*N2/(1 + adaptation_crowding_saturation*N2)) - adaptation_rate)"
+  ],
+  "initial_conditions": {
+    "N1": 400.0,
+    "N2": 100.0,
+    "propensity": 1.0,
+    "adaptation_rate": 1.0
+  },
+  "sanity_expectations": [
+    "N1(t)+N2(t) should remain 500 up to numerical tolerance because the first two state RHS terms are exact negatives.",
+    "At the inherited initial condition with the chosen parameters, dN1/dt is finite and negative, so N1 initially decreases and N2 initially increases.",
+    "propensity should initially rise above 1 because its crowding target based on N2 is initially greater than 1.",
+    "adaptation_rate should initially rise above 1 because its own crowding-dependent target is initially greater than 1.",
+    "As the patches approach balance, |dN1/dt| should decline toward 0 rather than grow.",
+    "The trajectory should show transient curvature consistent with internal-state lag: N1(t) should not be a pure single-timescale exponential relaxation because propensity and adaptation_rate evolve during redistribution."
+  ],
+  "role_corrections": [
+    "dN1_dt: claimed-output/target derivative -> derivative of dependent variable N1 in contracted ODE system (confirmed as target derivative, not sampled state)",
+    "t: claimed-input/time axis -> independent variable/time axis (confirmed)",
+    "N1: claimed-dynamic state -> dynamic state and dependent variable/target_state (confirmed)",
+    "N2: claimed-dynamic state -> dynamic state in ODE system, not independent sampled axis (confirmed)",
+    "propensity: claimed-dynamic state -> dynamic state in ODE system (confirmed)",
+    "dispersal_rate: claimed-parameter -> fixed parameter (confirmed)",
+    "crowding_sensitivity: claimed-parameter -> fixed parameter (confirmed)",
+    "crowding_saturation: claimed-parameter -> fixed parameter (confirmed)",
+    "adaptation_rate: claimed-dynamic state -> dynamic state in ODE system (confirmed, preserve contract role)",
+    "adaptation_relaxation_rate: claimed-parameter -> fixed parameter (confirmed)",
+    "adaptation_crowding_sensitivity: claimed-parameter -> fixed parameter (confirmed)",
+    "adaptation_crowding_saturation: claimed-parameter -> fixed parameter (confirmed)"
+  ],
+  "rationale": "Preserved the provided typed ODE-system contract exactly as required: target state N1, sole sampled axis t, and inherited state system/initial conditions unchanged. The scored expression by itself is explicit in current states, but the supplied contract defines a structurally validated ODE system containing the additional dynamic states propensity and adaptation_rate, so data generation must follow that inherited ode_system. Parameter choices are selected to keep all terms finite and to expose nonlinear dispersal with adaptive lag without collapsing immediately to equilibrium. With the fixed inherited total abundance 500, crowding_saturation*(N1+N2)=2.5 initially, so cross-patch saturation is active but not extreme; crowding_sensitivity=2 keeps crowding effects visible. dispersal_rate=0.003 slows exchange enough that the trajectory over t in [0,1.2] resolves early, mid, and later transient structure from the 400:100 imbalance. adaptation_relaxation_rate=0.08 with positive adaptation crowding parameters keeps the adaptation_rate state dynamic on an observable timescale, so the generation-4 occupancy-dependent acclimation is active rather than effectively constant. Because the contract fixes one initial condition and one time axis, the recorded mechanism contrasts appear through the reachable trajectory itself: early times have strong imbalance and low propensity/adaptation disequilibrium, later times show reduced imbalance and altered internal states. This makes phase-lag curvature and state-coupled nonlinear relaxation visible, while honestly limiting direct between-condition comparisons that would require additional initial-condition sweeps not permitted here.",
+  "coverage_report": {
+    "groups": [
+      {
+        "generation": 1,
+        "name": "imbalance",
+        "expression": "N2 - N1",
+        "role": "signed spatial abundance difference driving net movement into patch 1",
+        "train_range": [
+          -364.419021723441,
+          -266.65351326000643
+        ],
+        "hidden_range": [
+          -364.4179541059016,
+          -364.3957491724269
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": -364.419021723441,
+          "max": -266.65351326000643,
+          "q05": -364.41561232696347,
+          "median": -354.9202595794792,
+          "q95": -268.4058267204732,
+          "range": 97.76550846343457,
+          "robust_range": 96.00978560649025
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": -364.4179541059016,
+          "max": -364.3957491724269,
+          "q05": -364.4173420632033,
+          "median": -364.40824658439215,
+          "q95": -364.3969645847047,
+          "range": 0.022204933474654354,
+          "robust_range": 0.020377478498630808
+        }
+      },
+      {
+        "generation": 1,
+        "name": "total_abundance",
+        "expression": "N1 + N2",
+        "role": "closed-system crowding level that can modulate emigration intensity while preserving total abundance",
+        "train_range": [
+          499.99999999999994,
+          500.00000000000017
+        ],
+        "hidden_range": [
+          499.99999999999994,
+          500.0
+        ],
+        "train_status": "inactive",
+        "hidden_status": "inactive",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 499.99999999999994,
+          "max": 500.00000000000017,
+          "q05": 500.0,
+          "median": 500.00000000000006,
+          "q95": 500.0000000000001,
+          "range": 2.2737367544323206e-13,
+          "robust_range": 1.1368683772161603e-13
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 499.99999999999994,
+          "max": 500.0,
+          "q05": 499.99999999999994,
+          "median": 500.0,
+          "q95": 500.0,
+          "range": 5.684341886080802e-14,
+          "robust_range": 5.684341886080802e-14
+        }
+      },
+      {
+        "generation": 1,
+        "name": "crowding_contrast",
+        "expression": "N2**2 - N1**2",
+        "role": "minimal symmetric density-dependent correction to the parent flux difference",
+        "train_range": [
+          -182209.5108617205,
+          -133326.75663000328
+        ],
+        "hidden_range": [
+          -182208.9770529508,
+          -182197.87458621347
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": -182209.5108617205,
+          "max": -133326.75663000328,
+          "q05": -182207.80616348173,
+          "median": -177460.1297897396,
+          "q95": -134202.91336023665,
+          "range": 48882.754231717234,
+          "robust_range": 48004.89280324508
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": -182208.9770529508,
+          "max": -182197.87458621347,
+          "q05": -182208.67103160164,
+          "median": -182204.12329219608,
+          "q95": -182198.4822923523,
+          "range": 11.102466737327632,
+          "robust_range": 10.188739249337232
+        }
+      },
+      {
+        "generation": 2,
+        "name": "local_crowding_contrast",
+        "expression": "N2*(1 + crowding_sensitivity*N2) - N1*(1 + crowding_sensitivity*N1)",
+        "role": "Parent-law density-amplified flux contrast to be replaced by a saturating version",
+        "train_range": [
+          -364783.44074516447,
+          -266920.1667732665
+        ],
+        "hidden_range": [
+          -364782.3720600075,
+          -364760.14492159936
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": -364783.44074516447,
+          "max": -266920.1667732665,
+          "q05": -364780.02793929045,
+          "median": -355275.1798390587,
+          "q95": -268674.2325471937,
+          "range": 97863.27397189796,
+          "robust_range": 96105.79539209674
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": -364782.3720600075,
+          "max": -364760.14492159936,
+          "q05": -364781.7594052665,
+          "median": -364772.65483097656,
+          "q95": -364761.3615492893,
+          "range": 22.227138408110477,
+          "robust_range": 20.39785597717855
+        }
+      },
+      {
+        "generation": 3,
+        "name": "imbalance",
+        "expression": "N1 - N2",
+        "role": "Spatial asymmetry driving net exchange",
+        "train_range": [
+          266.65351326000643,
+          364.419021723441
+        ],
+        "hidden_range": [
+          364.3957491724269,
+          364.4179541059016
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 266.65351326000643,
+          "max": 364.419021723441,
+          "q05": 268.4058267204732,
+          "median": 354.9202595794792,
+          "q95": 364.41561232696347,
+          "range": 97.76550846343457,
+          "robust_range": 96.00978560649025
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 364.3957491724269,
+          "max": 364.4179541059016,
+          "q05": 364.3969645847047,
+          "median": 364.40824658439215,
+          "q95": 364.4173420632033,
+          "range": 0.022204933474654354,
+          "robust_range": 0.020377478498630808
+        }
+      },
+      {
+        "generation": 3,
+        "name": "crowding_drive_gap",
+        "expression": "N1/(1 + crowding_saturation*N1) - N2/(1 + crowding_saturation*N2)",
+        "role": "Difference in instantaneous local crowding stimulus between patches",
+        "train_range": [
+          57.74096445570875,
+          86.10033787710589
+        ],
+        "hidden_range": [
+          86.09268302160169,
+          86.09998670273578
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 57.74096445570875,
+          "max": 86.10033787710589,
+          "q05": 58.1942552567393,
+          "median": 83.01845210855427,
+          "q95": 86.09921641882443,
+          "range": 28.359373421397137,
+          "robust_range": 27.90496116208513
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 86.09268302160169,
+          "max": 86.09998670273578,
+          "q05": 86.09308278462233,
+          "median": 86.09679363135035,
+          "q95": 86.09978538234554,
+          "range": 0.007303681134089857,
+          "robust_range": 0.006702597723219128
+        }
+      },
+      {
+        "generation": 4,
+        "name": "crowding_target_N2",
+        "expression": "1 + crowding_sensitivity*N2/(1 + crowding_saturation*N2)",
+        "role": "Instantaneous crowding-based emigration propensity target in patch 2",
+        "train_range": [
+          102.25899445708006,
+          148.37366773191806
+        ],
+        "hidden_range": [
+          102.25958996086831,
+          102.27197505848629
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 102.25899445708006,
+          "max": 148.37366773191806,
+          "q05": 102.26089616766929,
+          "median": 107.46495393246295,
+          "q95": 147.67276700230246,
+          "range": 46.114673274838,
+          "robust_range": 45.41187083463318
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 102.25958996086831,
+          "max": 102.27197505848629,
+          "q05": 102.2599313496017,
+          "median": 102.26500458671441,
+          "q95": 102.27129717264562,
+          "range": 0.012385097617979568,
+          "robust_range": 0.01136582304391709
+        }
+      },
+      {
+        "generation": 4,
+        "name": "propensity_gap",
+        "expression": "1 + crowding_sensitivity*N2/(1 + crowding_saturation*N2) - propensity",
+        "role": "Behavioral disequilibrium controlling delayed adjustment",
+        "train_range": [
+          62.45571119157316,
+          139.94882668377676
+        ],
+        "hidden_range": [
+          62.47942760685322,
+          62.513507604213274
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 62.45571119157316,
+          "max": 139.94882668377676,
+          "q05": 62.45858680897029,
+          "median": 69.13285849222234,
+          "q95": 139.0473464979964,
+          "range": 77.4931154922036,
+          "robust_range": 76.58875968902609
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 62.47942760685322,
+          "max": 62.513507604213274,
+          "q05": 62.48139146602094,
+          "median": 62.49832898343402,
+          "q95": 62.51220444061729,
+          "range": 0.034079997360052516,
+          "robust_range": 0.03081297459635124
+        }
+      },
+      {
+        "generation": 5,
+        "name": "occupancy_ratio",
+        "expression": "N2/(1 + N1 + N2)",
+        "role": "Patch-2 occupancy relative to system load, useful for judging whether local crowding relief remains available",
+        "train_range": [
+          0.13531035756143614,
+          0.23288072528941478
+        ],
+        "hidden_range": [
+          0.13531142304800237,
+          0.13533358366025253
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.13531035756143614,
+          "max": 0.23288072528941478,
+          "q05": 0.13531376015273106,
+          "median": 0.14479016010032025,
+          "q95": 0.2311319094606056,
+          "range": 0.09757036772797864,
+          "robust_range": 0.09581814930787455
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.13531142304800237,
+          "max": 0.13533358366025253,
+          "q05": 0.13531203386905855,
+          "median": 0.13532111119322135,
+          "q95": 0.13533237067394743,
+          "range": 2.2160612250160527e-05,
+          "robust_range": 2.033680488888745e-05
+        }
+      }
+    ],
+    "inactive_mechanisms": [
+      "total_abundance"
+    ],
+    "visible_mechanisms": [
+      "imbalance",
+      "crowding_contrast",
+      "local_crowding_contrast",
+      "imbalance",
+      "crowding_drive_gap",
+      "crowding_target_N2",
+      "propensity_gap",
+      "occupancy_ratio"
+    ],
+    "extended_mechanisms": [
+      "imbalance",
+      "crowding_contrast",
+      "local_crowding_contrast",
+      "imbalance",
+      "crowding_drive_gap",
+      "crowding_target_N2",
+      "occupancy_ratio"
+    ]
+  },
+  "inactive_mechanisms": [
+    "total_abundance"
+  ],
+  "target_variance": {
+    "train": {
+      "n": 384,
+      "variance": 7131.339121760716,
+      "range": 422.3352299345767
+    },
+    "hidden": {
+      "n": 128,
+      "variance": 0.000277416387063719,
+      "range": 0.06017296601748967
+    }
+  },
+  "parent_absorption_report": {
+    "status": "ok",
+    "n_points": 512,
+    "fixed_parent_normalized_rmse": 53.17333953042249,
+    "refit": {
+      "status": "not_run",
+      "reason": "no free parent parameters"
+    },
+    "interpretation": "<1e-3 nearly absorbed; 1e-3..1e-2 weak; >1e-2 visible structure"
+  },
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_vwvu6Qen4FDPpK9ZPKik0334"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "dispersal_rate*N2*propensity*(1 + crowding_sensitivity*N2/(1 + crowding_saturation*(N1 + N2))) - dispersal_rate*N1*(1 + crowding_sensitivity*N1/(1 + crowding_saturation*(N1 + N2)))",
+        "target_symbol": "dN1_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "N1",
+          "N2",
+          "crowding_saturation",
+          "crowding_sensitivity",
+          "dispersal_rate",
+          "propensity"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "-N1*dispersal_rate*(N1*crowding_sensitivity/(crowding_saturation*(N1 + N2) + 1) + 1) + N2*dispersal_rate*propensity*(N2*"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_XEBzynwSTSLo3yvYHPn4EXTm"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "assignments": {
+          "N1": 400,
+          "N2": 100,
+          "propensity": 1,
+          "dispersal_rate": 0.03,
+          "crowding_sensitivity": 2.0,
+          "crowding_saturation": 0.005
+        },
+        "expression": "dispersal_rate*N2*propensity*(1 + crowding_sensitivity*N2/(1 + crowding_saturation*(N1 + N2))) - dispersal_rate*N1*(1 + crowding_sensitivity*N1/(1 + crowding_saturation*(N1 + N2)))",
+        "target_symbol": "dN1_dt"
+      },
+      "result": {
+        "ok": true,
+        "value_real": -2580.428571428571,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_pC2hc9vUBlMgUmTTINfPK25b"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_5nGrzHAI8zBY7qWxtjCJr2nG"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 4,
+  "discipline": "biology",
+  "scenario_text": "A closed population is distributed between two identical habitat patches connected by bidirectional dispersal. Individuals leave each patch at a fixed per-capita rate and immediately enter the other patch, with no births or deaths during the observation window. The benchmark targets abundance change in the first patch as movement relaxes an initial spatial imbalance.",
+  "record_id": "m2_population_ecology_20260917_002",
+  "generation": 5,
+  "_n_total": 5000,
+  "mechanism_observation_history": [
+    {
+      "generation": 1,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The target mapping is dN1_dt = dispersal_rate*(N2 - N1), so for any observed (N1,N2) the net flux into patch 1 is a single linear gain on abundance difference with no dependence on crowding level.",
+          "child_relation": "Replace density-independent emigration with density-dependent emigration so the net flux into patch 1 depends on both abundance difference and absolute crowding, causing the relaxation rate to increase at high occupancy while approaching the parent linear law at low density.",
+          "affected_inputs": [
+            "N1",
+            "N2",
+            "dispersal_rate"
+          ],
+          "observable_effect": "For the same abundance imbalance N2-N1, trajectories with larger total abundance show faster exchange than low-density trajectories, producing a curved rather than strictly linear relationship between dN1_dt and patch abundances."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "imbalance",
+            "expression": "N2 - N1",
+            "role": "signed spatial abundance difference driving net movement into patch 1"
+          },
+          {
+            "name": "total_abundance",
+            "expression": "N1 + N2",
+            "role": "closed-system crowding level that can modulate emigration intensity while preserving total abundance"
+          },
+          {
+            "name": "crowding_contrast",
+            "expression": "N2**2 - N1**2",
+            "role": "minimal symmetric density-dependent correction to the parent flux difference"
+          }
+        ],
+        "activation_condition": "Observable when patch abundances vary enough that crowding alters per-capita departure, i.e. moderate-to-high occupancy where local interference or encounter-driven movement matters; negligible in the dilute limit.",
+        "train_hidden_contrast": "Within training, early versus late times already differ in absolute densities while total abundance is fixed, so a density-dependent law changes the slope of dN1_dt versus imbalance along the trajectory; in holdout, the same mechanism extends to other closed-population totals or stronger initial crowding.",
+        "continuation_path": "In the weak-crowding limit, or if the density-dependence coefficient tends to zero, the model reduces to dN1_dt = dispersal_rate*(N2 - N1).",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The parent assumes dispersal is density independent, omitting the realistic possibility that crowded patches export individuals more strongly than sparse patches.",
+        "baseline_assumption": "Dispersal rates are symmetric and density independent.",
+        "scientific_mechanism": "Symmetric density-dependent emigration caused by crowding or encounter-driven movement within each patch.",
+        "affected_symbols": [
+          "N1",
+          "N2",
+          "dispersal_rate"
+        ],
+        "rationale": "A natural next refinement is to relax only the density-independence assumption while keeping the patches identical, exchange symmetric, and total abundance conserved. The parent target mapping uses one shared linear gain: holding dispersal_rate fixed, dN1_dt depends only on the imbalance N2-N1. The child would make emigration from each patch increase with that patch's own abundance, so dN1_dt depends on both imbalance and absolute crowding. The concrete distinguishing condition is to compare states with the same signed imbalance but different total abundance, holding dispersal_rate fixed. Under the parent, these states must have the same dN1_dt because only N2-N1 matters. Under density-dependent dispersal, the higher-total-abundance state has larger net exchange magnitude, giving a changed target mapping, not merely altered auxiliary dynamics. This is scientifically admissible because the current closed two-patch setup already spans moderate densities and no extra state is needed. Limitation: if observations remain confined to very low densities, the effect becomes hard to distinguish and the parent is approximately recovered."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The target mapping is dN1_dt = dispersal_rate*(N2 - N1), so for any observed (N1,N2) the net flux into patch 1 is a single linear gain on abundance difference with no dependence on crowding level.",
+          "child_relation": "Replace density-independent emigration with density-dependent emigration so the net flux into patch 1 depends on both abundance difference and absolute crowding, causing the relaxation rate to increase at high occupancy while approaching the parent linear law at low density.",
+          "affected_inputs": [
+            "N1",
+            "N2",
+            "dispersal_rate"
+          ],
+          "observable_effect": "For the same abundance imbalance N2-N1, trajectories with larger total abundance show faster exchange than low-density trajectories, producing a curved rather than strictly linear relationship between dN1_dt and patch abundances."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "imbalance",
+            "expression": "N2 - N1",
+            "role": "signed spatial abundance difference driving net movement into patch 1"
+          },
+          {
+            "name": "total_abundance",
+            "expression": "N1 + N2",
+            "role": "closed-system crowding level that can modulate emigration intensity while preserving total abundance"
+          },
+          {
+            "name": "crowding_contrast",
+            "expression": "N2**2 - N1**2",
+            "role": "minimal symmetric density-dependent correction to the parent flux difference"
+          }
+        ],
+        "activation_condition": "Observable when patch abundances vary enough that crowding alters per-capita departure, i.e. moderate-to-high occupancy where local interference or encounter-driven movement matters; negligible in the dilute limit.",
+        "train_hidden_contrast": "Within training, early versus late times already differ in absolute densities while total abundance is fixed, so a density-dependent law changes the slope of dN1_dt versus imbalance along the trajectory; in holdout, the same mechanism extends to other closed-population totals or stronger initial crowding.",
+        "continuation_path": "In the weak-crowding limit, or if the density-dependence coefficient tends to zero, the model reduces to dN1_dt = dispersal_rate*(N2 - N1).",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "N1",
+          "N2"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "density-dependent dispersal",
+        "scientific_mechanism": "Symmetric density-dependent emigration caused by crowding or encounter-driven movement within each patch.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "The refinement changes the coefficient multiplying each export process into a state-dependent quantity, so the target can no longer be represented by one global linear gain on N2 - N1. This is structurally harder than coefficient retuning because it introduces dependence on absolute abundance through a nonlinear correction that remains visible in the scored target equation itself.",
+        "taxonomy_match": "known",
+        "assumption_before": "Each patch exports individuals at the same density-independent per-capita rate dispersal_rate.",
+        "assumption_after": "Each patch still exports symmetrically, but its per-capita emigration rate increases with its own abundance because crowding promotes movement.",
+        "before_fragment": "dispersal_rate*N2 - dispersal_rate*N1",
+        "after_fragment": "dispersal_rate*N2*(1 + crowding_sensitivity*N2) - dispersal_rate*N1*(1 + crowding_sensitivity*N1)",
+        "parent_reduction": "Setting crowding_sensitivity = 0 gives dispersal_rate*N2 - dispersal_rate*N1.",
+        "observable_signature": "Compare admissible states with the same signed imbalance N2-N1 but different total abundance N1+N2 while holding dispersal_rate fixed. The parent predicts identical dN1_dt for those states, whereas the child predicts larger-magnitude flux when total abundance is higher because the coefficient of export rises with local occupancy.",
+        "shortcut_blocked": "A single refitted parent parameter dispersal_rate cannot reproduce this contrast across such conditions because the parent target depends only on N2-N1. When two states share the same imbalance but differ in total abundance, the parent necessarily maps them to the same dN1_dt, while the child adds the independent crowding_contrast term dispersal_rate*crowding_sensitivity*(N2**2 - N1**2), changing the scored target mapping itself rather than only auxiliary trajectories."
+      },
+      "range_suggestions": {
+        "crowding_sensitivity": "0 to 1/max(N1+N2) in the intended dataset scaling; nonnegative so crowding increases emigration and the low-density limit remains close to the parent law"
+      }
+    },
+    {
+      "generation": 2,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The target mapping is the difference of two local emigration fluxes, each increasing quadratically with its own patch abundance through a single shared crowding coefficient, so the imbalance-relaxation strength grows without bound as densities rise.",
+          "child_relation": "Replace the unbounded linear-in-density crowding effect on per-capita emigration with a saturating crowding response, so the net exchange still depends on both patch abundances but the increase in imbalance-relaxation strength bends over at high abundance.",
+          "affected_inputs": [
+            "N1",
+            "N2",
+            "crowding_sensitivity"
+          ],
+          "observable_effect": "For the same total population size, increasing crowding strengthens |dN1_dt| strongly at moderate densities, but this acceleration weakens at high densities instead of continuing with the parent's quadratic growth."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "imbalance",
+            "expression": "N2 - N1",
+            "role": "Signed spatial abundance difference driving net movement direction"
+          },
+          {
+            "name": "total_abundance",
+            "expression": "N1 + N2",
+            "role": "Conserved crowding scale setting whether density effects are moderate or near saturation"
+          },
+          {
+            "name": "local_crowding_contrast",
+            "expression": "N2*(1 + crowding_sensitivity*N2) - N1*(1 + crowding_sensitivity*N1)",
+            "role": "Parent-law density-amplified flux contrast to be replaced by a saturating version"
+          }
+        ],
+        "activation_condition": "Observable when the conserved total abundance is large enough that crowding modifies emigration appreciably, especially when crowding_sensitivity*(N1+N2) is not small; at very low densities the child should reduce close to the parent low-density behavior.",
+        "train_hidden_contrast": "Across trajectories with different initial imbalance but the same conserved total abundance, both models predict relaxation toward equal abundances; the hidden contrast appears when comparing low-versus-high total-abundance regimes, where the parent implies ever-steepening density amplification but the child predicts diminishing returns in |dN1_dt| at high crowding.",
+        "continuation_path": "In the weak-crowding limit, or when the saturation scale is taken very large so the crowding correction remains in its near-linear regime over the observed abundances, the child recovers the parent law approximately.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The current model assumes crowding increases per-capita emigration indefinitely with local abundance, which is unrealistic if movement decisions, exit sites, or behavioral responses saturate.",
+        "baseline_assumption": "The already-present density-dependent dispersal effect is modeled as an unbounded linear increase in per-capita emigration with local density.",
+        "scientific_mechanism": "Saturating crowding-driven emigration: local interference or finite behavioral responsiveness causes the density effect on dispersal propensity to level off at high patch occupancy.",
+        "affected_symbols": [
+          "N1",
+          "N2",
+          "crowding_sensitivity",
+          "dispersal_rate"
+        ],
+        "rationale": "A realistic next refinement is to relax the mathematical form of the existing crowding effect rather than add a new process. The parent response relationship uses one shared gain-like crowding coefficient to amplify emigration ever more strongly as either patch becomes denser, so for fixed imbalance the predicted target magnitude can keep curving upward with total abundance. Holding dispersal_rate fixed and comparing conditions with similar imbalance direction but increasing conserved total abundance, the child instead predicts that the effect of extra crowding on dN1_dt eventually weakens because emigration propensity cannot increase indefinitely. This is a change in the scored target mapping itself, not only in an auxiliary trajectory, since dN1_dt as a function of observed N1 and N2 changes curvature. The admissible observable regime is finite but realistic: moderate-to-high occupancy where crowding matters, while still preserving nonnegativity, conservation, and symmetric relaxation toward balance. The limitation is that if all observations remain in a weak-crowding range, the distinction from the parent may be hard to detect."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The target mapping is the difference of two local emigration fluxes, each increasing quadratically with its own patch abundance through a single shared crowding coefficient, so the imbalance-relaxation strength grows without bound as densities rise.",
+          "child_relation": "Replace the unbounded linear-in-density crowding effect on per-capita emigration with a saturating crowding response, so the net exchange still depends on both patch abundances but the increase in imbalance-relaxation strength bends over at high abundance.",
+          "affected_inputs": [
+            "N1",
+            "N2",
+            "crowding_sensitivity"
+          ],
+          "observable_effect": "For the same total population size, increasing crowding strengthens |dN1_dt| strongly at moderate densities, but this acceleration weakens at high densities instead of continuing with the parent's quadratic growth."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "imbalance",
+            "expression": "N2 - N1",
+            "role": "Signed spatial abundance difference driving net movement direction"
+          },
+          {
+            "name": "total_abundance",
+            "expression": "N1 + N2",
+            "role": "Conserved crowding scale setting whether density effects are moderate or near saturation"
+          },
+          {
+            "name": "local_crowding_contrast",
+            "expression": "N2*(1 + crowding_sensitivity*N2) - N1*(1 + crowding_sensitivity*N1)",
+            "role": "Parent-law density-amplified flux contrast to be replaced by a saturating version"
+          }
+        ],
+        "activation_condition": "Observable when the conserved total abundance is large enough that crowding modifies emigration appreciably, especially when crowding_sensitivity*(N1+N2) is not small; at very low densities the child should reduce close to the parent low-density behavior.",
+        "train_hidden_contrast": "Across trajectories with different initial imbalance but the same conserved total abundance, both models predict relaxation toward equal abundances; the hidden contrast appears when comparing low-versus-high total-abundance regimes, where the parent implies ever-steepening density amplification but the child predicts diminishing returns in |dN1_dt| at high crowding.",
+        "continuation_path": "In the weak-crowding limit, or when the saturation scale is taken very large so the crowding correction remains in its near-linear regime over the observed abundances, the child recovers the parent law approximately.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "pairwise",
+        "scope_symbols": [
+          "N1",
+          "N2",
+          "crowding_sensitivity",
+          "crowding_saturation"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "density-dependent dispersal with saturating crowding response",
+        "scientific_mechanism": "Saturating crowding-driven emigration: local interference or finite behavioral responsiveness causes the density effect on dispersal propensity to level off at high patch occupancy.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the coefficient multiplying the crowding effect now depends on the current local state through a nonlinear denominator, changing curvature across abundance regimes rather than applying one global gain.",
+        "taxonomy_match": "known",
+        "assumption_before": "The already-present density-dependent dispersal effect is modeled as an unbounded linear increase in per-capita emigration with local density.",
+        "assumption_after": "The crowding-driven increase in per-capita emigration saturates with local abundance because behavioral response or exit capacity is finite.",
+        "before_fragment": "dispersal_rate*N2*(1 + crowding_sensitivity*N2) - dispersal_rate*N1*(1 + crowding_sensitivity*N1)",
+        "after_fragment": "dispersal_rate*N2*(1 + crowding_sensitivity*N2/(1 + crowding_saturation*N2)) - dispersal_rate*N1*(1 + crowding_sensitivity*N1/(1 + crowding_saturation*N1))",
+        "parent_reduction": "When crowding_saturation*N1 << 1 and crowding_saturation*N2 << 1 across the sampled trajectories, the successor reduces approximately to the parent expression.",
+        "observable_signature": "Holding dispersal_rate and the imbalance direction fixed, increasing conserved total abundance changes dN1_dt from the parent's ever-stronger quadratic amplification to a bent-over response with diminishing additional increase once crowding_saturation*N1 or crowding_saturation*N2 approaches order one.",
+        "shortcut_blocked": "A single parent parameter set cannot reproduce both low-density near-linear crowding amplification and high-density leveling-off, because its crowding contribution is a fixed quadratic function of local abundance with no saturation scale. Retuning dispersal_rate and crowding_sensitivity can shift overall gain or curvature uniformly, but cannot create the child's regime-dependent bend from quadratic growth at moderate density toward approximately linear flux at high density within one shared model."
+      },
+      "range_suggestions": {
+        "crowding_saturation": "positive; suggested range 0 to 1/max(N1+N2) in dataset scaling, with smaller values giving weaker saturation over the observed abundance range and larger values causing earlier leveling-off"
+      }
+    },
+    {
+      "generation": 3,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "Net flux into patch 1 depends only on the two local abundances through an instantaneous symmetric saturating emigration law; for a fixed total abundance, dN1_dt is a single-valued odd-like function of imbalance with no dependence on time since crowding is read off current N1 and N2 only.",
+          "child_relation": "Crowding-driven emigration remains symmetric but becomes behaviorally adaptive with finite relaxation time, so current net flux depends on abundances and on a lagged internal dispersal propensity state. This changes the early-versus-late curvature of dN1_dt during relaxation from the same abundance range.",
+          "affected_inputs": [
+            "N1",
+            "N2",
+            "t"
+          ],
+          "observable_effect": "After a strong initial imbalance, the initial exchange rate is weaker than the parent's instantaneous crowding law predicts, then transiently catches up as movement propensity adjusts; under milder imbalance the response stays closer to the parent. Thus trajectories with similar intermediate abundances but reached at different times can show different dN1_dt."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "total_abundance",
+            "expression": "N1 + N2",
+            "role": "Conserved population size setting the occupancy scale"
+          },
+          {
+            "name": "imbalance",
+            "expression": "N1 - N2",
+            "role": "Spatial asymmetry driving net exchange"
+          },
+          {
+            "name": "crowding_drive_gap",
+            "expression": "N1/(1 + crowding_saturation*N1) - N2/(1 + crowding_saturation*N2)",
+            "role": "Difference in instantaneous local crowding stimulus between patches"
+          }
+        ],
+        "activation_condition": "Observable when the adjustment timescale of dispersal propensity is not negligible relative to 1/dispersal_rate, especially from the given nonequilibrium start with substantial imbalance and moderate-to-large crowding effect.",
+        "train_hidden_contrast": "In training, lagged adjustment alters the early relaxation slope and curvature most strongly after larger imbalances; in holdout, the same mechanism extends to later-time hysteresis-like differences where the same abundance pair can carry different flux depending on prior crowding history.",
+        "continuation_path": "Recover the parent by taking the adaptation dynamics to the fast limit so the promoted/emergent behavioral state instantaneously matches the current crowding-based emigration law.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A finite-memory behavioral adjustment cannot be represented by refitting the existing instantaneous abundance-only law; one internal state is needed to store recent crowding history while preserving mass conservation.",
+        "gap_statement": "The current model assumes individuals adjust emigration propensity instantaneously to current local crowding, omitting realistic finite behavioral acclimation or departure-readiness dynamics.",
+        "baseline_assumption": "Relax the implicit assumption that crowding-modulated per-capita emigration responds without delay to the current patch abundance.",
+        "scientific_mechanism": "Symmetric time-lagged adjustment of dispersal propensity caused by behavioral acclimation, decision accumulation, or temporary readiness to emigrate under crowding.",
+        "affected_symbols": [
+          "N1",
+          "N2",
+          "dispersal_rate",
+          "crowding_sensitivity",
+          "crowding_saturation"
+        ],
+        "rationale": "Parent shortcut: fixed_environment, here meaning the target mapping treats the emigration environment as fully determined by the current abundances with no internal memory. Vary condition: elapsed time during relaxation from the prescribed imbalanced initial condition, while holding the same total abundance and fixed parameter set. Parent response: once N1 and N2 are specified, dN1_dt is fixed. Child response: for the same current abundances reached at different stages of relaxation, dN1_dt can differ because dispersal propensity still reflects recent higher or lower crowding. The main observable contrast is changed early-time slope and curvature of abundance relaxation, strongest when crowding sensitivity is appreciable and adaptation is not much faster than exchange. This is scientifically admissible because behavioral or physiological departure readiness often lags local density. A single refit of the parent parameters cannot reproduce this history dependence across conditions, since its mapping from supplied states to target remains memoryless and single-valued."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "Net flux into patch 1 depends only on the two local abundances through an instantaneous symmetric saturating emigration law; for a fixed total abundance, dN1_dt is a single-valued odd-like function of imbalance with no dependence on time since crowding is read off current N1 and N2 only.",
+          "child_relation": "Crowding-driven emigration remains symmetric but becomes behaviorally adaptive with finite relaxation time, so current net flux depends on abundances and on a lagged internal dispersal propensity state. This changes the early-versus-late curvature of dN1_dt during relaxation from the same abundance range.",
+          "affected_inputs": [
+            "N1",
+            "N2",
+            "t"
+          ],
+          "observable_effect": "After a strong initial imbalance, the initial exchange rate is weaker than the parent's instantaneous crowding law predicts, then transiently catches up as movement propensity adjusts; under milder imbalance the response stays closer to the parent. Thus trajectories with similar intermediate abundances but reached at different times can show different dN1_dt."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "total_abundance",
+            "expression": "N1 + N2",
+            "role": "Conserved population size setting the occupancy scale"
+          },
+          {
+            "name": "imbalance",
+            "expression": "N1 - N2",
+            "role": "Spatial asymmetry driving net exchange"
+          },
+          {
+            "name": "crowding_drive_gap",
+            "expression": "N1/(1 + crowding_saturation*N1) - N2/(1 + crowding_saturation*N2)",
+            "role": "Difference in instantaneous local crowding stimulus between patches"
+          }
+        ],
+        "activation_condition": "Observable when the adjustment timescale of dispersal propensity is not negligible relative to 1/dispersal_rate, especially from the given nonequilibrium start with substantial imbalance and moderate-to-large crowding effect.",
+        "train_hidden_contrast": "In training, lagged adjustment alters the early relaxation slope and curvature most strongly after larger imbalances; in holdout, the same mechanism extends to later-time hysteresis-like differences where the same abundance pair can carry different flux depending on prior crowding history.",
+        "continuation_path": "Recover the parent by taking the adaptation dynamics to the fast limit so the promoted/emergent behavioral state instantaneously matches the current crowding-based emigration law.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A finite-memory behavioral adjustment cannot be represented by refitting the existing instantaneous abundance-only law; one internal state is needed to store recent crowding history while preserving mass conservation.",
+        "scope_kind": "memory",
+        "scope_symbols": [
+          "N1",
+          "N2",
+          "propensity"
+        ],
+        "structural_role": "feedback",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "finite-timescale behavioral acclimation of emigration propensity",
+        "scientific_mechanism": "Symmetric time-lagged adjustment of dispersal propensity caused by behavioral acclimation, decision accumulation, or temporary readiness to emigrate under crowding.",
+        "embedding_pattern": "multi_timescale",
+        "difficulty_rationale": "The added internal propensity state introduces a distinct relaxation timescale and makes the target mapping history dependent rather than a single instantaneous abundance-only curve. This is structurally harder than a coefficient-only correction because the same abundance pair can correspond to different fluxes depending on recent crowding history.",
+        "taxonomy_match": "known",
+        "assumption_before": "The emigration multiplier is an instantaneous function of current local abundance only.",
+        "assumption_after": "A symmetric dispersal-propensity memory relaxes toward the crowding-based target at finite rate, so current flux is not determined by current abundances alone.",
+        "before_fragment": "dispersal_rate*N2*(1 + crowding_sensitivity*N2/(1 + crowding_saturation*N2)) - dispersal_rate*N1*(1 + crowding_sensitivity*N1/(1 + crowding_saturation*N1))",
+        "after_fragment": "dispersal_rate*N2*propensity - dispersal_rate*N1*(2 + crowding_sensitivity*N1/(1 + crowding_saturation*N1) - propensity)",
+        "parent_reduction": "In the fast-adaptation limit adaptation_rate -> oo, propensity collapses to 1 + crowding_sensitivity*N2/(1 + crowding_saturation*N2) and the parent target equation is recovered.",
+        "observable_signature": "Holding the same parameter set and total abundance, the parent gives a single-valued dN1_dt for any supplied N1 and N2, whereas the child can yield different dN1_dt at the same N1 and N2 depending on whether propensity is still catching up from earlier stronger imbalance. The difference is most visible early in relaxation from the prescribed 400 versus 100 start when adaptation is not much faster than dispersal.",
+        "shortcut_blocked": "Refitting dispersal_rate, crowding_sensitivity, and crowding_saturation cannot reproduce this contrast with one shared parent parameter set because the parent target map remains memoryless: once N1 and N2 are fixed, dN1_dt is fixed. Here the scored target mapping itself changes, since the same observed abundances can produce different fluxes through the internal propensity memory under the actual initial-condition protocol."
+      },
+      "range_suggestions": {
+        "propensity": "positive; typically between 1 and 1 + crowding_sensitivity*(N1 + N2)/(1 + crowding_saturation*Min(N1, N2)) over the observed range, with initial value near 1 for uncrowded readiness",
+        "adaptation_rate": "positive; comparable to, slower than, or moderately faster than dispersal_rate to make lag observable"
+      }
+    },
+    {
+      "generation": 4,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "interaction_emergence",
+          "parent_relation": "The target dN1_dt depends on N1 and N2 only through instantaneous local crowding and a single propensity state that relaxes with one fixed timescale adaptation_rate, so the imbalance-to-flux mapping has one common behavioral phase lag at all occupancies.",
+          "child_relation": "Replace the fixed behavioral relaxation timescale by occupancy-dependent adaptation so that the mapping from (N1,N2,propensity) to dN1_dt acquires a density-by-lag interaction: under stronger crowding, propensity adjusts faster and the net exchange responds sooner and more sharply to the same abundance imbalance.",
+          "affected_inputs": [
+            "N1",
+            "N2",
+            "propensity",
+            "adaptation_rate"
+          ],
+          "observable_effect": "For trajectories starting from the same initial propensity but different initial imbalance magnitudes within the admissible abundance range, the child shows earlier acceleration toward the crowding-driven flux at higher occupancy, whereas the parent preserves the same normalized lag shape up to amplitude changes."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "imbalance",
+            "expression": "N1 - N2",
+            "role": "Current spatial abundance contrast driving net exchange"
+          },
+          {
+            "name": "crowding_target_N2",
+            "expression": "1 + crowding_sensitivity*N2/(1 + crowding_saturation*N2)",
+            "role": "Instantaneous crowding-based emigration propensity target in patch 2"
+          },
+          {
+            "name": "propensity_gap",
+            "expression": "1 + crowding_sensitivity*N2/(1 + crowding_saturation*N2) - propensity",
+            "role": "Behavioral disequilibrium controlling delayed adjustment"
+          },
+          {
+            "name": "total_abundance",
+            "expression": "N1 + N2",
+            "role": "Conserved system size setting occupancy regime and attainable crowding"
+          }
+        ],
+        "activation_condition": "Observable when local occupancy is high enough that crowding meaningfully elevates the target propensity above 1, i.e. crowding_sensitivity*N2/(1 + crowding_saturation*N2) is not negligible, and when adaptation occurs on a timescale comparable to dispersal so lag remains visible.",
+        "train_hidden_contrast": "In training, moderate imbalances already show delayed approach of flux to the crowding-driven target; in holdout, larger occupancy in the crowded patch reveals that this lag shortens systematically with density, not just the flux amplitude.",
+        "continuation_path": "Recover the parent by taking the occupancy dependence of behavioral adjustment to zero so the effective relaxation rate reduces everywhere to the constant adaptation_rate.",
+        "freedom_change": "parameter_to_state",
+        "promoted_symbol": "adaptation_rate",
+        "promotion_reason": "A fixed adaptation_rate enforces one common relaxation phase across all occupancy regimes. To represent reversible acclimation speed that itself evolves with current crowding and then feeds back onto propensity, the rate parameter must become a dynamical state rather than a constant.",
+        "gap_statement": "The parent assumes behavioral acclimation toward the crowding-based emigration target proceeds with one occupancy-independent timescale.",
+        "baseline_assumption": "Behavioral propensity relaxes exponentially with a fixed rate adaptation_rate regardless of current crowding intensity or imbalance magnitude.",
+        "scientific_mechanism": "Under stronger crowding, encounter frequency or agitation can accelerate updating of dispersal readiness, making the behavioral relaxation rate itself increase toward a crowding-dependent level.",
+        "affected_symbols": [
+          "N1",
+          "N2",
+          "propensity",
+          "adaptation_rate"
+        ],
+        "rationale": "A realistic next refinement is to relax the fixed-timescale assumption for propensity adjustment rather than adding a new conservation-changing process. The parent target mapping has a single-phase shortcut: once N1 and N2 determine the instantaneous propensity target, all trajectories approach that target with the same characteristic lag set by one constant adaptation_rate. Vary initial conditions through the already allowed observation protocol by holding parameters fixed and comparing runs with different initial crowding in patch 2 (equivalently different initial imbalance at fixed total abundance). In the parent, larger N2 changes the target level for propensity and thus the eventual exchange flux, but it does not change the intrinsic adjustment speed except through trivial amplitude effects. In the child, higher N2 also speeds acclimation itself, so dN1_dt bends earlier toward the crowding-enhanced flux. This is a genuine target-mapping change because dN1_dt depends directly on propensity, and changing how quickly adaptation_rate evolves changes the time-resolved map from observed states to the scored derivative, not merely an unobserved auxiliary branch. The effect is admissible when crowding is strong enough to matter yet not so extreme that the existing saturation already flattens all contrasts. A single parent parameter set cannot reproduce both weak-crowding slow-lag and strong-crowding fast-lag trajectories if the normalized lag systematically varies with occupancy, because its one constant adaptation timescale applies to all conditions simultaneously. The scientific continuation path is clear: if acclimation speed loses its crowding dependence, the original model is recovered."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "interaction_emergence",
+          "parent_relation": "The target dN1_dt depends on N1 and N2 only through instantaneous local crowding and a single propensity state that relaxes with one fixed timescale adaptation_rate, so the imbalance-to-flux mapping has one common behavioral phase lag at all occupancies.",
+          "child_relation": "Replace the fixed behavioral relaxation timescale by occupancy-dependent adaptation so that the mapping from (N1,N2,propensity) to dN1_dt acquires a density-by-lag interaction: under stronger crowding, propensity adjusts faster and the net exchange responds sooner and more sharply to the same abundance imbalance.",
+          "affected_inputs": [
+            "N1",
+            "N2",
+            "propensity",
+            "adaptation_rate"
+          ],
+          "observable_effect": "For trajectories starting from the same initial propensity but different initial imbalance magnitudes within the admissible abundance range, the child shows earlier acceleration toward the crowding-driven flux at higher occupancy, whereas the parent preserves the same normalized lag shape up to amplitude changes."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "imbalance",
+            "expression": "N1 - N2",
+            "role": "Current spatial abundance contrast driving net exchange"
+          },
+          {
+            "name": "crowding_target_N2",
+            "expression": "1 + crowding_sensitivity*N2/(1 + crowding_saturation*N2)",
+            "role": "Instantaneous crowding-based emigration propensity target in patch 2"
+          },
+          {
+            "name": "propensity_gap",
+            "expression": "1 + crowding_sensitivity*N2/(1 + crowding_saturation*N2) - propensity",
+            "role": "Behavioral disequilibrium controlling delayed adjustment"
+          },
+          {
+            "name": "total_abundance",
+            "expression": "N1 + N2",
+            "role": "Conserved system size setting occupancy regime and attainable crowding"
+          }
+        ],
+        "activation_condition": "Observable when local occupancy is high enough that crowding meaningfully elevates the target propensity above 1, i.e. crowding_sensitivity*N2/(1 + crowding_saturation*N2) is not negligible, and when adaptation occurs on a timescale comparable to dispersal so lag remains visible.",
+        "train_hidden_contrast": "In training, moderate imbalances already show delayed approach of flux to the crowding-driven target; in holdout, larger occupancy in the crowded patch reveals that this lag shortens systematically with density, not just the flux amplitude.",
+        "continuation_path": "Recover the parent by taking the occupancy dependence of behavioral adjustment to zero so the effective relaxation rate reduces everywhere to the constant adaptation_rate.",
+        "freedom_change": "parameter_to_state",
+        "promoted_symbol": "adaptation_rate",
+        "promotion_reason": "A fixed adaptation_rate enforces one common relaxation phase across all occupancy regimes. To represent reversible acclimation speed that itself evolves with current crowding and then feeds back onto propensity, the rate parameter must become a dynamical state rather than a constant.",
+        "scope_kind": "memory",
+        "scope_symbols": [
+          "N2",
+          "propensity",
+          "adaptation_rate"
+        ],
+        "structural_role": "timescale",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "crowding-accelerated behavioral acclimation",
+        "scientific_mechanism": "Under stronger crowding, encounter frequency or agitation can accelerate updating of dispersal readiness, making the behavioral relaxation rate itself increase toward a crowding-dependent level.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the coefficient of propensity relaxation is no longer fixed; it is a state with its own dynamics driven by occupancy, creating history-dependent phase changes in the scored derivative across occupancy regimes.",
+        "taxonomy_match": "known",
+        "assumption_before": "Behavioral propensity relaxes exponentially with a fixed rate adaptation_rate regardless of current crowding intensity or imbalance magnitude.",
+        "assumption_after": "Behavioral propensity still relaxes toward the same crowding target, but the relaxation rate is itself a dynamical state that increases toward a crowding-dependent level under higher occupancy in patch 2.",
+        "before_fragment": "dispersal_rate*N2*propensity - dispersal_rate*N1*(2 + crowding_sensitivity*N1/(1 + crowding_saturation*N1) - propensity)",
+        "after_fragment": "dispersal_rate*N2*propensity - dispersal_rate*N1*(2 + crowding_sensitivity*N1/(1 + crowding_saturation*N1) - propensity)",
+        "parent_reduction": "If adaptation_crowding_sensitivity = 0 and adaptation_rate is initialized at 1 with adaptation_relaxation_rate positive, then adaptation_rate remains constant at 1 and the parent system is recovered with unit adaptation_rate.",
+        "observable_signature": "Holding parameters fixed and comparing runs with different initial patch-2 occupancy at the same initial propensity, the child predicts that stronger crowding causes adaptation_rate to rise and dN1_dt to turn earlier toward the crowding-enhanced exchange flux. The parent can change eventual flux amplitude through the propensity target but cannot make the normalized lag systematically shorten with occupancy because it has only one shared behavioral phase timescale.",
+        "shortcut_blocked": "Refitting one constant parent adaptation_rate cannot simultaneously match weak-crowding trajectories that retain slow lag and strong-crowding trajectories that exhibit faster lag shortening, because the parent imposes the same exponential adjustment timescale for all occupancies. Matching one regime necessarily mis-specifies the other once the lag shape itself varies with crowding rather than only the asymptotic flux level."
+      },
+      "range_suggestions": {
+        "adaptation_rate": "positive dynamic rate; typically of the same order as dispersal_rate and increasing above its initial value under stronger crowding in patch 2",
+        "adaptation_relaxation_rate": "positive; comparable to or faster than dispersal_rate so acclimation speed can track crowding without becoming instantaneous",
+        "adaptation_crowding_sensitivity": "nonnegative; large enough for crowding to noticeably accelerate behavioral updating but not so large that adaptation_rate saturates immediately",
+        "adaptation_crowding_saturation": "nonnegative; sets the abundance scale where acceleration of adaptation_rate begins to saturate"
+      }
+    },
+    {
+      "generation": 5,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "interaction_emergence",
+          "parent_relation": "The scored target dN1_dt depends on N1 and N2 through a sum of patch-specific emigration propensities, with the crowding effect in each patch depending only on that patch's own abundance; holding N1 fixed, the marginal effect of increasing N2 on inflow to patch 1 is controlled by a single local crowding-to-emigration map for patch 2.",
+          "child_relation": "Refine the emigration rule so local crowding sensitivity is reduced when the opposite patch is also crowded, i.e. movement responds to relative crowding or available relief rather than absolute local density alone; then the effect of N2 on dN1_dt depends jointly on N1 and N2, not on N2 alone.",
+          "affected_inputs": [
+            "N1",
+            "N2",
+            "propensity"
+          ],
+          "observable_effect": "For the same increase in N2, inflow-driven increase in dN1_dt is larger when N1 is sparse than when N1 is already crowded; the parent cannot make the N2 effect weaken with increasing N1 except through the separate subtractive outflow term, so it misses this crowding-contrast interaction in the migration propensity itself."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "total_abundance",
+            "expression": "N1 + N2",
+            "role": "Conserved population size setting the closed-system occupancy scale"
+          },
+          {
+            "name": "imbalance",
+            "expression": "N2 - N1",
+            "role": "Signed spatial crowding contrast driving redistribution"
+          },
+          {
+            "name": "occupancy_ratio",
+            "expression": "N2/(1 + N1 + N2)",
+            "role": "Patch-2 occupancy relative to system load, useful for judging whether local crowding relief remains available"
+          }
+        ],
+        "activation_condition": "Observable when both patches carry non-negligible occupancy and the imbalance varies over time, especially at moderate-to-high total abundance where local crowding is appreciable but the receiving patch is not empty; under nearly empty populations or near-perfect balance the refinement becomes weak.",
+        "train_hidden_contrast": "In training from the given initial imbalance, early times have N1 >> N2 so emigration from patch 1 should be strongly elevated, but later as N1 and N2 approach one another the same absolute density in one patch should induce less movement because the destination is no longer much less crowded; the child extends this contrast across the trajectory using the same closed-population relaxation experiment.",
+        "continuation_path": "Recover the parent law when the cross-patch moderation of crowding-dependent emigration is taken to zero, so emigration depends only on local abundance as in the current model.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The current model treats crowding-driven emigration as purely local within each patch, ignoring that individuals should respond to how much less crowded the other patch is if dispersal is a relief-seeking redistribution process between identical habitats.",
+        "baseline_assumption": "Local abundance alone determines the crowding-induced increase in per-capita emigration from a patch, independent of occupancy in the destination patch.",
+        "scientific_mechanism": "Relative-crowding-dependent dispersal: the incentive to leave a crowded patch is attenuated when the opposite patch is also crowded, because the expected benefit of movement falls as crowding equalizes across patches.",
+        "affected_symbols": [
+          "N1",
+          "N2",
+          "propensity",
+          "crowding_sensitivity",
+          "crowding_saturation"
+        ],
+        "rationale": "A realistic next refinement is to relax the overly local decision rule while preserving closed-population symmetry and immediate transfer. The parent target mapping has a single-gain shortcut: crowding in patch 2 raises inflow to patch 1 through one fixed saturating map of N2, regardless of whether patch 1 is empty or already crowded. Scientifically, for identical connected habitats, emigration should depend on crowding contrast or remaining relief, not just origin density. Vary N2 over the observed trajectory while holding the same parameter set and comparing periods with lower versus higher N1. In the child, the same N2 produces a smaller increase in dN1_dt when N1 is high, because patch 1 offers less relief; in the parent, the N2-to-inflow mapping through propensity is unchanged by N1 except for the separate outflow subtraction, so it cannot reproduce a direct moderation of the crowding response itself across those conditions with one shared parameter set. This is observable under the actual initial-condition contract because the trajectory starts highly imbalanced and then moves toward balance, naturally sweeping from high relief to low relief without adding new inputs or states. The refinement remains admissible because it can be implemented symmetrically, conserve total abundance, and vanish continuously in the limit of zero cross-patch moderation."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "interaction_emergence",
+          "parent_relation": "The scored target dN1_dt depends on N1 and N2 through a sum of patch-specific emigration propensities, with the crowding effect in each patch depending only on that patch's own abundance; holding N1 fixed, the marginal effect of increasing N2 on inflow to patch 1 is controlled by a single local crowding-to-emigration map for patch 2.",
+          "child_relation": "Refine the emigration rule so local crowding sensitivity is reduced when the opposite patch is also crowded, i.e. movement responds to relative crowding or available relief rather than absolute local density alone; then the effect of N2 on dN1_dt depends jointly on N1 and N2, not on N2 alone.",
+          "affected_inputs": [
+            "N1",
+            "N2",
+            "propensity"
+          ],
+          "observable_effect": "For the same increase in N2, inflow-driven increase in dN1_dt is larger when N1 is sparse than when N1 is already crowded; the parent cannot make the N2 effect weaken with increasing N1 except through the separate subtractive outflow term, so it misses this crowding-contrast interaction in the migration propensity itself."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "total_abundance",
+            "expression": "N1 + N2",
+            "role": "Conserved population size setting the closed-system occupancy scale"
+          },
+          {
+            "name": "imbalance",
+            "expression": "N2 - N1",
+            "role": "Signed spatial crowding contrast driving redistribution"
+          },
+          {
+            "name": "occupancy_ratio",
+            "expression": "N2/(1 + N1 + N2)",
+            "role": "Patch-2 occupancy relative to system load, useful for judging whether local crowding relief remains available"
+          }
+        ],
+        "activation_condition": "Observable when both patches carry non-negligible occupancy and the imbalance varies over time, especially at moderate-to-high total abundance where local crowding is appreciable but the receiving patch is not empty; under nearly empty populations or near-perfect balance the refinement becomes weak.",
+        "train_hidden_contrast": "In training from the given initial imbalance, early times have N1 >> N2 so emigration from patch 1 should be strongly elevated, but later as N1 and N2 approach one another the same absolute density in one patch should induce less movement because the destination is no longer much less crowded; the child extends this contrast across the trajectory using the same closed-population relaxation experiment.",
+        "continuation_path": "Recover the parent law when the cross-patch moderation of crowding-dependent emigration is taken to zero, so emigration depends only on local abundance as in the current model.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "N1",
+          "N2",
+          "propensity"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "relative-crowding-dependent dispersal",
+        "scientific_mechanism": "Relative-crowding-dependent dispersal: the incentive to leave a crowded patch is attenuated when the opposite patch is also crowded, because the expected benefit of movement falls as crowding equalizes across patches.",
+        "embedding_pattern": "state_coupling",
+        "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the scored target now contains a joint dependence on both patch abundances inside the same nonlinear saturation law, changing the shape of the N2-to-dN1_dt mapping across the observed trajectory rather than only rescaling it.",
+        "taxonomy_match": "known",
+        "assumption_before": "Local abundance alone determines the crowding-induced increase in per-capita emigration from a patch, independent of occupancy in the destination patch.",
+        "assumption_after": "Crowding-induced emigration from a patch is moderated by total occupancy across both patches because movement provides less relief when the destination is also crowded.",
+        "before_fragment": "dispersal_rate*N2*propensity - dispersal_rate*N1*(2 + crowding_sensitivity*N1/(1 + crowding_saturation*N1) - propensity)",
+        "after_fragment": "dispersal_rate*N2*propensity*(1 + crowding_sensitivity*N2/(1 + crowding_saturation*(N1 + N2))) - dispersal_rate*N1*(1 + crowding_sensitivity*N1/(1 + crowding_saturation*(N1 + N2)))",
+        "parent_reduction": "In the limit where destination occupancy contributes negligibly to crowding saturation, the law approaches the parent local-crowding form.",
+        "observable_signature": "Along the same closed-population relaxation trajectory, compare times with similar N2 but different N1: the child predicts that inflow to patch 1 through the N2 term is weaker when N1 is larger because total occupancy in the saturation denominator is larger. This is a changed target mapping, not merely an auxiliary-state effect, since N1 appears directly inside the inflow crowding law.",
+        "shortcut_blocked": "A single refit of the parent parameters cannot reproduce this direct moderation because in the parent the inflow crowding map from N2 to dN1_dt is separable from N1 except through the independent subtraction of patch-1 outflow. Retuning crowding_sensitivity, crowding_saturation, or propensity dynamics can change overall gain or time course, but cannot make the same N2 generate systematically different inflow sensitivity depending on N1 within one shared parameter set."
+      },
+      "range_suggestions": {}
+    }
+  ],
+  "evolution_provenance": {
+    "dimension_track": null,
+    "mechanism_profile": {
+      "allowed_structural_roles": [
+        "contribution",
+        "interaction",
+        "constraint",
+        "feedback",
+        "transition",
+        "timescale"
+      ],
+      "preferred_scopes": [
+        "unary",
+        "pairwise",
+        "state_coupling",
+        "time_forcing"
+      ],
+      "domain_mechanisms": [
+        {
+          "id": "density_dependence",
+          "description": "density-dependent survival or reproduction",
+          "operations": [
+            "add_term",
+            "change_assumption"
+          ]
+        },
+        {
+          "id": "interspecies_competition",
+          "description": "competition, predation, or mutualistic interaction",
+          "operations": [
+            "add_term"
+          ]
+        },
+        {
+          "id": "seasonal_environment",
+          "description": "seasonal or environmental modulation",
+          "operations": [
+            "change_assumption"
+          ]
+        },
+        {
+          "id": "harvest_or_removal",
+          "description": "harvest, migration, or external removal",
+          "operations": [
+            "add_term"
+          ]
+        }
+      ],
+      "profile_source": "subfield",
+      "ontology_schema_version": "1.0",
+      "taxonomy_schema_version": "1.0"
+    },
+    "baseline_mechanisms": [
+      "Per-capita emigration from each patch.",
+      "Immediate immigration into the opposite patch.",
+      "Relaxation of spatial abundance differences."
+    ],
+    "baseline_assumptions": [
+      "The two habitat patches are identical.",
+      "Dispersal rates are symmetric and density independent.",
+      "Transfer between patches is instantaneous.",
+      "Births, deaths, and external migration are absent."
+    ],
+    "scientific_constraints": [
+      "Each patch abundance must remain nonnegative.",
+      "Total abundance across the two patches must be conserved.",
+      "Every emigrant from one patch must enter the other patch.",
+      "Symmetric movement must reduce, not amplify, an abundance imbalance."
+    ],
+    "refinement_agenda": [
+      "Introduce unequal habitat quality or asymmetric dispersal.",
+      "Add local births and deaths.",
+      "Allow density-dependent emigration.",
+      "Add dispersal mortality, corridor limitation, or additional patches."
+    ],
+    "evolution_contracts": [
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The target mapping is dN1_dt = dispersal_rate*(N2 - N1), so for any observed (N1,N2) the net flux into patch 1 is a single linear gain on abundance difference with no dependence on crowding level.",
+          "child_relation": "Replace density-independent emigration with density-dependent emigration so the net flux into patch 1 depends on both abundance difference and absolute crowding, causing the relaxation rate to increase at high occupancy while approaching the parent linear law at low density.",
+          "affected_inputs": [
+            "N1",
+            "N2",
+            "dispersal_rate"
+          ],
+          "observable_effect": "For the same abundance imbalance N2-N1, trajectories with larger total abundance show faster exchange than low-density trajectories, producing a curved rather than strictly linear relationship between dN1_dt and patch abundances."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "imbalance",
+            "expression": "N2 - N1",
+            "role": "signed spatial abundance difference driving net movement into patch 1"
+          },
+          {
+            "name": "total_abundance",
+            "expression": "N1 + N2",
+            "role": "closed-system crowding level that can modulate emigration intensity while preserving total abundance"
+          },
+          {
+            "name": "crowding_contrast",
+            "expression": "N2**2 - N1**2",
+            "role": "minimal symmetric density-dependent correction to the parent flux difference"
+          }
+        ],
+        "activation_condition": "Observable when patch abundances vary enough that crowding alters per-capita departure, i.e. moderate-to-high occupancy where local interference or encounter-driven movement matters; negligible in the dilute limit.",
+        "train_hidden_contrast": "Within training, early versus late times already differ in absolute densities while total abundance is fixed, so a density-dependent law changes the slope of dN1_dt versus imbalance along the trajectory; in holdout, the same mechanism extends to other closed-population totals or stronger initial crowding.",
+        "continuation_path": "In the weak-crowding limit, or if the density-dependence coefficient tends to zero, the model reduces to dN1_dt = dispersal_rate*(N2 - N1).",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "N1",
+          "N2"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "density-dependent dispersal",
+        "scientific_mechanism": "Symmetric density-dependent emigration caused by crowding or encounter-driven movement within each patch.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "The refinement changes the coefficient multiplying each export process into a state-dependent quantity, so the target can no longer be represented by one global linear gain on N2 - N1. This is structurally harder than coefficient retuning because it introduces dependence on absolute abundance through a nonlinear correction that remains visible in the scored target equation itself.",
+        "taxonomy_match": "known",
+        "assumption_before": "Each patch exports individuals at the same density-independent per-capita rate dispersal_rate.",
+        "assumption_after": "Each patch still exports symmetrically, but its per-capita emigration rate increases with its own abundance because crowding promotes movement.",
+        "before_fragment": "dispersal_rate*N2 - dispersal_rate*N1",
+        "after_fragment": "dispersal_rate*N2*(1 + crowding_sensitivity*N2) - dispersal_rate*N1*(1 + crowding_sensitivity*N1)",
+        "parent_reduction": "Setting crowding_sensitivity = 0 gives dispersal_rate*N2 - dispersal_rate*N1.",
+        "observable_signature": "Compare admissible states with the same signed imbalance N2-N1 but different total abundance N1+N2 while holding dispersal_rate fixed. The parent predicts identical dN1_dt for those states, whereas the child predicts larger-magnitude flux when total abundance is higher because the coefficient of export rises with local occupancy.",
+        "shortcut_blocked": "A single refitted parent parameter dispersal_rate cannot reproduce this contrast across such conditions because the parent target depends only on N2-N1. When two states share the same imbalance but differ in total abundance, the parent necessarily maps them to the same dN1_dt, while the child adds the independent crowding_contrast term dispersal_rate*crowding_sensitivity*(N2**2 - N1**2), changing the scored target mapping itself rather than only auxiliary trajectories."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The target mapping is the difference of two local emigration fluxes, each increasing quadratically with its own patch abundance through a single shared crowding coefficient, so the imbalance-relaxation strength grows without bound as densities rise.",
+          "child_relation": "Replace the unbounded linear-in-density crowding effect on per-capita emigration with a saturating crowding response, so the net exchange still depends on both patch abundances but the increase in imbalance-relaxation strength bends over at high abundance.",
+          "affected_inputs": [
+            "N1",
+            "N2",
+            "crowding_sensitivity"
+          ],
+          "observable_effect": "For the same total population size, increasing crowding strengthens |dN1_dt| strongly at moderate densities, but this acceleration weakens at high densities instead of continuing with the parent's quadratic growth."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "imbalance",
+            "expression": "N2 - N1",
+            "role": "Signed spatial abundance difference driving net movement direction"
+          },
+          {
+            "name": "total_abundance",
+            "expression": "N1 + N2",
+            "role": "Conserved crowding scale setting whether density effects are moderate or near saturation"
+          },
+          {
+            "name": "local_crowding_contrast",
+            "expression": "N2*(1 + crowding_sensitivity*N2) - N1*(1 + crowding_sensitivity*N1)",
+            "role": "Parent-law density-amplified flux contrast to be replaced by a saturating version"
+          }
+        ],
+        "activation_condition": "Observable when the conserved total abundance is large enough that crowding modifies emigration appreciably, especially when crowding_sensitivity*(N1+N2) is not small; at very low densities the child should reduce close to the parent low-density behavior.",
+        "train_hidden_contrast": "Across trajectories with different initial imbalance but the same conserved total abundance, both models predict relaxation toward equal abundances; the hidden contrast appears when comparing low-versus-high total-abundance regimes, where the parent implies ever-steepening density amplification but the child predicts diminishing returns in |dN1_dt| at high crowding.",
+        "continuation_path": "In the weak-crowding limit, or when the saturation scale is taken very large so the crowding correction remains in its near-linear regime over the observed abundances, the child recovers the parent law approximately.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "pairwise",
+        "scope_symbols": [
+          "N1",
+          "N2",
+          "crowding_sensitivity",
+          "crowding_saturation"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "density-dependent dispersal with saturating crowding response",
+        "scientific_mechanism": "Saturating crowding-driven emigration: local interference or finite behavioral responsiveness causes the density effect on dispersal propensity to level off at high patch occupancy.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the coefficient multiplying the crowding effect now depends on the current local state through a nonlinear denominator, changing curvature across abundance regimes rather than applying one global gain.",
+        "taxonomy_match": "known",
+        "assumption_before": "The already-present density-dependent dispersal effect is modeled as an unbounded linear increase in per-capita emigration with local density.",
+        "assumption_after": "The crowding-driven increase in per-capita emigration saturates with local abundance because behavioral response or exit capacity is finite.",
+        "before_fragment": "dispersal_rate*N2*(1 + crowding_sensitivity*N2) - dispersal_rate*N1*(1 + crowding_sensitivity*N1)",
+        "after_fragment": "dispersal_rate*N2*(1 + crowding_sensitivity*N2/(1 + crowding_saturation*N2)) - dispersal_rate*N1*(1 + crowding_sensitivity*N1/(1 + crowding_saturation*N1))",
+        "parent_reduction": "When crowding_saturation*N1 << 1 and crowding_saturation*N2 << 1 across the sampled trajectories, the successor reduces approximately to the parent expression.",
+        "observable_signature": "Holding dispersal_rate and the imbalance direction fixed, increasing conserved total abundance changes dN1_dt from the parent's ever-stronger quadratic amplification to a bent-over response with diminishing additional increase once crowding_saturation*N1 or crowding_saturation*N2 approaches order one.",
+        "shortcut_blocked": "A single parent parameter set cannot reproduce both low-density near-linear crowding amplification and high-density leveling-off, because its crowding contribution is a fixed quadratic function of local abundance with no saturation scale. Retuning dispersal_rate and crowding_sensitivity can shift overall gain or curvature uniformly, but cannot create the child's regime-dependent bend from quadratic growth at moderate density toward approximately linear flux at high density within one shared model."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "Net flux into patch 1 depends only on the two local abundances through an instantaneous symmetric saturating emigration law; for a fixed total abundance, dN1_dt is a single-valued odd-like function of imbalance with no dependence on time since crowding is read off current N1 and N2 only.",
+          "child_relation": "Crowding-driven emigration remains symmetric but becomes behaviorally adaptive with finite relaxation time, so current net flux depends on abundances and on a lagged internal dispersal propensity state. This changes the early-versus-late curvature of dN1_dt during relaxation from the same abundance range.",
+          "affected_inputs": [
+            "N1",
+            "N2",
+            "t"
+          ],
+          "observable_effect": "After a strong initial imbalance, the initial exchange rate is weaker than the parent's instantaneous crowding law predicts, then transiently catches up as movement propensity adjusts; under milder imbalance the response stays closer to the parent. Thus trajectories with similar intermediate abundances but reached at different times can show different dN1_dt."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "total_abundance",
+            "expression": "N1 + N2",
+            "role": "Conserved population size setting the occupancy scale"
+          },
+          {
+            "name": "imbalance",
+            "expression": "N1 - N2",
+            "role": "Spatial asymmetry driving net exchange"
+          },
+          {
+            "name": "crowding_drive_gap",
+            "expression": "N1/(1 + crowding_saturation*N1) - N2/(1 + crowding_saturation*N2)",
+            "role": "Difference in instantaneous local crowding stimulus between patches"
+          }
+        ],
+        "activation_condition": "Observable when the adjustment timescale of dispersal propensity is not negligible relative to 1/dispersal_rate, especially from the given nonequilibrium start with substantial imbalance and moderate-to-large crowding effect.",
+        "train_hidden_contrast": "In training, lagged adjustment alters the early relaxation slope and curvature most strongly after larger imbalances; in holdout, the same mechanism extends to later-time hysteresis-like differences where the same abundance pair can carry different flux depending on prior crowding history.",
+        "continuation_path": "Recover the parent by taking the adaptation dynamics to the fast limit so the promoted/emergent behavioral state instantaneously matches the current crowding-based emigration law.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A finite-memory behavioral adjustment cannot be represented by refitting the existing instantaneous abundance-only law; one internal state is needed to store recent crowding history while preserving mass conservation.",
+        "scope_kind": "memory",
+        "scope_symbols": [
+          "N1",
+          "N2",
+          "propensity"
+        ],
+        "structural_role": "feedback",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "finite-timescale behavioral acclimation of emigration propensity",
+        "scientific_mechanism": "Symmetric time-lagged adjustment of dispersal propensity caused by behavioral acclimation, decision accumulation, or temporary readiness to emigrate under crowding.",
+        "embedding_pattern": "multi_timescale",
+        "difficulty_rationale": "The added internal propensity state introduces a distinct relaxation timescale and makes the target mapping history dependent rather than a single instantaneous abundance-only curve. This is structurally harder than a coefficient-only correction because the same abundance pair can correspond to different fluxes depending on recent crowding history.",
+        "taxonomy_match": "known",
+        "assumption_before": "The emigration multiplier is an instantaneous function of current local abundance only.",
+        "assumption_after": "A symmetric dispersal-propensity memory relaxes toward the crowding-based target at finite rate, so current flux is not determined by current abundances alone.",
+        "before_fragment": "dispersal_rate*N2*(1 + crowding_sensitivity*N2/(1 + crowding_saturation*N2)) - dispersal_rate*N1*(1 + crowding_sensitivity*N1/(1 + crowding_saturation*N1))",
+        "after_fragment": "dispersal_rate*N2*propensity - dispersal_rate*N1*(2 + crowding_sensitivity*N1/(1 + crowding_saturation*N1) - propensity)",
+        "parent_reduction": "In the fast-adaptation limit adaptation_rate -> oo, propensity collapses to 1 + crowding_sensitivity*N2/(1 + crowding_saturation*N2) and the parent target equation is recovered.",
+        "observable_signature": "Holding the same parameter set and total abundance, the parent gives a single-valued dN1_dt for any supplied N1 and N2, whereas the child can yield different dN1_dt at the same N1 and N2 depending on whether propensity is still catching up from earlier stronger imbalance. The difference is most visible early in relaxation from the prescribed 400 versus 100 start when adaptation is not much faster than dispersal.",
+        "shortcut_blocked": "Refitting dispersal_rate, crowding_sensitivity, and crowding_saturation cannot reproduce this contrast with one shared parent parameter set because the parent target map remains memoryless: once N1 and N2 are fixed, dN1_dt is fixed. Here the scored target mapping itself changes, since the same observed abundances can produce different fluxes through the internal propensity memory under the actual initial-condition protocol."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "interaction_emergence",
+          "parent_relation": "The target dN1_dt depends on N1 and N2 only through instantaneous local crowding and a single propensity state that relaxes with one fixed timescale adaptation_rate, so the imbalance-to-flux mapping has one common behavioral phase lag at all occupancies.",
+          "child_relation": "Replace the fixed behavioral relaxation timescale by occupancy-dependent adaptation so that the mapping from (N1,N2,propensity) to dN1_dt acquires a density-by-lag interaction: under stronger crowding, propensity adjusts faster and the net exchange responds sooner and more sharply to the same abundance imbalance.",
+          "affected_inputs": [
+            "N1",
+            "N2",
+            "propensity",
+            "adaptation_rate"
+          ],
+          "observable_effect": "For trajectories starting from the same initial propensity but different initial imbalance magnitudes within the admissible abundance range, the child shows earlier acceleration toward the crowding-driven flux at higher occupancy, whereas the parent preserves the same normalized lag shape up to amplitude changes."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "imbalance",
+            "expression": "N1 - N2",
+            "role": "Current spatial abundance contrast driving net exchange"
+          },
+          {
+            "name": "crowding_target_N2",
+            "expression": "1 + crowding_sensitivity*N2/(1 + crowding_saturation*N2)",
+            "role": "Instantaneous crowding-based emigration propensity target in patch 2"
+          },
+          {
+            "name": "propensity_gap",
+            "expression": "1 + crowding_sensitivity*N2/(1 + crowding_saturation*N2) - propensity",
+            "role": "Behavioral disequilibrium controlling delayed adjustment"
+          },
+          {
+            "name": "total_abundance",
+            "expression": "N1 + N2",
+            "role": "Conserved system size setting occupancy regime and attainable crowding"
+          }
+        ],
+        "activation_condition": "Observable when local occupancy is high enough that crowding meaningfully elevates the target propensity above 1, i.e. crowding_sensitivity*N2/(1 + crowding_saturation*N2) is not negligible, and when adaptation occurs on a timescale comparable to dispersal so lag remains visible.",
+        "train_hidden_contrast": "In training, moderate imbalances already show delayed approach of flux to the crowding-driven target; in holdout, larger occupancy in the crowded patch reveals that this lag shortens systematically with density, not just the flux amplitude.",
+        "continuation_path": "Recover the parent by taking the occupancy dependence of behavioral adjustment to zero so the effective relaxation rate reduces everywhere to the constant adaptation_rate.",
+        "freedom_change": "parameter_to_state",
+        "promoted_symbol": "adaptation_rate",
+        "promotion_reason": "A fixed adaptation_rate enforces one common relaxation phase across all occupancy regimes. To represent reversible acclimation speed that itself evolves with current crowding and then feeds back onto propensity, the rate parameter must become a dynamical state rather than a constant.",
+        "scope_kind": "memory",
+        "scope_symbols": [
+          "N2",
+          "propensity",
+          "adaptation_rate"
+        ],
+        "structural_role": "timescale",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "crowding-accelerated behavioral acclimation",
+        "scientific_mechanism": "Under stronger crowding, encounter frequency or agitation can accelerate updating of dispersal readiness, making the behavioral relaxation rate itself increase toward a crowding-dependent level.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the coefficient of propensity relaxation is no longer fixed; it is a state with its own dynamics driven by occupancy, creating history-dependent phase changes in the scored derivative across occupancy regimes.",
+        "taxonomy_match": "known",
+        "assumption_before": "Behavioral propensity relaxes exponentially with a fixed rate adaptation_rate regardless of current crowding intensity or imbalance magnitude.",
+        "assumption_after": "Behavioral propensity still relaxes toward the same crowding target, but the relaxation rate is itself a dynamical state that increases toward a crowding-dependent level under higher occupancy in patch 2.",
+        "before_fragment": "dispersal_rate*N2*propensity - dispersal_rate*N1*(2 + crowding_sensitivity*N1/(1 + crowding_saturation*N1) - propensity)",
+        "after_fragment": "dispersal_rate*N2*propensity - dispersal_rate*N1*(2 + crowding_sensitivity*N1/(1 + crowding_saturation*N1) - propensity)",
+        "parent_reduction": "If adaptation_crowding_sensitivity = 0 and adaptation_rate is initialized at 1 with adaptation_relaxation_rate positive, then adaptation_rate remains constant at 1 and the parent system is recovered with unit adaptation_rate.",
+        "observable_signature": "Holding parameters fixed and comparing runs with different initial patch-2 occupancy at the same initial propensity, the child predicts that stronger crowding causes adaptation_rate to rise and dN1_dt to turn earlier toward the crowding-enhanced exchange flux. The parent can change eventual flux amplitude through the propensity target but cannot make the normalized lag systematically shorten with occupancy because it has only one shared behavioral phase timescale.",
+        "shortcut_blocked": "Refitting one constant parent adaptation_rate cannot simultaneously match weak-crowding trajectories that retain slow lag and strong-crowding trajectories that exhibit faster lag shortening, because the parent imposes the same exponential adjustment timescale for all occupancies. Matching one regime necessarily mis-specifies the other once the lag shape itself varies with crowding rather than only the asymptotic flux level."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "interaction_emergence",
+          "parent_relation": "The scored target dN1_dt depends on N1 and N2 through a sum of patch-specific emigration propensities, with the crowding effect in each patch depending only on that patch's own abundance; holding N1 fixed, the marginal effect of increasing N2 on inflow to patch 1 is controlled by a single local crowding-to-emigration map for patch 2.",
+          "child_relation": "Refine the emigration rule so local crowding sensitivity is reduced when the opposite patch is also crowded, i.e. movement responds to relative crowding or available relief rather than absolute local density alone; then the effect of N2 on dN1_dt depends jointly on N1 and N2, not on N2 alone.",
+          "affected_inputs": [
+            "N1",
+            "N2",
+            "propensity"
+          ],
+          "observable_effect": "For the same increase in N2, inflow-driven increase in dN1_dt is larger when N1 is sparse than when N1 is already crowded; the parent cannot make the N2 effect weaken with increasing N1 except through the separate subtractive outflow term, so it misses this crowding-contrast interaction in the migration propensity itself."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "total_abundance",
+            "expression": "N1 + N2",
+            "role": "Conserved population size setting the closed-system occupancy scale"
+          },
+          {
+            "name": "imbalance",
+            "expression": "N2 - N1",
+            "role": "Signed spatial crowding contrast driving redistribution"
+          },
+          {
+            "name": "occupancy_ratio",
+            "expression": "N2/(1 + N1 + N2)",
+            "role": "Patch-2 occupancy relative to system load, useful for judging whether local crowding relief remains available"
+          }
+        ],
+        "activation_condition": "Observable when both patches carry non-negligible occupancy and the imbalance varies over time, especially at moderate-to-high total abundance where local crowding is appreciable but the receiving patch is not empty; under nearly empty populations or near-perfect balance the refinement becomes weak.",
+        "train_hidden_contrast": "In training from the given initial imbalance, early times have N1 >> N2 so emigration from patch 1 should be strongly elevated, but later as N1 and N2 approach one another the same absolute density in one patch should induce less movement because the destination is no longer much less crowded; the child extends this contrast across the trajectory using the same closed-population relaxation experiment.",
+        "continuation_path": "Recover the parent law when the cross-patch moderation of crowding-dependent emigration is taken to zero, so emigration depends only on local abundance as in the current model.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "N1",
+          "N2",
+          "propensity"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "relative-crowding-dependent dispersal",
+        "scientific_mechanism": "Relative-crowding-dependent dispersal: the incentive to leave a crowded patch is attenuated when the opposite patch is also crowded, because the expected benefit of movement falls as crowding equalizes across patches.",
+        "embedding_pattern": "state_coupling",
+        "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the scored target now contains a joint dependence on both patch abundances inside the same nonlinear saturation law, changing the shape of the N2-to-dN1_dt mapping across the observed trajectory rather than only rescaling it.",
+        "taxonomy_match": "known",
+        "assumption_before": "Local abundance alone determines the crowding-induced increase in per-capita emigration from a patch, independent of occupancy in the destination patch.",
+        "assumption_after": "Crowding-induced emigration from a patch is moderated by total occupancy across both patches because movement provides less relief when the destination is also crowded.",
+        "before_fragment": "dispersal_rate*N2*propensity - dispersal_rate*N1*(2 + crowding_sensitivity*N1/(1 + crowding_saturation*N1) - propensity)",
+        "after_fragment": "dispersal_rate*N2*propensity*(1 + crowding_sensitivity*N2/(1 + crowding_saturation*(N1 + N2))) - dispersal_rate*N1*(1 + crowding_sensitivity*N1/(1 + crowding_saturation*(N1 + N2)))",
+        "parent_reduction": "In the limit where destination occupancy contributes negligibly to crowding saturation, the law approaches the parent local-crowding form.",
+        "observable_signature": "Along the same closed-population relaxation trajectory, compare times with similar N2 but different N1: the child predicts that inflow to patch 1 through the N2 term is weaker when N1 is larger because total occupancy in the saturation denominator is larger. This is a changed target mapping, not merely an auxiliary-state effect, since N1 appears directly inside the inflow crowding law.",
+        "shortcut_blocked": "A single refit of the parent parameters cannot reproduce this direct moderation because in the parent the inflow crowding map from N2 to dN1_dt is separable from N1 except through the independent subtraction of patch-1 outflow. Retuning crowding_sensitivity, crowding_saturation, or propensity dynamics can change overall gain or time course, but cannot make the same N2 generate systematically different inflow sensitivity depending on N1 within one shared parameter set."
+      }
+    ]
+  },
+  "finalization": {
+    "mode": "candidate",
+    "accepted_generations": 5,
+    "novelty": {
+      "answer": "NOT_EVALUATED"
+    },
+    "total_points": 5000,
+    "evaluation_status": "not_evaluated"
+  }
+}

@@ -1,0 +1,3 @@
+Ground truth: dC_dt = (k_release*stimulus_strength*(1 - H))/(1 + release_inactivation_scale*C) + (k_cicr_release*stimulus_strength*C*(1 - H))/(1 + release_inactivation_scale*C) - (k_extrusion*C)/(1 + pump_saturation_scale*C) - (k_buffer_bind*C*(1 - B))/(1 + buffer_binding_scale*C) + k_buffer_unbind*B
+
+Fixed parameters: {'stimulus_strength': 1.2, 'k_release': 0.9, 'k_extrusion': 0.7, 'k_sensor_activation': 0.9, 'k_sensor_relaxation': 0.25, 'pump_saturation_scale': 1.0, 'release_inactivation_scale': 0.8, 'k_buffer_bind': 0.8, 'k_buffer_unbind': 0.18, 'buffer_binding_scale': 0.6, 'k_cicr_release': 1.3, 'sensor_activation_scale': 1.5}

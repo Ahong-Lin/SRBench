@@ -1,0 +1,218 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "C",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        80.0
+      ],
+      "n_points": 401,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "resource_growth_rate",
+      "value": 0.45
+    },
+    {
+      "symbol": "encounter_rate",
+      "value": 0.018
+    },
+    {
+      "symbol": "conversion_efficiency",
+      "value": 0.55
+    },
+    {
+      "symbol": "consumer_mortality_rate",
+      "value": 0.12
+    },
+    {
+      "symbol": "handling_saturation_scale",
+      "value": 0.03
+    },
+    {
+      "symbol": "consumer_interference_scale",
+      "value": 0.025
+    },
+    {
+      "symbol": "juvenile_maturation_rate",
+      "value": 0.35
+    },
+    {
+      "symbol": "juvenile_mortality_rate",
+      "value": 0.08
+    },
+    {
+      "symbol": "high_resource_inhibition_scale",
+      "value": 0.004
+    }
+  ],
+  "benchmark_output": "dC_dt",
+  "benchmark_target_state": "C",
+  "observed_variables": [
+    "t",
+    "R",
+    "C",
+    "J"
+  ],
+  "rhs_for_integrator": "juvenile_maturation_rate * R / (1 + handling_saturation_scale * R) * exp(-high_resource_inhibition_scale * R) * J - consumer_mortality_rate * C",
+  "state_variables": [
+    "R",
+    "C",
+    "J"
+  ],
+  "state_rhs": [
+    "resource_growth_rate * R - encounter_rate * R * C",
+    "juvenile_maturation_rate * R / (1 + handling_saturation_scale * R) * exp(-high_resource_inhibition_scale * R) * J - consumer_mortality_rate * C",
+    "conversion_efficiency * encounter_rate * R * C / (1 + handling_saturation_scale * R + consumer_interference_scale * C) - juvenile_maturation_rate * R / (1 + handling_saturation_scale * R) * exp(-high_resource_inhibition_scale * R) * J - juvenile_mortality_rate * J"
+  ],
+  "initial_conditions": {
+    "R": 100.0,
+    "C": 20.0,
+    "J": 5.0
+  },
+  "sanity_expectations": [
+    "All chosen parameters are nonnegative and the checked representative substitution at the inherited initial state gives a finite real dC_dt > 0 for the scored equation.",
+    "Because handling_saturation_scale*R is already about 3 at t=0, juvenile maturation is resource-modulated rather than approximately linear in R over the initial regime.",
+    "Because high_resource_inhibition_scale*R is about 0.4 at t=0 and increases with larger R, the maturation contribution juvenile_maturation_rate*R*exp(-high_resource_inhibition_scale*R)/(1+handling_saturation_scale*R)*J should show stronger high-R bending than the parent and can decrease at sufficiently high realized R.",
+    "Across trajectory segments with similar J but higher extreme R, the child model predicts lower-than-parent-plateau adult recruitment due to the exponential inhibition factor; equivalently, the scored dC_dt need not be monotone increasing in R at fixed J and C.",
+    "If oscillations occur, J should lag feeding-driven production and C should lag J, so similar current (R,C) reached on different cycle phases can still correspond to different dC_dt through different J.",
+    "The parameter choice does not sit in the exact parent-recovery limit: high_resource_inhibition_scale is positive, consumer_interference_scale is positive, and juvenile maturation is finite rather than instantaneous."
+  ],
+  "role_corrections": [
+    "dC_dt: claimed-output/target derivative -> target derivative within ODE system (confirmed; scored quantity corresponds to dC/dt but dependent variable for integration is C)",
+    "t: claimed-input/time axis -> independent variable/time axis (confirmed)",
+    "R: claimed-dynamic state -> dynamic state variable (confirmed)",
+    "C: claimed-dynamic state -> dynamic state variable and dependent_variable/target_state (confirmed)",
+    "J: claimed-dynamic state -> dynamic state variable (confirmed)",
+    "resource_growth_rate: claimed-parameter -> parameter (confirmed)",
+    "encounter_rate: claimed-parameter -> parameter (confirmed)",
+    "conversion_efficiency: claimed-parameter -> parameter (confirmed)",
+    "consumer_mortality_rate: claimed-parameter -> parameter (confirmed)",
+    "handling_saturation_scale: claimed-parameter -> parameter (confirmed)",
+    "consumer_interference_scale: claimed-parameter -> parameter (confirmed)",
+    "juvenile_maturation_rate: claimed-parameter -> parameter (confirmed)",
+    "juvenile_mortality_rate: claimed-parameter -> parameter (confirmed)",
+    "high_resource_inhibition_scale: claimed-parameter -> parameter (confirmed)",
+    "expression classification: explicit isolated formula -> ode_system for data generation (overridden by supplied validated ODE system contract as required)"
+  ],
+  "rationale": "Preserve the supplied ODE-system contract exactly: the scored quantity is the adult consumer state C within a 3-state system (R,C,J) evolving over time t. Although the isolated target expression is structurally an explicit algebraic formula for dC_dt, the typed upstream contract governs data generation here, so the correct dataset type is an ODE system integrated in time. Parameter values are chosen to keep all rates positive and moderate, maintain nontrivial coupled dynamics, and activate the intended sequence of mechanisms without collapsing to any recovery limit. In particular, handling_saturation_scale=0.03 makes handling effects visible around the inherited initial resource level R0=100 because handling_saturation_scale*R is about 3 initially, so recruitment/maturation is not in the low-R linear regime. consumer_interference_scale=0.025 makes juvenile production crowding-sensitive when C is in the tens, but not so strong that feeding is shut down everywhere. juvenile_maturation_rate=0.35 and juvenile_mortality_rate=0.08 leave a meaningful juvenile residence time, preserving stage-lag effects. high_resource_inhibition_scale=0.004 obeys the suggested 0 to 1/initial_resource_scale range (here 1/100=0.01) and yields high_resource_inhibition_scale*R about 0.4 at the initial resource level, enough to suppress maturation at high R without forcing the system into a near-zero maturation regime. This should expose the generation-5 contrast directly along reachable trajectories: for nonzero J, the adult recruitment term as a function of R is expected to rise at low-to-moderate R and then bend over more strongly than the parent monotone saturation, with possible decline at sufficiently high realized R. Time horizon 0 to 80 with 401 points is long enough to capture several oscillatory phases and phase-lagged juvenile/adult responses if they occur, while remaining in a typical biological timescale and sample count for exact noiseless training pairs. No observation noise is added.",
+  "coverage_report": {},
+  "inactive_mechanisms": [],
+  "target_variance": {},
+  "parent_absorption_report": {},
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_v0gmGDtrG18xiiOrFZE5Zrwk"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "juvenile_maturation_rate * R / (1 + handling_saturation_scale * R) * exp(-high_resource_inhibition_scale * R) * J - consumer_mortality_rate * C",
+        "target_symbol": "dC_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "C",
+          "J",
+          "R",
+          "consumer_mortality_rate",
+          "handling_saturation_scale",
+          "high_resource_inhibition_scale",
+          "juvenile_maturation_rate"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "-C*consumer_mortality_rate + J*R*juvenile_maturation_rate*exp(R*(-high_resource_inhibition_scale))/(R*handling_saturatio"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_nklJf9L84T2Im92bJNelATJ6"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "juvenile_maturation_rate * R / (1 + handling_saturation_scale * R) * exp(-high_resource_inhibition_scale * R) * J - consumer_mortality_rate * C",
+        "target_symbol": "dC_dt",
+        "assignments": {
+          "R": 100,
+          "C": 20,
+          "J": 5,
+          "juvenile_maturation_rate": 0.35,
+          "handling_saturation_scale": 0.03,
+          "high_resource_inhibition_scale": 0.004,
+          "consumer_mortality_rate": 0.12
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": 26.926502014059217,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_LIZIxPAstyUW8ubLTwYrbAog"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_CO4pfE07IrW4XLaDenl4iQUB"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 4
+}

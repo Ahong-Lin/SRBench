@@ -1,0 +1,3 @@
+Ground truth: dT1_dt = contact_conductance*(1 + mean_temperature_conductance_coeff*((T1 + T2)/2 - conductance_reference_temperature))*(1 + body1_contact_temperature_coeff*(T1 - heat_capacity_1_reference_temperature))*(tanh(Abs(T2 - T1)/conductance_deltaT_scale))**2*(T2 - T1)/(heat_capacity_1*(1 + heat_capacity_1_temperature_coeff*(T1 - heat_capacity_1_reference_temperature)))
+
+Fixed parameters: {'heat_capacity_1': 8000.0, 'heat_capacity_2': 12000.0, 'contact_conductance': 120.0, 'conductance_deltaT_scale': 60.0, 'mean_temperature_conductance_coeff': 0.0015, 'conductance_reference_temperature': 350.0, 'heat_capacity_1_temperature_coeff': 0.001, 'heat_capacity_1_reference_temperature': 350.0, 'body1_contact_temperature_coeff': 0.0008}

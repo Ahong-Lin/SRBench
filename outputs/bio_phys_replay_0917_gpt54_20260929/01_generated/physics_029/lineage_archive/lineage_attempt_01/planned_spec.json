@@ -1,0 +1,199 @@
+{
+  "equation_type": "explicit",
+  "integrator": "evaluate_explicit",
+  "dependent_variable": "sigma",
+  "independent_variables": [
+    {
+      "symbol": "E_cm",
+      "range": [
+        0.9,
+        1.12
+      ],
+      "n_points": 241,
+      "scale": "linear"
+    },
+    {
+      "symbol": "beam_energy_spread",
+      "range": [
+        0.0,
+        0.04
+      ],
+      "n_points": 9,
+      "scale": "linear"
+    },
+    {
+      "symbol": "channel_threshold_energy",
+      "range": [
+        0.97,
+        1.03
+      ],
+      "n_points": 7,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "sigma_peak",
+      "value": 12.0
+    },
+    {
+      "symbol": "resonance_mass",
+      "value": 1.0
+    },
+    {
+      "symbol": "intrinsic_width",
+      "value": 0.05
+    },
+    {
+      "symbol": "width_relaxation_scale",
+      "value": 0.3
+    },
+    {
+      "symbol": "coupling_drift_scale",
+      "value": 0.6
+    },
+    {
+      "symbol": "coupling_width_mix",
+      "value": 2.0
+    },
+    {
+      "symbol": "threshold_width_strength",
+      "value": 0.7
+    }
+  ],
+  "benchmark_output": null,
+  "benchmark_target_state": null,
+  "observed_variables": [],
+  "rhs_for_integrator": "((sigma_peak*(1 + coupling_drift_scale*((E_cm/resonance_mass) - 1)*(1 + coupling_width_mix*intrinsic_width/resonance_mass)))*(resonance_mass**2*(intrinsic_width*(E_cm/resonance_mass)*(1 + width_relaxation_scale*((E_cm/resonance_mass)**2 - 1) + threshold_width_strength*sqrt(Piecewise((0, E_cm < channel_threshold_energy), (E_cm/channel_threshold_energy - 1, True)))))**2)/((E_cm**2 - resonance_mass**2)**2 + resonance_mass**2*(intrinsic_width*(E_cm/resonance_mass)*(1 + width_relaxation_scale*((E_cm/resonance_mass)**2 - 1) + threshold_width_strength*sqrt(Piecewise((0, E_cm < channel_threshold_energy), (E_cm/channel_threshold_energy - 1, True)))))**2))/(1 + beam_energy_spread**2/((intrinsic_width*(E_cm/resonance_mass)*(1 + width_relaxation_scale*((E_cm/resonance_mass)**2 - 1) + threshold_width_strength*sqrt(Piecewise((0, E_cm < channel_threshold_energy), (E_cm/channel_threshold_energy - 1, True)))))**2 + (E_cm - resonance_mass)**2))",
+  "state_variables": [],
+  "state_rhs": [],
+  "initial_conditions": {},
+  "sanity_expectations": [
+    "For beam_energy_spread = 0, the smearing denominator becomes 1 exactly, so the line shape is least flattened near E_cm ≈ resonance_mass.",
+    "At fixed channel_threshold_energy and other parameters, increasing beam_energy_spread lowers the peak region near E_cm ≈ resonance_mass more strongly than far-detuned tails.",
+    "For E_cm < channel_threshold_energy, the Piecewise threshold term is exactly zero; just above threshold it turns on as sqrt(E_cm/channel_threshold_energy - 1), producing a one-sided curvature change rather than a symmetric modification about the resonance peak.",
+    "At fixed beam_energy_spread, moving channel_threshold_energy through the interval [0.97, 1.03] shifts the location of the onset in shoulder distortion along the E_cm axis.",
+    "Setting threshold_width_strength = 0 would recover the smooth parent-without-threshold law; with the chosen positive value, curves whose threshold lies inside the scan should deviate above threshold from the below-threshold continuation.",
+    "Because width_relaxation_scale > 0 and coupling_drift_scale > 0 are moderate, the overall line shape should already show mild asymmetry even away from the threshold kink; the threshold effect should appear as an additional localized one-sided change, not the only source of asymmetry.",
+    "sigma should remain finite and nonnegative throughout the sampled domain for the chosen parameter values."
+  ],
+  "role_corrections": [
+    "sigma: claimed-output -> dependent_variable (confirmed; explicit algebraic target)",
+    "E_cm: claimed-input/time axis -> independent_variable (confirmed; natural sampled scan axis in expression)",
+    "beam_energy_spread: claimed-input/time axis -> independent_variable (confirmed by explicit freedom decision add_input; sampled machine-setting axis, not fixed parameter)",
+    "channel_threshold_energy: claimed-input/time axis -> independent_variable (confirmed by explicit freedom decision add_input; sampled threshold-location axis, not fixed parameter)",
+    "sigma_peak: claimed-parameter -> parameter (confirmed)",
+    "resonance_mass: claimed-parameter -> parameter (confirmed)",
+    "intrinsic_width: claimed-parameter -> parameter (confirmed)",
+    "width_relaxation_scale: claimed-parameter -> parameter (confirmed)",
+    "coupling_drift_scale: claimed-parameter -> parameter (confirmed)",
+    "coupling_width_mix: claimed-parameter -> parameter (confirmed)",
+    "threshold_width_strength: claimed-parameter -> parameter (confirmed)"
+  ],
+  "rationale": "Structure check shows no derivatives, no integrals, and a direct algebraic relation for sigma, so this is a static explicit map rather than any ODE. Per the explicit freedom_change metadata, preserve the declared sampled inputs E_cm, beam_energy_spread, and channel_threshold_energy as independent variables even though beam_energy_spread and channel_threshold_energy could look parameter-like algebraically. The chosen scale uses resonance_mass = 1 and intrinsic_width = 0.05, so the E_cm scan spans roughly resonance_mass ± 2.4*intrinsic_width; this is wide enough to show the resonance peak, both shoulders, the smooth width-relaxation asymmetry, and the threshold-induced one-sided curvature change without going so far into tails that the signal becomes trivial. channel_threshold_energy is sampled from 0.97 to 1.03, i.e. within about ±0.6 intrinsic widths of the resonance, matching the suggested observable-threshold regime and ensuring some conditions place the threshold below the pole, some near it, and some above it. beam_energy_spread is sampled from 0 to 0.04, from the parent-recovery limit up to about 0.8 intrinsic_width, large enough to suppress and flatten the central peak but not so large that all threshold structure is washed out. Fixed parameters remain moderate and physically admissible: width_relaxation_scale = 0.3 gives noticeable but not sign-flipping smooth energy dependence over the scan; threshold_width_strength = 0.7 is nonnegative and order unity, making the threshold-opened term visible but not dominant everywhere; coupling_drift_scale = 0.6 and coupling_width_mix = 2.0 give mild numerator drift while keeping the prefactor positive across the scanned energies. A representative substitution is finite and real. This setup directly exposes the recorded distinguishing conditions: compare sigma versus E_cm for the same fixed resonance parameters while varying channel_threshold_energy through the scan window and varying beam_energy_spread from narrow to moderate values; the child law predicts a threshold-anchored one-sided shoulder distortion plus spread-dependent peak suppression that a smooth parent without channel_threshold_energy cannot localize.",
+  "coverage_report": {},
+  "inactive_mechanisms": [],
+  "target_variance": {},
+  "parent_absorption_report": {},
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_L9dUqZeMIXkwKmme0uWwONzI"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "sigma - (((sigma_peak*(1 + coupling_drift_scale*((E_cm/resonance_mass) - 1)*(1 + coupling_width_mix*intrinsic_width/resonance_mass)))*(resonance_mass**2*(intrinsic_width*(E_cm/resonance_mass)*(1 + width_relaxation_scale*((E_cm/resonance_mass)**2 - 1) + threshold_width_strength*sqrt(Piecewise((0, E_cm < channel_threshold_energy), (E_cm/channel_threshold_energy - 1, True)))))**2)/((E_cm**2 - resonance_mass**2)**2 + resonance_mass**2*(intrinsic_width*(E_cm/resonance_mass)*(1 + width_relaxation_scale*((E_cm/resonance_mass)**2 - 1) + threshold_width_strength*sqrt(Piecewise((0, E_cm < channel_threshold_energy), (E_cm/channel_threshold_energy - 1, True)))))**2))/(1 + beam_energy_spread**2/((intrinsic_width*(E_cm/resonance_mass)*(1 + width_relaxation_scale*((E_cm/resonance_mass)**2 - 1) + threshold_width_strength*sqrt(Piecewise((0, E_cm < channel_threshold_energy), (E_cm/channel_threshold_energy - 1, True)))))**2 + (E_cm - resonance_mass)**2)))",
+        "target_symbol": "sigma"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "E_cm",
+          "beam_energy_spread",
+          "channel_threshold_energy",
+          "coupling_drift_scale",
+          "coupling_width_mix",
+          "intrinsic_width",
+          "resonance_mass",
+          "sigma",
+          "sigma_peak",
+          "threshold_width_strength",
+          "width_relaxation_scale"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": false,
+        "explicit_solution_preview": null,
+        "classification_hint": "implicit_or_explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_9AzLyFLYRAIBkvzaxZOhcubV"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "((sigma_peak*(1 + coupling_drift_scale*((E_cm/resonance_mass) - 1)*(1 + coupling_width_mix*intrinsic_width/resonance_mass)))*(resonance_mass**2*(intrinsic_width*(E_cm/resonance_mass)*(1 + width_relaxation_scale*((E_cm/resonance_mass)**2 - 1) + threshold_width_strength*sqrt(Piecewise((0, E_cm < channel_threshold_energy), (E_cm/channel_threshold_energy - 1, True)))))**2)/((E_cm**2 - resonance_mass**2)**2 + resonance_mass**2*(intrinsic_width*(E_cm/resonance_mass)*(1 + width_relaxation_scale*((E_cm/resonance_mass)**2 - 1) + threshold_width_strength*sqrt(Piecewise((0, E_cm < channel_threshold_energy), (E_cm/channel_threshold_energy - 1, True)))))**2))/(1 + beam_energy_spread**2/((intrinsic_width*(E_cm/resonance_mass)*(1 + width_relaxation_scale*((E_cm/resonance_mass)**2 - 1) + threshold_width_strength*sqrt(Piecewise((0, E_cm < channel_threshold_energy), (E_cm/channel_threshold_energy - 1, True)))))**2 + (E_cm - resonance_mass)**2))",
+        "target_symbol": "sigma",
+        "assignments": {
+          "E_cm": 1.03,
+          "beam_energy_spread": 0.015,
+          "channel_threshold_energy": 1.01,
+          "coupling_drift_scale": 0.6,
+          "coupling_width_mix": 2.0,
+          "intrinsic_width": 0.05,
+          "resonance_mass": 1.0,
+          "sigma_peak": 12.0,
+          "threshold_width_strength": 0.7,
+          "width_relaxation_scale": 0.3
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": 5.476312946129327,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_GsU34mscPkrLhfwtODgVeDVY"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 3
+}

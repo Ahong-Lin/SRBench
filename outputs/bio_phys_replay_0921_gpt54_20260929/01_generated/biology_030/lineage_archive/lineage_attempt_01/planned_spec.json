@@ -1,0 +1,251 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "P",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        300.0
+      ],
+      "n_points": 401,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "cardiac_delivery_baseline",
+      "value": 0.9
+    },
+    {
+      "symbol": "cardiac_delivery_gain",
+      "value": 3.0
+    },
+    {
+      "symbol": "peripheral_resistance_baseline",
+      "value": 0.8
+    },
+    {
+      "symbol": "peripheral_resistance_gain",
+      "value": 1.6
+    },
+    {
+      "symbol": "arterial_compliance",
+      "value": 2.0
+    },
+    {
+      "symbol": "pressure_setpoint",
+      "value": 95.0
+    },
+    {
+      "symbol": "baroreflex_pressure_scale",
+      "value": 12.0
+    },
+    {
+      "symbol": "autonomic_time_constant",
+      "value": 8.0
+    },
+    {
+      "symbol": "vascular_saturation_scale",
+      "value": 0.7
+    },
+    {
+      "symbol": "vascular_time_constant",
+      "value": 20.0
+    },
+    {
+      "symbol": "cardiac_afterload_pressure_scale",
+      "value": 120.0
+    },
+    {
+      "symbol": "baroreflex_resetting_gain",
+      "value": 0.25
+    },
+    {
+      "symbol": "baroreflex_resetting_time_constant",
+      "value": 120.0
+    },
+    {
+      "symbol": "baroreflex_asymmetry_gain",
+      "value": 0.35
+    }
+  ],
+  "benchmark_output": "dP_dt",
+  "benchmark_target_state": "P",
+  "observed_variables": [
+    "t",
+    "P",
+    "S",
+    "R",
+    "B"
+  ],
+  "rhs_for_integrator": "(cardiac_delivery_baseline + cardiac_delivery_gain*S*exp(-P/cardiac_afterload_pressure_scale) - P/(peripheral_resistance_baseline + peripheral_resistance_gain*R))/arterial_compliance",
+  "state_variables": [
+    "P",
+    "S",
+    "R",
+    "B"
+  ],
+  "state_rhs": [
+    "(cardiac_delivery_baseline + cardiac_delivery_gain*S*exp(-P/cardiac_afterload_pressure_scale) - P/(peripheral_resistance_baseline + peripheral_resistance_gain*R))/arterial_compliance",
+    "(1/(1 + exp((P - (pressure_setpoint + B))/(baroreflex_pressure_scale*(1 + baroreflex_asymmetry_gain*(P - (pressure_setpoint + B))/baroreflex_pressure_scale)))) - S)/autonomic_time_constant",
+    "(vascular_saturation_scale*(1 - exp(-S/vascular_saturation_scale)) - R)/vascular_time_constant",
+    "(baroreflex_resetting_gain*(P - pressure_setpoint) - B)/baroreflex_resetting_time_constant"
+  ],
+  "initial_conditions": {
+    "P": 100.0,
+    "S": 0.5,
+    "R": 0.5,
+    "B": 0.0
+  },
+  "sanity_expectations": [
+    "The runoff denominator peripheral_resistance_baseline + peripheral_resistance_gain*R stays positive throughout the sampled window, so the RHS remains finite for the chosen parameters.",
+    "Because vascular_time_constant exceeds autonomic_time_constant, S should change earlier than R after onset, producing a visible lag between neural drive adjustment and resistance-mediated runoff change.",
+    "Since cardiac_afterload_pressure_scale is of the same order as P, the marginal effect of S on dP_dt through the cardiac term should be noticeably smaller at higher P than at lower P reached later in the transient.",
+    "With baroreflex_resetting_time_constant much longer than autonomic_time_constant, early behavior should resemble a nearly fixed-threshold reflex, while later times show gradual drift of the effective setpoint via B.",
+    "For baroreflex_asymmetry_gain=0.35, local pressure-to-command steepness should differ above versus below the effective setpoint if the trajectory samples both sides; if it does not cross both sides, this asymmetry will be weakly visible rather than absent by model inconsistency."
+  ],
+  "role_corrections": [
+    "dP_dt: claimed-output/target derivative -> derived quantity from system RHS for state P (confirmed as target derivative, but dependent variable for data generation is P by ODE contract)",
+    "t: claimed-input/time axis -> independent variable/time axis (confirmed)",
+    "P: claimed-dynamic state -> dependent variable/target state (confirmed)",
+    "S: claimed-dynamic state -> state variable (confirmed)",
+    "R: claimed-dynamic state -> state variable (confirmed)",
+    "B: claimed-dynamic state -> state variable (confirmed)",
+    "cardiac_delivery_baseline: claimed-parameter -> parameter (confirmed)",
+    "cardiac_delivery_gain: claimed-parameter -> parameter (confirmed)",
+    "peripheral_resistance_baseline: claimed-parameter -> parameter (confirmed)",
+    "peripheral_resistance_gain: claimed-parameter -> parameter (confirmed)",
+    "arterial_compliance: claimed-parameter -> parameter (confirmed)",
+    "pressure_setpoint: claimed-parameter -> parameter (confirmed)",
+    "baroreflex_pressure_scale: claimed-parameter -> parameter (confirmed)",
+    "autonomic_time_constant: claimed-parameter -> parameter (confirmed)",
+    "vascular_saturation_scale: claimed-parameter -> parameter (confirmed)",
+    "vascular_time_constant: claimed-parameter -> parameter (confirmed)",
+    "cardiac_afterload_pressure_scale: claimed-parameter -> parameter (confirmed)",
+    "baroreflex_resetting_gain: claimed-parameter -> parameter (confirmed)",
+    "baroreflex_resetting_time_constant: claimed-parameter -> parameter (confirmed)",
+    "baroreflex_asymmetry_gain: claimed-parameter -> parameter (confirmed)",
+    "equation_type: upstream ode_system contract preserved (confirmed override of local explicit-expression hint, because typed contract governs full system sampling)"
+  ],
+  "rationale": "The ODE-system contract is preserved exactly: target state P is sampled only along time t, with inherited state ordering, RHS, and initial conditions unchanged. Parameter choices are set to keep all denominators positive, maintain a monotone baroreflex command over the expected trajectory range, and expose the intended mechanisms without collapsing to the parent-recovery limits. Specifically, vascular_saturation_scale=0.7 keeps the R-command noticeably saturating over the inherited S(0)=0.5 to high-drive range; vascular_time_constant=20 s makes R lag S enough to create visible early-versus-late pressure-recovery phase separation; cardiac_afterload_pressure_scale=120 mmHg is comparable to the operating pressure so sympathetic cardiac support is weaker at higher P but not extinguished; baroreflex_resetting_gain=0.25 and baroreflex_resetting_time_constant=120 s allow slow threshold adaptation within the 300 s window; baroreflex_asymmetry_gain=0.35 introduces asymmetry without approaching loss of monotonicity. With P initially above the 95 mmHg setpoint, the trajectory should first reduce autonomic drive, then reveal coupled recovery dynamics as B slowly shifts and the asymmetric command law changes steepness above versus below the effective setpoint. This dataset can expose the recorded distinguishing conditions only insofar as the single inherited transient naturally visits them; if the solved trajectory remains on one side of the effective setpoint or in a narrow S band, asymmetry or saturation contrasts will be weaker. No observation noise is added.",
+  "coverage_report": {},
+  "inactive_mechanisms": [],
+  "target_variance": {},
+  "parent_absorption_report": {},
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_n19mQeC0MdWZzdlhPh44OXem"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "(cardiac_delivery_baseline + cardiac_delivery_gain*S*exp(-P/cardiac_afterload_pressure_scale) - P/(peripheral_resistance_baseline + peripheral_resistance_gain*R))/arterial_compliance",
+        "target_symbol": "dP_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "P",
+          "R",
+          "S",
+          "arterial_compliance",
+          "cardiac_afterload_pressure_scale",
+          "cardiac_delivery_baseline",
+          "cardiac_delivery_gain",
+          "peripheral_resistance_baseline",
+          "peripheral_resistance_gain"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "(-P/(R*peripheral_resistance_gain + peripheral_resistance_baseline) + S*cardiac_delivery_gain*exp((-P)/cardiac_afterload"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_cAxegx66kzci4qQo8DIn2ZyM"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "(cardiac_delivery_baseline + cardiac_delivery_gain*S*exp(-P/cardiac_afterload_pressure_scale) - P/(peripheral_resistance_baseline + peripheral_resistance_gain*R))/arterial_compliance",
+        "target_symbol": "dP_dt",
+        "assignments": {
+          "P": 100,
+          "S": 0.5,
+          "R": 0.5,
+          "cardiac_delivery_baseline": 0.9,
+          "cardiac_delivery_gain": 3.0,
+          "peripheral_resistance_baseline": 0.8,
+          "peripheral_resistance_gain": 1.6,
+          "arterial_compliance": 2.0,
+          "cardiac_afterload_pressure_scale": 120.0
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": -30.474051343619692,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_nmNP5EKet3BDqTc5IuiWX2l9"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_YjTY6nbrFXKOx4bWBGS9BAiu"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 4
+}

@@ -1,0 +1,273 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "N",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        40.0
+      ],
+      "n_points": 401,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "intrinsic_growth_rate",
+      "value": 0.6
+    },
+    {
+      "symbol": "carrying_capacity",
+      "value": 1000.0
+    },
+    {
+      "symbol": "crowding_adjustment_rate",
+      "value": 0.18
+    },
+    {
+      "symbol": "crowding_nonlinearity_exponent",
+      "value": 2.0
+    },
+    {
+      "symbol": "damage_accumulation_rate",
+      "value": 0.22
+    },
+    {
+      "symbol": "damage_relaxation_rate",
+      "value": 0.08
+    },
+    {
+      "symbol": "crowding_damage_interaction_strength",
+      "value": 1.2
+    },
+    {
+      "symbol": "stress_state_activation_rate",
+      "value": 0.24
+    },
+    {
+      "symbol": "stress_state_relaxation_rate",
+      "value": 0.06
+    },
+    {
+      "symbol": "damage_tolerance_threshold",
+      "value": 250.0
+    },
+    {
+      "symbol": "stress_state_nonlinearity_exponent",
+      "value": 4.0
+    },
+    {
+      "symbol": "severe_damage_suppression_strength",
+      "value": 1.5
+    }
+  ],
+  "benchmark_output": "dN_dt",
+  "benchmark_target_state": "N",
+  "observed_variables": [
+    "t",
+    "N",
+    "crowding_pressure",
+    "accumulated_crowding_damage",
+    "degraded_stress_state"
+  ],
+  "rhs_for_integrator": "intrinsic_growth_rate*N*(1 - ((crowding_pressure/carrying_capacity) + crowding_damage_interaction_strength*crowding_pressure*accumulated_crowding_damage/carrying_capacity**2)**crowding_nonlinearity_exponent - accumulated_crowding_damage/carrying_capacity - severe_damage_suppression_strength*degraded_stress_state*accumulated_crowding_damage/carrying_capacity)",
+  "state_variables": [
+    "N",
+    "crowding_pressure",
+    "accumulated_crowding_damage",
+    "degraded_stress_state"
+  ],
+  "state_rhs": [
+    "intrinsic_growth_rate*N*(1 - ((crowding_pressure/carrying_capacity) + crowding_damage_interaction_strength*crowding_pressure*accumulated_crowding_damage/carrying_capacity**2)**crowding_nonlinearity_exponent - accumulated_crowding_damage/carrying_capacity - severe_damage_suppression_strength*degraded_stress_state*accumulated_crowding_damage/carrying_capacity)",
+    "crowding_adjustment_rate*(N - crowding_pressure)",
+    "damage_accumulation_rate*crowding_pressure - damage_relaxation_rate*accumulated_crowding_damage",
+    "stress_state_activation_rate*(accumulated_crowding_damage**stress_state_nonlinearity_exponent/(damage_tolerance_threshold**stress_state_nonlinearity_exponent + accumulated_crowding_damage**stress_state_nonlinearity_exponent))*(1 - degraded_stress_state) - stress_state_relaxation_rate*degraded_stress_state"
+  ],
+  "initial_conditions": {
+    "N": 100.0,
+    "crowding_pressure": 100.0,
+    "accumulated_crowding_damage": 0.0,
+    "degraded_stress_state": 0.0
+  },
+  "sanity_expectations": [
+    "Early in the trajectory, N should increase rapidly because N is far below carrying_capacity and both accumulated_crowding_damage and degraded_stress_state start at zero.",
+    "Because crowding_adjustment_rate is smaller than intrinsic_growth_rate, there should be a phase where N rises faster than crowding_pressure, so delayed braking permits continued growth near or even above the nominal carrying scale before decline begins.",
+    "Accumulated_crowding_damage should lag behind crowding_pressure and remain elevated after crowding_pressure starts relaxing, creating intervals with similar N but stronger suppression later than earlier.",
+    "Once accumulated_crowding_damage approaches the tolerance scale damage_tolerance_threshold, degraded_stress_state should transition upward from near zero toward appreciable values rather than activating immediately at t=0.",
+    "After degraded_stress_state becomes appreciable, the same additional accumulated_crowding_damage should produce stronger reduction in dN_dt than in the earlier mild-stress regime, visible as a steeper late-stage decline or prolonged negative growth.",
+    "If crowding and damage later relax, degraded_stress_state should decay more slowly than instantaneous crowding because stress_state_relaxation_rate is finite and smaller than activation only in high-damage periods."
+  ],
+  "role_corrections": [
+    "dN_dt: claimed-output/target derivative -> derivative expression for target state N (confirmed as scored RHS, not sampled independent variable)",
+    "t: claimed-input/time axis -> independent variable/time axis (confirmed)",
+    "N: claimed-dynamic state -> dependent variable/target state in declared ODE system (confirmed)",
+    "crowding_pressure: claimed-dynamic state -> dynamic state variable in declared ODE system (confirmed)",
+    "accumulated_crowding_damage: claimed-dynamic state -> dynamic state variable in declared ODE system (confirmed)",
+    "degraded_stress_state: claimed-dynamic state -> dynamic state variable in declared ODE system (confirmed)",
+    "intrinsic_growth_rate: claimed-parameter -> parameter (confirmed)",
+    "carrying_capacity: claimed-parameter -> parameter (confirmed)",
+    "crowding_adjustment_rate: claimed-parameter -> parameter (confirmed)",
+    "crowding_nonlinearity_exponent: claimed-parameter -> parameter (confirmed)",
+    "damage_accumulation_rate: claimed-parameter -> parameter (confirmed)",
+    "damage_relaxation_rate: claimed-parameter -> parameter (confirmed)",
+    "crowding_damage_interaction_strength: claimed-parameter -> parameter (confirmed)",
+    "stress_state_activation_rate: claimed-parameter -> parameter (confirmed)",
+    "stress_state_relaxation_rate: claimed-parameter -> parameter (confirmed)",
+    "damage_tolerance_threshold: claimed-parameter -> parameter (confirmed)",
+    "stress_state_nonlinearity_exponent: claimed-parameter -> parameter (confirmed)",
+    "severe_damage_suppression_strength: claimed-parameter -> parameter (confirmed)",
+    "equation_type: upstream typed ode_system contract preserved despite analyzed RHS alone being explicit in state variables (confirmed override not needed because full contract governs data generation)"
+  ],
+  "rationale": "The provided typed contract must be preserved, so this record is planned as the declared 4-state ODE system with N as the dependent variable and t as the sole sampled axis. The chosen parameters keep the system in a biologically admissible closed-population regime while exposing the intended sequence of mechanisms rather than collapsing to a parent recovery limit. intrinsic_growth_rate=0.6 and carrying_capacity=1000 give substantial early growth from N(0)=100. crowding_adjustment_rate=0.18 is slower than growth, so crowding_pressure lags N and allows overshoot/history dependence instead of immediate logistic regulation. crowding_nonlinearity_exponent=2 makes suppression visibly curved without making low-crowding growth negligible. damage_accumulation_rate=0.22 and damage_relaxation_rate=0.08 let accumulated_crowding_damage build over sustained crowding and then persist long enough to separate brief from prolonged crowding exposure. crowding_damage_interaction_strength=1.2 makes present crowding and residual damage synergize but does not place the system in an always-overwhelmed regime. For the added threshold-like stress regime, damage_tolerance_threshold=250 is well below carrying_capacity but above trivial damage, so activation is reachable only after sustained crowding; stress_state_nonlinearity_exponent=4 sharpens the transition; stress_state_activation_rate=0.24 and stress_state_relaxation_rate=0.06 make degraded_stress_state activate on a slower but observable timescale and persist during relaxation; severe_damage_suppression_strength=1.5 gives extra suppression once that state turns on without making any small damage instantly catastrophic. The time window 0 to 40 with 401 points is long enough to capture early growth, delayed braking, damage buildup, threshold activation, and subsequent suppression/relaxation along one exact trajectory. This plan directly exposes the recorded distinguishing conditions using only reachable states from the inherited initial conditions: ascent with crowding_pressure<N, later intervals with elevated crowding_pressure and accumulated_crowding_damage, and finally high-damage intervals where degraded_stress_state becomes appreciable. Weak/inactive effects honestly noted: at very early times accumulated damage and degraded stress are near zero, so the system behaves close to the delayed nonlinear crowding parent; the severe-stress mechanism is intentionally inactive until enough damage accumulates.",
+  "coverage_report": {},
+  "inactive_mechanisms": [],
+  "target_variance": {},
+  "parent_absorption_report": {},
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_NsPaVZBbkaWwnPufpl6NCWTq"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "intrinsic_growth_rate*N*(1 - ((crowding_pressure/carrying_capacity) + crowding_damage_interaction_strength*crowding_pressure*accumulated_crowding_damage/carrying_capacity**2)**crowding_nonlinearity_exponent - accumulated_crowding_damage/carrying_capacity - severe_damage_suppression_strength*degraded_stress_state*accumulated_crowding_damage/carrying_capacity)",
+        "target_symbol": "dN_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "N",
+          "accumulated_crowding_damage",
+          "carrying_capacity",
+          "crowding_damage_interaction_strength",
+          "crowding_nonlinearity_exponent",
+          "crowding_pressure",
+          "degraded_stress_state",
+          "intrinsic_growth_rate",
+          "severe_damage_suppression_strength"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "N*intrinsic_growth_rate*(-accumulated_crowding_damage*degraded_stress_state*severe_damage_suppression_strength/carrying_"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_3IggerLfWRIIcAu1PkMFEO0z"
+        },
+        {
+          "name": "check_substitution",
+          "id": "call_jshsbbgktw99e0PSx7OBtvru"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "intrinsic_growth_rate*N*(1 - ((crowding_pressure/carrying_capacity) + crowding_damage_interaction_strength*crowding_pressure*accumulated_crowding_damage/carrying_capacity**2)**crowding_nonlinearity_exponent - accumulated_crowding_damage/carrying_capacity - severe_damage_suppression_strength*degraded_stress_state*accumulated_crowding_damage/carrying_capacity)",
+        "target_symbol": "dN_dt",
+        "assignments": {
+          "N": 100,
+          "crowding_pressure": 100,
+          "accumulated_crowding_damage": 0,
+          "degraded_stress_state": 0,
+          "intrinsic_growth_rate": 0.6,
+          "carrying_capacity": 1000,
+          "crowding_damage_interaction_strength": 1.2,
+          "crowding_nonlinearity_exponent": 2,
+          "severe_damage_suppression_strength": 1.5
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": 59.4,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "intrinsic_growth_rate*N*(1 - ((crowding_pressure/carrying_capacity) + crowding_damage_interaction_strength*crowding_pressure*accumulated_crowding_damage/carrying_capacity**2)**crowding_nonlinearity_exponent - accumulated_crowding_damage/carrying_capacity - severe_damage_suppression_strength*degraded_stress_state*accumulated_crowding_damage/carrying_capacity)",
+        "target_symbol": "dN_dt",
+        "assignments": {
+          "N": 1200,
+          "crowding_pressure": 1400,
+          "accumulated_crowding_damage": 350,
+          "degraded_stress_state": 0.8,
+          "intrinsic_growth_rate": 0.6,
+          "carrying_capacity": 1000,
+          "crowding_damage_interaction_strength": 1.2,
+          "crowding_nonlinearity_exponent": 2,
+          "severe_damage_suppression_strength": 1.5
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": -2679.9436800000008,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_VGB6fxH2TKGuCKBUF0ttyQ5v"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_pMe9TczJnnYaw6K8BYQO8ja5"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 4
+}

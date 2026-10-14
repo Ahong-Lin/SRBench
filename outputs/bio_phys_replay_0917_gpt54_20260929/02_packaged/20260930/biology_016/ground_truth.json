@@ -1,0 +1,1677 @@
+{
+  "version": 7,
+  "spec": {
+    "equation_type": "explicit",
+    "integrator": "evaluate_explicit",
+    "dependent_variable": "m_inf",
+    "independent_variables": [
+      {
+        "symbol": "V",
+        "range": [
+          -100.0,
+          40.0
+        ],
+        "n_points": 181,
+        "scale": "linear"
+      },
+      {
+        "symbol": "I_cond",
+        "range": [
+          0.4,
+          1.6
+        ],
+        "n_points": 121,
+        "scale": "linear"
+      }
+    ],
+    "parameters": [
+      {
+        "symbol": "V_half",
+        "value": -35.0
+      },
+      {
+        "symbol": "slope_factor",
+        "value": 9.0
+      },
+      {
+        "symbol": "I_ref",
+        "value": 1.0
+      },
+      {
+        "symbol": "ionic_shift_max",
+        "value": 12.0
+      },
+      {
+        "symbol": "ionic_scale",
+        "value": 0.35
+      },
+      {
+        "symbol": "slope_ionic_frac",
+        "value": 0.3
+      },
+      {
+        "symbol": "slope_ionic_scale",
+        "value": 0.4
+      },
+      {
+        "symbol": "shift_level_frac",
+        "value": 0.45
+      },
+      {
+        "symbol": "shift_voltage_scale",
+        "value": 14.0
+      },
+      {
+        "symbol": "shift_curvature_frac",
+        "value": 0.6
+      }
+    ],
+    "benchmark_output": null,
+    "benchmark_target_state": null,
+    "observed_variables": [],
+    "rhs_for_integrator": "(exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale) + shift_curvature_frac*tanh((I_cond - I_ref)/ionic_scale)*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))) + exp(2*(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale) + shift_curvature_frac*tanh((I_cond - I_ref)/ionic_scale)*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))))/(1 + exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale) + shift_curvature_frac*tanh((I_cond - I_ref)/ionic_scale)*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))) + exp(2*(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale) + shift_curvature_frac*tanh((I_cond - I_ref)/ionic_scale)*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))))",
+    "state_variables": [],
+    "state_rhs": [],
+    "initial_conditions": {},
+    "sanity_expectations": [
+      "For every fixed I_cond in the sampled range, m_inf(V,I_cond) should remain bounded strictly between 0 and 1 and increase monotonically with V over the sweep.",
+      "Across I_cond values below and above I_ref=1, activation curves should show visible horizontal displacement, with the displacement approaching saturation toward the I_cond range edges rather than growing linearly without bound.",
+      "Transition width in V should differ across ionic conditions because the effective slope factor is slope_factor*(1 + slope_ionic_frac*tanh((I_cond-I_ref)/slope_ionic_scale)); curves at high and low I_cond should not be explainable by a pure horizontal translation alone.",
+      "Because shift_curvature_frac is nonzero, the voltage displacement between two ionic conditions should be quantile dependent: the low-activation foot and high-activation shoulder should shift by different amounts, so equal-m_inf contours in the (V,I_cond) plane are bent rather than approximately parallel.",
+      "At I_cond near I_ref, ionic effects should weaken and the surface should approach the reference two-stage activation curve centered near V_half, but not dominate the full dataset since many sampled conditions lie away from I_ref.",
+      "No singular or complex values should occur across the chosen domain because the effective slope denominator remains positive for all sampled I_cond with the selected parameters."
+    ],
+    "role_corrections": [
+      "m_inf: claimed-output/target derivative -> dependent_variable (confirmed: explicit static target, no derivatives present)",
+      "V: V->V (confirmed: free sampled input axis in explicit expression)",
+      "I_cond: V->V (confirmed: free sampled input axis in explicit expression and preserved by freedom_change=none)",
+      "V_half: P->P (confirmed: free symbol not sampled under declared roles)",
+      "slope_factor: P->P (confirmed: fixed parameter controlling voltage scale)",
+      "I_ref: P->P (confirmed: fixed reference parameter)",
+      "ionic_shift_max: P->P (confirmed: fixed parameter)",
+      "ionic_scale: P->P (confirmed: fixed parameter)",
+      "slope_ionic_frac: P->P (confirmed: fixed parameter)",
+      "slope_ionic_scale: P->P (confirmed: fixed parameter)",
+      "shift_level_frac: P->P (confirmed: fixed parameter)",
+      "shift_voltage_scale: P->P (confirmed: fixed parameter)",
+      "shift_curvature_frac: P->P (confirmed: fixed parameter; suggested bounded magnitude adopted)"
+    ],
+    "rationale": "Structure check shows an explicit algebraic relation for m_inf with free symbols V and I_cond and no derivatives, integrals, delays, or hidden dynamic states, so this is a static two-input response surface. The freedom decision is none, so the declared sampled inputs V and I_cond are preserved. Parameter choices are biologically sensible and chosen to expose, rather than erase, the intended mechanisms: V_half=-35 mV and slope_factor=9 mV place the activation transition within a standard voltage-clamp window; ionic_shift_max=12 mV is large enough to produce visible ionic-condition-dependent displacement but not so large as to force all curves into saturation over the chosen voltage range; ionic_scale=0.35 and slope_ionic_scale=0.4 are comparable to the sampled I_cond span around I_ref=1, so ionic effects are active but only partly saturated across the dataset. slope_ionic_frac=0.3 keeps the effective slope positive and allows noticeable broadening/sharpening without singularity. shift_level_frac=0.45 and shift_curvature_frac=0.6, with shift_voltage_scale=14 mV, make the ionic shift visibly quantile dependent across the foot, midpoint, and shoulder of activation while remaining bounded; this directly targets the recorded child-vs-parent distinction that equal-m_inf contours in (V,I_cond) should bend rather than behave like nearly parallel translated sigmoids. The V range -100 to 40 mV spans well below and above the transition so both tails and the central rise are visible; the I_cond range 0.4 to 1.6 straddles I_ref and is broad enough that the tanh-based ionic modulation changes appreciably on both sides of reference. No recovery limit such as shift_curvature_frac≈0, shift_level_frac≈0, or slope_ionic_frac≈0 is selected, because those would suppress the intended contrast. A representative substitution was checked and is finite and real.",
+    "coverage_report": {
+      "groups": [
+        {
+          "generation": 1,
+          "name": "centered_voltage",
+          "expression": "V - V_half",
+          "role": "Distance from the nominal activation midpoint, used to compare subthreshold and suprathreshold regions under the parent law",
+          "train_range": [
+            -64.98570431023836,
+            74.93977496400476
+          ],
+          "hidden_range": [
+            30.763519528337028,
+            74.95251939486678
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -64.98570431023836,
+            "max": 74.93977496400476,
+            "q05": -58.671140637248755,
+            "median": -1.9903860241174698,
+            "q95": 65.82864589430392,
+            "range": 139.92547927424312,
+            "robust_range": 124.49978653155267
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 30.763519528337028,
+            "max": 74.95251939486678,
+            "q05": 32.90830007853938,
+            "median": 52.84847612236681,
+            "q95": 72.78652704994774,
+            "range": 44.188999866529755,
+            "robust_range": 39.87822697140835
+          }
+        },
+        {
+          "generation": 1,
+          "name": "scaled_voltage",
+          "expression": "(V - V_half)/slope_factor",
+          "role": "Parent logistic coordinate whose single-shape constraint is being relaxed",
+          "train_range": [
+            -7.220633812248707,
+            8.326641662667194
+          ],
+          "hidden_range": [
+            3.418168836481892,
+            8.328057710540754
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -7.220633812248707,
+            "max": 8.326641662667194,
+            "q05": -6.519015626360972,
+            "median": -0.22115400267971885,
+            "q95": 7.314293988255991,
+            "range": 15.547275474915901,
+            "robust_range": 13.833309614616963
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 3.418168836481892,
+            "max": 8.328057710540754,
+            "q05": 3.656477786504376,
+            "median": 5.872052902485201,
+            "q95": 8.087391894438637,
+            "range": 4.909888874058863,
+            "robust_range": 4.430914107934261
+          }
+        },
+        {
+          "generation": 2,
+          "name": "eta",
+          "expression": "(V - V_half)/slope_factor",
+          "role": "parent reduced voltage coordinate controlling the present sigmoidal occupancy",
+          "train_range": [
+            -7.220633812248707,
+            8.326641662667194
+          ],
+          "hidden_range": [
+            3.418168836481892,
+            8.328057710540754
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -7.220633812248707,
+            "max": 8.326641662667194,
+            "q05": -6.519015626360972,
+            "median": -0.22115400267971885,
+            "q95": 7.314293988255991,
+            "range": 15.547275474915901,
+            "robust_range": 13.833309614616963
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 3.418168836481892,
+            "max": 8.328057710540754,
+            "q05": 3.656477786504376,
+            "median": 5.872052902485201,
+            "q95": 8.087391894438637,
+            "range": 4.909888874058863,
+            "robust_range": 4.430914107934261
+          }
+        },
+        {
+          "generation": 2,
+          "name": "exp_eta",
+          "expression": "exp((V - V_half)/slope_factor)",
+          "role": "single-step permissive bias entering the sequential partition function",
+          "train_range": [
+            0.0007313387405017931,
+            4132.515839787209
+          ],
+          "hidden_range": [
+            30.513488644291673,
+            4138.371825253947
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0007313387405017931,
+            "max": 4132.515839787209,
+            "q05": 0.001475120803483627,
+            "median": 0.8015932403922987,
+            "q95": 1501.611655059574,
+            "range": 4132.515108448469,
+            "robust_range": 1501.6101799387707
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 30.513488644291673,
+            "max": 4138.371825253947,
+            "q05": 38.72484252665759,
+            "median": 354.9808825555575,
+            "q95": 3253.195748356767,
+            "range": 4107.8583366096545,
+            "robust_range": 3214.4709058301096
+          }
+        },
+        {
+          "generation": 3,
+          "name": "deltaI",
+          "expression": "(I_cond - I_ref)/ionic_scale",
+          "role": "normalized ionic-condition displacement from the reference environment",
+          "train_range": [
+            -1.7139308005571365,
+            1.7138354607990816
+          ],
+          "hidden_range": [
+            0.6320688155006765,
+            1.714235032975573
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -1.7139308005571365,
+            "max": 1.7138354607990816,
+            "q05": -1.5601678414004192,
+            "median": -0.1714460147278647,
+            "q95": 1.4891059325209695,
+            "range": 3.427766261356218,
+            "robust_range": 3.0492737739213887
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.6320688155006765,
+            "max": 1.714235032975573,
+            "q05": 0.6851154125021128,
+            "median": 1.1724053604283196,
+            "q95": 1.657354648914644,
+            "range": 1.0821662174748963,
+            "robust_range": 0.9722392364125312
+          }
+        },
+        {
+          "generation": 3,
+          "name": "vshift",
+          "expression": "V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale))",
+          "role": "voltage relative to the parent ionic-condition-shifted activation center",
+          "train_range": [
+            -75.69237641852469,
+            85.61364914029699
+          ],
+          "hidden_range": [
+            19.84529869248096,
+            67.13640703581407
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -75.69237641852469,
+            "max": 85.61364914029699,
+            "q05": -60.31060812961595,
+            "median": -2.0580172828719814,
+            "q95": 70.21879395728212,
+            "range": 161.30602555882166,
+            "robust_range": 130.52940208689807
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 19.84529869248096,
+            "max": 67.13640703581407,
+            "q05": 23.34992575240356,
+            "median": 43.41765375811545,
+            "q95": 63.26179230243967,
+            "range": 47.291108343333114,
+            "robust_range": 39.91186655003611
+          }
+        },
+        {
+          "generation": 3,
+          "name": "z_parent",
+          "expression": "(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)))/slope_factor",
+          "role": "parent reduced voltage controlling the fixed-shape occupancy curve",
+          "train_range": [
+            -8.410264046502743,
+            9.512627682255221
+          ],
+          "hidden_range": [
+            2.2050331880534397,
+            7.4596007817571195
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -8.410264046502743,
+            "max": 9.512627682255221,
+            "q05": -6.7011786810684395,
+            "median": -0.2286685869857757,
+            "q95": 7.80208821747579,
+            "range": 17.922891728757964,
+            "robust_range": 14.50326689854423
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 2.2050331880534397,
+            "max": 7.4596007817571195,
+            "q05": 2.594436194711507,
+            "median": 4.824183750901716,
+            "q95": 7.029088033604408,
+            "range": 5.25456759370368,
+            "robust_range": 4.434651838892901
+          }
+        },
+        {
+          "generation": 4,
+          "name": "x_ionic",
+          "expression": "(I_cond - I_ref)/ionic_scale",
+          "role": "normalized ionic-condition displacement controlling when ionic effects are appreciable",
+          "train_range": [
+            -1.7139308005571365,
+            1.7138354607990816
+          ],
+          "hidden_range": [
+            0.6320688155006765,
+            1.714235032975573
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -1.7139308005571365,
+            "max": 1.7138354607990816,
+            "q05": -1.5601678414004192,
+            "median": -0.1714460147278647,
+            "q95": 1.4891059325209695,
+            "range": 3.427766261356218,
+            "robust_range": 3.0492737739213887
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.6320688155006765,
+            "max": 1.714235032975573,
+            "q05": 0.6851154125021128,
+            "median": 1.1724053604283196,
+            "q95": 1.657354648914644,
+            "range": 1.0821662174748963,
+            "robust_range": 0.9722392364125312
+          }
+        },
+        {
+          "generation": 4,
+          "name": "x_parent",
+          "expression": "(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))",
+          "role": "parent reduced voltage coordinate after current threshold and slope modulation",
+          "train_range": [
+            -8.099233496108177,
+            13.021519190262241
+          ],
+          "hidden_range": [
+            1.7380108313797475,
+            6.441736675647916
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -8.099233496108177,
+            "max": 13.021519190262241,
+            "q05": -6.523250065000456,
+            "median": -0.22625311509471063,
+            "q95": 9.499937438195593,
+            "range": 21.120752686370416,
+            "robust_range": 16.02318750319605
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 1.7380108313797475,
+            "max": 6.441736675647916,
+            "q05": 2.1033404497643837,
+            "median": 3.9299859979900917,
+            "q95": 5.768580199289135,
+            "range": 4.703725844268169,
+            "robust_range": 3.665239749524751
+          }
+        },
+        {
+          "generation": 4,
+          "name": "q_ratio",
+          "expression": "exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale))))",
+          "role": "stage-weight ratio indicating whether the response is in the foot, midrange, or shoulder of activation",
+          "train_range": [
+            0.0003037718912012161,
+            452036.9441241664
+          ],
+          "hidden_range": [
+            5.686021710047688,
+            627.4956104281939
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0003037718912012161,
+            "max": 452036.9441241664,
+            "q05": 0.0014688873566944007,
+            "median": 0.7975185816468728,
+            "q95": 13358.895307800154,
+            "range": 452036.9438203945,
+            "robust_range": 13358.893838912798
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 5.686021710047688,
+            "max": 627.4956104281939,
+            "q05": 8.193494205658633,
+            "median": 50.906304909754084,
+            "q95": 320.09278874929987,
+            "range": 621.8095887181462,
+            "robust_range": 311.89929454364125
+          }
+        },
+        {
+          "generation": 5,
+          "name": "ion_dev",
+          "expression": "(I_cond - I_ref)",
+          "role": "distance from the reference ionic condition that activates ionic modulation",
+          "train_range": [
+            -0.5998757801949978,
+            0.5998424112796785
+          ],
+          "hidden_range": [
+            0.22122408542523675,
+            0.5999822615414505
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -0.5998757801949978,
+            "max": 0.5998424112796785,
+            "q05": -0.5460587444901467,
+            "median": -0.06000610515475263,
+            "q95": 0.5211870763823393,
+            "range": 1.1997181914746764,
+            "robust_range": 1.067245820872486
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.22122408542523675,
+            "max": 0.5999822615414505,
+            "q05": 0.23979039437573946,
+            "median": 0.4103418761499118,
+            "q95": 0.5800741271201254,
+            "range": 0.37875817611621376,
+            "robust_range": 0.34028373274438595
+          }
+        },
+        {
+          "generation": 5,
+          "name": "v_dev",
+          "expression": "(V - V_half)",
+          "role": "voltage offset from the nominal activation center",
+          "train_range": [
+            -64.98570431023836,
+            74.93977496400476
+          ],
+          "hidden_range": [
+            30.763519528337028,
+            74.95251939486678
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -64.98570431023836,
+            "max": 74.93977496400476,
+            "q05": -58.671140637248755,
+            "median": -1.9903860241174698,
+            "q95": 65.82864589430392,
+            "range": 139.92547927424312,
+            "robust_range": 124.49978653155267
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 30.763519528337028,
+            "max": 74.95251939486678,
+            "q05": 32.90830007853938,
+            "median": 52.84847612236681,
+            "q95": 72.78652704994774,
+            "range": 44.188999866529755,
+            "robust_range": 39.87822697140835
+          }
+        },
+        {
+          "generation": 5,
+          "name": "parent_shift_core",
+          "expression": "ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale))",
+          "role": "current sign-preserving ionic threshold shift surface to be relaxed",
+          "train_range": [
+            -16.29684585187376,
+            16.103404643147414
+          ],
+          "hidden_range": [
+            9.679402085752317,
+            16.298636283789307
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -16.29684585187376,
+            "max": 16.103404643147414,
+            "q05": -15.107278174172553,
+            "median": -1.7745900945751807,
+            "q95": 11.640041172598176,
+            "range": 32.40025049502117,
+            "robust_range": 26.74731934677073
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 9.679402085752317,
+            "max": 16.298636283789307,
+            "q05": 10.347609605531348,
+            "median": 14.337611243073422,
+            "q95": 16.171987390161092,
+            "range": 6.61923419803699,
+            "robust_range": 5.824377784629744
+          }
+        }
+      ],
+      "inactive_mechanisms": [],
+      "visible_mechanisms": [
+        "centered_voltage",
+        "scaled_voltage",
+        "eta",
+        "exp_eta",
+        "deltaI",
+        "vshift",
+        "z_parent",
+        "x_ionic",
+        "x_parent",
+        "q_ratio",
+        "ion_dev",
+        "v_dev",
+        "parent_shift_core"
+      ],
+      "extended_mechanisms": [
+        "centered_voltage",
+        "scaled_voltage",
+        "eta",
+        "exp_eta",
+        "deltaI",
+        "x_ionic",
+        "ion_dev",
+        "v_dev",
+        "parent_shift_core"
+      ]
+    },
+    "inactive_mechanisms": [],
+    "target_variance": {
+      "train": {
+        "n": 4500,
+        "variance": 0.18766939027138857,
+        "range": 0.9996401592645704
+      },
+      "hidden": {
+        "n": 500,
+        "variance": 0.0004609921239189812,
+        "range": 0.12662017026936478
+      }
+    },
+    "parent_absorption_report": {
+      "status": "ok",
+      "n_points": 512,
+      "fixed_parent_normalized_rmse": 0.8032990850919265,
+      "refit": {
+        "status": "not_run",
+        "reason": "no free parent parameters"
+      },
+      "interpretation": "<1e-3 nearly absorbed; 1e-3..1e-2 weak; >1e-2 visible structure"
+    },
+    "noise": 0.0,
+    "_trace": [
+      {
+        "turn": 1,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "analyze_expression",
+            "id": "call_K7MSqyBs03BBaJ7xQFtHIMCM"
+          }
+        ]
+      },
+      {
+        "tool": "analyze_expression",
+        "input": {
+          "expression": "(exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale) + shift_curvature_frac*tanh((I_cond - I_ref)/ionic_scale)*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))) + exp(2*(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale) + shift_curvature_frac*tanh((I_cond - I_ref)/ionic_scale)*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))))/(1 + exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale) + shift_curvature_frac*tanh((I_cond - I_ref)/ionic_scale)*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))) + exp(2*(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale) + shift_curvature_frac*tanh((I_cond - I_ref)/ionic_scale)*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))))",
+          "target_symbol": "m_inf"
+        },
+        "result": {
+          "ok": true,
+          "free_symbols": [
+            "I_cond",
+            "I_ref",
+            "V",
+            "V_half",
+            "ionic_scale",
+            "ionic_shift_max",
+            "shift_curvature_frac",
+            "shift_level_frac",
+            "shift_voltage_scale",
+            "slope_factor",
+            "slope_ionic_frac",
+            "slope_ionic_scale"
+          ],
+          "functions_of": {},
+          "target_function_calls": [],
+          "delayed_target_calls": [],
+          "ungoverned_functions": [],
+          "derivatives": [],
+          "max_derivative_order": 0,
+          "integral_kernels": [],
+          "explicitly_solvable_for_target": true,
+          "explicit_solution_preview": [
+            "(exp(2*(V - (V_half + ionic_shift_max*(shift_curvature_frac*tanh((I_cond - I_ref)/ionic_scale)*tanh((V - V_half)/shift_v"
+          ],
+          "classification_hint": "explicit",
+          "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+        }
+      },
+      {
+        "turn": 2,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "check_substitution",
+            "id": "call_aCnh42HPO3QjhHjXKhZJRixw"
+          }
+        ]
+      },
+      {
+        "tool": "check_substitution",
+        "input": {
+          "expression": "(exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale) + shift_curvature_frac*tanh((I_cond - I_ref)/ionic_scale)*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))) + exp(2*(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale) + shift_curvature_frac*tanh((I_cond - I_ref)/ionic_scale)*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))))/(1 + exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale) + shift_curvature_frac*tanh((I_cond - I_ref)/ionic_scale)*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))) + exp(2*(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale) + shift_curvature_frac*tanh((I_cond - I_ref)/ionic_scale)*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))))",
+          "target_symbol": "m_inf",
+          "assignments": {
+            "V": -20,
+            "I_cond": 1.2,
+            "V_half": -35,
+            "slope_factor": 9,
+            "I_ref": 1,
+            "ionic_shift_max": 12,
+            "ionic_scale": 0.35,
+            "slope_ionic_frac": 0.3,
+            "slope_ionic_scale": 0.4,
+            "shift_level_frac": 0.45,
+            "shift_voltage_scale": 14,
+            "shift_curvature_frac": 0.6
+          }
+        },
+        "result": {
+          "ok": true,
+          "value_real": 0.8127001261153739,
+          "value_imag": 0.0,
+          "is_finite": true,
+          "is_real": true,
+          "verdict": "ok",
+          "residual_free_symbols": []
+        }
+      },
+      {
+        "turn": 3,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "emit_data_gen_spec",
+            "id": "call_0zasjekm16tHjGXVELJGpOFs"
+          }
+        ]
+      },
+      {
+        "tool": "emit_data_gen_spec",
+        "accepted": true
+      }
+    ],
+    "_provider": "openai",
+    "_num_turns": 3,
+    "discipline": "biology",
+    "scenario_text": "A voltage-clamp experiment samples membrane potential while temperature and ionic conditions remain fixed. The target is the steady fraction of activation gates occupying the permissive conformation in a voltage-sensitive neuronal ion channel. Voltage-dependent changes in conformational occupancy produce a bounded sigmoidal response. Transient gating and channel inactivation are excluded from the baseline question.",
+    "record_id": "m2_neuroscience_and_neural_dynamics_20260917_000",
+    "generation": 5,
+    "_n_total": 5000,
+    "mechanism_observation_history": [
+      {
+        "generation": 1,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_threshold",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The parent maps voltage to activation with a single symmetric Boltzmann sigmoid determined only by one half-activation voltage and one slope factor.",
+            "child_relation": "Replace the single effective activation transition by a two-stage equilibrium occupancy for permissive activation, yielding a bounded monotone voltage-response whose semilog shape is no longer constrained to the single-logistic form and can show different low- and high-voltage approach curvature.",
+            "affected_inputs": [
+              "V"
+            ],
+            "observable_effect": "Across a broad voltage-clamp sweep at fixed temperature and ionic conditions, the child can fit a shallower subthreshold rise together with a sharper midrange increase (or vice versa), whereas one shared parent sigmoid cannot match both flanks simultaneously."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "centered_voltage",
+              "expression": "V - V_half",
+              "role": "Distance from the nominal activation midpoint, used to compare subthreshold and suprathreshold regions under the parent law"
+            },
+            {
+              "name": "scaled_voltage",
+              "expression": "(V - V_half)/slope_factor",
+              "role": "Parent logistic coordinate whose single-shape constraint is being relaxed"
+            }
+          ],
+          "activation_condition": "Observable when steady-state activation is sampled over a voltage range spanning well below and well above V_half, so both tails and the central rise are measured; effects are most visible for channels whose activation reflects multiple sequential permissive conformational steps rather than one dominant transition.",
+          "train_hidden_contrast": "In training, the same fixed-condition voltage sweeps already reveal mismatch between one common sigmoid and the measured lower-versus-upper flank curvature; in holdout, extending the sweep further into weakly activated and near-saturated voltages accentuates the same non-single-logistic shape.",
+          "continuation_path": "In the limit where one stage dominates or the second stage becomes effectively voltage-independent, the two-stage equilibrium reduces to the parent single Boltzmann form.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The current model assumes all voltage dependence can be collapsed into one effective two-state activation gate with a single midpoint and single steepness, omitting realistic multistep equilibrium activation that changes the curvature of the steady-state voltage-occupancy curve.",
+          "baseline_assumption": "Activation is represented by one effective gating transition.",
+          "scientific_mechanism": "Sequential voltage-dependent conformational rearrangements before the gate reaches the permissive open-ready configuration, producing a composite steady-state occupancy curve even without adding kinetics or inactivation.",
+          "affected_symbols": [
+            "V",
+            "V_half",
+            "slope_factor"
+          ],
+          "rationale": "Varied condition: clamped membrane voltage V across a broad steady-state activation protocol. Held fixed: temperature and ionic conditions, with no inactivation or time dependence introduced. Parent response: one logistic with one shared threshold and one shared steepness, so the subthreshold tail, midpoint steepness, and upper approach to saturation are rigidly linked. Child response: a multistep equilibrium activation law changes target mapping curvature itself, not merely an auxiliary trajectory, allowing different apparent steepness on different parts of the voltage axis while remaining bounded, monotone, and finite. Concrete contrast: with activation remaining between 0 and 1, a channel can display a broad foot at hyperpolarized voltages and a relatively sharper rise near mid-activation than any single refit of V_half and slope_factor can reproduce over the same sweep. This is scientifically admissible when multiple permissive conformational steps contribute measurably; if experiments only sample a narrow voltage window around mid-activation, the refinement may be weakly identifiable."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_threshold",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The parent maps voltage to activation with a single symmetric Boltzmann sigmoid determined only by one half-activation voltage and one slope factor.",
+            "child_relation": "Replace the single effective activation transition by a two-stage equilibrium occupancy for permissive activation, yielding a bounded monotone voltage-response whose semilog shape is no longer constrained to the single-logistic form and can show different low- and high-voltage approach curvature.",
+            "affected_inputs": [
+              "V"
+            ],
+            "observable_effect": "Across a broad voltage-clamp sweep at fixed temperature and ionic conditions, the child can fit a shallower subthreshold rise together with a sharper midrange increase (or vice versa), whereas one shared parent sigmoid cannot match both flanks simultaneously."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "centered_voltage",
+              "expression": "V - V_half",
+              "role": "Distance from the nominal activation midpoint, used to compare subthreshold and suprathreshold regions under the parent law"
+            },
+            {
+              "name": "scaled_voltage",
+              "expression": "(V - V_half)/slope_factor",
+              "role": "Parent logistic coordinate whose single-shape constraint is being relaxed"
+            }
+          ],
+          "activation_condition": "Observable when steady-state activation is sampled over a voltage range spanning well below and well above V_half, so both tails and the central rise are measured; effects are most visible for channels whose activation reflects multiple sequential permissive conformational steps rather than one dominant transition.",
+          "train_hidden_contrast": "In training, the same fixed-condition voltage sweeps already reveal mismatch between one common sigmoid and the measured lower-versus-upper flank curvature; in holdout, extending the sweep further into weakly activated and near-saturated voltages accentuates the same non-single-logistic shape.",
+          "continuation_path": "In the limit where one stage dominates or the second stage becomes effectively voltage-independent, the two-stage equilibrium reduces to the parent single Boltzmann form.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "unary",
+          "scope_symbols": [
+            "V"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Sequential equilibrium activation through multiple permissive conformations",
+          "scientific_mechanism": "Sequential voltage-dependent conformational rearrangements before the gate reaches the permissive open-ready configuration, producing a composite steady-state occupancy curve even without adding kinetics or inactivation.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "This embedding is harder than a coefficient-only correction because it changes the shape class of the bounded voltage-response itself: the lower tail, central rise, and upper saturation approach are no longer rigidly tied by a single logistic coordinate.",
+          "taxonomy_match": "known",
+          "assumption_before": "Activation is represented by one effective gating transition.",
+          "assumption_after": "Activation is represented as a two-stage sequential equilibrium before the permissive conformation is occupied.",
+          "before_fragment": "1/(1 + exp(-(V - V_half)/slope_factor))",
+          "after_fragment": "(exp((V - V_half)/slope_factor) + exp(2*(V - V_half)/slope_factor))/(1 + exp((V - V_half)/slope_factor) + exp(2*(V - V_half)/slope_factor))",
+          "parent_reduction": "When one sequential stage dominates the equilibrium occupancy or the other stage is effectively voltage-independent over the sampled range, the composite activation law approaches the parent single Boltzmann form.",
+          "observable_signature": "Under a broad steady voltage sweep with temperature and ionic conditions fixed, the parent gives one symmetric sigmoid in the coordinate (V - V_half)/slope_factor, whereas the child remains monotone and bounded in [0,1] but shows altered low- versus high-voltage curvature. The changed target mapping is directly observable in m_inf(V), not only in any hidden auxiliary trajectory.",
+          "shortcut_blocked": "A single refit of V_half and slope_factor in the parent can only translate and uniformly rescale one logistic curve, so it cannot independently adjust the subthreshold foot and the near-saturation shoulder across the same voltage sweep. The child changes the voltage-to-target mapping class itself by summing equilibrium weights from sequential permissive states, which creates a shape contrast that coefficient retuning of one sigmoid cannot reproduce over conditions where both flanks are measured."
+        },
+        "range_suggestions": {}
+      },
+      {
+        "generation": 2,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_threshold",
+          "response_change": {
+            "type": "threshold_surface",
+            "parent_relation": "The steady activation curve is a bounded monotone function of voltage alone, centered by one fixed V_half with one shared voltage offset for both sequential permissive steps.",
+            "child_relation": "Retain the sequential-occupancy structure but allow the effective half-activation position to shift with an additional sampled ionic-condition input, so the voltage-to-activation map becomes condition-dependent rather than sharing one universal threshold.",
+            "affected_inputs": [
+              "V"
+            ],
+            "observable_effect": "Across fixed ionic conditions, depolarization still increases activation monotonically, but the whole activation curve is measurably left- or right-shifted between conditions; one parent parameter set with a single V_half cannot match both the low-voltage onset and midrange occupancy across those conditions simultaneously."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "eta",
+              "expression": "(V - V_half)/slope_factor",
+              "role": "parent reduced voltage coordinate controlling the present sigmoidal occupancy"
+            },
+            {
+              "name": "exp_eta",
+              "expression": "exp((V - V_half)/slope_factor)",
+              "role": "single-step permissive bias entering the sequential partition function"
+            }
+          ],
+          "activation_condition": "The added effect is observable when recordings are compared across at least two admissible fixed ionic-condition settings that alter electrostatic stabilization of permissive states while temperature remains fixed; the shift must be comparable to a non-negligible fraction of slope_factor over the sampled activation range.",
+          "train_hidden_contrast": "In training, the mechanism appears as consistent threshold shifts between a subset of ionic-condition settings; in holdout, the same condition-dependent shift persists at other settings or voltages, extending the same monotone family rather than introducing a separate branch.",
+          "continuation_path": "The parent law is recovered when the new ionic-condition dependence vanishes, so the threshold shift is zero and V_half is effectively constant across all sampled conditions.",
+          "freedom_change": "add_input",
+          "promoted_symbol": null,
+          "promotion_reason": "With only voltage supplied, any ionic-condition-induced threshold displacement is hidden inside one fixed fitted V_half. A new independently sampled condition input is necessary to express a genuine change in the scored static mapping rather than just refitting one parameter per dataset.",
+          "gap_statement": "The current model assumes a universal activation threshold despite the experiment class allowing comparisons across fixed but different ionic environments that can shift steady activation without introducing kinetics.",
+          "baseline_assumption": "V_half is treated as a constant parameter independent of ionic conditions.",
+          "scientific_mechanism": "Changes in ionic conditions can alter surface-charge screening or state stabilization, producing a condition-dependent shift of the voltage range over which permissive conformations become occupied at steady state.",
+          "affected_symbols": [
+            "V",
+            "V_half",
+            "slope_factor"
+          ],
+          "rationale": "Parent response relationship: at fixed temperature and fixed ionic conditions, m_inf rises sigmoidally with V using one shared threshold parameter V_half and one shared slope_factor, so all admissible curves are the same shape and center after refitting a single parameter set. Proposed refinement: release the idealization that the activation center is universal by introducing one sampled ionic-condition input that shifts the effective threshold while preserving bounded steady occupancy and monotone depolarization dependence. Varied condition: ionic environment; held fixed within each curve: temperature and the chosen ionic setting; varied within each curve: clamped voltage. Observable contrast: between two ionic settings, the child predicts a reproducible horizontal displacement of the activation curve, so the voltage at a given occupancy differs across conditions. A single parent parameter set cannot reproduce this because it has only one fixed threshold for all supplied observations; matching one condition's onset and midpoint forces the same center on the other condition. This is a changed target mapping, not merely an auxiliary reinterpretation, because the scored output m_inf becomes a function of both voltage and ionic condition. The refinement remains scientifically admissible when the condition-induced shift is moderate, preserving boundedness, monotonicity, and finite asymptotes; if ionic conditions are truly held to one fixed value for the entire dataset, then no observable complexity gain would be defensible."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_threshold",
+          "response_change": {
+            "type": "threshold_surface",
+            "parent_relation": "The steady activation curve is a bounded monotone function of voltage alone, centered by one fixed V_half with one shared voltage offset for both sequential permissive steps.",
+            "child_relation": "Retain the sequential-occupancy structure but allow the effective half-activation position to shift with an additional sampled ionic-condition input, so the voltage-to-activation map becomes condition-dependent rather than sharing one universal threshold.",
+            "affected_inputs": [
+              "V"
+            ],
+            "observable_effect": "Across fixed ionic conditions, depolarization still increases activation monotonically, but the whole activation curve is measurably left- or right-shifted between conditions; one parent parameter set with a single V_half cannot match both the low-voltage onset and midrange occupancy across those conditions simultaneously."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "eta",
+              "expression": "(V - V_half)/slope_factor",
+              "role": "parent reduced voltage coordinate controlling the present sigmoidal occupancy"
+            },
+            {
+              "name": "exp_eta",
+              "expression": "exp((V - V_half)/slope_factor)",
+              "role": "single-step permissive bias entering the sequential partition function"
+            }
+          ],
+          "activation_condition": "The added effect is observable when recordings are compared across at least two admissible fixed ionic-condition settings that alter electrostatic stabilization of permissive states while temperature remains fixed; the shift must be comparable to a non-negligible fraction of slope_factor over the sampled activation range.",
+          "train_hidden_contrast": "In training, the mechanism appears as consistent threshold shifts between a subset of ionic-condition settings; in holdout, the same condition-dependent shift persists at other settings or voltages, extending the same monotone family rather than introducing a separate branch.",
+          "continuation_path": "The parent law is recovered when the new ionic-condition dependence vanishes, so the threshold shift is zero and V_half is effectively constant across all sampled conditions.",
+          "freedom_change": "add_input",
+          "promoted_symbol": null,
+          "promotion_reason": "With only voltage supplied, any ionic-condition-induced threshold displacement is hidden inside one fixed fitted V_half. A new independently sampled condition input is necessary to express a genuine change in the scored static mapping rather than just refitting one parameter per dataset.",
+          "scope_kind": "pairwise",
+          "scope_symbols": [
+            "V",
+            "I_cond"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "ionic-condition-dependent threshold shift in sequential activation occupancy",
+          "scientific_mechanism": "Changes in ionic conditions can alter surface-charge screening or state stabilization, producing a condition-dependent shift of the voltage range over which permissive conformations become occupied at steady state.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "This embedding is structurally harder than a coefficient-only correction because the threshold itself becomes a bounded nonlinear function of a second sampled input, creating a two-input threshold surface rather than one universal voltage center.",
+          "taxonomy_match": "known",
+          "assumption_before": "A single fixed half-activation threshold applies across all ionic environments.",
+          "assumption_after": "The effective half-activation threshold shifts with ionic conditions through a bounded saturating relation.",
+          "before_fragment": "(exp((V - V_half)/slope_factor) + exp(2*(V - V_half)/slope_factor))/(1 + exp((V - V_half)/slope_factor) + exp(2*(V - V_half)/slope_factor))",
+          "after_fragment": "(exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)))/slope_factor) + exp(2*(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)))/slope_factor))/(1 + exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)))/slope_factor) + exp(2*(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)))/slope_factor))",
+          "parent_reduction": "When I_cond = I_ref, or when ionic_shift_max = 0, the child reduces exactly to the parent expression.",
+          "observable_signature": "Parent response relationship: at fixed temperature and fixed ionic conditions, m_inf rises sigmoidally with V using one shared threshold parameter V_half and one shared slope_factor, so all admissible curves are the same shape and center after refitting a single parameter set. Child change: with ionic environment varied between recordings but held fixed within each curve, the effective threshold shifts by a bounded amount set by I_cond, so the scored mapping becomes m_inf(V, I_cond) and curves at different ionic settings show reproducible horizontal displacements while preserving bounded monotone saturation. This contrast is observable when the ionic-condition-induced shift is a non-negligible fraction of slope_factor over the sampled activation range; if ionic conditions are truly fixed to one value throughout the dataset, no complexity gain is observable.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce this contrast because it has only one fixed V_half for all supplied observations. Refitting all existing parent parameters may fit one ionic setting or compromise across several, but it cannot generate a systematic I_cond-linked threshold displacement across conditions without effectively using different parameter sets for different ionic environments."
+        },
+        "range_suggestions": {
+          "I_cond": "admissible experimental ionic-condition range spanning at least two fixed settings around I_ref",
+          "I_ref": "within the sampled ionic-condition range",
+          "ionic_shift_max": "positive, up to order slope_factor",
+          "ionic_scale": "positive, comparable to the span of ionic-condition changes that produce noticeable threshold displacement"
+        }
+      },
+      {
+        "generation": 3,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_threshold",
+          "response_change": {
+            "type": "slope_change",
+            "parent_relation": "The parent maps ionic condition only into a saturating horizontal shift of the voltage-activation curve, while the voltage sensitivity scale slope_factor is shared across all I_cond.",
+            "child_relation": "Retain the ionic-condition-dependent threshold shift but allow ionic condition to also modulate the effective steepness of activation, so the same change in I_cond can broaden or sharpen the sigmoid in addition to shifting it.",
+            "affected_inputs": [
+              "V",
+              "I_cond"
+            ],
+            "observable_effect": "At two fixed ionic conditions with similar midpoint displacement, the child can show different transition widths in V, whereas the parent can only translate one common-shape curve along the voltage axis."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "deltaI",
+              "expression": "(I_cond - I_ref)/ionic_scale",
+              "role": "normalized ionic-condition displacement from the reference environment"
+            },
+            {
+              "name": "vshift",
+              "expression": "V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale))",
+              "role": "voltage relative to the parent ionic-condition-shifted activation center"
+            },
+            {
+              "name": "z_parent",
+              "expression": "(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)))/slope_factor",
+              "role": "parent reduced voltage controlling the fixed-shape occupancy curve"
+            }
+          ],
+          "activation_condition": "Observable when I_cond spans values differing by order ionic_scale so that surface screening or state stabilization changes are appreciable, and V is sampled through the activation flank where transition width can be estimated rather than only extreme saturations.",
+          "train_hidden_contrast": "In training, moderate ionic-condition changes can already reveal unequal steepness of the activation flank; in holdout, the same mechanism extends to stronger ionic shifts where both midpoint displacement and slope modulation approach saturation together.",
+          "continuation_path": "Recover the parent law when ionic-condition dependence of the slope vanishes, i.e. the effective slope becomes constant and equal to slope_factor for all I_cond.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The current model assumes ionic conditions alter only the activation threshold, not the sharpness of the voltage-dependent occupancy transition.",
+          "baseline_assumption": "The shared voltage-sensitivity scale slope_factor is fixed across ionic conditions after accounting for a threshold shift.",
+          "scientific_mechanism": "Ionic screening or ion-dependent stabilization can change the effective field coupling and heterogeneity of sequential permissive conformational steps, making activation broader or steeper under different ionic environments even at steady state.",
+          "affected_symbols": [
+            "V",
+            "I_cond",
+            "slope_factor",
+            "I_ref",
+            "ionic_scale",
+            "ionic_shift_max",
+            "V_half"
+          ],
+          "rationale": "Parent response relationship: with V varied and temperature held fixed, changing I_cond only translates the composite sigmoidal activation curve through the tanh shift in its center; its flank width in voltage is otherwise identical for all ionic conditions. Child refinement: allow I_cond to modulate the effective steepness as well, creating a genuine change in the scored mapping m_inf(V,I_cond), not merely an auxiliary reinterpretation. Concrete contrast: compare two admissible ionic settings on opposite sides of I_ref while sampling V densely across the activation range. The parent with one shared parameter set can align midpoints by its shift term but cannot make one condition display a sharper rise and the other a broader rise if both remain monotone and bounded. This is scientifically admissible when ionic perturbations are large enough to alter electrostatic screening or conformational stabilization but not so large as to violate the steady-state static setting. Limitation: if experiments only sample voltages deep in the saturating tails, the slope change is weakly identifiable."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_threshold",
+          "response_change": {
+            "type": "slope_change",
+            "parent_relation": "The parent maps ionic condition only into a saturating horizontal shift of the voltage-activation curve, while the voltage sensitivity scale slope_factor is shared across all I_cond.",
+            "child_relation": "Retain the ionic-condition-dependent threshold shift but allow ionic condition to also modulate the effective steepness of activation, so the same change in I_cond can broaden or sharpen the sigmoid in addition to shifting it.",
+            "affected_inputs": [
+              "V",
+              "I_cond"
+            ],
+            "observable_effect": "At two fixed ionic conditions with similar midpoint displacement, the child can show different transition widths in V, whereas the parent can only translate one common-shape curve along the voltage axis."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "deltaI",
+              "expression": "(I_cond - I_ref)/ionic_scale",
+              "role": "normalized ionic-condition displacement from the reference environment"
+            },
+            {
+              "name": "vshift",
+              "expression": "V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale))",
+              "role": "voltage relative to the parent ionic-condition-shifted activation center"
+            },
+            {
+              "name": "z_parent",
+              "expression": "(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)))/slope_factor",
+              "role": "parent reduced voltage controlling the fixed-shape occupancy curve"
+            }
+          ],
+          "activation_condition": "Observable when I_cond spans values differing by order ionic_scale so that surface screening or state stabilization changes are appreciable, and V is sampled through the activation flank where transition width can be estimated rather than only extreme saturations.",
+          "train_hidden_contrast": "In training, moderate ionic-condition changes can already reveal unequal steepness of the activation flank; in holdout, the same mechanism extends to stronger ionic shifts where both midpoint displacement and slope modulation approach saturation together.",
+          "continuation_path": "Recover the parent law when ionic-condition dependence of the slope vanishes, i.e. the effective slope becomes constant and equal to slope_factor for all I_cond.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "pairwise",
+          "scope_symbols": [
+            "V",
+            "I_cond"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "ion-dependent modulation of activation steepness",
+          "scientific_mechanism": "Ionic screening or ion-dependent stabilization can change the effective field coupling and heterogeneity of sequential permissive conformational steps, making activation broader or steeper under different ionic environments even at steady state.",
+          "embedding_pattern": "multi_timescale",
+          "difficulty_rationale": "This is structurally harder than a coefficient-only correction because ionic condition now enters through two distinct saturating scales: ionic_scale for threshold displacement and slope_ionic_scale for broadening or sharpening. A single translated parent curve cannot reproduce condition-dependent transition width over the same V range with one shared parameter set.",
+          "taxonomy_match": "provisional",
+          "assumption_before": "Ionic conditions alter only the activation threshold, not the sharpness of the voltage-dependent occupancy transition.",
+          "assumption_after": "Ionic conditions alter both the activation threshold and the effective voltage-sensitivity scale through separate saturating dependences.",
+          "before_fragment": "(exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)))/slope_factor) + exp(2*(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)))/slope_factor))/(1 + exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)))/slope_factor) + exp(2*(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)))/slope_factor))",
+          "after_fragment": "(exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))) + exp(2*(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))))/(1 + exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))) + exp(2*(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))))",
+          "parent_reduction": "Set slope_ionic_frac = 0 to recover the parent expression exactly.",
+          "observable_signature": "With V varied and temperature held fixed, changing I_cond still shifts the activation center, but now ionic settings separated by order slope_ionic_scale can also display measurably different activation-flank widths. This changed target mapping is visible when V samples the bounded sigmoid through its intermediate activation range rather than only at saturated tails.",
+          "shortcut_blocked": "Refitting all existing parent parameters cannot generate two different monotone transition widths at different I_cond with one shared parameter set, because the parent uses I_cond only inside a threshold-shift term and keeps one common slope_factor for every condition. Separate midpoint shifts can align centers, but not produce ionic-condition-dependent sharpening or broadening of the scored m_inf(V,I_cond) surface."
+        },
+        "range_suggestions": {
+          "slope_ionic_frac": "dimensionless, typically between -1 and 1 with |slope_ionic_frac| < 1 to keep the effective slope positive across the sampled ionic-condition range",
+          "slope_ionic_scale": "positive, comparable to the ionic-condition span over which noticeable broadening or sharpening of activation occurs; often of order ionic_scale"
+        }
+      },
+      {
+        "generation": 4,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_threshold",
+          "response_change": {
+            "type": "threshold_surface",
+            "parent_relation": "The parent makes ionic condition shift the activation curve through a single saturating threshold displacement and a separate saturating slope rescaling, so the effective midpoint varies monotonically with I_cond and is independent of where along the activation range the curve is probed.",
+            "child_relation": "Relax the assumption that ionic condition acts as a pure uniform threshold offset by allowing the effective voltage shift itself to depend on activation level through voltage, creating a two-dimensional threshold surface in (V, I_cond) rather than one shared shifted midpoint.",
+            "affected_inputs": [
+              "V",
+              "I_cond"
+            ],
+            "observable_effect": "At fixed ionic condition near the screening-sensitive regime, the low-occupancy foot of activation can shift more than the high-occupancy shoulder, or vice versa, producing unequal left-right displacement across quantiles that a single refitted midpoint plus slope change cannot match across conditions."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "x_ionic",
+              "expression": "(I_cond - I_ref)/ionic_scale",
+              "role": "normalized ionic-condition displacement controlling when ionic effects are appreciable"
+            },
+            {
+              "name": "x_parent",
+              "expression": "(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))",
+              "role": "parent reduced voltage coordinate after current threshold and slope modulation"
+            },
+            {
+              "name": "q_ratio",
+              "expression": "exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale))))",
+              "role": "stage-weight ratio indicating whether the response is in the foot, midrange, or shoulder of activation"
+            }
+          ],
+          "activation_condition": "Observable when I_cond spans values with |I_cond - I_ref| comparable to ionic_scale and voltages sample both the foot and shoulder of activation over a range of several slope_factor values around V_half; effect is weak if ionic condition stays near I_ref or only midpoint voltages are sampled.",
+          "train_hidden_contrast": "In training, modest ionic shifts already reveal that equal-fraction contours in (V, I_cond) are not parallel translations; in holdout, larger |I_cond - I_ref| extends this same nonuniform quantile shift as ionic influence saturates rather than introducing a new mechanism.",
+          "continuation_path": "Recover the parent when the added activation-level dependence of the ionic shift tends to zero, so ionic condition again produces only the existing uniform threshold displacement and slope modulation.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The current model assumes ionic condition moves the activation curve by a uniform voltage offset at all occupancy levels, aside from a global slope rescaling, excluding differential ionic stabilization of earlier versus later permissive conformational rearrangements.",
+          "baseline_assumption": "Ionic condition changes the effective half-activation voltage by one shared saturating shift that is the same across the entire activation curve.",
+          "scientific_mechanism": "Surface-charge screening or ion-dependent state stabilization can act more strongly on early closed-state rearrangements than on later permissive transitions, so ionic condition bends the activation manifold and changes different activation quantiles by different amounts even at steady state.",
+          "affected_symbols": [
+            "V",
+            "I_cond",
+            "V_half",
+            "ionic_shift_max",
+            "ionic_scale",
+            "slope_factor",
+            "slope_ionic_frac",
+            "slope_ionic_scale"
+          ],
+          "rationale": "A realistic next refinement is to relax the parent's single-threshold description of ionic effects. Here V is varied under voltage clamp while temperature and other conditions remain fixed, and I_cond is varied across experiments. The parent can shift the whole sigmoidal activation range left or right and broaden or sharpen it, but after one global refit it still predicts that ionic condition acts through one common midpoint displacement plus one common slope factor for the whole curve. That means any two activation quantiles move in a linked way determined by the same transformed coordinate. A child model with voltage-dependent ionic shift would instead let the activation foot and shoulder respond differently to I_cond, which is scientifically admissible if ionic screening or ion binding preferentially stabilizes early versus late permissive conformations. The contrast is observable in steady-state data alone: compare low m_inf and high m_inf voltage quantiles across ionic conditions. If their separation changes in a way not captured by a single broadened/narrowed translation, the parent shortcut fails. This is a changed target mapping, not merely an auxiliary interpretation, because the scored m_inf(V,I_cond) surface itself is altered. The effect requires sampling enough voltage range to resolve both tails and ionic values far enough from I_ref for screening effects to emerge; if data only cover the midpoint region, the distinction may be weak."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_threshold",
+          "response_change": {
+            "type": "threshold_surface",
+            "parent_relation": "The parent makes ionic condition shift the activation curve through a single saturating threshold displacement and a separate saturating slope rescaling, so the effective midpoint varies monotonically with I_cond and is independent of where along the activation range the curve is probed.",
+            "child_relation": "Relax the assumption that ionic condition acts as a pure uniform threshold offset by allowing the effective voltage shift itself to depend on activation level through voltage, creating a two-dimensional threshold surface in (V, I_cond) rather than one shared shifted midpoint.",
+            "affected_inputs": [
+              "V",
+              "I_cond"
+            ],
+            "observable_effect": "At fixed ionic condition near the screening-sensitive regime, the low-occupancy foot of activation can shift more than the high-occupancy shoulder, or vice versa, producing unequal left-right displacement across quantiles that a single refitted midpoint plus slope change cannot match across conditions."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "x_ionic",
+              "expression": "(I_cond - I_ref)/ionic_scale",
+              "role": "normalized ionic-condition displacement controlling when ionic effects are appreciable"
+            },
+            {
+              "name": "x_parent",
+              "expression": "(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))",
+              "role": "parent reduced voltage coordinate after current threshold and slope modulation"
+            },
+            {
+              "name": "q_ratio",
+              "expression": "exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale))))",
+              "role": "stage-weight ratio indicating whether the response is in the foot, midrange, or shoulder of activation"
+            }
+          ],
+          "activation_condition": "Observable when I_cond spans values with |I_cond - I_ref| comparable to ionic_scale and voltages sample both the foot and shoulder of activation over a range of several slope_factor values around V_half; effect is weak if ionic condition stays near I_ref or only midpoint voltages are sampled.",
+          "train_hidden_contrast": "In training, modest ionic shifts already reveal that equal-fraction contours in (V, I_cond) are not parallel translations; in holdout, larger |I_cond - I_ref| extends this same nonuniform quantile shift as ionic influence saturates rather than introducing a new mechanism.",
+          "continuation_path": "Recover the parent when the added activation-level dependence of the ionic shift tends to zero, so ionic condition again produces only the existing uniform threshold displacement and slope modulation.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "pairwise",
+          "scope_symbols": [
+            "V",
+            "I_cond"
+          ],
+          "structural_role": "interaction",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "voltage-dependent ionic stabilization of sequential activation steps",
+          "scientific_mechanism": "Surface-charge screening or ion-dependent state stabilization can act more strongly on early closed-state rearrangements than on later permissive transitions, so ionic condition bends the activation manifold and changes different activation quantiles by different amounts even at steady state.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "This embedding is harder than a coefficient-only correction because the ionic shift is no longer a single scalar function of I_cond; it becomes a bounded interaction between V and I_cond, so different regions of the same activation curve experience different ionic displacements.",
+          "taxonomy_match": "known",
+          "assumption_before": "Ionic condition changes the effective half-activation voltage by one shared saturating shift that is the same across the entire activation curve.",
+          "assumption_after": "The ionic threshold displacement remains saturating in ionic condition but is modulated across voltage so early and late activation regions can experience different effective shifts.",
+          "before_fragment": "(exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))) + exp(2*(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))))/(1 + exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))) + exp(2*(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))))",
+          "after_fragment": "(exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))) + exp(2*(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))))/(1 + exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))) + exp(2*(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))))",
+          "parent_reduction": "Setting shift_level_frac = 0 recovers the parent expression exactly.",
+          "observable_signature": "When V is swept at two or more ionic conditions with |I_cond - I_ref| comparable to ionic_scale, equal-m_inf quantiles no longer shift by a common voltage amount: the activation foot and shoulder move unequally, so contours of constant m_inf in the (V, I_cond) plane bend rather than remaining approximately parallel translations after slope rescaling.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce this contrast because its I_cond dependence enters only through one shared threshold displacement and one shared slope factor, making all activation quantiles linked by the same transformed coordinate. Refitting V_half, ionic_shift_max, slope_factor, slope_ionic_frac, ionic_scale, and slope_ionic_scale can translate or broaden the curve, but cannot make the low-occupancy and high-occupancy regions experience opposite or unequal ionic shifts at the same I_cond without introducing explicit V-dependent modulation of the ionic shift."
+        },
+        "range_suggestions": {
+          "shift_level_frac": "dimensionless, typically between -1 and 1 with Abs(shift_level_frac) < 1 so the ionic shift keeps the same sign while varying across activation level",
+          "shift_voltage_scale": "positive, of order slope_factor to several times slope_factor so the foot-to-shoulder differential shift is resolved across the sampled voltage range"
+        }
+      },
+      {
+        "generation": 5,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_threshold",
+          "response_change": {
+            "type": "threshold_surface",
+            "parent_relation": "The parent maps voltage and ionic condition to activation with one ionic-condition-induced threshold shift that is monotone and sign-preserving across the full voltage range, only modestly reshaped by a bounded level-dependent factor.",
+            "child_relation": "Replace the sign-preserving ionic threshold shift assumption with a state-dependent ionic effect that can differ between the activation foot and shoulder strongly enough to rotate the V-by-I threshold surface, so equal ionic changes can shift low-occupancy and high-occupancy quantiles by different amounts and potentially much less around mid-activation.",
+            "affected_inputs": [
+              "V",
+              "I_cond"
+            ],
+            "observable_effect": "When I_cond is varied at fixed temperature, the voltage displacement between two ionic conditions is not approximately shared across activation quantiles: the foot may shift more than the shoulder over the sampled voltage range, producing a quantile-dependent horizontal separation that a single parent parameter set cannot match if it must keep one sign-preserving ionic shift profile."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "ion_dev",
+              "expression": "(I_cond - I_ref)",
+              "role": "distance from the reference ionic condition that activates ionic modulation"
+            },
+            {
+              "name": "v_dev",
+              "expression": "(V - V_half)",
+              "role": "voltage offset from the nominal activation center"
+            },
+            {
+              "name": "parent_shift_core",
+              "expression": "ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale))",
+              "role": "current sign-preserving ionic threshold shift surface to be relaxed"
+            }
+          ],
+          "activation_condition": "Observable when ionic deviations are large enough to engage tanh saturation partially and the sampled voltage range spans both the activation foot and shoulder, with shift_voltage_scale of order the activation width so quantile-specific displacements can be resolved.",
+          "train_hidden_contrast": "In training, moderate ionic contrasts already reveal unequal low- versus high-occupancy shifts; in holdout, larger but still admissible ionic deviations amplify the same threshold-surface rotation rather than introducing a new mechanism.",
+          "continuation_path": "Recover the parent by taking the added state-dependence amplitude to zero, restoring a sign-preserving ionic shift that varies only through the existing bounded factor.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The current model assumes one shared ionic threshold-shift branch whose sign is fixed across activation level, so ionic condition mainly translates the activation curve with limited bounded warping; it cannot represent a stronger rotation of the activation manifold in which ionic stabilization differs materially between early and late permissive rearrangements.",
+          "baseline_assumption": "The ionic-condition effect on effective half-activation is a single sign-preserving bounded shift applied uniformly enough across sequential activation levels that one ionic shift branch describes all activation quantiles.",
+          "scientific_mechanism": "Ionic screening or ion-dependent state stabilization can act differently on early closed-state occupancy than on late near-permissive occupancy, causing quantile-dependent threshold movement across voltage even at steady state.",
+          "affected_symbols": [
+            "V",
+            "I_cond",
+            "V_half",
+            "ionic_shift_max",
+            "ionic_scale",
+            "shift_level_frac",
+            "shift_voltage_scale"
+          ],
+          "rationale": "V and I_cond vary while temperature and other conditions remain fixed. In the parent, changing I_cond produces a largely translational shift of the activation curve, with only limited bounded deformation because the ionic shift keeps one sign across voltage. A realistic next refinement is to relax that idealization and allow stronger level-specific ionic stabilization of sequential closed-to-permissive occupancies. Then the horizontal separation between two ionic conditions becomes activation-level dependent: for example, the low-activation foot can move substantially while the upper shoulder moves weakly over the same ionic change, or vice versa. This is a changed target mapping m_inf(V,I_cond), not merely an auxiliary reinterpretation. The contrast is scientifically admissible when the voltage sweep covers a broad enough portion of the sigmoid and ionic deviations are sufficient to reveal differential screening/stabilization across sequential conformations. A single refitted parent parameter set cannot reproduce an arbitrary rotated threshold surface because its ionic shift branch is constrained to one sign-preserving bounded profile across activation level; it can broaden or narrow and modestly bend, but not supply independently stronger ionic displacement at one activation quantile while keeping another nearly anchored across the same I_cond range."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_threshold",
+          "response_change": {
+            "type": "threshold_surface",
+            "parent_relation": "The parent maps voltage and ionic condition to activation with one ionic-condition-induced threshold shift that is monotone and sign-preserving across the full voltage range, only modestly reshaped by a bounded level-dependent factor.",
+            "child_relation": "Replace the sign-preserving ionic threshold shift assumption with a state-dependent ionic effect that can differ between the activation foot and shoulder strongly enough to rotate the V-by-I threshold surface, so equal ionic changes can shift low-occupancy and high-occupancy quantiles by different amounts and potentially much less around mid-activation.",
+            "affected_inputs": [
+              "V",
+              "I_cond"
+            ],
+            "observable_effect": "When I_cond is varied at fixed temperature, the voltage displacement between two ionic conditions is not approximately shared across activation quantiles: the foot may shift more than the shoulder over the sampled voltage range, producing a quantile-dependent horizontal separation that a single parent parameter set cannot match if it must keep one sign-preserving ionic shift profile."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "ion_dev",
+              "expression": "(I_cond - I_ref)",
+              "role": "distance from the reference ionic condition that activates ionic modulation"
+            },
+            {
+              "name": "v_dev",
+              "expression": "(V - V_half)",
+              "role": "voltage offset from the nominal activation center"
+            },
+            {
+              "name": "parent_shift_core",
+              "expression": "ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale))",
+              "role": "current sign-preserving ionic threshold shift surface to be relaxed"
+            }
+          ],
+          "activation_condition": "Observable when ionic deviations are large enough to engage tanh saturation partially and the sampled voltage range spans both the activation foot and shoulder, with shift_voltage_scale of order the activation width so quantile-specific displacements can be resolved.",
+          "train_hidden_contrast": "In training, moderate ionic contrasts already reveal unequal low- versus high-occupancy shifts; in holdout, larger but still admissible ionic deviations amplify the same threshold-surface rotation rather than introducing a new mechanism.",
+          "continuation_path": "Recover the parent by taking the added state-dependence amplitude to zero, restoring a sign-preserving ionic shift that varies only through the existing bounded factor.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "pairwise",
+          "scope_symbols": [
+            "V",
+            "I_cond"
+          ],
+          "structural_role": "interaction",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "joint ionic-by-voltage modulation of effective activation threshold",
+          "scientific_mechanism": "Ionic screening or ion-dependent state stabilization can act differently on early closed-state occupancy than on late near-permissive occupancy, causing quantile-dependent threshold movement across voltage even at steady state.",
+          "embedding_pattern": "state_coupling",
+          "difficulty_rationale": "The new term is not a fixed gain rescaling: it couples ionic deviation and activation level inside the threshold law itself, so the shape of ionic displacement across quantiles changes with I_cond and cannot be reproduced by only retuning one shared threshold branch.",
+          "taxonomy_match": "provisional",
+          "assumption_before": "The ionic-condition effect on effective half-activation is a single sign-preserving bounded shift applied uniformly enough across sequential activation levels that one ionic shift branch describes all activation quantiles.",
+          "assumption_after": "The ionic threshold shift includes an additional bounded ionic-by-voltage interaction so differential stabilization of early and late activation conformations strengthens with ionic deviation.",
+          "before_fragment": "(exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))) + exp(2*(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))))/(1 + exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))) + exp(2*(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))))",
+          "after_fragment": "(exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale) + shift_curvature_frac*tanh((I_cond - I_ref)/ionic_scale)*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))) + exp(2*(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale) + shift_curvature_frac*tanh((I_cond - I_ref)/ionic_scale)*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))))/(1 + exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale) + shift_curvature_frac*tanh((I_cond - I_ref)/ionic_scale)*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))) + exp(2*(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale) + shift_curvature_frac*tanh((I_cond - I_ref)/ionic_scale)*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))))",
+          "parent_reduction": "Setting shift_curvature_frac = 0 recovers the parent expression exactly.",
+          "observable_signature": "Across voltage sweeps at two or more ionic conditions, the horizontal separation between activation curves becomes quantile dependent: for admissible ionic deviations and voltages spanning the sigmoid foot and shoulder, low-occupancy regions can shift more strongly than upper-occupancy regions, or vice versa, instead of sharing one nearly common threshold displacement.",
+          "shortcut_blocked": "A single refitted parent parameter set cannot reproduce this contrast because its ionic threshold shift is constrained to the form ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale)), where all activation levels inherit the same sign-preserving ionic branch and only one bounded voltage warp. Retuning ionic_shift_max, ionic_scale, shift_level_frac, shift_voltage_scale, or slope terms can change overall size or mild asymmetry, but cannot make the strength of level-specific warping itself grow with ionic deviation so that one quantile remains relatively anchored while another moves substantially over the same I_cond change."
+        },
+        "range_suggestions": {
+          "shift_curvature_frac": "dimensionless, typically between -1 and 1; values with Abs(shift_curvature_frac) of order unity allow visible threshold-surface rotation without unbounded distortion"
+        }
+      }
+    ],
+    "evolution_provenance": {
+      "dimension_track": null,
+      "mechanism_profile": {
+        "allowed_structural_roles": [
+          "contribution",
+          "response_law",
+          "modulation",
+          "interaction",
+          "constraint",
+          "transition",
+          "feedback",
+          "heterogeneity",
+          "timescale",
+          "transport_balance"
+        ],
+        "preferred_scopes": [
+          "unary",
+          "pairwise",
+          "state_coupling",
+          "time_forcing"
+        ],
+        "domain_mechanisms": [
+          {
+            "id": "finite_capacity_or_resource",
+            "description": "finite capacity, resource limitation, or saturation",
+            "operations": [
+              "add_term",
+              "change_assumption"
+            ]
+          },
+          {
+            "id": "regulatory_or_ecological_feedback",
+            "description": "regulatory, ecological, or biochemical feedback",
+            "operations": [
+              "add_term"
+            ]
+          },
+          {
+            "id": "environmental_modulation",
+            "description": "observed environmental or condition-dependent modulation",
+            "operations": [
+              "change_assumption"
+            ]
+          }
+        ],
+        "profile_source": "subject_fallback",
+        "ontology_schema_version": "1.0",
+        "taxonomy_schema_version": "1.0"
+      },
+      "baseline_mechanisms": [
+        "Voltage-sensitive conformational occupancy of an activation gate.",
+        "Saturating transition between predominantly nonpermissive and predominantly permissive channel conformations."
+      ],
+      "baseline_assumptions": [
+        "The channel population is at steady state at every sampled voltage.",
+        "Temperature and extracellular and intracellular ion concentrations are fixed.",
+        "Activation is represented by one effective gating transition.",
+        "Inactivation and slow modulatory states are absent."
+      ],
+      "scientific_constraints": [
+        "The activation fraction is bounded between zero and one.",
+        "The activation fraction is nondecreasing with depolarization.",
+        "The limiting response must remain finite at both voltage extremes."
+      ],
+      "refinement_agenda": [
+        "Introduce a distinct inactivation variable.",
+        "Release the steady-state assumption and model finite activation kinetics.",
+        "Allow multiple cooperative activation subunits.",
+        "Add modulation by a fixed ligand concentration or phosphorylation condition."
+      ],
+      "evolution_contracts": [
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_threshold",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The parent maps voltage to activation with a single symmetric Boltzmann sigmoid determined only by one half-activation voltage and one slope factor.",
+            "child_relation": "Replace the single effective activation transition by a two-stage equilibrium occupancy for permissive activation, yielding a bounded monotone voltage-response whose semilog shape is no longer constrained to the single-logistic form and can show different low- and high-voltage approach curvature.",
+            "affected_inputs": [
+              "V"
+            ],
+            "observable_effect": "Across a broad voltage-clamp sweep at fixed temperature and ionic conditions, the child can fit a shallower subthreshold rise together with a sharper midrange increase (or vice versa), whereas one shared parent sigmoid cannot match both flanks simultaneously."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "centered_voltage",
+              "expression": "V - V_half",
+              "role": "Distance from the nominal activation midpoint, used to compare subthreshold and suprathreshold regions under the parent law"
+            },
+            {
+              "name": "scaled_voltage",
+              "expression": "(V - V_half)/slope_factor",
+              "role": "Parent logistic coordinate whose single-shape constraint is being relaxed"
+            }
+          ],
+          "activation_condition": "Observable when steady-state activation is sampled over a voltage range spanning well below and well above V_half, so both tails and the central rise are measured; effects are most visible for channels whose activation reflects multiple sequential permissive conformational steps rather than one dominant transition.",
+          "train_hidden_contrast": "In training, the same fixed-condition voltage sweeps already reveal mismatch between one common sigmoid and the measured lower-versus-upper flank curvature; in holdout, extending the sweep further into weakly activated and near-saturated voltages accentuates the same non-single-logistic shape.",
+          "continuation_path": "In the limit where one stage dominates or the second stage becomes effectively voltage-independent, the two-stage equilibrium reduces to the parent single Boltzmann form.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "unary",
+          "scope_symbols": [
+            "V"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Sequential equilibrium activation through multiple permissive conformations",
+          "scientific_mechanism": "Sequential voltage-dependent conformational rearrangements before the gate reaches the permissive open-ready configuration, producing a composite steady-state occupancy curve even without adding kinetics or inactivation.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "This embedding is harder than a coefficient-only correction because it changes the shape class of the bounded voltage-response itself: the lower tail, central rise, and upper saturation approach are no longer rigidly tied by a single logistic coordinate.",
+          "taxonomy_match": "known",
+          "assumption_before": "Activation is represented by one effective gating transition.",
+          "assumption_after": "Activation is represented as a two-stage sequential equilibrium before the permissive conformation is occupied.",
+          "before_fragment": "1/(1 + exp(-(V - V_half)/slope_factor))",
+          "after_fragment": "(exp((V - V_half)/slope_factor) + exp(2*(V - V_half)/slope_factor))/(1 + exp((V - V_half)/slope_factor) + exp(2*(V - V_half)/slope_factor))",
+          "parent_reduction": "When one sequential stage dominates the equilibrium occupancy or the other stage is effectively voltage-independent over the sampled range, the composite activation law approaches the parent single Boltzmann form.",
+          "observable_signature": "Under a broad steady voltage sweep with temperature and ionic conditions fixed, the parent gives one symmetric sigmoid in the coordinate (V - V_half)/slope_factor, whereas the child remains monotone and bounded in [0,1] but shows altered low- versus high-voltage curvature. The changed target mapping is directly observable in m_inf(V), not only in any hidden auxiliary trajectory.",
+          "shortcut_blocked": "A single refit of V_half and slope_factor in the parent can only translate and uniformly rescale one logistic curve, so it cannot independently adjust the subthreshold foot and the near-saturation shoulder across the same voltage sweep. The child changes the voltage-to-target mapping class itself by summing equilibrium weights from sequential permissive states, which creates a shape contrast that coefficient retuning of one sigmoid cannot reproduce over conditions where both flanks are measured."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_threshold",
+          "response_change": {
+            "type": "threshold_surface",
+            "parent_relation": "The steady activation curve is a bounded monotone function of voltage alone, centered by one fixed V_half with one shared voltage offset for both sequential permissive steps.",
+            "child_relation": "Retain the sequential-occupancy structure but allow the effective half-activation position to shift with an additional sampled ionic-condition input, so the voltage-to-activation map becomes condition-dependent rather than sharing one universal threshold.",
+            "affected_inputs": [
+              "V"
+            ],
+            "observable_effect": "Across fixed ionic conditions, depolarization still increases activation monotonically, but the whole activation curve is measurably left- or right-shifted between conditions; one parent parameter set with a single V_half cannot match both the low-voltage onset and midrange occupancy across those conditions simultaneously."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "eta",
+              "expression": "(V - V_half)/slope_factor",
+              "role": "parent reduced voltage coordinate controlling the present sigmoidal occupancy"
+            },
+            {
+              "name": "exp_eta",
+              "expression": "exp((V - V_half)/slope_factor)",
+              "role": "single-step permissive bias entering the sequential partition function"
+            }
+          ],
+          "activation_condition": "The added effect is observable when recordings are compared across at least two admissible fixed ionic-condition settings that alter electrostatic stabilization of permissive states while temperature remains fixed; the shift must be comparable to a non-negligible fraction of slope_factor over the sampled activation range.",
+          "train_hidden_contrast": "In training, the mechanism appears as consistent threshold shifts between a subset of ionic-condition settings; in holdout, the same condition-dependent shift persists at other settings or voltages, extending the same monotone family rather than introducing a separate branch.",
+          "continuation_path": "The parent law is recovered when the new ionic-condition dependence vanishes, so the threshold shift is zero and V_half is effectively constant across all sampled conditions.",
+          "freedom_change": "add_input",
+          "promoted_symbol": null,
+          "promotion_reason": "With only voltage supplied, any ionic-condition-induced threshold displacement is hidden inside one fixed fitted V_half. A new independently sampled condition input is necessary to express a genuine change in the scored static mapping rather than just refitting one parameter per dataset.",
+          "scope_kind": "pairwise",
+          "scope_symbols": [
+            "V",
+            "I_cond"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "ionic-condition-dependent threshold shift in sequential activation occupancy",
+          "scientific_mechanism": "Changes in ionic conditions can alter surface-charge screening or state stabilization, producing a condition-dependent shift of the voltage range over which permissive conformations become occupied at steady state.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "This embedding is structurally harder than a coefficient-only correction because the threshold itself becomes a bounded nonlinear function of a second sampled input, creating a two-input threshold surface rather than one universal voltage center.",
+          "taxonomy_match": "known",
+          "assumption_before": "A single fixed half-activation threshold applies across all ionic environments.",
+          "assumption_after": "The effective half-activation threshold shifts with ionic conditions through a bounded saturating relation.",
+          "before_fragment": "(exp((V - V_half)/slope_factor) + exp(2*(V - V_half)/slope_factor))/(1 + exp((V - V_half)/slope_factor) + exp(2*(V - V_half)/slope_factor))",
+          "after_fragment": "(exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)))/slope_factor) + exp(2*(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)))/slope_factor))/(1 + exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)))/slope_factor) + exp(2*(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)))/slope_factor))",
+          "parent_reduction": "When I_cond = I_ref, or when ionic_shift_max = 0, the child reduces exactly to the parent expression.",
+          "observable_signature": "Parent response relationship: at fixed temperature and fixed ionic conditions, m_inf rises sigmoidally with V using one shared threshold parameter V_half and one shared slope_factor, so all admissible curves are the same shape and center after refitting a single parameter set. Child change: with ionic environment varied between recordings but held fixed within each curve, the effective threshold shifts by a bounded amount set by I_cond, so the scored mapping becomes m_inf(V, I_cond) and curves at different ionic settings show reproducible horizontal displacements while preserving bounded monotone saturation. This contrast is observable when the ionic-condition-induced shift is a non-negligible fraction of slope_factor over the sampled activation range; if ionic conditions are truly fixed to one value throughout the dataset, no complexity gain is observable.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce this contrast because it has only one fixed V_half for all supplied observations. Refitting all existing parent parameters may fit one ionic setting or compromise across several, but it cannot generate a systematic I_cond-linked threshold displacement across conditions without effectively using different parameter sets for different ionic environments."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_threshold",
+          "response_change": {
+            "type": "slope_change",
+            "parent_relation": "The parent maps ionic condition only into a saturating horizontal shift of the voltage-activation curve, while the voltage sensitivity scale slope_factor is shared across all I_cond.",
+            "child_relation": "Retain the ionic-condition-dependent threshold shift but allow ionic condition to also modulate the effective steepness of activation, so the same change in I_cond can broaden or sharpen the sigmoid in addition to shifting it.",
+            "affected_inputs": [
+              "V",
+              "I_cond"
+            ],
+            "observable_effect": "At two fixed ionic conditions with similar midpoint displacement, the child can show different transition widths in V, whereas the parent can only translate one common-shape curve along the voltage axis."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "deltaI",
+              "expression": "(I_cond - I_ref)/ionic_scale",
+              "role": "normalized ionic-condition displacement from the reference environment"
+            },
+            {
+              "name": "vshift",
+              "expression": "V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale))",
+              "role": "voltage relative to the parent ionic-condition-shifted activation center"
+            },
+            {
+              "name": "z_parent",
+              "expression": "(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)))/slope_factor",
+              "role": "parent reduced voltage controlling the fixed-shape occupancy curve"
+            }
+          ],
+          "activation_condition": "Observable when I_cond spans values differing by order ionic_scale so that surface screening or state stabilization changes are appreciable, and V is sampled through the activation flank where transition width can be estimated rather than only extreme saturations.",
+          "train_hidden_contrast": "In training, moderate ionic-condition changes can already reveal unequal steepness of the activation flank; in holdout, the same mechanism extends to stronger ionic shifts where both midpoint displacement and slope modulation approach saturation together.",
+          "continuation_path": "Recover the parent law when ionic-condition dependence of the slope vanishes, i.e. the effective slope becomes constant and equal to slope_factor for all I_cond.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "pairwise",
+          "scope_symbols": [
+            "V",
+            "I_cond"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "ion-dependent modulation of activation steepness",
+          "scientific_mechanism": "Ionic screening or ion-dependent stabilization can change the effective field coupling and heterogeneity of sequential permissive conformational steps, making activation broader or steeper under different ionic environments even at steady state.",
+          "embedding_pattern": "multi_timescale",
+          "difficulty_rationale": "This is structurally harder than a coefficient-only correction because ionic condition now enters through two distinct saturating scales: ionic_scale for threshold displacement and slope_ionic_scale for broadening or sharpening. A single translated parent curve cannot reproduce condition-dependent transition width over the same V range with one shared parameter set.",
+          "taxonomy_match": "provisional",
+          "assumption_before": "Ionic conditions alter only the activation threshold, not the sharpness of the voltage-dependent occupancy transition.",
+          "assumption_after": "Ionic conditions alter both the activation threshold and the effective voltage-sensitivity scale through separate saturating dependences.",
+          "before_fragment": "(exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)))/slope_factor) + exp(2*(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)))/slope_factor))/(1 + exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)))/slope_factor) + exp(2*(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)))/slope_factor))",
+          "after_fragment": "(exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))) + exp(2*(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))))/(1 + exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))) + exp(2*(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))))",
+          "parent_reduction": "Set slope_ionic_frac = 0 to recover the parent expression exactly.",
+          "observable_signature": "With V varied and temperature held fixed, changing I_cond still shifts the activation center, but now ionic settings separated by order slope_ionic_scale can also display measurably different activation-flank widths. This changed target mapping is visible when V samples the bounded sigmoid through its intermediate activation range rather than only at saturated tails.",
+          "shortcut_blocked": "Refitting all existing parent parameters cannot generate two different monotone transition widths at different I_cond with one shared parameter set, because the parent uses I_cond only inside a threshold-shift term and keeps one common slope_factor for every condition. Separate midpoint shifts can align centers, but not produce ionic-condition-dependent sharpening or broadening of the scored m_inf(V,I_cond) surface."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_threshold",
+          "response_change": {
+            "type": "threshold_surface",
+            "parent_relation": "The parent makes ionic condition shift the activation curve through a single saturating threshold displacement and a separate saturating slope rescaling, so the effective midpoint varies monotonically with I_cond and is independent of where along the activation range the curve is probed.",
+            "child_relation": "Relax the assumption that ionic condition acts as a pure uniform threshold offset by allowing the effective voltage shift itself to depend on activation level through voltage, creating a two-dimensional threshold surface in (V, I_cond) rather than one shared shifted midpoint.",
+            "affected_inputs": [
+              "V",
+              "I_cond"
+            ],
+            "observable_effect": "At fixed ionic condition near the screening-sensitive regime, the low-occupancy foot of activation can shift more than the high-occupancy shoulder, or vice versa, producing unequal left-right displacement across quantiles that a single refitted midpoint plus slope change cannot match across conditions."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "x_ionic",
+              "expression": "(I_cond - I_ref)/ionic_scale",
+              "role": "normalized ionic-condition displacement controlling when ionic effects are appreciable"
+            },
+            {
+              "name": "x_parent",
+              "expression": "(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))",
+              "role": "parent reduced voltage coordinate after current threshold and slope modulation"
+            },
+            {
+              "name": "q_ratio",
+              "expression": "exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale))))",
+              "role": "stage-weight ratio indicating whether the response is in the foot, midrange, or shoulder of activation"
+            }
+          ],
+          "activation_condition": "Observable when I_cond spans values with |I_cond - I_ref| comparable to ionic_scale and voltages sample both the foot and shoulder of activation over a range of several slope_factor values around V_half; effect is weak if ionic condition stays near I_ref or only midpoint voltages are sampled.",
+          "train_hidden_contrast": "In training, modest ionic shifts already reveal that equal-fraction contours in (V, I_cond) are not parallel translations; in holdout, larger |I_cond - I_ref| extends this same nonuniform quantile shift as ionic influence saturates rather than introducing a new mechanism.",
+          "continuation_path": "Recover the parent when the added activation-level dependence of the ionic shift tends to zero, so ionic condition again produces only the existing uniform threshold displacement and slope modulation.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "pairwise",
+          "scope_symbols": [
+            "V",
+            "I_cond"
+          ],
+          "structural_role": "interaction",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "voltage-dependent ionic stabilization of sequential activation steps",
+          "scientific_mechanism": "Surface-charge screening or ion-dependent state stabilization can act more strongly on early closed-state rearrangements than on later permissive transitions, so ionic condition bends the activation manifold and changes different activation quantiles by different amounts even at steady state.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "This embedding is harder than a coefficient-only correction because the ionic shift is no longer a single scalar function of I_cond; it becomes a bounded interaction between V and I_cond, so different regions of the same activation curve experience different ionic displacements.",
+          "taxonomy_match": "known",
+          "assumption_before": "Ionic condition changes the effective half-activation voltage by one shared saturating shift that is the same across the entire activation curve.",
+          "assumption_after": "The ionic threshold displacement remains saturating in ionic condition but is modulated across voltage so early and late activation regions can experience different effective shifts.",
+          "before_fragment": "(exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))) + exp(2*(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))))/(1 + exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))) + exp(2*(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))))",
+          "after_fragment": "(exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))) + exp(2*(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))))/(1 + exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))) + exp(2*(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))))",
+          "parent_reduction": "Setting shift_level_frac = 0 recovers the parent expression exactly.",
+          "observable_signature": "When V is swept at two or more ionic conditions with |I_cond - I_ref| comparable to ionic_scale, equal-m_inf quantiles no longer shift by a common voltage amount: the activation foot and shoulder move unequally, so contours of constant m_inf in the (V, I_cond) plane bend rather than remaining approximately parallel translations after slope rescaling.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce this contrast because its I_cond dependence enters only through one shared threshold displacement and one shared slope factor, making all activation quantiles linked by the same transformed coordinate. Refitting V_half, ionic_shift_max, slope_factor, slope_ionic_frac, ionic_scale, and slope_ionic_scale can translate or broaden the curve, but cannot make the low-occupancy and high-occupancy regions experience opposite or unequal ionic shifts at the same I_cond without introducing explicit V-dependent modulation of the ionic shift."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_threshold",
+          "response_change": {
+            "type": "threshold_surface",
+            "parent_relation": "The parent maps voltage and ionic condition to activation with one ionic-condition-induced threshold shift that is monotone and sign-preserving across the full voltage range, only modestly reshaped by a bounded level-dependent factor.",
+            "child_relation": "Replace the sign-preserving ionic threshold shift assumption with a state-dependent ionic effect that can differ between the activation foot and shoulder strongly enough to rotate the V-by-I threshold surface, so equal ionic changes can shift low-occupancy and high-occupancy quantiles by different amounts and potentially much less around mid-activation.",
+            "affected_inputs": [
+              "V",
+              "I_cond"
+            ],
+            "observable_effect": "When I_cond is varied at fixed temperature, the voltage displacement between two ionic conditions is not approximately shared across activation quantiles: the foot may shift more than the shoulder over the sampled voltage range, producing a quantile-dependent horizontal separation that a single parent parameter set cannot match if it must keep one sign-preserving ionic shift profile."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "ion_dev",
+              "expression": "(I_cond - I_ref)",
+              "role": "distance from the reference ionic condition that activates ionic modulation"
+            },
+            {
+              "name": "v_dev",
+              "expression": "(V - V_half)",
+              "role": "voltage offset from the nominal activation center"
+            },
+            {
+              "name": "parent_shift_core",
+              "expression": "ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale))",
+              "role": "current sign-preserving ionic threshold shift surface to be relaxed"
+            }
+          ],
+          "activation_condition": "Observable when ionic deviations are large enough to engage tanh saturation partially and the sampled voltage range spans both the activation foot and shoulder, with shift_voltage_scale of order the activation width so quantile-specific displacements can be resolved.",
+          "train_hidden_contrast": "In training, moderate ionic contrasts already reveal unequal low- versus high-occupancy shifts; in holdout, larger but still admissible ionic deviations amplify the same threshold-surface rotation rather than introducing a new mechanism.",
+          "continuation_path": "Recover the parent by taking the added state-dependence amplitude to zero, restoring a sign-preserving ionic shift that varies only through the existing bounded factor.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "pairwise",
+          "scope_symbols": [
+            "V",
+            "I_cond"
+          ],
+          "structural_role": "interaction",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "joint ionic-by-voltage modulation of effective activation threshold",
+          "scientific_mechanism": "Ionic screening or ion-dependent state stabilization can act differently on early closed-state occupancy than on late near-permissive occupancy, causing quantile-dependent threshold movement across voltage even at steady state.",
+          "embedding_pattern": "state_coupling",
+          "difficulty_rationale": "The new term is not a fixed gain rescaling: it couples ionic deviation and activation level inside the threshold law itself, so the shape of ionic displacement across quantiles changes with I_cond and cannot be reproduced by only retuning one shared threshold branch.",
+          "taxonomy_match": "provisional",
+          "assumption_before": "The ionic-condition effect on effective half-activation is a single sign-preserving bounded shift applied uniformly enough across sequential activation levels that one ionic shift branch describes all activation quantiles.",
+          "assumption_after": "The ionic threshold shift includes an additional bounded ionic-by-voltage interaction so differential stabilization of early and late activation conformations strengthens with ionic deviation.",
+          "before_fragment": "(exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))) + exp(2*(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))))/(1 + exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))) + exp(2*(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))))",
+          "after_fragment": "(exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale) + shift_curvature_frac*tanh((I_cond - I_ref)/ionic_scale)*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))) + exp(2*(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale) + shift_curvature_frac*tanh((I_cond - I_ref)/ionic_scale)*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))))/(1 + exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale) + shift_curvature_frac*tanh((I_cond - I_ref)/ionic_scale)*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))) + exp(2*(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale) + shift_curvature_frac*tanh((I_cond - I_ref)/ionic_scale)*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))))",
+          "parent_reduction": "Setting shift_curvature_frac = 0 recovers the parent expression exactly.",
+          "observable_signature": "Across voltage sweeps at two or more ionic conditions, the horizontal separation between activation curves becomes quantile dependent: for admissible ionic deviations and voltages spanning the sigmoid foot and shoulder, low-occupancy regions can shift more strongly than upper-occupancy regions, or vice versa, instead of sharing one nearly common threshold displacement.",
+          "shortcut_blocked": "A single refitted parent parameter set cannot reproduce this contrast because its ionic threshold shift is constrained to the form ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale)), where all activation levels inherit the same sign-preserving ionic branch and only one bounded voltage warp. Retuning ionic_shift_max, ionic_scale, shift_level_frac, shift_voltage_scale, or slope terms can change overall size or mild asymmetry, but cannot make the strength of level-specific warping itself grow with ionic deviation so that one quantile remains relatively anchored while another moves substantially over the same I_cond change."
+        }
+      ]
+    },
+    "finalization": {
+      "mode": "candidate",
+      "accepted_generations": 5,
+      "novelty": {
+        "answer": "NOT_EVALUATED"
+      },
+      "total_points": 5000,
+      "evaluation_status": "not_evaluated"
+    }
+  },
+  "contract": {
+    "features": [
+      "V",
+      "I_cond"
+    ],
+    "target": "m_inf",
+    "family": "static",
+    "expression": "(exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale) + shift_curvature_frac*tanh((I_cond - I_ref)/ionic_scale)*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))) + exp(2*(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale) + shift_curvature_frac*tanh((I_cond - I_ref)/ionic_scale)*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))))/(1 + exp((V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale) + shift_curvature_frac*tanh((I_cond - I_ref)/ionic_scale)*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))) + exp(2*(V - (V_half + ionic_shift_max*tanh((I_cond - I_ref)/ionic_scale)*(1 + shift_level_frac*tanh((V - V_half)/shift_voltage_scale) + shift_curvature_frac*tanh((I_cond - I_ref)/ionic_scale)*tanh((V - V_half)/shift_voltage_scale))))/(slope_factor*(1 + slope_ionic_frac*tanh((I_cond - I_ref)/slope_ionic_scale)))))",
+    "parameters": {
+      "V_half": -35.0,
+      "slope_factor": 9.0,
+      "I_ref": 1.0,
+      "ionic_shift_max": 12.0,
+      "ionic_scale": 0.35,
+      "slope_ionic_frac": 0.3,
+      "slope_ionic_scale": 0.4,
+      "shift_level_frac": 0.45,
+      "shift_voltage_scale": 14.0,
+      "shift_curvature_frac": 0.6
+    },
+    "implicit_branch": null
+  }
+}

@@ -1,0 +1,3 @@
+Ground truth: dsigma_dOmega = (projectile_charge_number**2 * Z**2 * alpha_em**2 * hbar_c**2 * cos(theta/2)**2 / (1 + Q2 * nuclear_charge_radius_scale**2 / 12)**4) / (4 * E**2 * sin(theta/2)**4 * (1 - vacuum_polarization_strength * log(Q2_scale_reference / (Q2*(1 + Q2/(4 * recoil_mass_scale**2)) / (1 + Q2/(4 * recoil_mass_scale**2)))))**2 * (1 + (Q2*(1 + Q2/(4 * recoil_mass_scale**2)) / (1 + Q2/(4 * recoil_mass_scale**2)))/(4 * recoil_mass_scale**2))**2)
+
+Fixed parameters: {'projectile_charge_number': 1.0, 'alpha_em': 0.00729735257, 'hbar_c': 0.1973269804, 'vacuum_polarization_strength': 0.01, 'Q2_scale_reference': 1.0, 'recoil_mass_scale': 5.0, 'nuclear_charge_radius_scale': 2.0}

@@ -1,0 +1,203 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "N_D",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        250.0
+      ],
+      "n_points": 400,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "parent_decay_constant",
+      "value": 0.02
+    },
+    {
+      "symbol": "damage_drive_rate",
+      "value": 0.0004
+    },
+    {
+      "symbol": "damage_relaxation_rate",
+      "value": 0.03
+    },
+    {
+      "symbol": "capacity_growth_rate",
+      "value": 0.00015
+    },
+    {
+      "symbol": "capacity_relaxation_rate",
+      "value": 0.015
+    },
+    {
+      "symbol": "baseline_damage_capacity",
+      "value": 5000.0
+    }
+  ],
+  "benchmark_output": "dN_D_dt",
+  "benchmark_target_state": "N_D",
+  "observed_variables": [
+    "t",
+    "N_P",
+    "N_D",
+    "daughter_decay_constant",
+    "damage_capacity"
+  ],
+  "rhs_for_integrator": "parent_decay_constant*N_P - daughter_decay_constant*N_D/((1 + N_D/damage_capacity)*(1 + (N_D/damage_capacity)**2)*(1 + daughter_decay_constant/damage_capacity))",
+  "state_variables": [
+    "N_P",
+    "N_D",
+    "daughter_decay_constant",
+    "damage_capacity"
+  ],
+  "state_rhs": [
+    "-parent_decay_constant*N_P",
+    "parent_decay_constant*N_P - daughter_decay_constant*N_D/((1 + N_D/damage_capacity)*(1 + (N_D/damage_capacity)**2)*(1 + daughter_decay_constant/damage_capacity))",
+    "damage_drive_rate*N_D*(1 - daughter_decay_constant/damage_capacity) - damage_relaxation_rate*daughter_decay_constant",
+    "capacity_growth_rate*N_D - capacity_relaxation_rate*(damage_capacity - baseline_damage_capacity)"
+  ],
+  "initial_conditions": {
+    "N_P": 100000.0,
+    "N_D": 0.0,
+    "daughter_decay_constant": 1.0,
+    "damage_capacity": 1.0
+  },
+  "sanity_expectations": [
+    "N_P(t) decreases monotonically from its initial value because dN_P/dt = -parent_decay_constant*N_P for positive parent_decay_constant.",
+    "N_D(t) should start at zero, increase while parent feed dominates, then show a peak and later decline once the daughter-loss term overtakes production.",
+    "damage_capacity(t) should move rapidly upward away from the inherited initial value 1 because the relaxation term drives it toward the large positive baseline; this should reduce the severity of the initial tiny-capacity regime.",
+    "daughter_decay_constant(t) should evolve in time rather than remain constant, giving history-dependent daughter loss.",
+    "There should be an intermediate portion of the trajectory where both N_D/damage_capacity and daughter_decay_constant/damage_capacity are non-negligible, so the daughter-loss term is more strongly throttled than in the previous-generation model without the final factor.",
+    "The run should not stay in a parent-recovery limit with nearly constant daughter_decay_constant and damage_capacity throughout; visible curvature in the buildup-to-depletion transition is expected."
+  ],
+  "role_corrections": [
+    "dN_D_dt: claimed-output/target derivative -> scored target-state RHS for N_D within the inherited ODE system (confirmed)",
+    "t: claimed-input/time axis -> independent variable (confirmed)",
+    "N_P: claimed-dynamic state -> dynamic state (confirmed)",
+    "N_D: claimed-dynamic state -> dynamic state and dependent variable/target_state (confirmed)",
+    "daughter_decay_constant: claimed-dynamic state -> dynamic state (confirmed under explicit freedom-preserving ODE contract)",
+    "damage_capacity: claimed-dynamic state -> dynamic state (confirmed under explicit freedom-preserving ODE contract)",
+    "parent_decay_constant: claimed-parameter -> parameter (confirmed)",
+    "damage_drive_rate: claimed-parameter -> parameter (confirmed)",
+    "damage_relaxation_rate: claimed-parameter -> parameter (confirmed)",
+    "capacity_growth_rate: claimed-parameter -> parameter (confirmed)",
+    "capacity_relaxation_rate: claimed-parameter -> parameter (confirmed)",
+    "baseline_damage_capacity: claimed-parameter -> parameter (confirmed)"
+  ],
+  "rationale": "The typed ODE contract is preserved exactly as required: although the scored expression alone is explicit in dN_D_dt, the provided contract declares N_P, N_D, daughter_decay_constant, and damage_capacity as dynamic states, and the explicit freedom metadata says to preserve declared V/P roles. The chosen time window spans several parent-decay times (1/parent_decay_constant = 50), allowing visible daughter buildup, a peak, and later depletion without pushing the whole run immediately into a flat tail. Parameter choices keep the recorded mechanisms active but not extreme: parent_decay_constant=0.02 supplies sustained parent feed; damage_drive_rate=4e-4 and damage_relaxation_rate=0.03 let daughter_decay_constant evolve appreciably with daughter burden but still relax; capacity_growth_rate=1.5e-4 and capacity_relaxation_rate=0.015 allow damage_capacity to move substantially from its inherited initial value toward a larger scale set by baseline_damage_capacity=5000. This means the trajectory can pass through regimes where both N_D/damage_capacity and daughter_decay_constant/damage_capacity matter, exposing the occupancy-limited daughter-loss curvature and the added throttling by environment load. The inherited initial condition damage_capacity(0)=1 is extreme relative to baseline_damage_capacity, so an initial transient is expected; this cannot be repaired because the ODE contract and initial conditions must be inherited exactly. The chosen parameters are intended to let that transient relax while preserving observable history dependence later, rather than collapsing to the parent-recovery limit where daughter_decay_constant and damage_capacity are effectively static.",
+  "coverage_report": {},
+  "inactive_mechanisms": [],
+  "target_variance": {},
+  "parent_absorption_report": {},
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_TzVE4akw9rpCWmK0A1T9Cua4"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "parent_decay_constant*N_P - daughter_decay_constant*N_D/((1 + N_D/damage_capacity)*(1 + (N_D/damage_capacity)**2)*(1 + daughter_decay_constant/damage_capacity))",
+        "target_symbol": "dN_D_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "N_D",
+          "N_P",
+          "damage_capacity",
+          "daughter_decay_constant",
+          "parent_decay_constant"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "-N_D*daughter_decay_constant/((1 + daughter_decay_constant/damage_capacity)*(N_D/damage_capacity + 1)*((N_D/damage_capac"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_PYUoAWsj9EuWWvyslzME3r9y"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "parent_decay_constant*N_P - daughter_decay_constant*N_D/((1 + N_D/damage_capacity)*(1 + (N_D/damage_capacity)**2)*(1 + daughter_decay_constant/damage_capacity))",
+        "target_symbol": "dN_D_dt",
+        "assignments": {
+          "N_P": 100000,
+          "N_D": 1000,
+          "daughter_decay_constant": 0.8,
+          "damage_capacity": 5000,
+          "parent_decay_constant": 0.02
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": 1359.076906669292,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_OIrIgqs5KbJEHe1uSKvmdF4r"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_Sz8xttVaMbJODpYtrQOaTNi4"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 4
+}

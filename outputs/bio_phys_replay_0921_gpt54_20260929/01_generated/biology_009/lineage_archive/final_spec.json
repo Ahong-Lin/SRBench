@@ -1,0 +1,1741 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "S",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        120.0
+      ],
+      "n_points": 301,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "receptor_production_rate",
+      "value": 400.0
+    },
+    {
+      "symbol": "internalization_rate",
+      "value": 0.08
+    },
+    {
+      "symbol": "recycling_rate",
+      "value": 350.0
+    },
+    {
+      "symbol": "endosomal_degradation_rate",
+      "value": 0.05
+    },
+    {
+      "symbol": "recycling_saturation_scale",
+      "value": 500.0
+    },
+    {
+      "symbol": "recycling_capacity_recovery_rate",
+      "value": 0.03
+    },
+    {
+      "symbol": "recycling_capacity_depletion_rate",
+      "value": 0.0002
+    },
+    {
+      "symbol": "endosomal_maturation_rate",
+      "value": 0.04
+    }
+  ],
+  "benchmark_output": "dS_dt",
+  "benchmark_target_state": "S",
+  "observed_variables": [
+    "t",
+    "S",
+    "E",
+    "R",
+    "M"
+  ],
+  "rhs_for_integrator": "receptor_production_rate - internalization_rate*S + recycling_rate*R*M/(recycling_saturation_scale/R + R*M)",
+  "state_variables": [
+    "S",
+    "E",
+    "R",
+    "M"
+  ],
+  "state_rhs": [
+    "receptor_production_rate - internalization_rate*S + recycling_rate*R*M/(recycling_saturation_scale/R + R*M)",
+    "internalization_rate*S - recycling_rate*R*M/(recycling_saturation_scale/R + R*M) - endosomal_degradation_rate*(E - M)",
+    "recycling_capacity_recovery_rate*(1 - R) - recycling_capacity_depletion_rate*E*R",
+    "endosomal_maturation_rate*(E - M) - recycling_rate*R*M/(recycling_saturation_scale/R + R*M)"
+  ],
+  "initial_conditions": {
+    "S": 5000.0,
+    "E": 1000.0,
+    "R": 1.0,
+    "M": 200.0
+  },
+  "sanity_expectations": [
+    "At t=0, the target derivative should be positive and finite: dS/dt = 400 - 0.08*5000 + 350*1*200/(500/1 + 1*200) = 100, so S initially rises despite internalization.",
+    "Because E(0)-M(0)=800 is large and endosomal_maturation_rate is only moderate, early trajectory segments should show appreciable endosomal load before the mature recyclable pool fully catches up; recycling support is therefore delayed relative to total endosomal accumulation.",
+    "The initial capacity-depletion drive (0.0002*1000*1 = 0.2) exceeds the initial recovery drive (0.03*(1-1)=0), so R should initially decrease below 1 rather than remain fixed at its nominal level.",
+    "Since recycling_saturation_scale = 500 and initial R*M = 200, the recycling term begins in a partially saturated regime; over the trajectory its incremental gain with respect to M should diminish as R*M approaches and exceeds the saturation scale, rather than staying globally linear.",
+    "Because degradation acts on the immature pool E-M in the inherited system and E-M is initially large, trajectories should display stronger early loss from endosomes before maturation catches up; later, as M/E increases, recycling can contribute more strongly to sustaining or increasing S.",
+    "No observation noise is added: outputs are exact numerical solutions of the fixed-parameter ODE system on the sampled time grid."
+  ],
+  "role_corrections": [
+    "dS_dt: claimed-output/target derivative -> derivative of dependent state S (confirmed within ODE-system contract)",
+    "t: claimed-input/time axis -> independent variable/time axis (confirmed)",
+    "S: claimed-dynamic state -> dependent variable and dynamic state (confirmed)",
+    "E: claimed-dynamic state -> dynamic state, not independent sampled axis (confirmed)",
+    "R: claimed-dynamic state -> dynamic state, not fixed parameter (confirmed)",
+    "M: claimed-dynamic state -> dynamic state, not fixed parameter (confirmed)",
+    "receptor_production_rate: claimed-parameter -> parameter (confirmed)",
+    "internalization_rate: claimed-parameter -> parameter (confirmed)",
+    "recycling_rate: claimed-parameter -> parameter (confirmed)",
+    "endosomal_degradation_rate: claimed-parameter -> parameter (confirmed)",
+    "recycling_saturation_scale: claimed-parameter -> parameter (confirmed)",
+    "recycling_capacity_recovery_rate: claimed-parameter -> parameter (confirmed)",
+    "recycling_capacity_depletion_rate: claimed-parameter -> parameter (confirmed)",
+    "endosomal_maturation_rate: claimed-parameter -> parameter (confirmed)",
+    "equation type: explicit-from-isolated-expression -> ode_system from provided validated system contract (overridden by contract requirement)"
+  ],
+  "rationale": "Preserved the provided typed ODE-system contract exactly, as required. Although the isolated target expression is structurally an explicit algebraic formula for dS_dt, the declared contract supplies a governed 4-state system with time as the only sampled axis, so S is the dependent variable and S,E,R,M remain dynamic states while all listed kinetic quantities remain fixed parameters. Parameter values were chosen to keep the system finite at the inherited initial condition and to expose the intended mechanisms without collapsing into either a fully linear or near-recovery limit. The inherited initial state already has a substantial immature endosomal pool (E-M = 800), so the maturation-delay effect is active from t=0 and can create an early phase where total endosomal load is appreciable but recycling support is still limited by modest M. Setting recycling_saturation_scale = 500 makes the initial mature recycling coordinate R*M = 200 below but not far below the saturation scale, so recycling is neither negligible nor deep in saturation; later evolution can traverse more curved parts of the saturating return law. The capacity state can also move: with the chosen depletion and recovery rates, the initial depletion drive recycling_capacity_depletion_rate*E*R = 0.2 exceeds the initial recovery drive recycling_capacity_recovery_rate*(1-R) = 0, so R should initially fall from 1 under endosomal load, then partially recover as load relaxes, exposing the adaptive-capacity mechanism. Endosomal degradation and maturation rates are chosen on comparable timescales (0.05 and 0.04), so the competition between loss from the immature pool E-M and maturation into M is visible rather than instantaneous or negligible. The 0-120 time window with 301 samples is long enough to capture the early lagged-recycling phase, the mid-course capacity depletion/recovery transition, and later relaxation, while remaining a single-condition exact trajectory dataset with no observation noise. Distinguishing conditions addressed directly in this design are reachable states where E remains appreciable, M starts well below E, R can depart from 1, and R*M becomes comparable to recycling_saturation_scale so the child law's delayed and state-dependent curvature is observable rather than hidden in a strict low-occupancy approximation.",
+  "coverage_report": {
+    "groups": [
+      {
+        "generation": 1,
+        "name": "total_receptor",
+        "expression": "S + E",
+        "role": "overall receptor load that determines whether the endosomal pool can become large enough for recycling capacity limits to matter",
+        "train_range": [
+          6000.0,
+          27075.383721258393
+        ],
+        "hidden_range": [
+          27092.016224543557,
+          29204.495690624008
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 6000.0,
+          "max": 27075.383721258393,
+          "q05": 7734.588240371071,
+          "median": 17489.95359593506,
+          "q95": 26117.38221369063,
+          "range": 21075.383721258393,
+          "robust_range": 18382.79397331956
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 27092.016224543557,
+          "max": 29204.495690624008,
+          "q05": 27197.633054727565,
+          "median": 28148.21836646763,
+          "q95": 29098.86461316578,
+          "range": 2112.479466080451,
+          "robust_range": 1901.2315584382159
+        }
+      },
+      {
+        "generation": 1,
+        "name": "endo_surface_ratio",
+        "expression": "E/(S + 1.0e-12)",
+        "role": "relative sequestration into endosomes, indicating regimes where return flux from E substantially shapes dS_dt",
+        "train_range": [
+          0.19999999999999996,
+          4.40677682281956
+        ],
+        "hidden_range": [
+          4.41010337116727,
+          4.832603239753426
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.19999999999999996,
+          "max": 4.40677682281956,
+          "q05": 0.5035726482757998,
+          "median": 2.488442337452393,
+          "q95": 4.215172688925166,
+          "range": 4.20677682281956,
+          "robust_range": 3.711600040649366
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 4.41010337116727,
+          "max": 4.832603239753426,
+          "q05": 4.431227028992098,
+          "median": 4.621346102468656,
+          "q95": 4.811476860420038,
+          "range": 0.42249986858615607,
+          "robust_range": 0.3802498314279399
+        }
+      },
+      {
+        "generation": 1,
+        "name": "surface_balance_parent",
+        "expression": "receptor_production_rate - internalization_rate*S + recycling_rate*E",
+        "role": "parent predicted surface-rate balance used to identify departures from linear E-driven recovery",
+        "train_range": [
+          350000.0,
+          7723697.270415468
+        ],
+        "hidden_range": [
+          7729520.31418955,
+          8469083.841743538
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 350000.0,
+          "max": 7723697.270415468,
+          "q05": 906644.8138851286,
+          "median": 4366692.634422049,
+          "q95": 7388296.7342680525,
+          "range": 7373697.270415468,
+          "robust_range": 6481651.920382924
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 7729520.31418955,
+          "max": 8469083.841743538,
+          "q05": 7766496.742743566,
+          "median": 8099292.693160682,
+          "q95": 8432103.86450794,
+          "range": 739563.5275539886,
+          "robust_range": 665607.121764374
+        }
+      },
+      {
+        "generation": 2,
+        "name": "endo_load_ratio",
+        "expression": "E/recycling_saturation_scale",
+        "role": "dimensionless endosomal loading relative to the nominal recycling-capacity scale",
+        "train_range": [
+          2.0,
+          44.13541648259351
+        ],
+        "hidden_range": [
+          44.16869101626778,
+          48.394768061007696
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 2.0,
+          "max": 44.13541648259351,
+          "q05": 5.180893401190347,
+          "median": 24.952535595919358,
+          "q95": 42.218842120916065,
+          "range": 42.13541648259351,
+          "robust_range": 37.03794871972572
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 44.16869101626778,
+          "max": 48.394768061007696,
+          "q05": 44.37998487995855,
+          "median": 46.28167590625,
+          "q95": 48.183453917258866,
+          "range": 4.226077044739917,
+          "robust_range": 3.8034690373003173
+        }
+      },
+      {
+        "generation": 2,
+        "name": "net_surface_balance_parent",
+        "expression": "receptor_production_rate - internalization_rate*S + recycling_rate*E/(recycling_saturation_scale + E)",
+        "role": "parent predicted surface gain-loss balance used as the baseline target mapping",
+        "train_range": [
+          233.33333333333334,
+          341.63151892201
+        ],
+        "hidden_range": [
+          341.6376124910396,
+          342.3452964956506
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 233.33333333333334,
+          "max": 341.63151892201,
+          "q05": 281.8375688175607,
+          "median": 335.4189272543615,
+          "q95": 341.2647825085673,
+          "range": 108.29818558867666,
+          "robust_range": 59.427213691006614
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 341.6376124910396,
+          "max": 342.3452964956506,
+          "q05": 341.6760985632701,
+          "median": 342.00712113024457,
+          "q95": 342.31277255695613,
+          "range": 0.7076840046109965,
+          "robust_range": 0.6366739936860313
+        }
+      },
+      {
+        "generation": 3,
+        "name": "recycling_drive",
+        "expression": "R*E/(recycling_saturation_scale + R*E)",
+        "role": "Parent instantaneous recycling activation coordinate",
+        "train_range": [
+          0.22965774164742556,
+          0.6718175581674581
+        ],
+        "hidden_range": [
+          0.22988883964607246,
+          0.22993999943109483
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.22965774164742556,
+          "max": 0.6718175581674581,
+          "q05": 0.22965989072684614,
+          "median": 0.229806562223288,
+          "q95": 0.4864442628393354,
+          "range": 0.44215981652003256,
+          "robust_range": 0.2567843721124893
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.22988883964607246,
+          "max": 0.22993999943109483,
+          "q05": 0.22989150186475282,
+          "median": 0.22991497080881712,
+          "q95": 0.22993754585701076,
+          "range": 5.1159785022375504e-05,
+          "robust_range": 4.604399225793809e-05
+        }
+      },
+      {
+        "generation": 3,
+        "name": "capacity_depletion",
+        "expression": "recycling_capacity_depletion_rate*E*R",
+        "role": "Strength of load-induced loss of recycling competence",
+        "train_range": [
+          0.029812429365950036,
+          0.2047085622302302
+        ],
+        "hidden_range": [
+          0.02985138399246418,
+          0.029860010812302894
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.029812429365950036,
+          "max": 0.2047085622302302,
+          "q05": 0.02981279151406838,
+          "median": 0.02983751236409787,
+          "q95": 0.09475452512294774,
+          "range": 0.17489613286428018,
+          "robust_range": 0.06494173360887937
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.02985138399246418,
+          "max": 0.029860010812302894,
+          "q05": 0.02985183288088413,
+          "median": 0.02985579021713531,
+          "q95": 0.02985959705215962,
+          "range": 8.626819838715438e-06,
+          "robust_range": 7.76417127548723e-06
+        }
+      },
+      {
+        "generation": 3,
+        "name": "capacity_recovery",
+        "expression": "recycling_capacity_recovery_rate*(1 - R)",
+        "role": "Relaxation back toward nominal recycling availability",
+        "train_range": [
+          0.0,
+          0.029797092800654283
+        ],
+        "hidden_range": [
+          0.029797245175446994,
+          0.029814897279135666
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 0.029797092800654283,
+          "q05": 0.024510927421269337,
+          "median": 0.029641568257526923,
+          "q95": 0.029787910962585623,
+          "range": 0.029797092800654283,
+          "robust_range": 0.005276983541316286
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.029797245175446994,
+          "max": 0.029814897279135666,
+          "q05": 0.029798207434501702,
+          "median": 0.029806473338666727,
+          "q95": 0.02981408804565503,
+          "range": 1.7652103688672177e-05,
+          "robust_range": 1.58806111533287e-05
+        }
+      },
+      {
+        "generation": 4,
+        "name": "endosomal_load",
+        "expression": "E",
+        "role": "Total internalized receptor burden available for sorting",
+        "train_range": [
+          1000.0,
+          22067.708241296757
+        ],
+        "hidden_range": [
+          22084.34550813389,
+          24197.384030503847
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 1000.0,
+          "max": 22067.708241296757,
+          "q05": 2590.4467005951733,
+          "median": 12476.267797959677,
+          "q95": 21109.421060458033,
+          "range": 21067.708241296757,
+          "robust_range": 18518.97435986286
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 22084.34550813389,
+          "max": 24197.384030503847,
+          "q05": 22189.992439979273,
+          "median": 23140.837953124996,
+          "q95": 24091.726958629435,
+          "range": 2113.038522369956,
+          "robust_range": 1901.7345186501625
+        }
+      },
+      {
+        "generation": 4,
+        "name": "recycling_competence",
+        "expression": "R",
+        "role": "Available recycling machinery or competence scaling",
+        "train_range": [
+          0.006763573311523873,
+          1.0
+        ],
+        "hidden_range": [
+          0.006170090695477782,
+          0.006758494151766827
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.006763573311523873,
+          "max": 1.0,
+          "q05": 0.007069634580479166,
+          "median": 0.011947724749102504,
+          "q95": 0.18296908595768815,
+          "range": 0.9932364266884761,
+          "robust_range": 0.175899451377209
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.006170090695477782,
+          "max": 0.006758494151766827,
+          "q05": 0.0061970651448321765,
+          "median": 0.006450888711109177,
+          "q95": 0.006726418849943302,
+          "range": 0.0005884034562890451,
+          "robust_range": 0.0005293537051111255
+        }
+      },
+      {
+        "generation": 4,
+        "name": "effective_recycling_drive",
+        "expression": "E*R",
+        "role": "Parent instantaneous coordinate controlling recycling return strength",
+        "train_range": [
+          149.06214682975016,
+          1023.542811151151
+        ],
+        "hidden_range": [
+          149.2569199623209,
+          149.30005406151446
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 149.06214682975016,
+          "max": 1023.542811151151,
+          "q05": 149.0639575703419,
+          "median": 149.18756182048935,
+          "q95": 473.7726256147387,
+          "range": 874.4806643214008,
+          "robust_range": 324.70866804439675
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 149.2569199623209,
+          "max": 149.30005406151446,
+          "q05": 149.25916440442066,
+          "median": 149.27895108567654,
+          "q95": 149.2979852607981,
+          "range": 0.04313409919356559,
+          "robust_range": 0.03882085637744126
+        }
+      },
+      {
+        "generation": 5,
+        "name": "immature_pool",
+        "expression": "E - M",
+        "role": "Endosomal receptor fraction not yet recycling-competent and therefore the natural substrate for pre-recycling sorting/degradation",
+        "train_range": [
+          800.0,
+          4452.312278482517
+        ],
+        "hidden_range": [
+          4451.226956978589,
+          4451.730659368706
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 800.0,
+          "max": 4452.312278482517,
+          "q05": 2242.8574093918455,
+          "median": 4435.617883448293,
+          "q95": 4452.289823524204,
+          "range": 3652.3122784825173,
+          "robust_range": 2209.432414132358
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 4451.226956978589,
+          "max": 4451.730659368706,
+          "q05": 4451.251702999573,
+          "median": 4451.477636556992,
+          "q95": 4451.705549731328,
+          "range": 0.5037023901168141,
+          "robust_range": 0.4538467317543109
+        }
+      },
+      {
+        "generation": 5,
+        "name": "mature_fraction",
+        "expression": "M/E",
+        "role": "Dimensionless measure of how much of the endosomal content has matured into the recyclable subpool when E > 0",
+        "train_range": [
+          0.1021003089358305,
+          0.7982692830380982
+        ],
+        "hidden_range": [
+          0.7984214357754416,
+          0.8160451166387549
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.1021003089358305,
+          "max": 0.7982692830380982,
+          "q05": 0.1478940287308256,
+          "median": 0.6444741753358536,
+          "q95": 0.7891008774380572,
+          "range": 0.6961689741022676,
+          "robust_range": 0.6412068487072317
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.7984214357754416,
+          "max": 0.8160451166387549,
+          "q05": 0.7993822606453164,
+          "median": 0.8076353923920327,
+          "q95": 0.815237313855165,
+          "range": 0.01762368086331334,
+          "robust_range": 0.01585505320984859
+        }
+      },
+      {
+        "generation": 5,
+        "name": "recycling_flux",
+        "expression": "recycling_rate*R*M/(recycling_saturation_scale/R + R*M)",
+        "role": "Instantaneous return flux from the mature endosomal subpool to the surface",
+        "train_range": [
+          0.563193583838436,
+          100.0
+        ],
+        "hidden_range": [
+          0.5254256417597056,
+          0.5628797685532219
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.563193583838436,
+          "max": 100.0,
+          "q05": 0.5818056004890487,
+          "median": 0.8016044999870058,
+          "q95": 7.957170041275596,
+          "range": 99.43680641616156,
+          "robust_range": 7.375364440786547
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.5254256417597056,
+          "max": 0.5628797685532219,
+          "q05": 0.5271903285896647,
+          "median": 0.5435712562155994,
+          "q95": 0.5608941449263869,
+          "range": 0.03745412679351623,
+          "robust_range": 0.03370381633672215
+        }
+      }
+    ],
+    "inactive_mechanisms": [],
+    "visible_mechanisms": [
+      "total_receptor",
+      "endo_surface_ratio",
+      "surface_balance_parent",
+      "endo_load_ratio",
+      "net_surface_balance_parent",
+      "recycling_drive",
+      "capacity_depletion",
+      "capacity_recovery",
+      "endosomal_load",
+      "recycling_competence",
+      "effective_recycling_drive",
+      "immature_pool",
+      "mature_fraction",
+      "recycling_flux"
+    ],
+    "extended_mechanisms": [
+      "total_receptor",
+      "endo_surface_ratio",
+      "surface_balance_parent",
+      "endo_load_ratio",
+      "net_surface_balance_parent",
+      "capacity_recovery",
+      "endosomal_load",
+      "recycling_competence",
+      "mature_fraction",
+      "recycling_flux"
+    ]
+  },
+  "inactive_mechanisms": [],
+  "target_variance": {
+    "train": {
+      "n": 384,
+      "variance": 92.78459628800347,
+      "range": 107.98147209264272
+    },
+    "hidden": {
+      "n": 128,
+      "variance": 4.452537053275713e-06,
+      "range": 0.007270376366932396
+    }
+  },
+  "parent_absorption_report": {
+    "status": "ok",
+    "n_points": 512,
+    "fixed_parent_normalized_rmse": 0.0,
+    "refit": {
+      "status": "not_run",
+      "reason": "no free parent parameters"
+    },
+    "interpretation": "<1e-3 nearly absorbed; 1e-3..1e-2 weak; >1e-2 visible structure"
+  },
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_7HF9oxHOHUZzrVPjxvlGOV2b"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "receptor_production_rate - internalization_rate*S + recycling_rate*R*M/(recycling_saturation_scale/R + R*M)",
+        "target_symbol": "dS_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "M",
+          "R",
+          "S",
+          "internalization_rate",
+          "receptor_production_rate",
+          "recycling_rate",
+          "recycling_saturation_scale"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "M*R*recycling_rate/(M*R + recycling_saturation_scale/R) - S*internalization_rate + receptor_production_rate"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_j3Yee7GuKl3fWpwxKABaX5eL"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "receptor_production_rate - internalization_rate*S + recycling_rate*R*M/(recycling_saturation_scale/R + R*M)",
+        "target_symbol": "dS_dt",
+        "assignments": {
+          "S": 5000,
+          "E": 1000,
+          "R": 1,
+          "M": 200,
+          "receptor_production_rate": 400,
+          "internalization_rate": 0.08,
+          "recycling_rate": 350,
+          "recycling_saturation_scale": 500,
+          "endosomal_degradation_rate": 0.05,
+          "recycling_capacity_recovery_rate": 0.03,
+          "recycling_capacity_depletion_rate": 0.0002,
+          "endosomal_maturation_rate": 0.04
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": 100.0,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_jXguNpuSCMFy3S7MyWjmUpJK"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_vGWcArtZCDruYwliUBaJAMtT"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 4,
+  "discipline": "biology",
+  "scenario_text": "This scenario models the surface abundance of a signaling receptor after a change in receptor production. Surface receptors are internalized into an endosomal compartment, where some return to the plasma membrane and the remainder are removed. The surface and endosomal receptor pools are jointly evolved over time, with production treated as a fixed cellular background rate.",
+  "record_id": "m2_cell_biology_and_signaling_20260921_001",
+  "generation": 5,
+  "_n_total": 5000,
+  "mechanism_observation_history": [
+    {
+      "generation": 1,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The target mapping is linear in the observed states: dS_dt increases with a fixed positive gain in E through recycling_rate*E and decreases with a fixed negative gain in S through internalization_rate*S, so the contribution of the endosomal pool to surface recovery is proportional at all E.",
+          "child_relation": "Replace constant endosomal recycling efficiency by a saturating endosome-to-surface return process, so the positive effect of E on dS_dt grows approximately linearly at low E but bends toward a ceiling at high E.",
+          "affected_inputs": [
+            "E",
+            "S"
+          ],
+          "observable_effect": "Across trajectories that reach different endosomal loads, the child predicts diminishing marginal surface replenishment from additional E, yielding slower-than-linear recovery of dS_dt at high E compared with the parent's straight-line dependence."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "total_receptor",
+            "expression": "S + E",
+            "role": "overall receptor load that determines whether the endosomal pool can become large enough for recycling capacity limits to matter"
+          },
+          {
+            "name": "endo_surface_ratio",
+            "expression": "E/(S + 1.0e-12)",
+            "role": "relative sequestration into endosomes, indicating regimes where return flux from E substantially shapes dS_dt"
+          },
+          {
+            "name": "surface_balance_parent",
+            "expression": "receptor_production_rate - internalization_rate*S + recycling_rate*E",
+            "role": "parent predicted surface-rate balance used to identify departures from linear E-driven recovery"
+          }
+        ],
+        "activation_condition": "Observable when E spans from low values to values large enough that recycling machinery is no longer effectively first order over the sampled time course; practically, this requires appreciable endosomal accumulation from internalization while receptor_production_rate, internalization_rate, and endosomal_degradation_rate are held fixed across compared conditions.",
+        "train_hidden_contrast": "In training, mild endosomal accumulation can look nearly linear; in holdout, larger transient E exposes downward curvature in the E to dS_dt relationship from saturating recycling rather than a single shared linear gain.",
+        "continuation_path": "Recover the parent law in the low-occupancy limit where endosomal abundance stays well below the recycling saturation scale, making recycling effectively first order in E.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The model assumes recycling from endosomes remains first order with unlimited capacity even when the endosomal pool becomes large after altered receptor production.",
+        "baseline_assumption": "Trafficking rates are constant over the modeled interval, specifically that recycling_rate represents an E-independent proportional return flux for all endosomal abundances.",
+        "scientific_mechanism": "Capacity-limited endosomal sorting and recycling, where recycling machinery or carrier formation saturates as endosomal receptor load increases.",
+        "affected_symbols": [
+          "E",
+          "recycling_rate",
+          "S"
+        ],
+        "rationale": "A realistic next refinement is to relax the idealization of constant first-order recycling. The parent target mapping from observed states to dS_dt is affine, with a fixed slope with respect to E equal to recycling_rate. That creates a single-gain shortcut: once one parameter set is chosen, doubling E always doubles the recycling contribution to dS_dt regardless of endosomal load. Scientifically, recycling often uses finite sorting and vesicle-budding capacity, so at higher E the incremental return to the surface should diminish. The concrete distinguishing condition is to compare time windows or experiments with the same fixed receptor_production_rate, internalization_rate, and endosomal_degradation_rate but different achieved endosomal accumulation E due to different initial transients under the given ODE protocol. The parent predicts the same linear E-to-dS_dt slope everywhere, whereas the child predicts a smaller effective slope at larger E, i.e. curvature in the scored target mapping itself, not only in the auxiliary E trajectory. This contrast is admissible when internalization drives E into a moderate-to-high regime relative to recycling capacity; if E stays small throughout observations, the refinement collapses back to the parent and may be weakly identifiable."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The target mapping is linear in the observed states: dS_dt increases with a fixed positive gain in E through recycling_rate*E and decreases with a fixed negative gain in S through internalization_rate*S, so the contribution of the endosomal pool to surface recovery is proportional at all E.",
+          "child_relation": "Replace constant endosomal recycling efficiency by a saturating endosome-to-surface return process, so the positive effect of E on dS_dt grows approximately linearly at low E but bends toward a ceiling at high E.",
+          "affected_inputs": [
+            "E",
+            "S"
+          ],
+          "observable_effect": "Across trajectories that reach different endosomal loads, the child predicts diminishing marginal surface replenishment from additional E, yielding slower-than-linear recovery of dS_dt at high E compared with the parent's straight-line dependence."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "total_receptor",
+            "expression": "S + E",
+            "role": "overall receptor load that determines whether the endosomal pool can become large enough for recycling capacity limits to matter"
+          },
+          {
+            "name": "endo_surface_ratio",
+            "expression": "E/(S + 1.0e-12)",
+            "role": "relative sequestration into endosomes, indicating regimes where return flux from E substantially shapes dS_dt"
+          },
+          {
+            "name": "surface_balance_parent",
+            "expression": "receptor_production_rate - internalization_rate*S + recycling_rate*E",
+            "role": "parent predicted surface-rate balance used to identify departures from linear E-driven recovery"
+          }
+        ],
+        "activation_condition": "Observable when E spans from low values to values large enough that recycling machinery is no longer effectively first order over the sampled time course; practically, this requires appreciable endosomal accumulation from internalization while receptor_production_rate, internalization_rate, and endosomal_degradation_rate are held fixed across compared conditions.",
+        "train_hidden_contrast": "In training, mild endosomal accumulation can look nearly linear; in holdout, larger transient E exposes downward curvature in the E to dS_dt relationship from saturating recycling rather than a single shared linear gain.",
+        "continuation_path": "Recover the parent law in the low-occupancy limit where endosomal abundance stays well below the recycling saturation scale, making recycling effectively first order in E.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "E"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "capacity-limited endosomal recycling",
+        "scientific_mechanism": "Capacity-limited endosomal sorting and recycling, where recycling machinery or carrier formation saturates as endosomal receptor load increases.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the effective recycling gain becomes E-dependent, creating a state-conditioned slope in the target equation that one globally refit linear recycling coefficient cannot match across both low-E and high-E regimes.",
+        "taxonomy_match": "known",
+        "assumption_before": "Recycling from endosomes is first order with an E-independent proportionality over the full admissible endosomal load range.",
+        "assumption_after": "Recycling machinery has finite capacity, so the recycling contribution saturates with increasing endosomal abundance.",
+        "before_fragment": "receptor_production_rate - internalization_rate*S + recycling_rate*E",
+        "after_fragment": "receptor_production_rate - internalization_rate*S + recycling_rate*E/(recycling_saturation_scale + E)",
+        "parent_reduction": "When E << recycling_saturation_scale, recycling_rate*E/(recycling_saturation_scale + E) ≈ (recycling_rate/recycling_saturation_scale)*E, recovering a first-order recycling law after parameter rescaling.",
+        "observable_signature": "Holding receptor_production_rate, internalization_rate, and endosomal_degradation_rate fixed, compare portions of trajectories with low versus high E under the given initial-condition protocol. The parent predicts a constant E-to-dS_dt slope, while the child predicts approximately linear dependence at low E and a reduced incremental effect of E on dS_dt once E becomes comparable to recycling_saturation_scale; this changes the scored target mapping itself, not just the auxiliary E trajectory.",
+        "shortcut_blocked": "A single parent parameter set cannot reproduce both the low-E near-linear gain and the high-E diminished marginal recycling over the same admissible conditions, because any constant recycling_rate imposes one global slope of dS_dt versus E. Refitting all existing parent parameters may shift offsets and the S-dependent term, but it cannot generate the required downward curvature in the direct E contribution when compared across trajectories that span different endosomal loads."
+      },
+      "range_suggestions": {
+        "recycling_saturation_scale": "positive; same abundance units as E, typically comparable to the upper observed endosomal load where curvature in recycling becomes visible"
+      }
+    },
+    {
+      "generation": 2,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "interaction_emergence",
+          "parent_relation": "The target mapping dS_dt depends on E through a single Michaelis-like recycling term with a fixed saturation scale, so for any fixed S the marginal effect of E is determined only by E and one constant recycling_saturation_scale.",
+          "child_relation": "The effective recycling nonlinearity is modulated by the evolving endosomal receptor burden itself through a dynamic recycling-capacity state, so the influence of E on dS_dt depends on both instantaneous E and the current available recycling machinery.",
+          "affected_inputs": [
+            "E",
+            "recycling_saturation_scale"
+          ],
+          "observable_effect": "After a production change that drives sustained high endosomal load, surface recovery can become transiently slower and more delayed than under moderate load, even when S and E later pass through similar values, because recycling capacity has adapted; the parent predicts the same dS_dt whenever S and E are the same."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "endo_load_ratio",
+            "expression": "E/recycling_saturation_scale",
+            "role": "dimensionless endosomal loading relative to the nominal recycling-capacity scale"
+          },
+          {
+            "name": "net_surface_balance_parent",
+            "expression": "receptor_production_rate - internalization_rate*S + recycling_rate*E/(recycling_saturation_scale + E)",
+            "role": "parent predicted surface gain-loss balance used as the baseline target mapping"
+          },
+          {
+            "name": "total_receptor",
+            "expression": "S + E",
+            "role": "overall receptor inventory distinguishing production-driven buildup from trafficking redistribution"
+          }
+        ],
+        "activation_condition": "Observable when endosomal load reaches or exceeds the nominal recycling saturation scale for a sustained interval, so that recycling machinery availability can adapt on the experiment timescale; weak or negligible when E remains well below recycling_saturation_scale or when adaptation is much faster than sampling and effectively quasistatic.",
+        "train_hidden_contrast": "In training, moderate perturbations may mainly show mild curvature in the E-to-dS_dt relation; in holdout, larger or longer production-driven loading extends this into history-dependent slowing of surface recovery. The same mechanism is active in both cases, but the stronger contrast appears when high E persists long enough to deplete or remodel recycling capacity.",
+        "continuation_path": "Recover the parent law in the limit where recycling capacity remains constant or instantaneously equilibrated to a fixed value, so the recycling term collapses back to the current saturating form with one constant recycling_saturation_scale.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A fixed parameter cannot encode load-history-dependent adaptation of recycling capacity. A new state is needed to represent slowly varying recycling availability or competence that changes under endosomal burden and feeds back onto the surface recycling flux.",
+        "gap_statement": "The current model treats recycling capacity as a fixed environment, but biologically the endosomal recycling machinery can be transiently depleted, occupied, or downregulated during sustained receptor accumulation.",
+        "baseline_assumption": "Trafficking rates are constant over the modeled interval.",
+        "scientific_mechanism": "Endosomal-load-dependent adaptation of recycling capacity, such as occupancy or temporary depletion of recycling carriers/components, causing history-dependent recycling efficiency.",
+        "affected_symbols": [
+          "S",
+          "E",
+          "recycling_saturation_scale",
+          "recycling_rate"
+        ],
+        "rationale": "A realistic next refinement is to relax the assumption that recycling properties are constant. In the parent, once S and E are specified, dS_dt is fixed by one shared saturating recycling curve; this is a fixed-environment shortcut. Vary the magnitude or duration of the production change so that some trajectories keep E moderate while others push E to values comparable to or above recycling_saturation_scale for extended times, holding the initial conditions and all kinetic constants otherwise fixed. Under the child mechanism, prolonged high E can reduce effective recycling capacity, so later dS_dt at a given S and E is lower than earlier dS_dt at the same S and E after capacity has partially recovered; this creates an S,E-to-dS_dt interaction through latent recycling availability. That changes the scored target mapping, not only an auxiliary trajectory, because dS_dt is no longer a single-valued function of S and E alone. A single refitted parent parameter set cannot reproduce both moderate-load trajectories and sustained-overload trajectories if observations include matched or overlapping S,E regions with different surface recovery slopes, since the parent assigns the same dS_dt to the same S,E pair regardless of prior loading. The effect is admissible when endosomal burden is high enough and long enough for machinery adaptation to matter; if all observed E values stay low or adaptation is effectively instantaneous, the refinement may not be distinguishable."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "interaction_emergence",
+          "parent_relation": "The target mapping dS_dt depends on E through a single Michaelis-like recycling term with a fixed saturation scale, so for any fixed S the marginal effect of E is determined only by E and one constant recycling_saturation_scale.",
+          "child_relation": "The effective recycling nonlinearity is modulated by the evolving endosomal receptor burden itself through a dynamic recycling-capacity state, so the influence of E on dS_dt depends on both instantaneous E and the current available recycling machinery.",
+          "affected_inputs": [
+            "E",
+            "recycling_saturation_scale"
+          ],
+          "observable_effect": "After a production change that drives sustained high endosomal load, surface recovery can become transiently slower and more delayed than under moderate load, even when S and E later pass through similar values, because recycling capacity has adapted; the parent predicts the same dS_dt whenever S and E are the same."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "endo_load_ratio",
+            "expression": "E/recycling_saturation_scale",
+            "role": "dimensionless endosomal loading relative to the nominal recycling-capacity scale"
+          },
+          {
+            "name": "net_surface_balance_parent",
+            "expression": "receptor_production_rate - internalization_rate*S + recycling_rate*E/(recycling_saturation_scale + E)",
+            "role": "parent predicted surface gain-loss balance used as the baseline target mapping"
+          },
+          {
+            "name": "total_receptor",
+            "expression": "S + E",
+            "role": "overall receptor inventory distinguishing production-driven buildup from trafficking redistribution"
+          }
+        ],
+        "activation_condition": "Observable when endosomal load reaches or exceeds the nominal recycling saturation scale for a sustained interval, so that recycling machinery availability can adapt on the experiment timescale; weak or negligible when E remains well below recycling_saturation_scale or when adaptation is much faster than sampling and effectively quasistatic.",
+        "train_hidden_contrast": "In training, moderate perturbations may mainly show mild curvature in the E-to-dS_dt relation; in holdout, larger or longer production-driven loading extends this into history-dependent slowing of surface recovery. The same mechanism is active in both cases, but the stronger contrast appears when high E persists long enough to deplete or remodel recycling capacity.",
+        "continuation_path": "Recover the parent law in the limit where recycling capacity remains constant or instantaneously equilibrated to a fixed value, so the recycling term collapses back to the current saturating form with one constant recycling_saturation_scale.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A fixed parameter cannot encode load-history-dependent adaptation of recycling capacity. A new state is needed to represent slowly varying recycling availability or competence that changes under endosomal burden and feeds back onto the surface recycling flux.",
+        "scope_kind": "memory",
+        "scope_symbols": [
+          "S",
+          "E",
+          "R"
+        ],
+        "structural_role": "feedback",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "adaptive recycling-capacity depletion and recovery",
+        "scientific_mechanism": "Endosomal-load-dependent adaptation of recycling capacity, such as occupancy or temporary depletion of recycling carriers/components, causing history-dependent recycling efficiency.",
+        "embedding_pattern": "nested_nonlinearity",
+        "difficulty_rationale": "This is structurally harder than a coefficient correction because the recycling term now depends on the combined quantity R*E inside a saturating nonlinearity, and R itself evolves from prior endosomal load. That creates memory and a non-single-valued mapping from S,E to dS_dt that cannot be mimicked by retuning one fixed saturation curve.",
+        "taxonomy_match": "provisional",
+        "assumption_before": "Trafficking rates are constant over the modeled interval.",
+        "assumption_after": "Recycling capacity is a dynamic internal state that is depleted by sustained endosomal load and recovers over time.",
+        "before_fragment": "receptor_production_rate - internalization_rate*S + recycling_rate*E/(recycling_saturation_scale + E)",
+        "after_fragment": "receptor_production_rate - internalization_rate*S + recycling_rate*R*E/(recycling_saturation_scale + R*E)",
+        "parent_reduction": "When R=1 identically, or in the fast-recovery negligible-depletion limit keeping R near 1, the child reduces to the parent.",
+        "observable_signature": "Across experiments differing only in the magnitude or duration of the production-driven endosomal loading, trajectories can later revisit similar S and E values but exhibit different dS_dt because R differs. The parent enforces one shared dS_dt value for each S,E pair, whereas the child predicts slower surface recovery after prolonged overload when E/recycling_saturation_scale has been high long enough to depress R.",
+        "shortcut_blocked": "Refitting all parent parameters still leaves dS_dt as a fixed function of only S and E, so one parameter set must assign the same target derivative to matched S,E points across all conditions. If sustained-overload and moderate-load trajectories overlap in S,E yet show different recovery slopes due to different hidden recycling availability, no single parent parameter set can reproduce both; this is a changed target mapping, not merely altered auxiliary trajectories."
+      },
+      "range_suggestions": {
+        "R": "positive and typically order-unity normalized recycling availability; admissible range about 0 to a few, with R=1 as the nominal undepleted capacity",
+        "recycling_capacity_recovery_rate": "positive; typically on the order of or slower than trafficking rates when adaptation is experimentally observable",
+        "recycling_capacity_depletion_rate": "nonnegative; large enough that sustained E comparable to or exceeding recycling_saturation_scale can depress R over the experiment"
+      }
+    },
+    {
+      "generation": 3,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The recycling return term maps endosomal load to surface recovery with a single fixed Michaelis-like saturation scale, so for fixed S and R the dependence of dS_dt on E has one invariant concavity pattern set only by recycling_saturation_scale.",
+          "child_relation": "Replace the fixed recycling saturation scale assumption with a load-adaptive effective recycling bottleneck, so the recycling flux depends on both instantaneous endosomal load and a slowly varying occupancy/depletion state. Then dS_dt versus E gains history-dependent curvature because prior endosomal burden can depress current recycling efficiency even at the same E.",
+          "affected_inputs": [
+            "E",
+            "R"
+          ],
+          "observable_effect": "After a sustained high-endosomal-load phase, the same observed E produces a smaller positive recycling contribution to dS_dt than earlier, yielding slower surface recovery and stronger bending away from the parent’s single saturating curve."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "recycling_drive",
+            "expression": "R*E/(recycling_saturation_scale + R*E)",
+            "role": "Parent instantaneous recycling activation coordinate"
+          },
+          {
+            "name": "capacity_depletion",
+            "expression": "recycling_capacity_depletion_rate*E*R",
+            "role": "Strength of load-induced loss of recycling competence"
+          },
+          {
+            "name": "capacity_recovery",
+            "expression": "recycling_capacity_recovery_rate*(1 - R)",
+            "role": "Relaxation back toward nominal recycling availability"
+          }
+        ],
+        "activation_condition": "Observable when E is sustained at or above order recycling_saturation_scale long enough that recycling_capacity_depletion_rate*E is comparable to or exceeds recycling_capacity_recovery_rate; weak when E stays low or transients are too brief to move R appreciably from 1.",
+        "train_hidden_contrast": "In training, modest variation in E already introduces slight hysteresis in the recycling contribution through R; in holdout, longer or larger endosomal loading extends this into a stronger post-load suppression of dS_dt at the same E, revealing the changed curvature more clearly.",
+        "continuation_path": "Recover the parent law in the limit recycling_capacity_depletion_rate -> 0, or when recycling_capacity_recovery_rate is fast enough and E remains small enough that R stays near 1 over the observation window.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The current model already includes adaptive recycling capacity, so the next realistic refinement is not a missing process but the idealized assumption that recycling saturation depends only on instantaneous R*E through one fixed bottleneck shape.",
+        "baseline_assumption": "The recycling flux has a single fixed Michaelis-like saturation form with invariant half-saturation scale over the modeled interval.",
+        "scientific_mechanism": "Endosomal sorting/recycling machinery crowding can change the effective access or half-saturation of recycling with accumulated compartmental occupancy, making recycling responsiveness to E history dependent rather than a fixed instantaneous saturating map.",
+        "affected_symbols": [
+          "E",
+          "R",
+          "recycling_saturation_scale",
+          "recycling_capacity_recovery_rate",
+          "recycling_capacity_depletion_rate"
+        ],
+        "rationale": "A natural remaining shortcut in the target mapping is single_phase behavior: for fixed S and observed R, the parent uses one unchanging saturating E-to-recycling law. The scientifically plausible gap is that endosomal crowding or occupancy can alter the effective recycling bottleneck itself, not only the amplitude through R. Vary the duration or intensity of the receptor-production-driven loading phase so that E spends different times near or above recycling_saturation_scale, while holding the rate parameters fixed across conditions and using the stated initial conditions. In the parent, one shared parameter set predicts the same instantaneous dS_dt contribution whenever E and R match, because the map is memoryless beyond those states and keeps one saturation shape. In the child, prior loading shifts the local slope/curvature of recycling versus E, so surface recovery after heavy loading is flatter than after mild loading even within the admissible positive R, positive E regime. This is observable only if R actually departs from 1 under the protocol; if E remains far below recycling_saturation_scale or experiments end before capacity adaptation develops, the refinement may be hard to distinguish."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The recycling return term maps endosomal load to surface recovery with a single fixed Michaelis-like saturation scale, so for fixed S and R the dependence of dS_dt on E has one invariant concavity pattern set only by recycling_saturation_scale.",
+          "child_relation": "Replace the fixed recycling saturation scale assumption with a load-adaptive effective recycling bottleneck, so the recycling flux depends on both instantaneous endosomal load and a slowly varying occupancy/depletion state. Then dS_dt versus E gains history-dependent curvature because prior endosomal burden can depress current recycling efficiency even at the same E.",
+          "affected_inputs": [
+            "E",
+            "R"
+          ],
+          "observable_effect": "After a sustained high-endosomal-load phase, the same observed E produces a smaller positive recycling contribution to dS_dt than earlier, yielding slower surface recovery and stronger bending away from the parent’s single saturating curve."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "recycling_drive",
+            "expression": "R*E/(recycling_saturation_scale + R*E)",
+            "role": "Parent instantaneous recycling activation coordinate"
+          },
+          {
+            "name": "capacity_depletion",
+            "expression": "recycling_capacity_depletion_rate*E*R",
+            "role": "Strength of load-induced loss of recycling competence"
+          },
+          {
+            "name": "capacity_recovery",
+            "expression": "recycling_capacity_recovery_rate*(1 - R)",
+            "role": "Relaxation back toward nominal recycling availability"
+          }
+        ],
+        "activation_condition": "Observable when E is sustained at or above order recycling_saturation_scale long enough that recycling_capacity_depletion_rate*E is comparable to or exceeds recycling_capacity_recovery_rate; weak when E stays low or transients are too brief to move R appreciably from 1.",
+        "train_hidden_contrast": "In training, modest variation in E already introduces slight hysteresis in the recycling contribution through R; in holdout, longer or larger endosomal loading extends this into a stronger post-load suppression of dS_dt at the same E, revealing the changed curvature more clearly.",
+        "continuation_path": "Recover the parent law in the limit recycling_capacity_depletion_rate -> 0, or when recycling_capacity_recovery_rate is fast enough and E remains small enough that R stays near 1 over the observation window.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "E",
+          "R"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "State-dependent saturation of the recycling return process by adaptive recycling capacity",
+        "scientific_mechanism": "Endosomal sorting/recycling machinery crowding can change the effective access or half-saturation of recycling with accumulated compartmental occupancy, making recycling responsiveness to E history dependent rather than a fixed instantaneous saturating map.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the existing adaptive state R now changes the shape of the recycling response law rather than merely scaling its amplitude. A single shared parent parameter set cannot preserve early responsive recycling and later post-load flattening across loading protocols when depletion becomes appreciable.",
+        "taxonomy_match": "known",
+        "assumption_before": "The recycling flux has a single fixed Michaelis-like saturation form with invariant half-saturation scale over the modeled interval.",
+        "assumption_after": "Reduced recycling capacity increases the effective half-saturation scale of recycling, so the recycling law changes shape as capacity is depleted.",
+        "before_fragment": "receptor_production_rate - internalization_rate*S + recycling_rate*R*E/(recycling_saturation_scale + R*E)",
+        "after_fragment": "receptor_production_rate - internalization_rate*S + recycling_rate*R*E/(recycling_saturation_scale/R + R*E)",
+        "parent_reduction": "The child reduces exactly to the parent at R = 1, and approximately when depletion is negligible so that R remains close to 1 over the observation window.",
+        "observable_signature": "Vary the duration or intensity of the receptor-production-driven loading phase while holding all rate parameters fixed and using the stated initial conditions. When E has been sustained near or above recycling_saturation_scale long enough to depress R, later trajectories show a flatter recycling contribution versus E and therefore smaller dS_dt at the same observed E than earlier or more mildly loaded trajectories; this alters the scored target mapping, not only auxiliary state motion.",
+        "shortcut_blocked": "Refitting all existing parent parameters cannot make one shared parent law reproduce this contrast across those conditions because, in the parent, the target contribution from recycling is a single memoryless saturating function of the current states with one invariant bottleneck shape. The child changes that target mapping by letting the effective saturation scale depend on the adaptive capacity state, so sustained loading produces a post-load suppression pattern that a fixed parent saturation scale cannot match with one parameter set."
+      },
+      "range_suggestions": {}
+    },
+    {
+      "generation": 4,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "phase_shift",
+          "parent_relation": "At fixed receptor_production_rate and internalization_rate, the parent maps endosomal load and recycling capacity to dS_dt through an effectively instantaneous recycling response: once E and R are specified, the return flux adjusts without an additional kinetic delay, so recovery of surface receptors after a production change is single-phase apart from the existing R adaptation.",
+          "child_relation": "Relax the assumption of instantaneous recycling by introducing a maturation/competence delay within the endosomal return pathway, so only a progressively formed recycling-competent fraction of endosomal receptors can return rapidly to the surface. Then the same E can produce different dS_dt depending on how much of the endosomal pool has matured into the recyclable subpopulation, creating an additional phase in surface recovery.",
+          "affected_inputs": [
+            "E",
+            "R",
+            "t"
+          ],
+          "observable_effect": "After a step change in receptor production, surface recovery or overshoot onset is delayed relative to total endosomal accumulation: E can rise early while dS_dt remains more negative than in the parent, followed later by enhanced return once the recyclable subpool forms."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "endosomal_load",
+            "expression": "E",
+            "role": "Total internalized receptor burden available for sorting"
+          },
+          {
+            "name": "recycling_competence",
+            "expression": "R",
+            "role": "Available recycling machinery or competence scaling"
+          },
+          {
+            "name": "effective_recycling_drive",
+            "expression": "E*R",
+            "role": "Parent instantaneous coordinate controlling recycling return strength"
+          }
+        ],
+        "activation_condition": "Observable when internalization rapidly fills endosomes after the production change and the timescale for acquiring recycling competence is not negligible compared with 1/internalization_rate and 1/endosomal_degradation_rate; weak or absent if maturation is effectively instantaneous.",
+        "train_hidden_contrast": "Within training trajectories, early post-change points can show substantial E with muted surface recovery compared with later points at similar E and R; in holdout conditions with stronger transient endosomal loading, that lagged return phase becomes more pronounced.",
+        "continuation_path": "Take the maturation/competence-acquisition process to be arbitrarily fast so the recyclable subpool tracks total E quasi-instantly, recovering the parent's direct recycling law.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "Existing states S, E, and R do not distinguish newly internalized receptors from recycling-competent endosomal receptors. A separate dynamic subpool is needed to represent delayed acquisition of recycling competence; changing only fixed parameters cannot create memory beyond the current E and R values.",
+        "gap_statement": "The current model treats the whole endosomal receptor pool as immediately eligible for recycling, scaled only by instantaneous capacity R, omitting the finite endosomal maturation/sorting time before receptors can re-enter the rapid recycling route.",
+        "baseline_assumption": "Trafficking rates are constant over the modeled interval and recycling acts as an instantaneous function of the current total endosomal pool E rather than of a distinct recycling-competent subpool.",
+        "scientific_mechanism": "Endosomal maturation or sorting delay: newly internalized receptors first enter a non-recycling-competent endosomal state and only later become available to the recycling machinery.",
+        "affected_symbols": [
+          "E",
+          "R",
+          "recycling_rate",
+          "internalization_rate"
+        ],
+        "rationale": "A realistic next refinement is to relax the parent's single-phase recycling assumption. Vary the magnitude and time course of endosomal loading generated by the existing production-change experiment, while holding the model structure, initial conditions, and measured compartments fixed. In the parent, once E and R are known, recycling back to S is determined immediately by one shared saturating map, so trajectories with similar E and R must yield similar recycling contribution to dS_dt. In the child, early after internalization, much of E can still be immature and not yet recyclable, so dS_dt remains lower than the parent predicts even at the same total E; later, after maturation, the same total E can support stronger surface recovery. This is a target-mapping change because dS_dt for S is altered, not merely an auxiliary hidden trajectory, under the actual observation protocol where S is evolved from the ODE system. The contrast is admissible when endosomal sorting/maturation is not instantaneous and when transient E buildup occurs from the production perturbation; if maturation is extremely fast or E stays very small, the effect collapses toward the parent and may be hard to identify."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "phase_shift",
+          "parent_relation": "At fixed receptor_production_rate and internalization_rate, the parent maps endosomal load and recycling capacity to dS_dt through an effectively instantaneous recycling response: once E and R are specified, the return flux adjusts without an additional kinetic delay, so recovery of surface receptors after a production change is single-phase apart from the existing R adaptation.",
+          "child_relation": "Relax the assumption of instantaneous recycling by introducing a maturation/competence delay within the endosomal return pathway, so only a progressively formed recycling-competent fraction of endosomal receptors can return rapidly to the surface. Then the same E can produce different dS_dt depending on how much of the endosomal pool has matured into the recyclable subpopulation, creating an additional phase in surface recovery.",
+          "affected_inputs": [
+            "E",
+            "R",
+            "t"
+          ],
+          "observable_effect": "After a step change in receptor production, surface recovery or overshoot onset is delayed relative to total endosomal accumulation: E can rise early while dS_dt remains more negative than in the parent, followed later by enhanced return once the recyclable subpool forms."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "endosomal_load",
+            "expression": "E",
+            "role": "Total internalized receptor burden available for sorting"
+          },
+          {
+            "name": "recycling_competence",
+            "expression": "R",
+            "role": "Available recycling machinery or competence scaling"
+          },
+          {
+            "name": "effective_recycling_drive",
+            "expression": "E*R",
+            "role": "Parent instantaneous coordinate controlling recycling return strength"
+          }
+        ],
+        "activation_condition": "Observable when internalization rapidly fills endosomes after the production change and the timescale for acquiring recycling competence is not negligible compared with 1/internalization_rate and 1/endosomal_degradation_rate; weak or absent if maturation is effectively instantaneous.",
+        "train_hidden_contrast": "Within training trajectories, early post-change points can show substantial E with muted surface recovery compared with later points at similar E and R; in holdout conditions with stronger transient endosomal loading, that lagged return phase becomes more pronounced.",
+        "continuation_path": "Take the maturation/competence-acquisition process to be arbitrarily fast so the recyclable subpool tracks total E quasi-instantly, recovering the parent's direct recycling law.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "Existing states S, E, and R do not distinguish newly internalized receptors from recycling-competent endosomal receptors. A separate dynamic subpool is needed to represent delayed acquisition of recycling competence; changing only fixed parameters cannot create memory beyond the current E and R values.",
+        "scope_kind": "memory",
+        "scope_symbols": [
+          "E",
+          "R",
+          "M",
+          "t"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Delayed endosomal sorting into a recycling-competent compartmental subpool",
+        "scientific_mechanism": "Endosomal maturation or sorting delay: newly internalized receptors first enter a non-recycling-competent endosomal state and only later become available to the recycling machinery.",
+        "embedding_pattern": "multiplicative_modulation",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the recycling contribution to dS_dt is no longer a single instantaneous function of E and R. The added state M creates history dependence, allowing identical current E and R to produce different recycling fluxes depending on prior loading and maturation, which cannot be reproduced by rescaling existing parameters alone.",
+        "taxonomy_match": "known",
+        "assumption_before": "Trafficking rates are constant over the modeled interval and recycling acts as an instantaneous function of the current total endosomal pool E rather than of a distinct recycling-competent subpool.",
+        "assumption_after": "Newly internalized receptors enter total endosomes first, and only the matured recycling-competent subpool M can engage the existing saturable recycling law.",
+        "before_fragment": "receptor_production_rate - internalization_rate*S + recycling_rate*R*E/(recycling_saturation_scale/R + R*E)",
+        "after_fragment": "receptor_production_rate - internalization_rate*S + recycling_rate*R*M/(recycling_saturation_scale/R + R*M)",
+        "parent_reduction": "In the singular fast-maturation limit where M follows E quasi-instantly, M -> E and the target equation recovers the parent expression.",
+        "observable_signature": "Relative to the parent's immediate E,R-to-dS_dt map, the child shows a delayed recycling phase: early after perturbation, high E with still-low M yields weaker recovery of S than the parent predicts, whereas later at similar E and R but larger M the recycling contribution is stronger. This changes the scored target mapping itself because dS_dt for S depends on the lagged competent subpool, not only on auxiliary trajectories.",
+        "shortcut_blocked": "A single refit of the parent parameters cannot reproduce trajectories where similar observed E and R correspond to systematically different dS_dt at different times, because the parent recycling term is a fixed instantaneous function of E and R only. Parameter retuning may shift overall gain or saturation, but it cannot generate the required history-dependent lag without an additional state carrying maturation memory."
+      },
+      "range_suggestions": {
+        "M": "0 <= M <= E under physically consistent trajectories; initialize below E to represent an immature endosomal fraction after perturbation",
+        "endosomal_maturation_rate": "positive, typically comparable to or slower than internalization_rate and recycling_rate when the delay is observable"
+      }
+    },
+    {
+      "generation": 5,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The recycling contribution to dS_dt depends only on the mature recycling-competent pool M and available capacity R, so at fixed R the surface recovery rises with a single saturating phase as M increases.",
+          "child_relation": "Make the endosomal degradation loss borne specifically by the degradative/immature fraction E-M rather than by total E, so maturation competes more directly with loss. Then dS_dt as a function of internalized load acquires stronger curvature because increasing E can first feed M and later be diverted into degradation before maturation, especially when M is still small.",
+          "affected_inputs": [
+            "E",
+            "M",
+            "R"
+          ],
+          "observable_effect": "After a production change that generates a transiently large immature endosomal pool, surface recovery is more delayed and more load-sensitive than in the parent: for similar E but lower M/E, dS_dt stays lower because more receptor is lost before becoming recyclable."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "immature_pool",
+            "expression": "E - M",
+            "role": "Endosomal receptor fraction not yet recycling-competent and therefore the natural substrate for pre-recycling sorting/degradation"
+          },
+          {
+            "name": "mature_fraction",
+            "expression": "M/E",
+            "role": "Dimensionless measure of how much of the endosomal content has matured into the recyclable subpool when E > 0"
+          },
+          {
+            "name": "recycling_flux",
+            "expression": "recycling_rate*R*M/(recycling_saturation_scale/R + R*M)",
+            "role": "Instantaneous return flux from the mature endosomal subpool to the surface"
+          }
+        ],
+        "activation_condition": "Observable when a substantial immature endosomal fraction exists, i.e. E-M is not negligible relative to E, such as early after increased internalization or when endosomal_maturation_rate is comparable to or slower than endosomal_degradation_rate.",
+        "train_hidden_contrast": "In training regimes with modest delay, the same mechanism appears as a mild lag in surface recovery after endosomal loading; in extended holdout regimes with larger transient immature pools, the stronger pre-maturation loss produces a more pronounced reduction in dS_dt that the parent cannot match with one parameter set.",
+        "continuation_path": "Recover the parent law in the limit where degradation acts effectively uniformly across endosomal subpools, or approximately when M tracks E closely so that E-M stays negligible over the observed interval.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The model currently degrades the entire endosomal pool E at one uniform first-order rate even though only the immature/non-recycling-sorted fraction should be preferentially committed to degradative routing before gaining recycling competence.",
+        "baseline_assumption": "Relax the parent assumption that endosomal degradation acts uniformly on total endosomal abundance regardless of maturation/sorting state.",
+        "scientific_mechanism": "State-specific endosomal sorting in which receptors are more likely to be degraded before or instead of maturing into the recycling-competent compartment, so degradation primarily drains the immature/degradative subpool E-M.",
+        "affected_symbols": [
+          "E",
+          "M",
+          "endosomal_degradation_rate",
+          "endosomal_maturation_rate"
+        ],
+        "rationale": "A realistic next refinement is to make degradation compete with maturation on the immature endosomal pool rather than remove receptors uniformly from all of E. The parent target mapping for dS_dt has a single-phase dependence on endosomal history: once M and R are specified, only one saturating recycling law controls return to the surface, and the way E feeds future dS_dt is too simple because total endosomal loss ignores whether receptors have matured. Vary the post-perturbation endosomal composition through conditions that generate different immature fractions E-M while holding the same production, internalization, recycling, and capacity parameters fixed. Under those admissible conditions, the child predicts lower subsequent dS_dt for trajectories with larger immature load because more receptor is degraded before entering M; the parent can only mimic this by changing global rates, which would also alter later recovery when M has caught up. This is a target-mapping change, not merely an auxiliary-trajectory change, because the altered competition changes how observed E and M jointly imply future surface recovery through their effect on the recyclable pool. The contrast is most visible when initialization or perturbation leaves M well below E and maturation is not much faster than degradation; if M approximately equals E throughout observation, the refinement is weak and the parent is effectively recovered."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The recycling contribution to dS_dt depends only on the mature recycling-competent pool M and available capacity R, so at fixed R the surface recovery rises with a single saturating phase as M increases.",
+          "child_relation": "Make the endosomal degradation loss borne specifically by the degradative/immature fraction E-M rather than by total E, so maturation competes more directly with loss. Then dS_dt as a function of internalized load acquires stronger curvature because increasing E can first feed M and later be diverted into degradation before maturation, especially when M is still small.",
+          "affected_inputs": [
+            "E",
+            "M",
+            "R"
+          ],
+          "observable_effect": "After a production change that generates a transiently large immature endosomal pool, surface recovery is more delayed and more load-sensitive than in the parent: for similar E but lower M/E, dS_dt stays lower because more receptor is lost before becoming recyclable."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "immature_pool",
+            "expression": "E - M",
+            "role": "Endosomal receptor fraction not yet recycling-competent and therefore the natural substrate for pre-recycling sorting/degradation"
+          },
+          {
+            "name": "mature_fraction",
+            "expression": "M/E",
+            "role": "Dimensionless measure of how much of the endosomal content has matured into the recyclable subpool when E > 0"
+          },
+          {
+            "name": "recycling_flux",
+            "expression": "recycling_rate*R*M/(recycling_saturation_scale/R + R*M)",
+            "role": "Instantaneous return flux from the mature endosomal subpool to the surface"
+          }
+        ],
+        "activation_condition": "Observable when a substantial immature endosomal fraction exists, i.e. E-M is not negligible relative to E, such as early after increased internalization or when endosomal_maturation_rate is comparable to or slower than endosomal_degradation_rate.",
+        "train_hidden_contrast": "In training regimes with modest delay, the same mechanism appears as a mild lag in surface recovery after endosomal loading; in extended holdout regimes with larger transient immature pools, the stronger pre-maturation loss produces a more pronounced reduction in dS_dt that the parent cannot match with one parameter set.",
+        "continuation_path": "Recover the parent law in the limit where degradation acts effectively uniformly across endosomal subpools, or approximately when M tracks E closely so that E-M stays negligible over the observed interval.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "E",
+          "M"
+        ],
+        "structural_role": "transport_balance",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Preferential degradation of the immature endosomal receptor fraction before recycling competence is acquired",
+        "scientific_mechanism": "State-specific endosomal sorting in which receptors are more likely to be degraded before or instead of maturing into the recycling-competent compartment, so degradation primarily drains the immature/degradative subpool E-M.",
+        "embedding_pattern": "state_coupling",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the degradation loss now depends jointly on two declared states through E-M, so the same total endosomal load can imply different future surface recovery depending on composition. A single retuned first-order degradation coefficient on E cannot generate this composition-sensitive curvature while preserving later recovery once M has matured.",
+        "taxonomy_match": "known",
+        "assumption_before": "Uniform first-order endosomal degradation removes receptor from total E and from M with the same state-independent law.",
+        "assumption_after": "Degradation predominantly removes the immature/degradative subpool E-M, making maturation and degradation compete for the same substrate.",
+        "before_fragment": "receptor_production_rate - internalization_rate*S + recycling_rate*R*M/(recycling_saturation_scale/R + R*M)",
+        "after_fragment": "receptor_production_rate - internalization_rate*S + recycling_rate*R*M/(recycling_saturation_scale/R + R*M)",
+        "parent_reduction": "The parent is approximately recovered when E-M remains small because M closely tracks E, so immature-specific degradation becomes observationally close to uniform endosomal degradation.",
+        "observable_signature": "For trajectories observed under the same fixed parameter set, compare cases with similar E and R but different immature_pool E-M. The child predicts lower subsequent recycling support and slower surface recovery when mature_fraction M/E is lower, whereas the parent's uniform degradation cannot create as strong a composition-dependent suppression without also distorting trajectories after M catches up.",
+        "shortcut_blocked": "Refitting all existing parent parameters cannot absorb this across both low- and high-immature-fraction conditions with one shared parameter set because the parent only scales degradation with E and M through fixed separate linear losses. It lacks the specific competitive coupling on E-M, so matching delayed recovery for immature-rich trajectories would force degradation or maturation changes that also mispredict trajectories where most endosomal receptor is already mature."
+      },
+      "range_suggestions": {}
+    }
+  ],
+  "evolution_provenance": {
+    "dimension_track": null,
+    "mechanism_profile": {
+      "allowed_structural_roles": [
+        "contribution",
+        "modulation",
+        "interaction",
+        "feedback",
+        "timescale",
+        "transport_balance"
+      ],
+      "preferred_scopes": [
+        "unary",
+        "pairwise",
+        "state_coupling",
+        "memory"
+      ],
+      "domain_mechanisms": [
+        {
+          "id": "receptor_saturation",
+          "description": "finite receptor occupancy or saturating signal transduction",
+          "operations": [
+            "add_term",
+            "change_assumption"
+          ]
+        },
+        {
+          "id": "negative_feedback",
+          "description": "feedback repression or adaptive regulation",
+          "operations": [
+            "add_term"
+          ]
+        },
+        {
+          "id": "finite_signal_relaxation",
+          "description": "non-instantaneous intracellular relaxation",
+          "operations": [
+            "change_assumption"
+          ]
+        }
+      ],
+      "profile_source": "subfield",
+      "ontology_schema_version": "1.0",
+      "taxonomy_schema_version": "1.0"
+    },
+    "baseline_mechanisms": [
+      "Constitutive receptor production into the surface pool",
+      "Endocytosis from the surface into an endosomal pool",
+      "Recycling from endosomes to the surface",
+      "Endosomal sorting to degradation"
+    ],
+    "baseline_assumptions": [
+      "The cell surface and endosomal compartments are well mixed.",
+      "Trafficking rates are constant over the modeled interval.",
+      "New receptors enter directly into the surface pool.",
+      "Endosomal degradation is irreversible in the baseline model."
+    ],
+    "scientific_constraints": [
+      "Both receptor abundances are nonnegative.",
+      "The total receptor amount changes only through production and degradation.",
+      "Trafficking transfers receptor between compartments without changing receptor identity."
+    ],
+    "refinement_agenda": [
+      "Add ligand-dependent internalization if receptor loss depends on stimulation.",
+      "Add a recycling-competent and a degradation-committed endosomal subpool if one endosomal compartment cannot fit the data.",
+      "Add synthesis feedback if the cell compensates for prolonged receptor depletion."
+    ],
+    "evolution_contracts": [
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The target mapping is linear in the observed states: dS_dt increases with a fixed positive gain in E through recycling_rate*E and decreases with a fixed negative gain in S through internalization_rate*S, so the contribution of the endosomal pool to surface recovery is proportional at all E.",
+          "child_relation": "Replace constant endosomal recycling efficiency by a saturating endosome-to-surface return process, so the positive effect of E on dS_dt grows approximately linearly at low E but bends toward a ceiling at high E.",
+          "affected_inputs": [
+            "E",
+            "S"
+          ],
+          "observable_effect": "Across trajectories that reach different endosomal loads, the child predicts diminishing marginal surface replenishment from additional E, yielding slower-than-linear recovery of dS_dt at high E compared with the parent's straight-line dependence."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "total_receptor",
+            "expression": "S + E",
+            "role": "overall receptor load that determines whether the endosomal pool can become large enough for recycling capacity limits to matter"
+          },
+          {
+            "name": "endo_surface_ratio",
+            "expression": "E/(S + 1.0e-12)",
+            "role": "relative sequestration into endosomes, indicating regimes where return flux from E substantially shapes dS_dt"
+          },
+          {
+            "name": "surface_balance_parent",
+            "expression": "receptor_production_rate - internalization_rate*S + recycling_rate*E",
+            "role": "parent predicted surface-rate balance used to identify departures from linear E-driven recovery"
+          }
+        ],
+        "activation_condition": "Observable when E spans from low values to values large enough that recycling machinery is no longer effectively first order over the sampled time course; practically, this requires appreciable endosomal accumulation from internalization while receptor_production_rate, internalization_rate, and endosomal_degradation_rate are held fixed across compared conditions.",
+        "train_hidden_contrast": "In training, mild endosomal accumulation can look nearly linear; in holdout, larger transient E exposes downward curvature in the E to dS_dt relationship from saturating recycling rather than a single shared linear gain.",
+        "continuation_path": "Recover the parent law in the low-occupancy limit where endosomal abundance stays well below the recycling saturation scale, making recycling effectively first order in E.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "E"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "capacity-limited endosomal recycling",
+        "scientific_mechanism": "Capacity-limited endosomal sorting and recycling, where recycling machinery or carrier formation saturates as endosomal receptor load increases.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the effective recycling gain becomes E-dependent, creating a state-conditioned slope in the target equation that one globally refit linear recycling coefficient cannot match across both low-E and high-E regimes.",
+        "taxonomy_match": "known",
+        "assumption_before": "Recycling from endosomes is first order with an E-independent proportionality over the full admissible endosomal load range.",
+        "assumption_after": "Recycling machinery has finite capacity, so the recycling contribution saturates with increasing endosomal abundance.",
+        "before_fragment": "receptor_production_rate - internalization_rate*S + recycling_rate*E",
+        "after_fragment": "receptor_production_rate - internalization_rate*S + recycling_rate*E/(recycling_saturation_scale + E)",
+        "parent_reduction": "When E << recycling_saturation_scale, recycling_rate*E/(recycling_saturation_scale + E) ≈ (recycling_rate/recycling_saturation_scale)*E, recovering a first-order recycling law after parameter rescaling.",
+        "observable_signature": "Holding receptor_production_rate, internalization_rate, and endosomal_degradation_rate fixed, compare portions of trajectories with low versus high E under the given initial-condition protocol. The parent predicts a constant E-to-dS_dt slope, while the child predicts approximately linear dependence at low E and a reduced incremental effect of E on dS_dt once E becomes comparable to recycling_saturation_scale; this changes the scored target mapping itself, not just the auxiliary E trajectory.",
+        "shortcut_blocked": "A single parent parameter set cannot reproduce both the low-E near-linear gain and the high-E diminished marginal recycling over the same admissible conditions, because any constant recycling_rate imposes one global slope of dS_dt versus E. Refitting all existing parent parameters may shift offsets and the S-dependent term, but it cannot generate the required downward curvature in the direct E contribution when compared across trajectories that span different endosomal loads."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "interaction_emergence",
+          "parent_relation": "The target mapping dS_dt depends on E through a single Michaelis-like recycling term with a fixed saturation scale, so for any fixed S the marginal effect of E is determined only by E and one constant recycling_saturation_scale.",
+          "child_relation": "The effective recycling nonlinearity is modulated by the evolving endosomal receptor burden itself through a dynamic recycling-capacity state, so the influence of E on dS_dt depends on both instantaneous E and the current available recycling machinery.",
+          "affected_inputs": [
+            "E",
+            "recycling_saturation_scale"
+          ],
+          "observable_effect": "After a production change that drives sustained high endosomal load, surface recovery can become transiently slower and more delayed than under moderate load, even when S and E later pass through similar values, because recycling capacity has adapted; the parent predicts the same dS_dt whenever S and E are the same."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "endo_load_ratio",
+            "expression": "E/recycling_saturation_scale",
+            "role": "dimensionless endosomal loading relative to the nominal recycling-capacity scale"
+          },
+          {
+            "name": "net_surface_balance_parent",
+            "expression": "receptor_production_rate - internalization_rate*S + recycling_rate*E/(recycling_saturation_scale + E)",
+            "role": "parent predicted surface gain-loss balance used as the baseline target mapping"
+          },
+          {
+            "name": "total_receptor",
+            "expression": "S + E",
+            "role": "overall receptor inventory distinguishing production-driven buildup from trafficking redistribution"
+          }
+        ],
+        "activation_condition": "Observable when endosomal load reaches or exceeds the nominal recycling saturation scale for a sustained interval, so that recycling machinery availability can adapt on the experiment timescale; weak or negligible when E remains well below recycling_saturation_scale or when adaptation is much faster than sampling and effectively quasistatic.",
+        "train_hidden_contrast": "In training, moderate perturbations may mainly show mild curvature in the E-to-dS_dt relation; in holdout, larger or longer production-driven loading extends this into history-dependent slowing of surface recovery. The same mechanism is active in both cases, but the stronger contrast appears when high E persists long enough to deplete or remodel recycling capacity.",
+        "continuation_path": "Recover the parent law in the limit where recycling capacity remains constant or instantaneously equilibrated to a fixed value, so the recycling term collapses back to the current saturating form with one constant recycling_saturation_scale.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A fixed parameter cannot encode load-history-dependent adaptation of recycling capacity. A new state is needed to represent slowly varying recycling availability or competence that changes under endosomal burden and feeds back onto the surface recycling flux.",
+        "scope_kind": "memory",
+        "scope_symbols": [
+          "S",
+          "E",
+          "R"
+        ],
+        "structural_role": "feedback",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "adaptive recycling-capacity depletion and recovery",
+        "scientific_mechanism": "Endosomal-load-dependent adaptation of recycling capacity, such as occupancy or temporary depletion of recycling carriers/components, causing history-dependent recycling efficiency.",
+        "embedding_pattern": "nested_nonlinearity",
+        "difficulty_rationale": "This is structurally harder than a coefficient correction because the recycling term now depends on the combined quantity R*E inside a saturating nonlinearity, and R itself evolves from prior endosomal load. That creates memory and a non-single-valued mapping from S,E to dS_dt that cannot be mimicked by retuning one fixed saturation curve.",
+        "taxonomy_match": "provisional",
+        "assumption_before": "Trafficking rates are constant over the modeled interval.",
+        "assumption_after": "Recycling capacity is a dynamic internal state that is depleted by sustained endosomal load and recovers over time.",
+        "before_fragment": "receptor_production_rate - internalization_rate*S + recycling_rate*E/(recycling_saturation_scale + E)",
+        "after_fragment": "receptor_production_rate - internalization_rate*S + recycling_rate*R*E/(recycling_saturation_scale + R*E)",
+        "parent_reduction": "When R=1 identically, or in the fast-recovery negligible-depletion limit keeping R near 1, the child reduces to the parent.",
+        "observable_signature": "Across experiments differing only in the magnitude or duration of the production-driven endosomal loading, trajectories can later revisit similar S and E values but exhibit different dS_dt because R differs. The parent enforces one shared dS_dt value for each S,E pair, whereas the child predicts slower surface recovery after prolonged overload when E/recycling_saturation_scale has been high long enough to depress R.",
+        "shortcut_blocked": "Refitting all parent parameters still leaves dS_dt as a fixed function of only S and E, so one parameter set must assign the same target derivative to matched S,E points across all conditions. If sustained-overload and moderate-load trajectories overlap in S,E yet show different recovery slopes due to different hidden recycling availability, no single parent parameter set can reproduce both; this is a changed target mapping, not merely altered auxiliary trajectories."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The recycling return term maps endosomal load to surface recovery with a single fixed Michaelis-like saturation scale, so for fixed S and R the dependence of dS_dt on E has one invariant concavity pattern set only by recycling_saturation_scale.",
+          "child_relation": "Replace the fixed recycling saturation scale assumption with a load-adaptive effective recycling bottleneck, so the recycling flux depends on both instantaneous endosomal load and a slowly varying occupancy/depletion state. Then dS_dt versus E gains history-dependent curvature because prior endosomal burden can depress current recycling efficiency even at the same E.",
+          "affected_inputs": [
+            "E",
+            "R"
+          ],
+          "observable_effect": "After a sustained high-endosomal-load phase, the same observed E produces a smaller positive recycling contribution to dS_dt than earlier, yielding slower surface recovery and stronger bending away from the parent’s single saturating curve."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "recycling_drive",
+            "expression": "R*E/(recycling_saturation_scale + R*E)",
+            "role": "Parent instantaneous recycling activation coordinate"
+          },
+          {
+            "name": "capacity_depletion",
+            "expression": "recycling_capacity_depletion_rate*E*R",
+            "role": "Strength of load-induced loss of recycling competence"
+          },
+          {
+            "name": "capacity_recovery",
+            "expression": "recycling_capacity_recovery_rate*(1 - R)",
+            "role": "Relaxation back toward nominal recycling availability"
+          }
+        ],
+        "activation_condition": "Observable when E is sustained at or above order recycling_saturation_scale long enough that recycling_capacity_depletion_rate*E is comparable to or exceeds recycling_capacity_recovery_rate; weak when E stays low or transients are too brief to move R appreciably from 1.",
+        "train_hidden_contrast": "In training, modest variation in E already introduces slight hysteresis in the recycling contribution through R; in holdout, longer or larger endosomal loading extends this into a stronger post-load suppression of dS_dt at the same E, revealing the changed curvature more clearly.",
+        "continuation_path": "Recover the parent law in the limit recycling_capacity_depletion_rate -> 0, or when recycling_capacity_recovery_rate is fast enough and E remains small enough that R stays near 1 over the observation window.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "E",
+          "R"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "State-dependent saturation of the recycling return process by adaptive recycling capacity",
+        "scientific_mechanism": "Endosomal sorting/recycling machinery crowding can change the effective access or half-saturation of recycling with accumulated compartmental occupancy, making recycling responsiveness to E history dependent rather than a fixed instantaneous saturating map.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the existing adaptive state R now changes the shape of the recycling response law rather than merely scaling its amplitude. A single shared parent parameter set cannot preserve early responsive recycling and later post-load flattening across loading protocols when depletion becomes appreciable.",
+        "taxonomy_match": "known",
+        "assumption_before": "The recycling flux has a single fixed Michaelis-like saturation form with invariant half-saturation scale over the modeled interval.",
+        "assumption_after": "Reduced recycling capacity increases the effective half-saturation scale of recycling, so the recycling law changes shape as capacity is depleted.",
+        "before_fragment": "receptor_production_rate - internalization_rate*S + recycling_rate*R*E/(recycling_saturation_scale + R*E)",
+        "after_fragment": "receptor_production_rate - internalization_rate*S + recycling_rate*R*E/(recycling_saturation_scale/R + R*E)",
+        "parent_reduction": "The child reduces exactly to the parent at R = 1, and approximately when depletion is negligible so that R remains close to 1 over the observation window.",
+        "observable_signature": "Vary the duration or intensity of the receptor-production-driven loading phase while holding all rate parameters fixed and using the stated initial conditions. When E has been sustained near or above recycling_saturation_scale long enough to depress R, later trajectories show a flatter recycling contribution versus E and therefore smaller dS_dt at the same observed E than earlier or more mildly loaded trajectories; this alters the scored target mapping, not only auxiliary state motion.",
+        "shortcut_blocked": "Refitting all existing parent parameters cannot make one shared parent law reproduce this contrast across those conditions because, in the parent, the target contribution from recycling is a single memoryless saturating function of the current states with one invariant bottleneck shape. The child changes that target mapping by letting the effective saturation scale depend on the adaptive capacity state, so sustained loading produces a post-load suppression pattern that a fixed parent saturation scale cannot match with one parameter set."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "phase_shift",
+          "parent_relation": "At fixed receptor_production_rate and internalization_rate, the parent maps endosomal load and recycling capacity to dS_dt through an effectively instantaneous recycling response: once E and R are specified, the return flux adjusts without an additional kinetic delay, so recovery of surface receptors after a production change is single-phase apart from the existing R adaptation.",
+          "child_relation": "Relax the assumption of instantaneous recycling by introducing a maturation/competence delay within the endosomal return pathway, so only a progressively formed recycling-competent fraction of endosomal receptors can return rapidly to the surface. Then the same E can produce different dS_dt depending on how much of the endosomal pool has matured into the recyclable subpopulation, creating an additional phase in surface recovery.",
+          "affected_inputs": [
+            "E",
+            "R",
+            "t"
+          ],
+          "observable_effect": "After a step change in receptor production, surface recovery or overshoot onset is delayed relative to total endosomal accumulation: E can rise early while dS_dt remains more negative than in the parent, followed later by enhanced return once the recyclable subpool forms."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "endosomal_load",
+            "expression": "E",
+            "role": "Total internalized receptor burden available for sorting"
+          },
+          {
+            "name": "recycling_competence",
+            "expression": "R",
+            "role": "Available recycling machinery or competence scaling"
+          },
+          {
+            "name": "effective_recycling_drive",
+            "expression": "E*R",
+            "role": "Parent instantaneous coordinate controlling recycling return strength"
+          }
+        ],
+        "activation_condition": "Observable when internalization rapidly fills endosomes after the production change and the timescale for acquiring recycling competence is not negligible compared with 1/internalization_rate and 1/endosomal_degradation_rate; weak or absent if maturation is effectively instantaneous.",
+        "train_hidden_contrast": "Within training trajectories, early post-change points can show substantial E with muted surface recovery compared with later points at similar E and R; in holdout conditions with stronger transient endosomal loading, that lagged return phase becomes more pronounced.",
+        "continuation_path": "Take the maturation/competence-acquisition process to be arbitrarily fast so the recyclable subpool tracks total E quasi-instantly, recovering the parent's direct recycling law.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "Existing states S, E, and R do not distinguish newly internalized receptors from recycling-competent endosomal receptors. A separate dynamic subpool is needed to represent delayed acquisition of recycling competence; changing only fixed parameters cannot create memory beyond the current E and R values.",
+        "scope_kind": "memory",
+        "scope_symbols": [
+          "E",
+          "R",
+          "M",
+          "t"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Delayed endosomal sorting into a recycling-competent compartmental subpool",
+        "scientific_mechanism": "Endosomal maturation or sorting delay: newly internalized receptors first enter a non-recycling-competent endosomal state and only later become available to the recycling machinery.",
+        "embedding_pattern": "multiplicative_modulation",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the recycling contribution to dS_dt is no longer a single instantaneous function of E and R. The added state M creates history dependence, allowing identical current E and R to produce different recycling fluxes depending on prior loading and maturation, which cannot be reproduced by rescaling existing parameters alone.",
+        "taxonomy_match": "known",
+        "assumption_before": "Trafficking rates are constant over the modeled interval and recycling acts as an instantaneous function of the current total endosomal pool E rather than of a distinct recycling-competent subpool.",
+        "assumption_after": "Newly internalized receptors enter total endosomes first, and only the matured recycling-competent subpool M can engage the existing saturable recycling law.",
+        "before_fragment": "receptor_production_rate - internalization_rate*S + recycling_rate*R*E/(recycling_saturation_scale/R + R*E)",
+        "after_fragment": "receptor_production_rate - internalization_rate*S + recycling_rate*R*M/(recycling_saturation_scale/R + R*M)",
+        "parent_reduction": "In the singular fast-maturation limit where M follows E quasi-instantly, M -> E and the target equation recovers the parent expression.",
+        "observable_signature": "Relative to the parent's immediate E,R-to-dS_dt map, the child shows a delayed recycling phase: early after perturbation, high E with still-low M yields weaker recovery of S than the parent predicts, whereas later at similar E and R but larger M the recycling contribution is stronger. This changes the scored target mapping itself because dS_dt for S depends on the lagged competent subpool, not only on auxiliary trajectories.",
+        "shortcut_blocked": "A single refit of the parent parameters cannot reproduce trajectories where similar observed E and R correspond to systematically different dS_dt at different times, because the parent recycling term is a fixed instantaneous function of E and R only. Parameter retuning may shift overall gain or saturation, but it cannot generate the required history-dependent lag without an additional state carrying maturation memory."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The recycling contribution to dS_dt depends only on the mature recycling-competent pool M and available capacity R, so at fixed R the surface recovery rises with a single saturating phase as M increases.",
+          "child_relation": "Make the endosomal degradation loss borne specifically by the degradative/immature fraction E-M rather than by total E, so maturation competes more directly with loss. Then dS_dt as a function of internalized load acquires stronger curvature because increasing E can first feed M and later be diverted into degradation before maturation, especially when M is still small.",
+          "affected_inputs": [
+            "E",
+            "M",
+            "R"
+          ],
+          "observable_effect": "After a production change that generates a transiently large immature endosomal pool, surface recovery is more delayed and more load-sensitive than in the parent: for similar E but lower M/E, dS_dt stays lower because more receptor is lost before becoming recyclable."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "immature_pool",
+            "expression": "E - M",
+            "role": "Endosomal receptor fraction not yet recycling-competent and therefore the natural substrate for pre-recycling sorting/degradation"
+          },
+          {
+            "name": "mature_fraction",
+            "expression": "M/E",
+            "role": "Dimensionless measure of how much of the endosomal content has matured into the recyclable subpool when E > 0"
+          },
+          {
+            "name": "recycling_flux",
+            "expression": "recycling_rate*R*M/(recycling_saturation_scale/R + R*M)",
+            "role": "Instantaneous return flux from the mature endosomal subpool to the surface"
+          }
+        ],
+        "activation_condition": "Observable when a substantial immature endosomal fraction exists, i.e. E-M is not negligible relative to E, such as early after increased internalization or when endosomal_maturation_rate is comparable to or slower than endosomal_degradation_rate.",
+        "train_hidden_contrast": "In training regimes with modest delay, the same mechanism appears as a mild lag in surface recovery after endosomal loading; in extended holdout regimes with larger transient immature pools, the stronger pre-maturation loss produces a more pronounced reduction in dS_dt that the parent cannot match with one parameter set.",
+        "continuation_path": "Recover the parent law in the limit where degradation acts effectively uniformly across endosomal subpools, or approximately when M tracks E closely so that E-M stays negligible over the observed interval.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "E",
+          "M"
+        ],
+        "structural_role": "transport_balance",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Preferential degradation of the immature endosomal receptor fraction before recycling competence is acquired",
+        "scientific_mechanism": "State-specific endosomal sorting in which receptors are more likely to be degraded before or instead of maturing into the recycling-competent compartment, so degradation primarily drains the immature/degradative subpool E-M.",
+        "embedding_pattern": "state_coupling",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the degradation loss now depends jointly on two declared states through E-M, so the same total endosomal load can imply different future surface recovery depending on composition. A single retuned first-order degradation coefficient on E cannot generate this composition-sensitive curvature while preserving later recovery once M has matured.",
+        "taxonomy_match": "known",
+        "assumption_before": "Uniform first-order endosomal degradation removes receptor from total E and from M with the same state-independent law.",
+        "assumption_after": "Degradation predominantly removes the immature/degradative subpool E-M, making maturation and degradation compete for the same substrate.",
+        "before_fragment": "receptor_production_rate - internalization_rate*S + recycling_rate*R*M/(recycling_saturation_scale/R + R*M)",
+        "after_fragment": "receptor_production_rate - internalization_rate*S + recycling_rate*R*M/(recycling_saturation_scale/R + R*M)",
+        "parent_reduction": "The parent is approximately recovered when E-M remains small because M closely tracks E, so immature-specific degradation becomes observationally close to uniform endosomal degradation.",
+        "observable_signature": "For trajectories observed under the same fixed parameter set, compare cases with similar E and R but different immature_pool E-M. The child predicts lower subsequent recycling support and slower surface recovery when mature_fraction M/E is lower, whereas the parent's uniform degradation cannot create as strong a composition-dependent suppression without also distorting trajectories after M catches up.",
+        "shortcut_blocked": "Refitting all existing parent parameters cannot absorb this across both low- and high-immature-fraction conditions with one shared parameter set because the parent only scales degradation with E and M through fixed separate linear losses. It lacks the specific competitive coupling on E-M, so matching delayed recovery for immature-rich trajectories would force degradation or maturation changes that also mispredict trajectories where most endosomal receptor is already mature."
+      }
+    ]
+  },
+  "finalization": {
+    "mode": "candidate",
+    "accepted_generations": 5,
+    "novelty": {
+      "answer": "NOT_EVALUATED"
+    },
+    "total_points": 5000,
+    "evaluation_status": "not_evaluated"
+  }
+}

@@ -1,0 +1,1754 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "N",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        60.0
+      ],
+      "n_points": 301,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "per_capita_birth_rate",
+      "value": 0.8
+    },
+    {
+      "symbol": "background_mortality_rate",
+      "value": 0.2
+    },
+    {
+      "symbol": "competition_strength",
+      "value": 0.002
+    },
+    {
+      "symbol": "crowding_saturation_scale",
+      "value": 0.02
+    },
+    {
+      "symbol": "crowding_accumulation_rate",
+      "value": 0.015
+    },
+    {
+      "symbol": "crowding_relaxation_rate",
+      "value": 0.3
+    },
+    {
+      "symbol": "abundance_crowding_curvature",
+      "value": 0.01
+    },
+    {
+      "symbol": "high_crowding_compression",
+      "value": 0.5
+    },
+    {
+      "symbol": "abundance_amplification_compression",
+      "value": 0.005
+    }
+  ],
+  "benchmark_output": "dN_dt",
+  "benchmark_target_state": "N",
+  "observed_variables": [
+    "t",
+    "N",
+    "C"
+  ],
+  "rhs_for_integrator": "per_capita_birth_rate*N - background_mortality_rate*N - competition_strength*C*N*(1 + abundance_crowding_curvature*N/(1 + abundance_amplification_compression*N))/(1 + crowding_saturation_scale*C + high_crowding_compression*(crowding_saturation_scale*C)**2)",
+  "state_variables": [
+    "N",
+    "C"
+  ],
+  "state_rhs": [
+    "per_capita_birth_rate*N - background_mortality_rate*N - competition_strength*C*N*(1 + abundance_crowding_curvature*N/(1 + abundance_amplification_compression*N))/(1 + crowding_saturation_scale*C + high_crowding_compression*(crowding_saturation_scale*C)**2)",
+    "crowding_accumulation_rate*N - crowding_relaxation_rate*C"
+  ],
+  "initial_conditions": {
+    "N": 100.0,
+    "C": 0.0
+  },
+  "sanity_expectations": [
+    "At t=0, C=0 makes the competition term exactly zero, so dN/dt = (per_capita_birth_rate - background_mortality_rate)*N = 60 > 0 and N should initially increase.",
+    "Because C obeys dC/dt = crowding_accumulation_rate*N - crowding_relaxation_rate*C with N(0)=100 and C(0)=0, dC/dt at t=0 is 1.5 > 0, so latent crowding should rise from zero after the start.",
+    "The trajectory should show an early phase where growth is only weakly suppressed by crowding, followed by stronger suppression once C accumulates; thus two times with similar N can have different dN/dt because C differs.",
+    "When C becomes moderate so crowding_saturation_scale*C is order 1, extra increases in C should produce diminishing additional suppression more strongly than a single hyperbola, i.e. dN/dt should flatten versus C at high crowding.",
+    "As N increases into the few-hundred range, abundance_crowding_curvature*N is order 1 or larger while abundance_amplification_compression*N also approaches order 1, so the abundance-amplified crowding factor should remain monotone in N but bend over relative to a purely linear 1 + abundance_crowding_curvature*N amplification.",
+    "A plausible trajectory is initial increase of N, later deceleration, and approach toward a finite crowded regime rather than unchecked exponential growth over the full window."
+  ],
+  "role_corrections": [
+    "dN_dt: claimed-output/target derivative -> derivative observable implied by RHS, but dependent variable for the governed system is N (overridden by typed ODE contract and system structure)",
+    "t: V->V (confirmed as sole independent time axis from ODE contract)",
+    "N: claimed-dynamic state -> dependent variable/target state (confirmed)",
+    "C: claimed-dynamic state -> dynamic state, not independent sampled axis (confirmed)",
+    "per_capita_birth_rate: P->P (confirmed)",
+    "background_mortality_rate: P->P (confirmed)",
+    "competition_strength: P->P (confirmed)",
+    "crowding_saturation_scale: P->P (confirmed)",
+    "crowding_accumulation_rate: P->P (confirmed from supplied system contract)",
+    "crowding_relaxation_rate: P->P (confirmed from supplied system contract)",
+    "abundance_crowding_curvature: P->P (confirmed)",
+    "high_crowding_compression: P->P (confirmed)",
+    "abundance_amplification_compression: P->P (confirmed)"
+  ],
+  "rationale": "Preserve the validated upstream ODE system contract exactly: although the displayed target expression is structurally an explicit algebraic RHS for dN_dt, the record explicitly supplies a two-state dynamical system with N as target state, C as latent crowding state, one sampled axis t, and freedom_change='none', so N and C remain dynamic variables and all listed coefficients remain fixed parameters. The chosen parameter set keeps low-density net growth positive (per_capita_birth_rate - background_mortality_rate = 0.6), ensuring initial increase from N(0)=100 while C(0)=0 produces an early near-exponential rise. Delayed crowding is made observable by using a moderate accumulation rate (0.015) and slower relaxation (0.3), so C lags N and later becomes appreciable over the same trajectory. The C-saturation argument crowding_saturation_scale*C is designed to move from near 0 early to order 1 during the trajectory, exposing the stronger-than-hyperbolic high-C compression through high_crowding_compression = 0.5 without placing the whole run deep in saturation. The abundance-amplification curvature abundance_crowding_curvature = 0.01 makes abundance_crowding_curvature*N already order 1 around N~100 and larger during growth, while abundance_amplification_compression = 0.005 keeps abundance_amplification_compression*N small-to-moderate at low abundance but order 1 as N rises into a few hundred, so the new high-abundance bending of the amplification factor is active but not collapsed to its recovery limit. This should expose the intended sequence of mechanisms along one trajectory: early low-crowding growth close to the simpler ancestors, followed by delayed crowding suppression, then visible high-N compression of abundance-amplified competition and stronger flattening of additional suppression at high C. No observation noise is added; outputs are exact numerical solutions of the inherited system.",
+  "coverage_report": {
+    "groups": [
+      {
+        "generation": 1,
+        "name": "per_capita_net_growth",
+        "expression": "(per_capita_birth_rate - background_mortality_rate) - competition_strength*N",
+        "role": "Parent linear crowding-induced decline in per-capita growth",
+        "train_range": [
+          -10475985018174.865,
+          0.4
+        ],
+        "hidden_range": [
+          -383402558411513.7,
+          -10774804568531.318
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": -10475985018174.865,
+          "max": 0.4,
+          "q05": -2074111302443.995,
+          "median": -966084.3716039383,
+          "q95": -0.3785406167413063,
+          "range": 10475985018175.266,
+          "robust_range": 2074111302443.6165
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": -383402558411513.7,
+          "max": -10774804568531.318,
+          "q05": -320724172405367.4,
+          "median": -64279892877578.93,
+          "q95": -12882817883798.44,
+          "range": 372627753842982.4,
+          "robust_range": 307841354521568.94
+        }
+      },
+      {
+        "generation": 1,
+        "name": "crowding_load",
+        "expression": "competition_strength*N",
+        "role": "Dimensionless-or-scaled abundance load controlling departure from the low-density regime",
+        "train_range": [
+          0.2,
+          10475985018175.467
+        ],
+        "hidden_range": [
+          10774804568531.92,
+          383402558411514.3
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.2,
+          "max": 10475985018175.467,
+          "q05": 0.9785406167413038,
+          "median": 966084.9716039384,
+          "q95": 2074111302444.5898,
+          "range": 10475985018175.268,
+          "robust_range": 2074111302443.6113
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 10774804568531.92,
+          "max": 383402558411514.3,
+          "q05": 12882817883799.04,
+          "median": 64279892877579.52,
+          "q95": 320724172405367.94,
+          "range": 372627753842982.4,
+          "robust_range": 307841354521568.9
+        }
+      },
+      {
+        "generation": 1,
+        "name": "absolute_growth_parent",
+        "expression": "N*((per_capita_birth_rate - background_mortality_rate) - competition_strength*N)",
+        "role": "Parent target mapping used as the baseline shape to be refined",
+        "train_range": [
+          -5.487313105051526e+28,
+          44.988171497720465
+        ],
+        "hidden_range": [
+          -7.34987608982472e+31,
+          -5.804820674502493e+28
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": -5.487313105051526e+28,
+          "max": 44.988171497720465,
+          "q05": -2.1528180725180678e+27,
+          "median": -467493688673929.94,
+          "q95": -185.62184592164948,
+          "range": 5.487313105051526e+28,
+          "robust_range": 2.1528180725180678e+27
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": -7.34987608982472e+31,
+          "max": -5.804820674502493e+28,
+          "q05": -5.1441174075394e+31,
+          "median": -2.0663608104294236e+30,
+          "q95": -8.299855650729019e+28,
+          "range": 7.344071269150217e+31,
+          "robust_range": 5.135817551888671e+31
+        }
+      },
+      {
+        "generation": 2,
+        "name": "net_low_density_rate",
+        "expression": "per_capita_birth_rate - background_mortality_rate",
+        "role": "Intrinsic low-density per-capita growth baseline",
+        "train_range": [
+          0.6000000000000001,
+          0.6000000000000001
+        ],
+        "hidden_range": [
+          0.6000000000000001,
+          0.6000000000000001
+        ],
+        "train_status": "inactive",
+        "hidden_status": "inactive",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.6000000000000001,
+          "max": 0.6000000000000001,
+          "q05": 0.6000000000000001,
+          "median": 0.6000000000000001,
+          "q95": 0.6000000000000001,
+          "range": 0.0,
+          "robust_range": 0.0
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.6000000000000001,
+          "max": 0.6000000000000001,
+          "q05": 0.6000000000000001,
+          "median": 0.6000000000000001,
+          "q95": 0.6000000000000001,
+          "range": 0.0,
+          "robust_range": 0.0
+        }
+      },
+      {
+        "generation": 2,
+        "name": "crowding_load_parent",
+        "expression": "competition_strength*N/(1 + crowding_saturation_scale*N)",
+        "role": "Parent instantaneous per-capita crowding burden as a function of abundance",
+        "train_range": [
+          0.06666666666666667,
+          0.09999999999999906
+        ],
+        "hidden_range": [
+          0.09999999999999906,
+          0.09999999999999998
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.06666666666666667,
+          "max": 0.09999999999999906,
+          "q05": 0.09072194848073072,
+          "median": 0.0999999896304149,
+          "q95": 0.09999999999999516,
+          "range": 0.033333333333332396,
+          "robust_range": 0.009278051519264446
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.09999999999999906,
+          "max": 0.09999999999999998,
+          "q05": 0.09999999999999921,
+          "median": 0.09999999999999984,
+          "q95": 0.09999999999999998,
+          "range": 9.159339953157541e-16,
+          "robust_range": 7.632783294297951e-16
+        }
+      },
+      {
+        "generation": 2,
+        "name": "abundance_scale",
+        "expression": "crowding_saturation_scale*N",
+        "role": "Dimensionless regime indicator for onset of saturating crowding effects",
+        "train_range": [
+          2.0,
+          104759850181754.66
+        ],
+        "hidden_range": [
+          107748045685319.2,
+          3834025584115143.0
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 2.0,
+          "max": 104759850181754.66,
+          "q05": 9.785406167413038,
+          "median": 9660849.716039386,
+          "q95": 20741113024445.9,
+          "range": 104759850181752.66,
+          "robust_range": 20741113024436.113
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 107748045685319.2,
+          "max": 3834025584115143.0,
+          "q05": 128828178837990.39,
+          "median": 642798928775795.2,
+          "q95": 3207241724053679.5,
+          "range": 3726277538429824.0,
+          "robust_range": 3078413545215689.0
+        }
+      },
+      {
+        "generation": 3,
+        "name": "crowding_load",
+        "expression": "C",
+        "role": "Latent delayed density-pressure level",
+        "train_range": [
+          0.0,
+          87299875151562.19
+        ],
+        "hidden_range": [
+          89790038071199.34,
+          3195021320096052.5
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 87299875151562.19,
+          "q05": 7.564622107329694,
+          "median": 8050807.4140716,
+          "q95": 17284260853804.914,
+          "range": 87299875151562.19,
+          "robust_range": 17284260853797.35
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 89790038071199.34,
+          "max": 3195021320096052.5,
+          "q05": 107356815698425.33,
+          "median": 535665773979929.4,
+          "q95": 2672701436711499.5,
+          "range": 3105231282024853.0,
+          "robust_range": 2565344621013074.0
+        }
+      },
+      {
+        "generation": 3,
+        "name": "realized_crowding_exposure",
+        "expression": "N*C",
+        "role": "Current abundance exposed to latent crowding pressure",
+        "train_range": [
+          0.0,
+          4.572760920881771e+29
+        ],
+        "hidden_range": [
+          4.837350562091068e+29,
+          6.124896741520801e+32
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 4.572760920881771e+29,
+          "q05": 3704.9088254772487,
+          "median": 3895831128965817.0,
+          "q95": 1.7940150604426032e+28,
+          "range": 4.572760920881771e+29,
+          "robust_range": 1.7940150604426032e+28
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 4.837350562091068e+29,
+          "max": 6.124896741520801e+32,
+          "q05": 6.916546375614279e+29,
+          "median": 1.7219673420248568e+31,
+          "q95": 4.286764506283e+32,
+          "range": 6.12005939095871e+32,
+          "robust_range": 4.279847959907386e+32
+        }
+      },
+      {
+        "generation": 3,
+        "name": "per_capita_net_growth_parent",
+        "expression": "per_capita_birth_rate - background_mortality_rate - competition_strength*C/(1 + crowding_saturation_scale*C)",
+        "role": "Parent per-capita net growth implied by current state",
+        "train_range": [
+          0.5000000000000573,
+          0.6000000000000001
+        ],
+        "hidden_range": [
+          0.5000000000000016,
+          0.5000000000000557
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.5000000000000573,
+          "max": 0.6000000000000001,
+          "q05": 0.5000000000002895,
+          "median": 0.5000006221635898,
+          "q95": 0.586860685922328,
+          "range": 0.0999999999999428,
+          "robust_range": 0.08686068592203844
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.5000000000000016,
+          "max": 0.5000000000000557,
+          "q05": 0.5000000000000019,
+          "median": 0.5000000000000093,
+          "q95": 0.5000000000000466,
+          "range": 5.417888360170764e-14,
+          "robust_range": 4.474198789239381e-14
+        }
+      },
+      {
+        "generation": 4,
+        "name": "realized_competition_prefactor",
+        "expression": "competition_strength*N*(1 + abundance_crowding_curvature*N)",
+        "role": "abundance-scaled multiplier converting latent crowding pressure into instantaneous loss",
+        "train_range": [
+          0.4,
+          5.487313105051946e+26
+        ],
+        "hidden_range": [
+          5.804820674502925e+26,
+          7.349876089824736e+29
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.4,
+          "max": 5.487313105051946e+26,
+          "q05": 5.7703809261816925,
+          "median": 4674940751079.187,
+          "q95": 2.1528180725188864e+25,
+          "range": 5.487313105051946e+26,
+          "robust_range": 2.1528180725188864e+25
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 5.804820674502925e+26,
+          "max": 7.349876089824736e+29,
+          "q05": 8.299855650729533e+26,
+          "median": 2.066360810429449e+28,
+          "q95": 5.144117407539411e+29,
+          "range": 7.344071269150234e+29,
+          "robust_range": 5.1358175518886814e+29
+        }
+      },
+      {
+        "generation": 4,
+        "name": "saturation_argument",
+        "expression": "crowding_saturation_scale*C",
+        "role": "dimensionless regime marker for whether crowding saturation is weak or strong",
+        "train_range": [
+          0.0,
+          1745997503031.244
+        ],
+        "hidden_range": [
+          1795800761423.9868,
+          63900426401921.055
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 1745997503031.244,
+          "q05": 0.15129244214659388,
+          "median": 161016.148281432,
+          "q95": 345685217076.09827,
+          "range": 1745997503031.244,
+          "robust_range": 345685217075.94696
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 1795800761423.9868,
+          "max": 63900426401921.055,
+          "q05": 2147136313968.5063,
+          "median": 10713315479598.588,
+          "q95": 53454028734229.99,
+          "range": 62104625640497.07,
+          "robust_range": 51306892420261.484
+        }
+      },
+      {
+        "generation": 5,
+        "name": "net_low_density_margin",
+        "expression": "per_capita_birth_rate - background_mortality_rate",
+        "role": "Intrinsic low-density per-capita growth margin before crowding losses matter",
+        "train_range": [
+          0.6000000000000001,
+          0.6000000000000001
+        ],
+        "hidden_range": [
+          0.6000000000000001,
+          0.6000000000000001
+        ],
+        "train_status": "inactive",
+        "hidden_status": "inactive",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.6000000000000001,
+          "max": 0.6000000000000001,
+          "q05": 0.6000000000000001,
+          "median": 0.6000000000000001,
+          "q95": 0.6000000000000001,
+          "range": 0.0,
+          "robust_range": 0.0
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.6000000000000001,
+          "max": 0.6000000000000001,
+          "q05": 0.6000000000000001,
+          "median": 0.6000000000000001,
+          "q95": 0.6000000000000001,
+          "range": 0.0,
+          "robust_range": 0.0
+        }
+      },
+      {
+        "generation": 5,
+        "name": "latent_crowding_load",
+        "expression": "crowding_saturation_scale*C",
+        "role": "Dimensionless regime indicator for saturation/compression of crowding damage",
+        "train_range": [
+          0.0,
+          1745997503031.244
+        ],
+        "hidden_range": [
+          1795800761423.9868,
+          63900426401921.055
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 1745997503031.244,
+          "q05": 0.15129244214659388,
+          "median": 161016.148281432,
+          "q95": 345685217076.09827,
+          "range": 1745997503031.244,
+          "robust_range": 345685217075.94696
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 1795800761423.9868,
+          "max": 63900426401921.055,
+          "q05": 2147136313968.5063,
+          "median": 10713315479598.588,
+          "q95": 53454028734229.99,
+          "range": 62104625640497.07,
+          "robust_range": 51306892420261.484
+        }
+      },
+      {
+        "generation": 5,
+        "name": "abundance_amplification",
+        "expression": "abundance_crowding_curvature*N",
+        "role": "Dimensionless strength of abundance-mediated amplification of realized competition at fixed crowding state",
+        "train_range": [
+          1.0,
+          52379925090877.33
+        ],
+        "hidden_range": [
+          53874022842659.6,
+          1917012792057571.5
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 1.0,
+          "max": 52379925090877.33,
+          "q05": 4.892703083706519,
+          "median": 4830424.858019693,
+          "q95": 10370556512222.95,
+          "range": 52379925090876.33,
+          "robust_range": 10370556512218.057
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 53874022842659.6,
+          "max": 1917012792057571.5,
+          "q05": 64414089418995.195,
+          "median": 321399464387897.6,
+          "q95": 1603620862026839.8,
+          "range": 1863138769214912.0,
+          "robust_range": 1539206772607844.5
+        }
+      }
+    ],
+    "inactive_mechanisms": [
+      "net_low_density_rate",
+      "net_low_density_margin"
+    ],
+    "visible_mechanisms": [
+      "per_capita_net_growth",
+      "crowding_load",
+      "absolute_growth_parent",
+      "crowding_load_parent",
+      "abundance_scale",
+      "crowding_load",
+      "realized_crowding_exposure",
+      "per_capita_net_growth_parent",
+      "realized_competition_prefactor",
+      "saturation_argument",
+      "latent_crowding_load",
+      "abundance_amplification"
+    ],
+    "extended_mechanisms": [
+      "per_capita_net_growth",
+      "crowding_load",
+      "absolute_growth_parent",
+      "abundance_scale",
+      "crowding_load",
+      "realized_crowding_exposure",
+      "realized_competition_prefactor",
+      "saturation_argument",
+      "latent_crowding_load",
+      "abundance_amplification"
+    ]
+  },
+  "inactive_mechanisms": [
+    "net_low_density_rate",
+    "net_low_density_margin"
+  ],
+  "target_variance": {
+    "train": {
+      "n": 384,
+      "variance": 1.550715665493465e+29,
+      "range": 3142795505450780.0
+    },
+    "hidden": {
+      "n": 128,
+      "variance": 8.949452293012249e+32,
+      "range": 1.1178832615289472e+17
+    }
+  },
+  "parent_absorption_report": {
+    "status": "ok",
+    "n_points": 512,
+    "fixed_parent_normalized_rmse": 3338921.280226974,
+    "refit": {
+      "status": "not_run",
+      "reason": "no free parent parameters"
+    },
+    "interpretation": "<1e-3 nearly absorbed; 1e-3..1e-2 weak; >1e-2 visible structure"
+  },
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_NZL69oJ8eUT9Pe51U1oECysK"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "per_capita_birth_rate*N - background_mortality_rate*N - competition_strength*C*N*(1 + abundance_crowding_curvature*N/(1 + abundance_amplification_compression*N))/(1 + crowding_saturation_scale*C + high_crowding_compression*(crowding_saturation_scale*C)**2)",
+        "target_symbol": "dN_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "C",
+          "N",
+          "abundance_amplification_compression",
+          "abundance_crowding_curvature",
+          "background_mortality_rate",
+          "competition_strength",
+          "crowding_saturation_scale",
+          "high_crowding_compression",
+          "per_capita_birth_rate"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "-C*N*competition_strength*(N*abundance_crowding_curvature/(N*abundance_amplification_compression + 1) + 1)/(C*crowding_s"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_vI4qV3szZWFuOFrhB67OJZjW"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "per_capita_birth_rate*N - background_mortality_rate*N - competition_strength*C*N*(1 + abundance_crowding_curvature*N/(1 + abundance_amplification_compression*N))/(1 + crowding_saturation_scale*C + high_crowding_compression*(crowding_saturation_scale*C)**2)",
+        "target_symbol": "dN_dt",
+        "assignments": {
+          "N": 100,
+          "C": 0,
+          "per_capita_birth_rate": 0.8,
+          "background_mortality_rate": 0.2,
+          "competition_strength": 0.002,
+          "crowding_saturation_scale": 0.02,
+          "crowding_accumulation_rate": 0.015,
+          "crowding_relaxation_rate": 0.3,
+          "abundance_crowding_curvature": 0.01,
+          "high_crowding_compression": 0.5,
+          "abundance_amplification_compression": 0.005
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": 60.0,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_d0jM62JeWxSqQgUcnB248JLI"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_kImT9jav1VLTLfqyNggxPA0W"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 4,
+  "discipline": "biology",
+  "scenario_text": "Track a closed population whose abundance changes through reproduction and background mortality while crowding progressively suppresses net growth. At low abundance, the population should increase approximately in proportion to its size, whereas near a finite environmental limit its net change should approach zero. The target is the instantaneous rate of abundance change over a single continuous trajectory.",
+  "record_id": "m2_population_ecology_20260921_000",
+  "generation": 5,
+  "_n_total": 5000,
+  "mechanism_observation_history": [
+    {
+      "generation": 1,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_threshold",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The parent gives a linear decline of per-capita net growth with abundance: (dN_dt/N) = per_capita_birth_rate - background_mortality_rate - competition_strength*N, so crowding reduces growth with one fixed slope and one fixed carrying-capacity scale.",
+          "child_relation": "Replace the linear crowding assumption with saturating crowding damage so the per-capita net growth still decreases monotonically with N but bends from an approximately linear decline at low-to-moderate abundance toward a weaker additional suppression at high abundance.",
+          "affected_inputs": [
+            "N",
+            "competition_strength"
+          ],
+          "observable_effect": "Across trajectories that pass from low into high abundance, the child predicts less negative curvature in dN_dt versus N at large N than the parent's exact parabola, while preserving near-exponential increase at low N."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "per_capita_net_growth",
+            "expression": "(per_capita_birth_rate - background_mortality_rate) - competition_strength*N",
+            "role": "Parent linear crowding-induced decline in per-capita growth"
+          },
+          {
+            "name": "crowding_load",
+            "expression": "competition_strength*N",
+            "role": "Dimensionless-or-scaled abundance load controlling departure from the low-density regime"
+          },
+          {
+            "name": "absolute_growth_parent",
+            "expression": "N*((per_capita_birth_rate - background_mortality_rate) - competition_strength*N)",
+            "role": "Parent target mapping used as the baseline shape to be refined"
+          }
+        ],
+        "activation_condition": "Observable when trajectories include both low-density and crowding-dominated segments, specifically when competition_strength*N is small at early times but reaches order 1 over the sampled trajectory so curvature of the crowding effect can be seen.",
+        "train_hidden_contrast": "In training, the mechanism appears as near-parent behavior at low N and mild deviation as N approaches the equilibrium scale; in holdout, the same monotone saturating crowding law produces a clearer high-density flattening of dN_dt(N) that a single quadratic parent law cannot match with one shared parameter set.",
+        "continuation_path": "Recover the parent in the weak-saturation limit where the refined crowding function is approximated by its first-order Taylor expansion in N, yielding an effectively linear per-capita crowding term.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The parent assumes each additional individual increases competitive suppression by the same amount at all densities, forcing one fixed linear crowding slope in per-capita net growth.",
+        "baseline_assumption": "Density dependence acts as a strictly linear function of abundance in the per-capita growth rate.",
+        "scientific_mechanism": "Interference or space limitation can make added crowding effects saturate per capita once most individuals already experience strong local competition, so further abundance increases still reduce net growth but with diminishing incremental effect.",
+        "affected_symbols": [
+          "N",
+          "competition_strength",
+          "per_capita_birth_rate",
+          "background_mortality_rate"
+        ],
+        "rationale": "A realistic next refinement is to relax the parent's linear crowding assumption without adding new ecological compartments. The parent response relationship is a single-threshold logistic form: dN_dt is exactly quadratic in N, and per-capita net growth declines with one constant slope as N increases. Varying N along the observed continuous trajectory while holding per_capita_birth_rate, background_mortality_rate, and competition_strength fixed, the child would instead produce a monotone but curved decline in per-capita net growth. The observable contrast is that low-density behavior remains approximately proportional to N, but at high abundance the target mapping dN_dt(N) no longer follows a single parabola; crowding suppression bends toward saturation. This is scientifically admissible in closed populations with constant environment when competition reflects finite contact or occupancy effects rather than unlimited pairwise penalty growth. This changes the scored target mapping directly, not merely an auxiliary trajectory. A single refitted parent parameter set cannot reproduce both the near-linear low-density onset and the weaker-than-quadratic high-density suppression over the same trajectory because the parent fixes the second-order form once its low-density slope and equilibrium scale are chosen. The limitation is that if all observations stay in the small-competition_strength*N regime, the refinement will be practically indistinguishable from the parent."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_threshold",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The parent gives a linear decline of per-capita net growth with abundance: (dN_dt/N) = per_capita_birth_rate - background_mortality_rate - competition_strength*N, so crowding reduces growth with one fixed slope and one fixed carrying-capacity scale.",
+          "child_relation": "Replace the linear crowding assumption with saturating crowding damage so the per-capita net growth still decreases monotonically with N but bends from an approximately linear decline at low-to-moderate abundance toward a weaker additional suppression at high abundance.",
+          "affected_inputs": [
+            "N",
+            "competition_strength"
+          ],
+          "observable_effect": "Across trajectories that pass from low into high abundance, the child predicts less negative curvature in dN_dt versus N at large N than the parent's exact parabola, while preserving near-exponential increase at low N."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "per_capita_net_growth",
+            "expression": "(per_capita_birth_rate - background_mortality_rate) - competition_strength*N",
+            "role": "Parent linear crowding-induced decline in per-capita growth"
+          },
+          {
+            "name": "crowding_load",
+            "expression": "competition_strength*N",
+            "role": "Dimensionless-or-scaled abundance load controlling departure from the low-density regime"
+          },
+          {
+            "name": "absolute_growth_parent",
+            "expression": "N*((per_capita_birth_rate - background_mortality_rate) - competition_strength*N)",
+            "role": "Parent target mapping used as the baseline shape to be refined"
+          }
+        ],
+        "activation_condition": "Observable when trajectories include both low-density and crowding-dominated segments, specifically when competition_strength*N is small at early times but reaches order 1 over the sampled trajectory so curvature of the crowding effect can be seen.",
+        "train_hidden_contrast": "In training, the mechanism appears as near-parent behavior at low N and mild deviation as N approaches the equilibrium scale; in holdout, the same monotone saturating crowding law produces a clearer high-density flattening of dN_dt(N) that a single quadratic parent law cannot match with one shared parameter set.",
+        "continuation_path": "Recover the parent in the weak-saturation limit where the refined crowding function is approximated by its first-order Taylor expansion in N, yielding an effectively linear per-capita crowding term.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "unary",
+        "scope_symbols": [
+          "N"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "saturating intraspecific crowding",
+        "scientific_mechanism": "Interference or space limitation can make added crowding effects saturate per capita once most individuals already experience strong local competition, so further abundance increases still reduce net growth but with diminishing incremental effect.",
+        "embedding_pattern": "saturating_or_thresholded",
+        "difficulty_rationale": "This is structurally harder than a coefficient-only correction because it changes the shape of the N-to-dN_dt mapping from an exact quadratic to a rational saturating form, allowing near-parent low-density behavior and distinct high-density flattening within one trajectory.",
+        "taxonomy_match": "known",
+        "assumption_before": "Density dependence acts as a strictly linear function of abundance in the per-capita growth rate.",
+        "assumption_after": "Per-capita crowding damage increases with abundance but its incremental effect saturates at high density because interference or occupied space is already widespread.",
+        "before_fragment": "per_capita_birth_rate*N - background_mortality_rate*N - competition_strength*N**2",
+        "after_fragment": "per_capita_birth_rate*N - background_mortality_rate*N - competition_strength*N**2/(1 + crowding_saturation_scale*N)",
+        "parent_reduction": "When crowding_saturation_scale*N << 1 throughout the admissible trajectory, the denominator is approximately 1 and the parent law is recovered to first order.",
+        "observable_signature": "Holding per_capita_birth_rate, background_mortality_rate, competition_strength, and crowding_saturation_scale fixed while N varies along the observed trajectory, the parent gives an exact parabola dN_dt(N) and a per-capita net growth with constant negative slope in N, whereas the child gives a monotone decline whose slope weakens at larger N because the competition term is divided by 1 + crowding_saturation_scale*N. The difference is observable only when trajectories span from competition_strength*N much less than 1 to densities where crowding_saturation_scale*N is order 1 or larger.",
+        "shortcut_blocked": "A single refitted parent parameter set cannot reproduce both the low-density near-linear onset and the weaker-than-quadratic high-density suppression across those same conditions, because once the parent matches the small-N slope and overall intercept, its dN_dt(N) shape is fixed to one quadratic with one constant per-capita crowding slope. Retuning existing parameters can shift curvature magnitude but cannot create the child’s high-density flattening without spoiling the low-density fit."
+      },
+      "range_suggestions": {
+        "crowding_saturation_scale": "positive; typically > 0, with crowding_saturation_scale*N spanning from much less than 1 in the near-parent regime to order 1 or larger when saturation becomes observable"
+      }
+    },
+    {
+      "generation": 2,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The crowding loss is an instantaneous saturating function of current abundance alone, so for any observed N the target dN_dt is fixed by a single-phase density-response curve.",
+          "child_relation": "Crowding damage is mediated by a dynamically accumulating crowding/condition state, so the same observed N can map to different dN_dt depending on recent trajectory through that latent state.",
+          "affected_inputs": [
+            "N"
+          ],
+          "observable_effect": "During transient growth toward carrying levels, net growth is initially less suppressed than the parent predicts at a given N, but after sustained high abundance it becomes more suppressed at similar N because the accumulated crowding state lags behind abundance changes."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "net_low_density_rate",
+            "expression": "per_capita_birth_rate - background_mortality_rate",
+            "role": "Intrinsic low-density per-capita growth baseline"
+          },
+          {
+            "name": "crowding_load_parent",
+            "expression": "competition_strength*N/(1 + crowding_saturation_scale*N)",
+            "role": "Parent instantaneous per-capita crowding burden as a function of abundance"
+          },
+          {
+            "name": "abundance_scale",
+            "expression": "crowding_saturation_scale*N",
+            "role": "Dimensionless regime indicator for onset of saturating crowding effects"
+          }
+        ],
+        "activation_condition": "Observable when the trajectory passes from low abundance into moderate/high abundance so that crowding_saturation_scale*N is order 1 or larger and there is enough elapsed time for a slowly relaxing crowding condition to depart from its initial level; weak if all observations stay near equilibrium or only in the near-zero-density regime.",
+        "train_hidden_contrast": "In training, transient approach to high density can already show delayed suppression relative to the parent's single-phase curve; in holdout with longer observation windows or stronger excursions into crowding, the same delay yields larger hysteretic curvature in dN_dt versus N.",
+        "continuation_path": "Recover the parent law in the fast-relaxation limit where the added crowding-condition state instantaneously tracks abundance, or when its coupling to N is taken to the algebraic form used by the parent.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A delayed density-dependence mechanism cannot be represented with N alone because the scored target would remain a single-valued function of current abundance; one additional state is needed to encode recent crowding history and alter the N to dN_dt mapping.",
+        "gap_statement": "The model assumes density dependence acts without delay, but many populations experience crowding damage through slowly accumulating resource depletion, waste buildup, or stress that persists after abundance changes.",
+        "baseline_assumption": "Density dependence acts without delay",
+        "scientific_mechanism": "A latent crowding-pressure state accumulates under high abundance and relaxes over time, causing delayed suppression of net growth.",
+        "affected_symbols": [
+          "N",
+          "competition_strength",
+          "crowding_saturation_scale"
+        ],
+        "rationale": "Vary time along the single observed trajectory while holding the shared parameter set fixed. In the parent, dN_dt is determined solely by current N, so two times with similar N must have essentially the same net growth. A realistic refinement is delayed crowding: as N rises, the effective crowding pressure builds more slowly than abundance, and after prolonged high density it remains elevated even if N later changes modestly. Then the child permits different dN_dt values at similar N during early versus later phases of the same trajectory. This is a genuine target-mapping change, not merely an auxiliary-state change, because the solver is scored on dN_dt conditional on supplied observations and N alone no longer determines it. The contrast is scientifically admissible when abundance traverses regimes from crowding_saturation_scale*N much less than 1 into order-1 or larger values over observation times comparable to the crowding-state relaxation time. If the entire trajectory stays near low density or the latent process relaxes effectively instantaneously, the refinement collapses back toward the parent and may not be distinguishable."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The crowding loss is an instantaneous saturating function of current abundance alone, so for any observed N the target dN_dt is fixed by a single-phase density-response curve.",
+          "child_relation": "Crowding damage is mediated by a dynamically accumulating crowding/condition state, so the same observed N can map to different dN_dt depending on recent trajectory through that latent state.",
+          "affected_inputs": [
+            "N"
+          ],
+          "observable_effect": "During transient growth toward carrying levels, net growth is initially less suppressed than the parent predicts at a given N, but after sustained high abundance it becomes more suppressed at similar N because the accumulated crowding state lags behind abundance changes."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "net_low_density_rate",
+            "expression": "per_capita_birth_rate - background_mortality_rate",
+            "role": "Intrinsic low-density per-capita growth baseline"
+          },
+          {
+            "name": "crowding_load_parent",
+            "expression": "competition_strength*N/(1 + crowding_saturation_scale*N)",
+            "role": "Parent instantaneous per-capita crowding burden as a function of abundance"
+          },
+          {
+            "name": "abundance_scale",
+            "expression": "crowding_saturation_scale*N",
+            "role": "Dimensionless regime indicator for onset of saturating crowding effects"
+          }
+        ],
+        "activation_condition": "Observable when the trajectory passes from low abundance into moderate/high abundance so that crowding_saturation_scale*N is order 1 or larger and there is enough elapsed time for a slowly relaxing crowding condition to depart from its initial level; weak if all observations stay near equilibrium or only in the near-zero-density regime.",
+        "train_hidden_contrast": "In training, transient approach to high density can already show delayed suppression relative to the parent's single-phase curve; in holdout with longer observation windows or stronger excursions into crowding, the same delay yields larger hysteretic curvature in dN_dt versus N.",
+        "continuation_path": "Recover the parent law in the fast-relaxation limit where the added crowding-condition state instantaneously tracks abundance, or when its coupling to N is taken to the algebraic form used by the parent.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A delayed density-dependence mechanism cannot be represented with N alone because the scored target would remain a single-valued function of current abundance; one additional state is needed to encode recent crowding history and alter the N to dN_dt mapping.",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "N",
+          "C"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "delayed density-dependent crowding via latent pressure accumulation",
+        "scientific_mechanism": "A latent crowding-pressure state accumulates under high abundance and relaxes over time, causing delayed suppression of net growth.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the competition coefficient now depends on an internal dynamical state, making the target mapping history-dependent rather than a single algebraic curve in N.",
+        "taxonomy_match": "known",
+        "assumption_before": "Density dependence acts without delay",
+        "assumption_after": "Crowding suppression depends on a latent pressure state that relaxes more slowly than abundance changes.",
+        "before_fragment": "per_capita_birth_rate*N - background_mortality_rate*N - competition_strength*N**2/(1 + crowding_saturation_scale*N)",
+        "after_fragment": "per_capita_birth_rate*N - background_mortality_rate*N - competition_strength*C*N/(1 + crowding_saturation_scale*C)",
+        "parent_reduction": "When crowding_accumulation_rate and crowding_relaxation_rate are both large with crowding_accumulation_rate/crowding_relaxation_rate = 1, C rapidly tracks N so the successor reduces to the parent law.",
+        "observable_signature": "Along one trajectory, two times with similar observed N can have different dN_dt because C differs: early during ascent C<N and suppression is weaker than the parent single-phase curve, whereas after sustained crowding C can remain elevated and suppression is stronger at similar N. This is observable when the path moves from crowding_saturation_scale*N much less than 1 into order-1 or larger values over times comparable to 1/crowding_relaxation_rate.",
+        "shortcut_blocked": "A single refitted parent parameter set cannot reproduce this because the parent enforces one unique dN_dt for each N, while the child permits hysteresis-like multivalued behavior in dN_dt versus N along the same trajectory. Retuning per_capita_birth_rate, background_mortality_rate, competition_strength, or crowding_saturation_scale only changes that one-phase curve and cannot make suppression depend on recent abundance history."
+      },
+      "range_suggestions": {
+        "C": "nonnegative latent load; typically initialized near but not exactly equal to N0 when prior crowding history is uncertain",
+        "crowding_accumulation_rate": "positive; chosen so crowding_accumulation_rate*N has units of crowding-pressure per time and can be comparable to crowding_relaxation_rate*C during observed transients",
+        "crowding_relaxation_rate": "positive; slow-to-moderate relative to population turnover when delayed density dependence is observable"
+      }
+    },
+    {
+      "generation": 3,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "At fixed crowding pressure C, the crowding loss in dN_dt is proportional to N with coefficient competition_strength*C/(1 + crowding_saturation_scale*C), so the per-capita suppression increases linearly with N only through multiplication by abundance.",
+          "child_relation": "Replace the linear abundance dependence of realized crowding loss with a stronger high-density dependence, so that at fixed latent crowding pressure C the suppression term bends downward more sharply as N rises; equivalently, the per-capita net growth declines with N in a convex way rather than by a single shared gain.",
+          "affected_inputs": [
+            "N",
+            "C"
+          ],
+          "observable_effect": "Across trajectories that reach similar C but different N, the child predicts disproportionately stronger negative dN_dt at larger N, producing earlier peak abundance and sharper deceleration after overshoot than the parent."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "crowding_load",
+            "expression": "C",
+            "role": "Latent delayed density-pressure level"
+          },
+          {
+            "name": "realized_crowding_exposure",
+            "expression": "N*C",
+            "role": "Current abundance exposed to latent crowding pressure"
+          },
+          {
+            "name": "per_capita_net_growth_parent",
+            "expression": "per_capita_birth_rate - background_mortality_rate - competition_strength*C/(1 + crowding_saturation_scale*C)",
+            "role": "Parent per-capita net growth implied by current state"
+          }
+        ],
+        "activation_condition": "Observable when abundance spans a moderate-to-high range before settling, so that N varies appreciably while C is nonzero and not fully saturating; especially during delayed-crowding transients after initial growth.",
+        "train_hidden_contrast": "In training, moderate overshoot episodes already show some mismatch if deceleration steepens with abundance; in holdout, larger excursions in N at similar C amplify this curvature difference and separate the child from any parent with one shared competition gain.",
+        "continuation_path": "Recover the parent law in the limit where the added nonlinear abundance effect tends to the linear form, i.e. the extra density-curvature parameter goes to zero or its scaling makes realized suppression effectively proportional to N over the observed range.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The model assumes that once latent crowding pressure C is specified, realized competitive suppression scales linearly with abundance N, ignoring intensified local encounters or patch depletion at high abundance under the same delayed crowding background.",
+        "baseline_assumption": "For fixed C, each added individual contributes the same incremental realized competition loss to total population change.",
+        "scientific_mechanism": "High abundance can amplify encounter-based interference or local resource overlap on top of delayed crowding pressure, making realized competitive loss increase more than linearly with N even when C is held fixed.",
+        "affected_symbols": [
+          "N",
+          "C",
+          "competition_strength",
+          "crowding_saturation_scale"
+        ],
+        "rationale": "A realistic next refinement is to relax the parent's single-gain assumption for abundance in the competition term without adding a new state. The parent target mapping from observed states to dN_dt is linear in N at fixed C, so one shared parameter set enforces the same marginal slope of crowding loss with respect to abundance across low and high population levels. Vary N along trajectories while holding the same governing parameters and considering times with comparable nonzero C. Under the parent, the ratio of crowding loss to N depends only on C. In the child, that ratio would also become more adverse at higher N, changing the curvature of dN_dt versus N. This is scientifically admissible when populations transiently reach moderate or high abundance before crowding relaxation catches up; delayed density dependence then creates windows where similar C can coincide with different N values. The effect is a changed target mapping, not merely altered auxiliary dynamics, because dN_dt as a function of supplied states (N,C) is directly modified. A single refit of existing parent parameters cannot reproduce stronger suppression at high N while keeping weaker suppression at low N for the same C, since the parent only rescales one linear N factor and cannot introduce this state-dependent curvature."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "At fixed crowding pressure C, the crowding loss in dN_dt is proportional to N with coefficient competition_strength*C/(1 + crowding_saturation_scale*C), so the per-capita suppression increases linearly with N only through multiplication by abundance.",
+          "child_relation": "Replace the linear abundance dependence of realized crowding loss with a stronger high-density dependence, so that at fixed latent crowding pressure C the suppression term bends downward more sharply as N rises; equivalently, the per-capita net growth declines with N in a convex way rather than by a single shared gain.",
+          "affected_inputs": [
+            "N",
+            "C"
+          ],
+          "observable_effect": "Across trajectories that reach similar C but different N, the child predicts disproportionately stronger negative dN_dt at larger N, producing earlier peak abundance and sharper deceleration after overshoot than the parent."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "crowding_load",
+            "expression": "C",
+            "role": "Latent delayed density-pressure level"
+          },
+          {
+            "name": "realized_crowding_exposure",
+            "expression": "N*C",
+            "role": "Current abundance exposed to latent crowding pressure"
+          },
+          {
+            "name": "per_capita_net_growth_parent",
+            "expression": "per_capita_birth_rate - background_mortality_rate - competition_strength*C/(1 + crowding_saturation_scale*C)",
+            "role": "Parent per-capita net growth implied by current state"
+          }
+        ],
+        "activation_condition": "Observable when abundance spans a moderate-to-high range before settling, so that N varies appreciably while C is nonzero and not fully saturating; especially during delayed-crowding transients after initial growth.",
+        "train_hidden_contrast": "In training, moderate overshoot episodes already show some mismatch if deceleration steepens with abundance; in holdout, larger excursions in N at similar C amplify this curvature difference and separate the child from any parent with one shared competition gain.",
+        "continuation_path": "Recover the parent law in the limit where the added nonlinear abundance effect tends to the linear form, i.e. the extra density-curvature parameter goes to zero or its scaling makes realized suppression effectively proportional to N over the observed range.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "pairwise",
+        "scope_symbols": [
+          "N",
+          "C"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Amplified realized competition at high abundance under delayed crowding",
+        "scientific_mechanism": "High abundance can amplify encounter-based interference or local resource overlap on top of delayed crowding pressure, making realized competitive loss increase more than linearly with N even when C is held fixed.",
+        "embedding_pattern": "nested_nonlinearity",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the competition contribution is no longer a single linear gain on N at fixed C; it nests the combined crowding exposure inside an additional abundance-dependent nonlinear factor, changing curvature of the target-state map over observed state space.",
+        "taxonomy_match": "known",
+        "assumption_before": "For fixed C, realized crowding loss scales linearly with abundance N through one shared gain.",
+        "assumption_after": "For fixed C, realized crowding loss is amplified at high abundance by abundance-dependent interference or overlap, creating superlinear suppression in N.",
+        "before_fragment": "per_capita_birth_rate*N - background_mortality_rate*N - competition_strength*C*N/(1 + crowding_saturation_scale*C)",
+        "after_fragment": "per_capita_birth_rate*N - background_mortality_rate*N - competition_strength*C*N*(1 + abundance_crowding_curvature*N)/(1 + crowding_saturation_scale*C)",
+        "parent_reduction": "Set abundance_crowding_curvature = 0 to recover the parent exactly.",
+        "observable_signature": "At matched or similar nonzero C values observed along delayed-crowding transients, dN_dt becomes more negative than the parent predicts as N increases, while remaining close to the parent at low N; this yields sharper deceleration and lower or earlier overshoot peaks without requiring a change in the C dynamics themselves.",
+        "shortcut_blocked": "A single parent parameter set cannot fit both weak suppression at low N and disproportionately strong suppression at high N for the same C, because the parent competition term is exactly linear in N at fixed C and only allows gain rescaling through competition_strength and the C-saturation term. Refitting all existing parent parameters can shift overall slope versus C, but cannot create the child’s N-dependent curvature in the scored mapping from (N, C) to dN_dt."
+      },
+      "range_suggestions": {
+        "abundance_crowding_curvature": "nonnegative; small-to-moderate inverse abundance scale so abundance_crowding_curvature*N is negligible at low N but can become order one during overshoot or high-density transients"
+      }
+    },
+    {
+      "generation": 4,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "At fixed N, the target depends on latent crowding through a single saturating factor competition_strength*C/(1 + crowding_saturation_scale*C), so realized suppression rises approximately linearly for small C and then approaches a fixed-gain asymptote, with the same crowding sensitivity shape regardless of accumulated crowding history beyond the current C value.",
+          "child_relation": "Release the assumption that crowding damage saturates hyperbolically with one fixed curvature by allowing stronger high-C compression of additional crowding damage, so at fixed N the mapping from C to dN_dt bends downward more sharply after moderate crowding while matching the parent at low C.",
+          "affected_inputs": [
+            "N",
+            "C",
+            "crowding_saturation_scale"
+          ],
+          "observable_effect": "Across trajectories that reach similar N but different latent crowding levels C, the child predicts weaker incremental decreases in dN_dt once C is already large than the parent's single hyperbolic saturation allows, while remaining nearly unchanged when C is small."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "net_low_density_rate",
+            "expression": "per_capita_birth_rate - background_mortality_rate",
+            "role": "baseline per-capita growth margin before crowding suppression"
+          },
+          {
+            "name": "crowding_load",
+            "expression": "C",
+            "role": "latent accumulated crowding pressure governing delayed suppression"
+          },
+          {
+            "name": "realized_competition_prefactor",
+            "expression": "competition_strength*N*(1 + abundance_crowding_curvature*N)",
+            "role": "abundance-scaled multiplier converting latent crowding pressure into instantaneous loss"
+          },
+          {
+            "name": "saturation_argument",
+            "expression": "crowding_saturation_scale*C",
+            "role": "dimensionless regime marker for whether crowding saturation is weak or strong"
+          }
+        ],
+        "activation_condition": "Observable when trajectories enter moderate-to-high latent crowding, i.e. crowding_saturation_scale*C is order one or larger, while N remains positive so the competition term materially contributes; at low C the child should reduce closely to the parent.",
+        "train_hidden_contrast": "In training, small and moderate crowding episodes mainly identify the shared low-C slope; in holdout, longer overshoot or sustained high-density transients create larger C where the child's stronger high-C curvature changes dN_dt at similar N, revealing the refinement.",
+        "continuation_path": "Recover the parent law in the limit where the added curvature control of the saturation function vanishes, restoring the original 1/(1 + crowding_saturation_scale*C) form.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The current model assumes a single hyperbolic saturation shape for how latent crowding pressure translates into per-capita competitive loss, which can be too rigid when severe crowding causes additional pressure to have progressively less marginal effect than that one-shape law permits.",
+        "baseline_assumption": "Crowding-mediated damage saturates with one fixed Michaelis-like denominator 1 + crowding_saturation_scale*C.",
+        "scientific_mechanism": "Under very strong crowding, most individuals may already be fully exposed to interference or local depletion, so further increases in latent crowding pressure produce extra suppression with diminishing marginal impact stronger than simple hyperbolic saturation.",
+        "affected_symbols": [
+          "N",
+          "C",
+          "crowding_saturation_scale",
+          "competition_strength",
+          "abundance_crowding_curvature"
+        ],
+        "rationale": "A realistic next refinement is to relax the parent's fixed-shape saturation assumption rather than add a new process. The parent target mapping from observed states to dN_dt uses C through one shared hyperbolic gain, so once N is fixed the only way crowding changes the target is a single saturating curve in C. Varying condition: compare times or trajectories with similar N but different latent crowding pressure C generated by the existing delayed state dynamics; hold fixed the demographic parameters and abundance-dependent prefactor. Parent response: incremental suppression with increasing C always follows the same hyperbolic bending. Child response: suppression still increases monotonically with C and never improves growth, but the slope with respect to C falls off faster at high C, changing the curvature of the scored mapping itself, not merely the auxiliary C trajectory. This is scientifically admissible during overshoot or prolonged high-density episodes where C accumulates enough that crowding_saturation_scale*C is not small. Limitation: if all observed data remain in the low-C regime, the refinement will be weakly identifiable and effectively collapse to the parent."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "At fixed N, the target depends on latent crowding through a single saturating factor competition_strength*C/(1 + crowding_saturation_scale*C), so realized suppression rises approximately linearly for small C and then approaches a fixed-gain asymptote, with the same crowding sensitivity shape regardless of accumulated crowding history beyond the current C value.",
+          "child_relation": "Release the assumption that crowding damage saturates hyperbolically with one fixed curvature by allowing stronger high-C compression of additional crowding damage, so at fixed N the mapping from C to dN_dt bends downward more sharply after moderate crowding while matching the parent at low C.",
+          "affected_inputs": [
+            "N",
+            "C",
+            "crowding_saturation_scale"
+          ],
+          "observable_effect": "Across trajectories that reach similar N but different latent crowding levels C, the child predicts weaker incremental decreases in dN_dt once C is already large than the parent's single hyperbolic saturation allows, while remaining nearly unchanged when C is small."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "net_low_density_rate",
+            "expression": "per_capita_birth_rate - background_mortality_rate",
+            "role": "baseline per-capita growth margin before crowding suppression"
+          },
+          {
+            "name": "crowding_load",
+            "expression": "C",
+            "role": "latent accumulated crowding pressure governing delayed suppression"
+          },
+          {
+            "name": "realized_competition_prefactor",
+            "expression": "competition_strength*N*(1 + abundance_crowding_curvature*N)",
+            "role": "abundance-scaled multiplier converting latent crowding pressure into instantaneous loss"
+          },
+          {
+            "name": "saturation_argument",
+            "expression": "crowding_saturation_scale*C",
+            "role": "dimensionless regime marker for whether crowding saturation is weak or strong"
+          }
+        ],
+        "activation_condition": "Observable when trajectories enter moderate-to-high latent crowding, i.e. crowding_saturation_scale*C is order one or larger, while N remains positive so the competition term materially contributes; at low C the child should reduce closely to the parent.",
+        "train_hidden_contrast": "In training, small and moderate crowding episodes mainly identify the shared low-C slope; in holdout, longer overshoot or sustained high-density transients create larger C where the child's stronger high-C curvature changes dN_dt at similar N, revealing the refinement.",
+        "continuation_path": "Recover the parent law in the limit where the added curvature control of the saturation function vanishes, restoring the original 1/(1 + crowding_saturation_scale*C) form.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "N",
+          "C"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "stronger-than-hyperbolic saturation of crowding damage at high latent crowding",
+        "scientific_mechanism": "Under very strong crowding, most individuals may already be fully exposed to interference or local depletion, so further increases in latent crowding pressure produce extra suppression with diminishing marginal impact stronger than simple hyperbolic saturation.",
+        "embedding_pattern": "nested_nonlinearity",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the child changes the shape of the C-to-dN_dt map through a nonlinear combination of the existing saturation argument before inversion, not merely the overall gain. The extra quadratic dependence only activates at moderate-to-high crowding, so one shared parent parameter set cannot match both low-C and high-C curvature simultaneously.",
+        "taxonomy_match": "known",
+        "assumption_before": "Crowding-mediated damage saturates with one fixed Michaelis-like denominator 1 + crowding_saturation_scale*C.",
+        "assumption_after": "High crowding introduces additional compression of marginal damage, giving a stronger-than-hyperbolic saturation while preserving the low-crowding limit.",
+        "before_fragment": "per_capita_birth_rate*N - background_mortality_rate*N - competition_strength*C*N*(1 + abundance_crowding_curvature*N)/(1 + crowding_saturation_scale*C)",
+        "after_fragment": "per_capita_birth_rate*N - background_mortality_rate*N - competition_strength*C*N*(1 + abundance_crowding_curvature*N)/(1 + crowding_saturation_scale*C + high_crowding_compression*(crowding_saturation_scale*C)**2)",
+        "parent_reduction": "The successor reduces to the parent when high_crowding_compression = 0, which removes the quadratic high-crowding compression and restores the original denominator 1 + crowding_saturation_scale*C.",
+        "observable_signature": "At matched N and low C, both models give nearly the same dN_dt because the added quadratic denominator term is negligible. At matched N and moderate-to-high C, the child yields less additional suppression per unit increase in C than the parent, so dN_dt declines with C but flattens more strongly than the parent's single hyperbola.",
+        "shortcut_blocked": "Refitting per_capita_birth_rate, background_mortality_rate, competition_strength, crowding_saturation_scale, crowding_accumulation_rate, crowding_relaxation_rate, and abundance_crowding_curvature in the parent can rescale baseline growth, competition magnitude, and the location of one hyperbolic bend, but it cannot create the child's extra high-C curvature while preserving the same low-C slope with a single shared parameter set. Matching the holdout high-C flattening by changing crowding_saturation_scale would also shift the moderate-C transition and low-C sensitivity because the parent has only one saturation shape."
+      },
+      "range_suggestions": {
+        "high_crowding_compression": "nonnegative; often small-to-moderate dimensionless coefficient so the quadratic correction is negligible when crowding_saturation_scale*C << 1 but can become order one or larger when crowding_saturation_scale*C is moderate-to-high"
+      }
+    },
+    {
+      "generation": 5,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "At fixed latent crowding pressure C, crowding loss enters as competition_strength*C*N*(1 + abundance_crowding_curvature*N) divided by a saturation function of C only, so the realized per-capita suppression is affine in N for any given C.",
+          "child_relation": "At fixed C, the abundance-amplified realized competition should itself compress at high N because encounter overlap or local depletion cannot keep increasing quadratically without bound once most individuals are already exposed; this changes the N-to-dN_dt mapping from affine to subquadratically curved at high abundance.",
+          "affected_inputs": [
+            "N",
+            "C",
+            "abundance_crowding_curvature"
+          ],
+          "observable_effect": "When C is moderate-to-high and N spans low to high values along the trajectory, the child predicts that increasingly large N increments cause smaller additional decreases in dN_dt than the parent's fixed linear-in-N per-capita amplification, while still preserving monotone crowding damage."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "net_low_density_margin",
+            "expression": "per_capita_birth_rate - background_mortality_rate",
+            "role": "Intrinsic low-density per-capita growth margin before crowding losses matter"
+          },
+          {
+            "name": "latent_crowding_load",
+            "expression": "crowding_saturation_scale*C",
+            "role": "Dimensionless regime indicator for saturation/compression of crowding damage"
+          },
+          {
+            "name": "abundance_amplification",
+            "expression": "abundance_crowding_curvature*N",
+            "role": "Dimensionless strength of abundance-mediated amplification of realized competition at fixed crowding state"
+          }
+        ],
+        "activation_condition": "Observable when abundance_amplification is order one or larger and latent_crowding_load is not negligible, i.e. N becomes large enough along the realized trajectory that the current linear abundance amplification would otherwise overstate incremental suppression; weak effect when abundance_crowding_curvature*N << 1.",
+        "train_hidden_contrast": "In training, the mechanism appears as mild deviation from linear abundance amplification during periods of elevated C; in holdout with larger realized N at similar viable parameters, the same compression becomes clearer as dN_dt decreases more slowly than the parent predicts at the highest abundances.",
+        "continuation_path": "Recover the parent law in the limit where the new high-abundance compression scale tends to zero effect, so the abundance-dependent factor returns to 1 + abundance_crowding_curvature*N over the admissible range.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The parent assumes abundance-driven amplification of competition keeps increasing linearly in N at fixed latent crowding pressure, with no high-abundance compression of that amplification.",
+        "baseline_assumption": "The extra realized crowding loss factor (1 + abundance_crowding_curvature*N) is an unsaturating linear function of abundance for all biologically admissible N.",
+        "scientific_mechanism": "At very high abundance, repeated encounters, shared depleted neighborhoods, or limited contact surface make additional individuals less able to create fresh independent competitive exposure, so abundance-amplified realized competition still grows with N but with diminishing marginal effect.",
+        "affected_symbols": [
+          "N",
+          "C",
+          "abundance_crowding_curvature"
+        ],
+        "rationale": "A realistic next refinement is to relax the parent's fixed linear abundance amplification within the already present crowding-loss mechanism, not to add a new biological process. Vary N along the continuous trajectory while holding the same parameter set and comparing epochs with similar moderate-to-high C. In the parent, at fixed C the slope of suppression with respect to N keeps strengthening linearly through the factor 1 + abundance_crowding_curvature*N, so dN_dt becomes increasingly more negative with essentially constant second derivative contribution from that branch. In the child, that abundance amplification bends over at high N, giving a measurable curvature change in the target mapping dN_dt(N,C): suppression remains monotone but the marginal extra loss from further abundance increments shrinks once many individuals already share the same crowding field. This is scientifically admissible under the given closed-population crowding scenario and does not violate the constraint that crowding must not increase per-capita net growth. The contrast is observable only if the realized trajectory reaches abundance_crowding_curvature*N of order one or larger; otherwise the parent and child are practically indistinguishable. A single refit of existing parent parameters cannot generally reproduce both the early-N and late-N curvature under the same C regime, because the parent is structurally affine in N within the abundance-amplified competition factor and can only change its overall gain, not introduce high-N bending without disturbing lower-N behavior."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "At fixed latent crowding pressure C, crowding loss enters as competition_strength*C*N*(1 + abundance_crowding_curvature*N) divided by a saturation function of C only, so the realized per-capita suppression is affine in N for any given C.",
+          "child_relation": "At fixed C, the abundance-amplified realized competition should itself compress at high N because encounter overlap or local depletion cannot keep increasing quadratically without bound once most individuals are already exposed; this changes the N-to-dN_dt mapping from affine to subquadratically curved at high abundance.",
+          "affected_inputs": [
+            "N",
+            "C",
+            "abundance_crowding_curvature"
+          ],
+          "observable_effect": "When C is moderate-to-high and N spans low to high values along the trajectory, the child predicts that increasingly large N increments cause smaller additional decreases in dN_dt than the parent's fixed linear-in-N per-capita amplification, while still preserving monotone crowding damage."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "net_low_density_margin",
+            "expression": "per_capita_birth_rate - background_mortality_rate",
+            "role": "Intrinsic low-density per-capita growth margin before crowding losses matter"
+          },
+          {
+            "name": "latent_crowding_load",
+            "expression": "crowding_saturation_scale*C",
+            "role": "Dimensionless regime indicator for saturation/compression of crowding damage"
+          },
+          {
+            "name": "abundance_amplification",
+            "expression": "abundance_crowding_curvature*N",
+            "role": "Dimensionless strength of abundance-mediated amplification of realized competition at fixed crowding state"
+          }
+        ],
+        "activation_condition": "Observable when abundance_amplification is order one or larger and latent_crowding_load is not negligible, i.e. N becomes large enough along the realized trajectory that the current linear abundance amplification would otherwise overstate incremental suppression; weak effect when abundance_crowding_curvature*N << 1.",
+        "train_hidden_contrast": "In training, the mechanism appears as mild deviation from linear abundance amplification during periods of elevated C; in holdout with larger realized N at similar viable parameters, the same compression becomes clearer as dN_dt decreases more slowly than the parent predicts at the highest abundances.",
+        "continuation_path": "Recover the parent law in the limit where the new high-abundance compression scale tends to zero effect, so the abundance-dependent factor returns to 1 + abundance_crowding_curvature*N over the admissible range.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "N",
+          "C"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "high-abundance compression of abundance-amplified realized competition",
+        "scientific_mechanism": "At very high abundance, repeated encounters, shared depleted neighborhoods, or limited contact surface make additional individuals less able to create fresh independent competitive exposure, so abundance-amplified realized competition still grows with N but with diminishing marginal effect.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the effective coefficient of the existing crowding-loss branch now varies with N, changing the shape of the target mapping across the trajectory rather than merely rescaling loss uniformly.",
+        "taxonomy_match": "known",
+        "assumption_before": "The extra realized crowding loss factor (1 + abundance_crowding_curvature*N) is an unsaturating linear function of abundance for all biologically admissible N.",
+        "assumption_after": "The abundance-amplified realized crowding factor compresses at high abundance, remaining monotone but with diminishing marginal amplification.",
+        "before_fragment": "per_capita_birth_rate*N - background_mortality_rate*N - competition_strength*C*N*(1 + abundance_crowding_curvature*N)/(1 + crowding_saturation_scale*C + high_crowding_compression*(crowding_saturation_scale*C)**2)",
+        "after_fragment": "per_capita_birth_rate*N - background_mortality_rate*N - competition_strength*C*N*(1 + abundance_crowding_curvature*N/(1 + abundance_amplification_compression*N))/(1 + crowding_saturation_scale*C + high_crowding_compression*(crowding_saturation_scale*C)**2)",
+        "parent_reduction": "abundance_amplification_compression -> 0",
+        "observable_signature": "Compare epochs or parameter settings where latent_crowding_load is moderate-to-high while N sweeps from low to high along the same trajectory. The parent gives an affine abundance amplification inside the crowding term at fixed C, whereas the child bends over so dN_dt becomes less negative than the parent would predict at the largest N, without changing the low-N limit.",
+        "shortcut_blocked": "A single parent parameter set cannot generally match both the low-N and high-N parts of this mapping under similar C because its abundance-amplified competition factor is structurally linear in N. Retuning competition_strength or abundance_crowding_curvature can change gain, but cannot create the child’s high-N bending while preserving the same lower-N slope under the same moderate-to-high crowding regime."
+      },
+      "range_suggestions": {
+        "abundance_amplification_compression": "nonnegative; typically small enough that abundance_amplification_compression*N << 1 at low-to-moderate abundance but order one when abundance_crowding_curvature*N is order one or larger"
+      }
+    }
+  ],
+  "evolution_provenance": {
+    "dimension_track": null,
+    "mechanism_profile": {
+      "allowed_structural_roles": [
+        "contribution",
+        "interaction",
+        "constraint",
+        "feedback",
+        "transition",
+        "timescale"
+      ],
+      "preferred_scopes": [
+        "unary",
+        "pairwise",
+        "state_coupling",
+        "time_forcing"
+      ],
+      "domain_mechanisms": [
+        {
+          "id": "density_dependence",
+          "description": "density-dependent survival or reproduction",
+          "operations": [
+            "add_term",
+            "change_assumption"
+          ]
+        },
+        {
+          "id": "interspecies_competition",
+          "description": "competition, predation, or mutualistic interaction",
+          "operations": [
+            "add_term"
+          ]
+        },
+        {
+          "id": "seasonal_environment",
+          "description": "seasonal or environmental modulation",
+          "operations": [
+            "change_assumption"
+          ]
+        },
+        {
+          "id": "harvest_or_removal",
+          "description": "harvest, migration, or external removal",
+          "operations": [
+            "add_term"
+          ]
+        }
+      ],
+      "profile_source": "subfield",
+      "ontology_schema_version": "1.0",
+      "taxonomy_schema_version": "1.0"
+    },
+    "baseline_mechanisms": [
+      "Abundance-proportional reproduction and mortality",
+      "Negative density dependence caused by competition within the population"
+    ],
+    "baseline_assumptions": [
+      "The environment and resource supply are constant over time",
+      "All individuals are demographically equivalent",
+      "The population is closed to immigration and emigration",
+      "Density dependence acts without delay"
+    ],
+    "scientific_constraints": [
+      "Population abundance must remain nonnegative",
+      "Crowding must not increase the per-capita net growth rate",
+      "The finite positive equilibrium must be attracting under viable parameter settings"
+    ],
+    "refinement_agenda": [
+      "Add seasonal variation in demographic rates",
+      "Introduce delayed density dependence",
+      "Allow immigration or density-dependent emigration",
+      "Add demographic differences among life stages"
+    ],
+    "evolution_contracts": [
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_threshold",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The parent gives a linear decline of per-capita net growth with abundance: (dN_dt/N) = per_capita_birth_rate - background_mortality_rate - competition_strength*N, so crowding reduces growth with one fixed slope and one fixed carrying-capacity scale.",
+          "child_relation": "Replace the linear crowding assumption with saturating crowding damage so the per-capita net growth still decreases monotonically with N but bends from an approximately linear decline at low-to-moderate abundance toward a weaker additional suppression at high abundance.",
+          "affected_inputs": [
+            "N",
+            "competition_strength"
+          ],
+          "observable_effect": "Across trajectories that pass from low into high abundance, the child predicts less negative curvature in dN_dt versus N at large N than the parent's exact parabola, while preserving near-exponential increase at low N."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "per_capita_net_growth",
+            "expression": "(per_capita_birth_rate - background_mortality_rate) - competition_strength*N",
+            "role": "Parent linear crowding-induced decline in per-capita growth"
+          },
+          {
+            "name": "crowding_load",
+            "expression": "competition_strength*N",
+            "role": "Dimensionless-or-scaled abundance load controlling departure from the low-density regime"
+          },
+          {
+            "name": "absolute_growth_parent",
+            "expression": "N*((per_capita_birth_rate - background_mortality_rate) - competition_strength*N)",
+            "role": "Parent target mapping used as the baseline shape to be refined"
+          }
+        ],
+        "activation_condition": "Observable when trajectories include both low-density and crowding-dominated segments, specifically when competition_strength*N is small at early times but reaches order 1 over the sampled trajectory so curvature of the crowding effect can be seen.",
+        "train_hidden_contrast": "In training, the mechanism appears as near-parent behavior at low N and mild deviation as N approaches the equilibrium scale; in holdout, the same monotone saturating crowding law produces a clearer high-density flattening of dN_dt(N) that a single quadratic parent law cannot match with one shared parameter set.",
+        "continuation_path": "Recover the parent in the weak-saturation limit where the refined crowding function is approximated by its first-order Taylor expansion in N, yielding an effectively linear per-capita crowding term.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "unary",
+        "scope_symbols": [
+          "N"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "saturating intraspecific crowding",
+        "scientific_mechanism": "Interference or space limitation can make added crowding effects saturate per capita once most individuals already experience strong local competition, so further abundance increases still reduce net growth but with diminishing incremental effect.",
+        "embedding_pattern": "saturating_or_thresholded",
+        "difficulty_rationale": "This is structurally harder than a coefficient-only correction because it changes the shape of the N-to-dN_dt mapping from an exact quadratic to a rational saturating form, allowing near-parent low-density behavior and distinct high-density flattening within one trajectory.",
+        "taxonomy_match": "known",
+        "assumption_before": "Density dependence acts as a strictly linear function of abundance in the per-capita growth rate.",
+        "assumption_after": "Per-capita crowding damage increases with abundance but its incremental effect saturates at high density because interference or occupied space is already widespread.",
+        "before_fragment": "per_capita_birth_rate*N - background_mortality_rate*N - competition_strength*N**2",
+        "after_fragment": "per_capita_birth_rate*N - background_mortality_rate*N - competition_strength*N**2/(1 + crowding_saturation_scale*N)",
+        "parent_reduction": "When crowding_saturation_scale*N << 1 throughout the admissible trajectory, the denominator is approximately 1 and the parent law is recovered to first order.",
+        "observable_signature": "Holding per_capita_birth_rate, background_mortality_rate, competition_strength, and crowding_saturation_scale fixed while N varies along the observed trajectory, the parent gives an exact parabola dN_dt(N) and a per-capita net growth with constant negative slope in N, whereas the child gives a monotone decline whose slope weakens at larger N because the competition term is divided by 1 + crowding_saturation_scale*N. The difference is observable only when trajectories span from competition_strength*N much less than 1 to densities where crowding_saturation_scale*N is order 1 or larger.",
+        "shortcut_blocked": "A single refitted parent parameter set cannot reproduce both the low-density near-linear onset and the weaker-than-quadratic high-density suppression across those same conditions, because once the parent matches the small-N slope and overall intercept, its dN_dt(N) shape is fixed to one quadratic with one constant per-capita crowding slope. Retuning existing parameters can shift curvature magnitude but cannot create the child’s high-density flattening without spoiling the low-density fit."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The crowding loss is an instantaneous saturating function of current abundance alone, so for any observed N the target dN_dt is fixed by a single-phase density-response curve.",
+          "child_relation": "Crowding damage is mediated by a dynamically accumulating crowding/condition state, so the same observed N can map to different dN_dt depending on recent trajectory through that latent state.",
+          "affected_inputs": [
+            "N"
+          ],
+          "observable_effect": "During transient growth toward carrying levels, net growth is initially less suppressed than the parent predicts at a given N, but after sustained high abundance it becomes more suppressed at similar N because the accumulated crowding state lags behind abundance changes."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "net_low_density_rate",
+            "expression": "per_capita_birth_rate - background_mortality_rate",
+            "role": "Intrinsic low-density per-capita growth baseline"
+          },
+          {
+            "name": "crowding_load_parent",
+            "expression": "competition_strength*N/(1 + crowding_saturation_scale*N)",
+            "role": "Parent instantaneous per-capita crowding burden as a function of abundance"
+          },
+          {
+            "name": "abundance_scale",
+            "expression": "crowding_saturation_scale*N",
+            "role": "Dimensionless regime indicator for onset of saturating crowding effects"
+          }
+        ],
+        "activation_condition": "Observable when the trajectory passes from low abundance into moderate/high abundance so that crowding_saturation_scale*N is order 1 or larger and there is enough elapsed time for a slowly relaxing crowding condition to depart from its initial level; weak if all observations stay near equilibrium or only in the near-zero-density regime.",
+        "train_hidden_contrast": "In training, transient approach to high density can already show delayed suppression relative to the parent's single-phase curve; in holdout with longer observation windows or stronger excursions into crowding, the same delay yields larger hysteretic curvature in dN_dt versus N.",
+        "continuation_path": "Recover the parent law in the fast-relaxation limit where the added crowding-condition state instantaneously tracks abundance, or when its coupling to N is taken to the algebraic form used by the parent.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A delayed density-dependence mechanism cannot be represented with N alone because the scored target would remain a single-valued function of current abundance; one additional state is needed to encode recent crowding history and alter the N to dN_dt mapping.",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "N",
+          "C"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "delayed density-dependent crowding via latent pressure accumulation",
+        "scientific_mechanism": "A latent crowding-pressure state accumulates under high abundance and relaxes over time, causing delayed suppression of net growth.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the competition coefficient now depends on an internal dynamical state, making the target mapping history-dependent rather than a single algebraic curve in N.",
+        "taxonomy_match": "known",
+        "assumption_before": "Density dependence acts without delay",
+        "assumption_after": "Crowding suppression depends on a latent pressure state that relaxes more slowly than abundance changes.",
+        "before_fragment": "per_capita_birth_rate*N - background_mortality_rate*N - competition_strength*N**2/(1 + crowding_saturation_scale*N)",
+        "after_fragment": "per_capita_birth_rate*N - background_mortality_rate*N - competition_strength*C*N/(1 + crowding_saturation_scale*C)",
+        "parent_reduction": "When crowding_accumulation_rate and crowding_relaxation_rate are both large with crowding_accumulation_rate/crowding_relaxation_rate = 1, C rapidly tracks N so the successor reduces to the parent law.",
+        "observable_signature": "Along one trajectory, two times with similar observed N can have different dN_dt because C differs: early during ascent C<N and suppression is weaker than the parent single-phase curve, whereas after sustained crowding C can remain elevated and suppression is stronger at similar N. This is observable when the path moves from crowding_saturation_scale*N much less than 1 into order-1 or larger values over times comparable to 1/crowding_relaxation_rate.",
+        "shortcut_blocked": "A single refitted parent parameter set cannot reproduce this because the parent enforces one unique dN_dt for each N, while the child permits hysteresis-like multivalued behavior in dN_dt versus N along the same trajectory. Retuning per_capita_birth_rate, background_mortality_rate, competition_strength, or crowding_saturation_scale only changes that one-phase curve and cannot make suppression depend on recent abundance history."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "At fixed crowding pressure C, the crowding loss in dN_dt is proportional to N with coefficient competition_strength*C/(1 + crowding_saturation_scale*C), so the per-capita suppression increases linearly with N only through multiplication by abundance.",
+          "child_relation": "Replace the linear abundance dependence of realized crowding loss with a stronger high-density dependence, so that at fixed latent crowding pressure C the suppression term bends downward more sharply as N rises; equivalently, the per-capita net growth declines with N in a convex way rather than by a single shared gain.",
+          "affected_inputs": [
+            "N",
+            "C"
+          ],
+          "observable_effect": "Across trajectories that reach similar C but different N, the child predicts disproportionately stronger negative dN_dt at larger N, producing earlier peak abundance and sharper deceleration after overshoot than the parent."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "crowding_load",
+            "expression": "C",
+            "role": "Latent delayed density-pressure level"
+          },
+          {
+            "name": "realized_crowding_exposure",
+            "expression": "N*C",
+            "role": "Current abundance exposed to latent crowding pressure"
+          },
+          {
+            "name": "per_capita_net_growth_parent",
+            "expression": "per_capita_birth_rate - background_mortality_rate - competition_strength*C/(1 + crowding_saturation_scale*C)",
+            "role": "Parent per-capita net growth implied by current state"
+          }
+        ],
+        "activation_condition": "Observable when abundance spans a moderate-to-high range before settling, so that N varies appreciably while C is nonzero and not fully saturating; especially during delayed-crowding transients after initial growth.",
+        "train_hidden_contrast": "In training, moderate overshoot episodes already show some mismatch if deceleration steepens with abundance; in holdout, larger excursions in N at similar C amplify this curvature difference and separate the child from any parent with one shared competition gain.",
+        "continuation_path": "Recover the parent law in the limit where the added nonlinear abundance effect tends to the linear form, i.e. the extra density-curvature parameter goes to zero or its scaling makes realized suppression effectively proportional to N over the observed range.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "pairwise",
+        "scope_symbols": [
+          "N",
+          "C"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Amplified realized competition at high abundance under delayed crowding",
+        "scientific_mechanism": "High abundance can amplify encounter-based interference or local resource overlap on top of delayed crowding pressure, making realized competitive loss increase more than linearly with N even when C is held fixed.",
+        "embedding_pattern": "nested_nonlinearity",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the competition contribution is no longer a single linear gain on N at fixed C; it nests the combined crowding exposure inside an additional abundance-dependent nonlinear factor, changing curvature of the target-state map over observed state space.",
+        "taxonomy_match": "known",
+        "assumption_before": "For fixed C, realized crowding loss scales linearly with abundance N through one shared gain.",
+        "assumption_after": "For fixed C, realized crowding loss is amplified at high abundance by abundance-dependent interference or overlap, creating superlinear suppression in N.",
+        "before_fragment": "per_capita_birth_rate*N - background_mortality_rate*N - competition_strength*C*N/(1 + crowding_saturation_scale*C)",
+        "after_fragment": "per_capita_birth_rate*N - background_mortality_rate*N - competition_strength*C*N*(1 + abundance_crowding_curvature*N)/(1 + crowding_saturation_scale*C)",
+        "parent_reduction": "Set abundance_crowding_curvature = 0 to recover the parent exactly.",
+        "observable_signature": "At matched or similar nonzero C values observed along delayed-crowding transients, dN_dt becomes more negative than the parent predicts as N increases, while remaining close to the parent at low N; this yields sharper deceleration and lower or earlier overshoot peaks without requiring a change in the C dynamics themselves.",
+        "shortcut_blocked": "A single parent parameter set cannot fit both weak suppression at low N and disproportionately strong suppression at high N for the same C, because the parent competition term is exactly linear in N at fixed C and only allows gain rescaling through competition_strength and the C-saturation term. Refitting all existing parent parameters can shift overall slope versus C, but cannot create the child’s N-dependent curvature in the scored mapping from (N, C) to dN_dt."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "At fixed N, the target depends on latent crowding through a single saturating factor competition_strength*C/(1 + crowding_saturation_scale*C), so realized suppression rises approximately linearly for small C and then approaches a fixed-gain asymptote, with the same crowding sensitivity shape regardless of accumulated crowding history beyond the current C value.",
+          "child_relation": "Release the assumption that crowding damage saturates hyperbolically with one fixed curvature by allowing stronger high-C compression of additional crowding damage, so at fixed N the mapping from C to dN_dt bends downward more sharply after moderate crowding while matching the parent at low C.",
+          "affected_inputs": [
+            "N",
+            "C",
+            "crowding_saturation_scale"
+          ],
+          "observable_effect": "Across trajectories that reach similar N but different latent crowding levels C, the child predicts weaker incremental decreases in dN_dt once C is already large than the parent's single hyperbolic saturation allows, while remaining nearly unchanged when C is small."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "net_low_density_rate",
+            "expression": "per_capita_birth_rate - background_mortality_rate",
+            "role": "baseline per-capita growth margin before crowding suppression"
+          },
+          {
+            "name": "crowding_load",
+            "expression": "C",
+            "role": "latent accumulated crowding pressure governing delayed suppression"
+          },
+          {
+            "name": "realized_competition_prefactor",
+            "expression": "competition_strength*N*(1 + abundance_crowding_curvature*N)",
+            "role": "abundance-scaled multiplier converting latent crowding pressure into instantaneous loss"
+          },
+          {
+            "name": "saturation_argument",
+            "expression": "crowding_saturation_scale*C",
+            "role": "dimensionless regime marker for whether crowding saturation is weak or strong"
+          }
+        ],
+        "activation_condition": "Observable when trajectories enter moderate-to-high latent crowding, i.e. crowding_saturation_scale*C is order one or larger, while N remains positive so the competition term materially contributes; at low C the child should reduce closely to the parent.",
+        "train_hidden_contrast": "In training, small and moderate crowding episodes mainly identify the shared low-C slope; in holdout, longer overshoot or sustained high-density transients create larger C where the child's stronger high-C curvature changes dN_dt at similar N, revealing the refinement.",
+        "continuation_path": "Recover the parent law in the limit where the added curvature control of the saturation function vanishes, restoring the original 1/(1 + crowding_saturation_scale*C) form.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "N",
+          "C"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "stronger-than-hyperbolic saturation of crowding damage at high latent crowding",
+        "scientific_mechanism": "Under very strong crowding, most individuals may already be fully exposed to interference or local depletion, so further increases in latent crowding pressure produce extra suppression with diminishing marginal impact stronger than simple hyperbolic saturation.",
+        "embedding_pattern": "nested_nonlinearity",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the child changes the shape of the C-to-dN_dt map through a nonlinear combination of the existing saturation argument before inversion, not merely the overall gain. The extra quadratic dependence only activates at moderate-to-high crowding, so one shared parent parameter set cannot match both low-C and high-C curvature simultaneously.",
+        "taxonomy_match": "known",
+        "assumption_before": "Crowding-mediated damage saturates with one fixed Michaelis-like denominator 1 + crowding_saturation_scale*C.",
+        "assumption_after": "High crowding introduces additional compression of marginal damage, giving a stronger-than-hyperbolic saturation while preserving the low-crowding limit.",
+        "before_fragment": "per_capita_birth_rate*N - background_mortality_rate*N - competition_strength*C*N*(1 + abundance_crowding_curvature*N)/(1 + crowding_saturation_scale*C)",
+        "after_fragment": "per_capita_birth_rate*N - background_mortality_rate*N - competition_strength*C*N*(1 + abundance_crowding_curvature*N)/(1 + crowding_saturation_scale*C + high_crowding_compression*(crowding_saturation_scale*C)**2)",
+        "parent_reduction": "The successor reduces to the parent when high_crowding_compression = 0, which removes the quadratic high-crowding compression and restores the original denominator 1 + crowding_saturation_scale*C.",
+        "observable_signature": "At matched N and low C, both models give nearly the same dN_dt because the added quadratic denominator term is negligible. At matched N and moderate-to-high C, the child yields less additional suppression per unit increase in C than the parent, so dN_dt declines with C but flattens more strongly than the parent's single hyperbola.",
+        "shortcut_blocked": "Refitting per_capita_birth_rate, background_mortality_rate, competition_strength, crowding_saturation_scale, crowding_accumulation_rate, crowding_relaxation_rate, and abundance_crowding_curvature in the parent can rescale baseline growth, competition magnitude, and the location of one hyperbolic bend, but it cannot create the child's extra high-C curvature while preserving the same low-C slope with a single shared parameter set. Matching the holdout high-C flattening by changing crowding_saturation_scale would also shift the moderate-C transition and low-C sensitivity because the parent has only one saturation shape."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "At fixed latent crowding pressure C, crowding loss enters as competition_strength*C*N*(1 + abundance_crowding_curvature*N) divided by a saturation function of C only, so the realized per-capita suppression is affine in N for any given C.",
+          "child_relation": "At fixed C, the abundance-amplified realized competition should itself compress at high N because encounter overlap or local depletion cannot keep increasing quadratically without bound once most individuals are already exposed; this changes the N-to-dN_dt mapping from affine to subquadratically curved at high abundance.",
+          "affected_inputs": [
+            "N",
+            "C",
+            "abundance_crowding_curvature"
+          ],
+          "observable_effect": "When C is moderate-to-high and N spans low to high values along the trajectory, the child predicts that increasingly large N increments cause smaller additional decreases in dN_dt than the parent's fixed linear-in-N per-capita amplification, while still preserving monotone crowding damage."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "net_low_density_margin",
+            "expression": "per_capita_birth_rate - background_mortality_rate",
+            "role": "Intrinsic low-density per-capita growth margin before crowding losses matter"
+          },
+          {
+            "name": "latent_crowding_load",
+            "expression": "crowding_saturation_scale*C",
+            "role": "Dimensionless regime indicator for saturation/compression of crowding damage"
+          },
+          {
+            "name": "abundance_amplification",
+            "expression": "abundance_crowding_curvature*N",
+            "role": "Dimensionless strength of abundance-mediated amplification of realized competition at fixed crowding state"
+          }
+        ],
+        "activation_condition": "Observable when abundance_amplification is order one or larger and latent_crowding_load is not negligible, i.e. N becomes large enough along the realized trajectory that the current linear abundance amplification would otherwise overstate incremental suppression; weak effect when abundance_crowding_curvature*N << 1.",
+        "train_hidden_contrast": "In training, the mechanism appears as mild deviation from linear abundance amplification during periods of elevated C; in holdout with larger realized N at similar viable parameters, the same compression becomes clearer as dN_dt decreases more slowly than the parent predicts at the highest abundances.",
+        "continuation_path": "Recover the parent law in the limit where the new high-abundance compression scale tends to zero effect, so the abundance-dependent factor returns to 1 + abundance_crowding_curvature*N over the admissible range.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "N",
+          "C"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "high-abundance compression of abundance-amplified realized competition",
+        "scientific_mechanism": "At very high abundance, repeated encounters, shared depleted neighborhoods, or limited contact surface make additional individuals less able to create fresh independent competitive exposure, so abundance-amplified realized competition still grows with N but with diminishing marginal effect.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the effective coefficient of the existing crowding-loss branch now varies with N, changing the shape of the target mapping across the trajectory rather than merely rescaling loss uniformly.",
+        "taxonomy_match": "known",
+        "assumption_before": "The extra realized crowding loss factor (1 + abundance_crowding_curvature*N) is an unsaturating linear function of abundance for all biologically admissible N.",
+        "assumption_after": "The abundance-amplified realized crowding factor compresses at high abundance, remaining monotone but with diminishing marginal amplification.",
+        "before_fragment": "per_capita_birth_rate*N - background_mortality_rate*N - competition_strength*C*N*(1 + abundance_crowding_curvature*N)/(1 + crowding_saturation_scale*C + high_crowding_compression*(crowding_saturation_scale*C)**2)",
+        "after_fragment": "per_capita_birth_rate*N - background_mortality_rate*N - competition_strength*C*N*(1 + abundance_crowding_curvature*N/(1 + abundance_amplification_compression*N))/(1 + crowding_saturation_scale*C + high_crowding_compression*(crowding_saturation_scale*C)**2)",
+        "parent_reduction": "abundance_amplification_compression -> 0",
+        "observable_signature": "Compare epochs or parameter settings where latent_crowding_load is moderate-to-high while N sweeps from low to high along the same trajectory. The parent gives an affine abundance amplification inside the crowding term at fixed C, whereas the child bends over so dN_dt becomes less negative than the parent would predict at the largest N, without changing the low-N limit.",
+        "shortcut_blocked": "A single parent parameter set cannot generally match both the low-N and high-N parts of this mapping under similar C because its abundance-amplified competition factor is structurally linear in N. Retuning competition_strength or abundance_crowding_curvature can change gain, but cannot create the child’s high-N bending while preserving the same lower-N slope under the same moderate-to-high crowding regime."
+      }
+    ]
+  },
+  "finalization": {
+    "mode": "candidate",
+    "accepted_generations": 5,
+    "novelty": {
+      "answer": "NOT_EVALUATED"
+    },
+    "total_points": 5000,
+    "evaluation_status": "not_evaluated"
+  }
+}

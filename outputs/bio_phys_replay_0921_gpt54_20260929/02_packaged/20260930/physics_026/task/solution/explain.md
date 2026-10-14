@@ -1,0 +1,3 @@
+Ground truth: I = M*R**2/2*(1 + (beta_elastic*omega**2*R**2*(1 + gamma_nonlinear*(1 + beta_thermal_nonlinear*tanh(temperature_disk/temperature_scale))*beta_elastic*omega**2*R**2) + beta_elastic*beta_thermal_softening*tanh(temperature_disk/temperature_scale)*omega**2*R**2*(1 + gamma_nonlinear*(1 + beta_thermal_nonlinear*tanh(temperature_disk/temperature_scale))*beta_elastic*omega**2*R**2))/(1 + gamma_nonlinear*(1 + beta_thermal_nonlinear*tanh(temperature_disk/temperature_scale))*beta_elastic*omega**2*R**2))
+
+Fixed parameters: {'beta_elastic': 2e-07, 'gamma_nonlinear': 2.0, 'temperature_scale': 300.0, 'beta_thermal_softening': 0.4, 'beta_thermal_nonlinear': 0.6}

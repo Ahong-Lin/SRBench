@@ -1,0 +1,242 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "i",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        0.25
+      ],
+      "n_points": 400,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "inductance",
+      "value": 0.5
+    },
+    {
+      "symbol": "resistance_nonlinear_coeff",
+      "value": 0.8
+    },
+    {
+      "symbol": "thermal_resistance_gain",
+      "value": 0.6
+    },
+    {
+      "symbol": "thermal_capacity",
+      "value": 8.0
+    },
+    {
+      "symbol": "ambient_resistance",
+      "value": 1.0
+    },
+    {
+      "symbol": "heating_saturation_power",
+      "value": 0.02
+    },
+    {
+      "symbol": "saturation_current_scale",
+      "value": 0.08
+    },
+    {
+      "symbol": "capacitance_relaxation_time",
+      "value": 0.03
+    },
+    {
+      "symbol": "small_signal_capacitance",
+      "value": 0.001
+    },
+    {
+      "symbol": "capacitance_field_gain",
+      "value": 0.4
+    },
+    {
+      "symbol": "capacitance_field_scale",
+      "value": 0.001
+    }
+  ],
+  "benchmark_output": "di_dt",
+  "benchmark_target_state": "i",
+  "observed_variables": [
+    "t",
+    "q",
+    "i",
+    "resistance",
+    "capacitance"
+  ],
+  "rhs_for_integrator": "(-(resistance + resistance_nonlinear_coeff*Abs(i))*i - q/(capacitance*(1 + capacitance_relaxation_time*Abs(i)/sqrt(inductance*small_signal_capacitance))))/(inductance/(1 + Abs(i)/saturation_current_scale))",
+  "state_variables": [
+    "q",
+    "i",
+    "resistance",
+    "capacitance"
+  ],
+  "state_rhs": [
+    "i",
+    "(-(resistance + resistance_nonlinear_coeff*Abs(i))*i - q/(capacitance*(1 + capacitance_relaxation_time*Abs(i)/sqrt(inductance*small_signal_capacitance))))/(inductance/(1 + Abs(i)/saturation_current_scale))",
+    "(thermal_resistance_gain*((resistance + resistance_nonlinear_coeff*Abs(i))*i**2)/(1 + ((resistance + resistance_nonlinear_coeff*Abs(i))*i**2)/heating_saturation_power) - (resistance - ambient_resistance))/thermal_capacity",
+    "(small_signal_capacitance*(1 + capacitance_field_gain*(Abs(q)/capacitance_field_scale)/(1 + Abs(q)/capacitance_field_scale)) - capacitance)/capacitance_relaxation_time"
+  ],
+  "initial_conditions": {
+    "q": 0.001,
+    "i": 0.0,
+    "resistance": 1.0,
+    "capacitance": 1.0
+  },
+  "sanity_expectations": [
+    "At t=0, dq/dt = i = 0 exactly, di/dt is negative and finite, resistance initially relaxes negligibly because Joule heating starts at zero current, and capacitance decreases rapidly from its inherited initial value 1.0 toward a much smaller charge-dependent target near small_signal_capacitance.",
+    "Because the capacitor restoring term is divided by 1 + capacitance_relaxation_time*|i|/sqrt(inductance*small_signal_capacitance), segments with larger |i| should show weaker instantaneous q-driven restoring action than matched low-|i| segments at similar q and capacitance; this effect is strongest away from current zero crossings.",
+    "When |i| approaches a noticeable fraction of saturation_current_scale = 0.08 A, the effective inductive denominator decreases, so |di/dt| should increase relative to a constant-inductance baseline mainly during higher-current portions, not uniformly over the whole trajectory.",
+    "Resistance should remain positive and drift only moderately upward over the window; any thermal change should lag electrical oscillation because the thermal state evolves on a slower timescale than the LC motion.",
+    "Field-dependent capacitance enhancement is limited to order-one changes around |q| comparable to capacitance_field_scale = 0.001, but the inherited nonequilibrium initial capacitance state is much larger and therefore early-time capacitance behavior is dominated by relaxation from the imposed initial condition rather than by the field-dependent target alone."
+  ],
+  "role_corrections": [
+    "di_dt: claimed-output/target derivative -> derivative label only, not dependent variable (overridden: in the typed ODE system the dependent variable is target_state i, while di_dt is the RHS-defined time derivative)",
+    "t: claimed-input/time axis -> independent variable (confirmed)",
+    "q: claimed-dynamic state -> dynamic state variable (confirmed)",
+    "i: claimed-dynamic state -> dependent variable and dynamic state variable (confirmed)",
+    "resistance: claimed-dynamic state -> dynamic state variable (confirmed by explicit state equation and preserved per freedom_change none)",
+    "inductance: claimed-parameter -> parameter (confirmed)",
+    "capacitance: claimed-dynamic state -> dynamic state variable (confirmed by explicit state equation and preserved per freedom_change none)",
+    "resistance_nonlinear_coeff: claimed-parameter -> parameter (confirmed)",
+    "thermal_resistance_gain: claimed-parameter -> parameter (confirmed)",
+    "thermal_capacity: claimed-parameter -> parameter (confirmed)",
+    "ambient_resistance: claimed-parameter -> parameter (confirmed)",
+    "heating_saturation_power: claimed-parameter -> parameter (confirmed)",
+    "saturation_current_scale: claimed-parameter -> parameter (confirmed)",
+    "capacitance_relaxation_time: claimed-parameter -> parameter (confirmed)",
+    "small_signal_capacitance: claimed-parameter -> parameter (confirmed)",
+    "capacitance_field_gain: claimed-parameter -> parameter (confirmed)",
+    "capacitance_field_scale: claimed-parameter -> parameter (confirmed)"
+  ],
+  "rationale": "The typed ODE contract is preserved exactly as required: the sampled axis is time only, dependent variable is the target state i, and the full four-state system is inherited without reordering. The chosen parameters keep the dynamics passive and finite while making the intended refinements observable from the inherited initial release q(0)=0.001, i(0)=0. With inductance*small_signal_capacitance = 5e-4, the small-signal LC timescale is sqrt(LC) ≈ 0.022 s, so the time window 0 to 0.25 s spans about 11 small-signal oscillation times and should show several ring-down cycles before strong flattening. The saturation current scale 0.08 A is neither unreachable nor deep in saturation: from the initial stored energy q0^2/(2C0)=5e-7 J and L=0.5 H, a linear estimate gives peak current around q0/sqrt(LC0) ≈ 0.045 A, so trajectories should probe a moderate fraction of saturation_current_scale rather than remaining fully linear or fully saturated. The dielectric lag factor uses capacitance_relaxation_time/sqrt(LC_small) ≈ 1.34, meaning current-dependent weakening of the capacitor restoring term can be noticeable when |i| is appreciable, especially early in the discharge, but it vanishes automatically near current zero crossings. The capacitance state is initialized at 1.0 while its small-signal target is 0.001, so the capacitance relaxation dynamics will dominate immediately; this inherited initial state is physically extreme and supersedes subtle field-dependent capacitance modulation at the earliest times, but it must be preserved. The chosen capacitance_relaxation_time keeps that inherited transient observable rather than numerically instantaneous. Thermal evolution is set slower than the electrical motion: thermal_capacity=8 and thermal_resistance_gain=0.6 with heating_saturation_power=0.02 make resistance drift moderate over the 0.25 s window rather than frozen or explosively fast, so history-dependent damping can emerge later in the ring-down if Joule power becomes appreciable. Because the inherited initial capacitance is far above small_signal_capacitance, early motion may be slower and less oscillatory than a near-equilibrium capacitor start; this is an honest limitation of the given contract, not repaired here. No observation noise is added.",
+  "coverage_report": {},
+  "inactive_mechanisms": [],
+  "target_variance": {},
+  "parent_absorption_report": {},
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_dLtuvy0aTWyxgqNQSoYAkRCu"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "di_dt - (-(resistance + resistance_nonlinear_coeff*Abs(i))*i - q/(capacitance*(1 + capacitance_relaxation_time*Abs(i)/sqrt(inductance*small_signal_capacitance))))/(inductance/(1 + Abs(i)/saturation_current_scale))",
+        "target_symbol": "di_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "capacitance",
+          "capacitance_relaxation_time",
+          "di_dt",
+          "i",
+          "inductance",
+          "q",
+          "resistance",
+          "resistance_nonlinear_coeff",
+          "saturation_current_scale",
+          "small_signal_capacitance"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "(-capacitance*capacitance_relaxation_time*i*resistance*saturation_current_scale*Abs(i) - capacitance*capacitance_relaxation_time*i*resistance*Abs(i)**2 - capacitance*capacitance_relaxation_time*i*resistance_nonlinear_coeff*saturation_current_scale*Abs(i)**2 - capacitance*capacitance_relaxation_time*i*resistance_nonlinear_coeff*Abs(i)**3 - capacitance*i*resistance*saturation_current_scale*sqrt(inductance*small_signal_capacitance) - capacitance*i*resistance*sqrt(inductance*small_signal_capacitance)*Abs(i) - capacitance*i*resistance_nonlinear_coeff*saturation_current_scale*sqrt(inductance*small_signal_capacitance)*Abs(i) - capacitance*i*resistance_nonlinear_coeff*sqrt(inductance*small_signal_capacitance)*Abs(i)**2 - q*saturation_current_scale*sqrt(inductance*small_signal_capacitance) - q*sqrt(inductance*small_signal_capacitance)*Abs(i))/(capacitance*inductance*saturation_current_scale*(capacitance_relaxation_time*Abs(i) + sqrt(inductance*small_signal_capacitance)))"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_zRbnxL7jPpELH6vvOCV5Wyjg"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "(-(resistance + resistance_nonlinear_coeff*Abs(i))*i - q/(capacitance*(1 + capacitance_relaxation_time*Abs(i)/sqrt(inductance*small_signal_capacitance))))/(inductance/(1 + Abs(i)/saturation_current_scale))",
+        "target_symbol": "di_dt",
+        "assignments": {
+          "q": 0.001,
+          "i": 0.0,
+          "resistance": 1.0,
+          "capacitance": 1.0,
+          "inductance": 0.5,
+          "resistance_nonlinear_coeff": 0.8,
+          "thermal_resistance_gain": 0.6,
+          "thermal_capacity": 8.0,
+          "ambient_resistance": 1.0,
+          "heating_saturation_power": 0.02,
+          "saturation_current_scale": 0.08,
+          "capacitance_relaxation_time": 0.03,
+          "small_signal_capacitance": 0.001,
+          "capacitance_field_gain": 0.4,
+          "capacitance_field_scale": 0.001
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": -0.002,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_FzLr92tVVeOEAsCdDF7hWfZc"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_eJsNtA1xGzUF11EqXmQZlOzV"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 4
+}

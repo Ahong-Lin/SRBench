@@ -1,0 +1,1808 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "v",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        30.0
+      ],
+      "n_points": 400,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "mass",
+      "value": 1.0
+    },
+    {
+      "symbol": "spring_stiffness",
+      "value": 4.0
+    },
+    {
+      "symbol": "damping_coefficient",
+      "value": 0.25
+    },
+    {
+      "symbol": "cubic_stiffness",
+      "value": 1.2
+    },
+    {
+      "symbol": "nonlinear_damping_strength",
+      "value": 0.4
+    },
+    {
+      "symbol": "loss_drive_rate",
+      "value": 0.35
+    },
+    {
+      "symbol": "loss_relaxation_rate",
+      "value": 0.12
+    },
+    {
+      "symbol": "loss_activation_rate",
+      "value": 0.5
+    },
+    {
+      "symbol": "loss_saturation_scale",
+      "value": 0.8
+    }
+  ],
+  "benchmark_output": "dv_dt",
+  "benchmark_target_state": "v",
+  "observed_variables": [
+    "t",
+    "x",
+    "v",
+    "internal_loss_level",
+    "loss_activation_level"
+  ],
+  "rhs_for_integrator": "-(spring_stiffness/mass)*x - (damping_coefficient/mass)*(1 + internal_loss_level)*(1 + nonlinear_damping_strength*v**2/(1 + nonlinear_damping_strength*v**2))*v - (cubic_stiffness/mass)*x**3",
+  "state_variables": [
+    "x",
+    "v",
+    "internal_loss_level",
+    "loss_activation_level"
+  ],
+  "state_rhs": [
+    "v",
+    "-(spring_stiffness/mass)*x - (damping_coefficient/mass)*(1 + internal_loss_level)*(1 + nonlinear_damping_strength*v**2/(1 + nonlinear_damping_strength*v**2))*v - (cubic_stiffness/mass)*x**3",
+    "loss_drive_rate*loss_activation_level - loss_relaxation_rate*internal_loss_level",
+    "loss_activation_rate*v**2/(loss_saturation_scale + v**2) - loss_relaxation_rate*loss_activation_level"
+  ],
+  "initial_conditions": {
+    "x": 1.0,
+    "v": 0.0,
+    "internal_loss_level": 0.0,
+    "loss_activation_level": 0.0
+  },
+  "sanity_expectations": [
+    "At t=0, internal_loss_level=0 and loss_activation_level=0 exactly, so the initial acceleration is governed only by the mechanical restoring and instantaneous damping law; extra history-dependent damping is initially inactive.",
+    "Because spring_stiffness/mass=4 and damping is modest, x and v should exhibit decaying oscillations rather than monotone creep, with several zero crossings before settling near equilibrium.",
+    "The restoring acceleration should be stronger than linear at larger |x| because cubic_stiffness>0, so turning-point inward acceleration grows faster than Hooke's law alone.",
+    "For trajectory segments where internal_loss_level is similar, the velocity-dependent damping increment should bend over once nonlinear_damping_strength*v^2 becomes order 1; compared with the unsaturated parent, high-|v| deceleration should increase less steeply than a pure v+v^3 law.",
+    "loss_activation_level should increase from zero during energetic motion and then relax; internal_loss_level should lag that activation and remain nonnegative for these positive-rate choices.",
+    "The strongest separation from the parent mechanisms should occur on early-to-mid decay segments that reach both v^2 comparable to loss_saturation_scale and nonlinear_damping_strength*v^2 around 1; very late low-speed segments should revert toward the small-velocity, weak-activation limit."
+  ],
+  "role_corrections": [
+    "dv_dt: claimed-output/target derivative -> derivative of dependent state v (confirmed by target meaning; supervised quantity comes from v equation within the provided ODE system)",
+    "t: claimed-input/time axis -> independent variable/time axis (confirmed)",
+    "x: claimed-dynamic state -> dynamic state variable (confirmed from ODE contract)",
+    "v: claimed-dynamic state -> dependent variable / target state and dynamic state variable (confirmed and clarified)",
+    "internal_loss_level: claimed-dynamic state -> dynamic state variable (confirmed)",
+    "loss_activation_level: claimed-dynamic state -> dynamic state variable (confirmed)",
+    "mass: claimed-parameter -> parameter (confirmed)",
+    "spring_stiffness: claimed-parameter -> parameter (confirmed)",
+    "damping_coefficient: claimed-parameter -> parameter (confirmed)",
+    "cubic_stiffness: claimed-parameter -> parameter (confirmed)",
+    "nonlinear_damping_strength: claimed-parameter -> parameter (confirmed)",
+    "loss_drive_rate: claimed-parameter -> parameter (confirmed)",
+    "loss_relaxation_rate: claimed-parameter -> parameter (confirmed)",
+    "loss_activation_rate: claimed-parameter -> parameter (confirmed)",
+    "loss_saturation_scale: claimed-parameter -> parameter (confirmed)",
+    "equation type: prior explicit target expression -> ode_system (overridden by required validated ODE system contract for generation)"
+  ],
+  "rationale": "The typed ODE contract is preserved exactly as required: this is a four-state ODE system with time as the only sampled axis and v as the target state whose time derivative is the supervised quantity. The local target expression is algebraically explicit in dv_dt, but the record explicitly provides a validated dynamical contract and requires ode_system/integrate_system, so the full system is the governing object for data generation. Chosen parameters keep the oscillator underdamped in the small-amplitude limit (natural frequency sqrt(k/m)=2, baseline viscous ratio about 0.0625) while allowing visible but not overwhelming nonlinear effects. Positive cubic_stiffness gives observable Duffing hardening at order-unity displacement. nonlinear_damping_strength=0.4 means the dimensionless speed intensity nonlinear_damping_strength*v^2 is small at low speed but reaches order 1 for |v| around 1.6, so the revised rational damping factor bends away from the unsaturated parent law over reachable parts of the decay rather than staying always linear or fully saturated. The loss subsystem is slower than the mechanical oscillation but not frozen: with relaxation 0.12 and activation/drive rates 0.5 and 0.35, internal loss builds over several oscillations and then relaxes, producing history dependence without destabilizing the decay. loss_saturation_scale=0.8 makes activation approximately linear for small v^2 and visibly bent over once v^2 is around 1, matching the intended finite-capacity channel activation mechanism. The provided inherited initial conditions are kept unchanged, so activation starts from zero and emerges only if trajectories naturally reach sufficient speed; this honestly means the earliest part of any trajectory is close to the parent low-loss limit, while later segments can separate through accumulated loss. The time window 0 to 30 with 400 samples is long enough to capture several oscillations, loss buildup, and decaying approach toward equilibrium without focusing only on the near-flat tail.",
+  "coverage_report": {
+    "groups": [
+      {
+        "generation": 1,
+        "name": "disp_vel_plane",
+        "expression": "x*v",
+        "role": "Separates turning-point regions from high-speed crossing regions when comparing restoring and damping contributions.",
+        "train_range": [
+          -1.0590779145224505,
+          0.6526016880631482
+        ],
+        "hidden_range": [
+          -1.2904421176198006e-06,
+          7.635990294958811e-07
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": -1.0590779145224505,
+          "max": 0.6526016880631482,
+          "q05": -0.2781548313079535,
+          "median": -1.6465992240796789e-06,
+          "q95": 0.15206817991479957,
+          "range": 1.7116796025855987,
+          "robust_range": 0.4302230112227531
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": -1.2904421176198006e-06,
+          "max": 7.635990294958811e-07,
+          "q05": -1.1074151614257893e-06,
+          "median": -1.7339720620209818e-08,
+          "q95": 7.207019332398918e-07,
+          "range": 2.054041147115682e-06,
+          "robust_range": 1.828117094665681e-06
+        }
+      },
+      {
+        "generation": 1,
+        "name": "amplitude_scale",
+        "expression": "x**2",
+        "role": "Measures departure from the small-displacement regime where linear Hooke response is valid.",
+        "train_range": [
+          1.432757223415648e-11,
+          1.0
+        ],
+        "hidden_range": [
+          1.3446522696742691e-10,
+          7.270241232645815e-07
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 1.432757223415648e-11,
+          "max": 1.0,
+          "q05": 3.7793180595556003e-07,
+          "median": 0.0002984107713522479,
+          "q95": 0.3170549328347993,
+          "range": 0.9999999999856725,
+          "robust_range": 0.31705455490299334
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 1.3446522696742691e-10,
+          "max": 7.270241232645815e-07,
+          "q05": 4.560867262623028e-09,
+          "median": 3.048177679140111e-07,
+          "q95": 7.074924305754131e-07,
+          "range": 7.26889658037614e-07,
+          "robust_range": 7.0293156331279e-07
+        }
+      },
+      {
+        "generation": 1,
+        "name": "parent_accel_core",
+        "expression": "-(spring_stiffness/mass)*x - (damping_coefficient/mass)*v",
+        "role": "Baseline linear target mapping to compare against amplitude-dependent restoring curvature.",
+        "train_range": [
+          -4.0,
+          3.103789979281363
+        ],
+        "hidden_range": [
+          -0.0034241019266079272,
+          0.0030322693330655593
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": -4.0,
+          "max": 3.103789979281363,
+          "q05": -1.463077461047252,
+          "median": 0.001037537900711104,
+          "q95": 1.5114959931648269,
+          "range": 7.103789979281363,
+          "robust_range": 2.974573454212079
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": -0.0034241019266079272,
+          "max": 0.0030322693330655593,
+          "q05": -0.0033802828166134605,
+          "median": -0.0002585921263465843,
+          "q95": 0.0025163126186824158,
+          "range": 0.0064563712596734865,
+          "robust_range": 0.005896595435295877
+        }
+      },
+      {
+        "generation": 2,
+        "name": "linear_restore",
+        "expression": "(spring_stiffness/mass)*x",
+        "role": "baseline linear restoring acceleration scale",
+        "train_range": [
+          -3.0725338000609765,
+          4.0
+        ],
+        "hidden_range": [
+          -0.0034106283837781718,
+          0.0033973159587512595
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": -3.0725338000609765,
+          "max": 4.0,
+          "q05": -1.5023475058339941,
+          "median": -0.0010240325766311513,
+          "q95": 1.4639513989378403,
+          "range": 7.0725338000609765,
+          "robust_range": 2.9662989047718344
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": -0.0034106283837781718,
+          "max": 0.0033973159587512595,
+          "q05": -0.0025019241338326216,
+          "median": 0.0002634676533878141,
+          "q95": 0.003354182420060307,
+          "range": 0.006807944342529432,
+          "robust_range": 0.005856106553892929
+        }
+      },
+      {
+        "generation": 2,
+        "name": "duffing_restore",
+        "expression": "(cubic_stiffness/mass)*x**3",
+        "role": "existing amplitude-dependent conservative restoring contribution",
+        "train_range": [
+          -0.5438652109193657,
+          1.2
+        ],
+        "hidden_range": [
+          -7.438827331492865e-10,
+          7.352060795952632e-10
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": -0.5438652109193657,
+          "max": 1.2,
+          "q05": -0.06362339663806056,
+          "median": -2.0346122968222432e-11,
+          "q95": 0.058830043287651776,
+          "range": 1.7438652109193655,
+          "robust_range": 0.12245343992571234
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": -7.438827331492865e-10,
+          "max": 7.352060795952632e-10,
+          "q05": -2.936457762486661e-10,
+          "median": 3.642490439479814e-13,
+          "q95": 7.075756408738663e-10,
+          "range": 1.4790888127445497e-09,
+          "robust_range": 1.0012214171225324e-09
+        }
+      },
+      {
+        "generation": 2,
+        "name": "viscous_scale",
+        "expression": "(damping_coefficient/mass)*v",
+        "role": "parent linear dissipative contribution",
+        "train_range": [
+          -0.4694690772670476,
+          0.34844818997428006
+        ],
+        "hidden_range": [
+          -0.0003674639606215612,
+          0.0005030344401926583
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": -0.4694690772670476,
+          "max": 0.34844818997428006,
+          "q05": -0.23004954588742987,
+          "median": -0.0001692299300735632,
+          "q95": 0.1633165148014445,
+          "range": 0.8179172672413277,
+          "robust_range": 0.39336606068887436
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": -0.0003674639606215612,
+          "max": 0.0005030344401926583,
+          "q05": -0.00036264945290977,
+          "median": -2.7813084214192016e-05,
+          "q95": 0.0004967533524766944,
+          "range": 0.0008704984008142195,
+          "robust_range": 0.0008594028053864643
+        }
+      },
+      {
+        "generation": 2,
+        "name": "speed_level",
+        "expression": "v**2",
+        "role": "kinetic-amplitude coordinate controlling observability of nonlinear damping",
+        "train_range": [
+          0.0,
+          3.52641943215957
+        ],
+        "hidden_range": [
+          8.64409703201806e-11,
+          4.0486983683190586e-06
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 3.52641943215957,
+          "q05": 9.30930333302105e-07,
+          "median": 0.0010636948396214336,
+          "q95": 1.4220550307343836,
+          "range": 3.52641943215957,
+          "robust_range": 1.4220540998040503
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 8.64409703201806e-11,
+          "max": 4.0486983683190586e-06,
+          "q05": 1.288929396271585e-08,
+          "median": 1.3754090904661753e-06,
+          "q95": 3.948273359807685e-06,
+          "range": 4.048611927348738e-06,
+          "robust_range": 3.935384065844969e-06
+        }
+      },
+      {
+        "generation": 3,
+        "name": "restoring_load",
+        "expression": "(spring_stiffness/mass)*x + (cubic_stiffness/mass)*x**3",
+        "role": "Instantaneous conservative restoring contribution",
+        "train_range": [
+          -3.6163990109803423,
+          5.2
+        ],
+        "hidden_range": [
+          -0.003410629127660905,
+          0.003397316693957339
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": -3.6163990109803423,
+          "max": 5.2,
+          "q05": -1.5659709024720547,
+          "median": -0.0010240325969772743,
+          "q95": 1.522781442225492,
+          "range": 8.816399010980343,
+          "robust_range": 3.0887523446975464
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": -0.003410629127660905,
+          "max": 0.003397316693957339,
+          "q05": -0.002501924427478398,
+          "median": 0.00026346765375206315,
+          "q95": 0.003354183127635948,
+          "range": 0.006807945821618244,
+          "robust_range": 0.005856107555114346
+        }
+      },
+      {
+        "generation": 3,
+        "name": "base_damping_load",
+        "expression": "(damping_coefficient/mass)*(1 + nonlinear_damping_strength*v**2)*v",
+        "role": "Parent instantaneous dissipative contribution",
+        "train_range": [
+          -1.1316870280160636,
+          0.6192144914058683
+        ],
+        "hidden_range": [
+          -0.0003674642781804174,
+          0.0005030352548465452
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": -1.1316870280160636,
+          "max": 0.6192144914058683,
+          "q05": -0.3079900820743363,
+          "median": -0.00016922996133717926,
+          "q95": 0.1911993057505271,
+          "range": 1.750901519421932,
+          "robust_range": 0.49918938782486344
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": -0.0003674642781804174,
+          "max": 0.0005030352548465452,
+          "q05": -0.00036264975814950183,
+          "median": -2.781308436927624e-05,
+          "q95": 0.0004967541370241773,
+          "range": 0.0008704995330269627,
+          "robust_range": 0.0008594038951736792
+        }
+      },
+      {
+        "generation": 3,
+        "name": "kinetic_level",
+        "expression": "v**2",
+        "role": "Local motion intensity that can drive slow internal dissipation-state evolution",
+        "train_range": [
+          0.0,
+          3.52641943215957
+        ],
+        "hidden_range": [
+          8.64409703201806e-11,
+          4.0486983683190586e-06
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 3.52641943215957,
+          "q05": 9.30930333302105e-07,
+          "median": 0.0010636948396214336,
+          "q95": 1.4220550307343836,
+          "range": 3.52641943215957,
+          "robust_range": 1.4220540998040503
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 8.64409703201806e-11,
+          "max": 4.0486983683190586e-06,
+          "q05": 1.288929396271585e-08,
+          "median": 1.3754090904661753e-06,
+          "q95": 3.948273359807685e-06,
+          "range": 4.048611927348738e-06,
+          "robust_range": 3.935384065844969e-06
+        }
+      },
+      {
+        "generation": 4,
+        "name": "vibration_intensity",
+        "expression": "v**2",
+        "role": "Instantaneous drive level for slow internal loss buildup",
+        "train_range": [
+          0.0,
+          3.52641943215957
+        ],
+        "hidden_range": [
+          8.64409703201806e-11,
+          4.0486983683190586e-06
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 3.52641943215957,
+          "q05": 9.30930333302105e-07,
+          "median": 0.0010636948396214336,
+          "q95": 1.4220550307343836,
+          "range": 3.52641943215957,
+          "robust_range": 1.4220540998040503
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 8.64409703201806e-11,
+          "max": 4.0486983683190586e-06,
+          "q05": 1.288929396271585e-08,
+          "median": 1.3754090904661753e-06,
+          "q95": 3.948273359807685e-06,
+          "range": 4.048611927348738e-06,
+          "robust_range": 3.935384065844969e-06
+        }
+      },
+      {
+        "generation": 4,
+        "name": "effective_damping_factor",
+        "expression": "(1 + internal_loss_level)*(1 + nonlinear_damping_strength*v**2)",
+        "role": "Current multiplier on the baseline viscous damping term",
+        "train_range": [
+          1.0,
+          2.4472826344017826
+        ],
+        "hidden_range": [
+          1.5069115408677238,
+          1.6419541543442093
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 1.0,
+          "max": 2.4472826344017826,
+          "q05": 1.5287221055332605,
+          "median": 2.094385257294878,
+          "q95": 2.371701483828866,
+          "range": 1.4472826344017826,
+          "robust_range": 0.8429793782956057
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 1.5069115408677238,
+          "max": 1.6419541543442093,
+          "q05": 1.513105187091969,
+          "median": 1.5714947655687488,
+          "q95": 1.6346476398282836,
+          "range": 0.1350426134764855,
+          "robust_range": 0.1215424527363147
+        }
+      },
+      {
+        "generation": 4,
+        "name": "elastic_force_scale",
+        "expression": "(spring_stiffness/mass)*x + (cubic_stiffness/mass)*x**3",
+        "role": "Competing conservative acceleration scale against which damping-induced curvature changes are observed",
+        "train_range": [
+          -3.6163990109803423,
+          5.2
+        ],
+        "hidden_range": [
+          -0.003410629127660905,
+          0.003397316693957339
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": -3.6163990109803423,
+          "max": 5.2,
+          "q05": -1.5659709024720547,
+          "median": -0.0010240325969772743,
+          "q95": 1.522781442225492,
+          "range": 8.816399010980343,
+          "robust_range": 3.0887523446975464
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": -0.003410629127660905,
+          "max": 0.003397316693957339,
+          "q05": -0.002501924427478398,
+          "median": 0.00026346765375206315,
+          "q95": 0.003354183127635948,
+          "range": 0.006807945821618244,
+          "robust_range": 0.005856107555114346
+        }
+      },
+      {
+        "generation": 5,
+        "name": "baseline_loss_prefactor",
+        "expression": "(damping_coefficient/mass)*(1 + internal_loss_level)",
+        "role": "Current slow-loss-modulated viscous damping scale multiplying the velocity law",
+        "train_range": [
+          0.25,
+          0.5929463193712616
+        ],
+        "hidden_range": [
+          0.37672785060198627,
+          0.410488162498581
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.25,
+          "max": 0.5929463193712616,
+          "q05": 0.27175893641832116,
+          "median": 0.505037209590573,
+          "q95": 0.5918425024133259,
+          "range": 0.34294631937126163,
+          "robust_range": 0.32008356599500476
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.37672785060198627,
+          "max": 0.410488162498581,
+          "q05": 0.3782762937827046,
+          "median": 0.39287356574860266,
+          "q95": 0.40866135362709977,
+          "range": 0.03376031189659473,
+          "robust_range": 0.030385059844395157
+        }
+      },
+      {
+        "generation": 5,
+        "name": "speed_intensity",
+        "expression": "nonlinear_damping_strength*v**2",
+        "role": "Dimensionless measure of when the existing nonlinear damping correction becomes active",
+        "train_range": [
+          0.0,
+          1.4105677728638282
+        ],
+        "hidden_range": [
+          3.4576388128072246e-11,
+          1.6194793473276235e-06
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 1.4105677728638282,
+          "q05": 3.72372133320842e-07,
+          "median": 0.0004254779358485734,
+          "q95": 0.5688220122937535,
+          "range": 1.4105677728638282,
+          "robust_range": 0.5688216399216202
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 3.4576388128072246e-11,
+          "max": 1.6194793473276235e-06,
+          "q05": 5.15571758508634e-09,
+          "median": 5.501636361864701e-07,
+          "q95": 1.579309343923074e-06,
+          "range": 1.6194447709394954e-06,
+          "robust_range": 1.5741536263379878e-06
+        }
+      }
+    ],
+    "inactive_mechanisms": [],
+    "visible_mechanisms": [
+      "disp_vel_plane",
+      "amplitude_scale",
+      "parent_accel_core",
+      "linear_restore",
+      "duffing_restore",
+      "viscous_scale",
+      "speed_level",
+      "restoring_load",
+      "base_damping_load",
+      "kinetic_level",
+      "vibration_intensity",
+      "effective_damping_factor",
+      "elastic_force_scale",
+      "baseline_loss_prefactor",
+      "speed_intensity"
+    ],
+    "extended_mechanisms": [
+      "amplitude_scale",
+      "speed_level",
+      "kinetic_level",
+      "vibration_intensity",
+      "effective_damping_factor",
+      "speed_intensity"
+    ]
+  },
+  "inactive_mechanisms": [],
+  "target_variance": {
+    "train": {
+      "n": 384,
+      "variance": 0.96752672273847,
+      "range": 8.847952120799192
+    },
+    "hidden": {
+      "n": 128,
+      "variance": 4.818398588473029e-06,
+      "range": 0.006254345499889374
+    }
+  },
+  "parent_absorption_report": {
+    "status": "ok",
+    "n_points": 512,
+    "fixed_parent_normalized_rmse": 2.3718936948012423,
+    "refit": {
+      "status": "not_run",
+      "reason": "no free parent parameters"
+    },
+    "interpretation": "<1e-3 nearly absorbed; 1e-3..1e-2 weak; >1e-2 visible structure"
+  },
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_kFNIaGl3UCt3iGTTa7I30VhS"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "-(spring_stiffness/mass)*x - (damping_coefficient/mass)*(1 + internal_loss_level)*(1 + nonlinear_damping_strength*v**2/(1 + nonlinear_damping_strength*v**2))*v - (cubic_stiffness/mass)*x**3",
+        "target_symbol": "dv_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "cubic_stiffness",
+          "damping_coefficient",
+          "internal_loss_level",
+          "mass",
+          "nonlinear_damping_strength",
+          "spring_stiffness",
+          "v",
+          "x"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "-cubic_stiffness*x**3/mass - damping_coefficient*v*(internal_loss_level + 1)*(nonlinear_damping_strength*v**2/(nonlinear"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_x6yq2JmsbnCk4QdfUJ6GisBS"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "-(spring_stiffness/mass)*x - (damping_coefficient/mass)*(1 + internal_loss_level)*(1 + nonlinear_damping_strength*v**2/(1 + nonlinear_damping_strength*v**2))*v - (cubic_stiffness/mass)*x**3",
+        "target_symbol": "dv_dt",
+        "assignments": {
+          "mass": 1,
+          "spring_stiffness": 4,
+          "damping_coefficient": 0.25,
+          "cubic_stiffness": 1.2,
+          "nonlinear_damping_strength": 0.4,
+          "x": 1,
+          "v": 1,
+          "internal_loss_level": 0.2
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": -5.585714285714286,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_jJC4HNaVeLO8nsS0zMRGPn0y"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_puDQzHgYtffiLaFa2bIE9Xqu"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 4,
+  "discipline": "physics",
+  "scenario_text": "A mass attached to a fixed linear spring moves along one axis while experiencing linear mechanical damping. Starting displacement and velocity are varied, while mass, stiffness, and damping strength are fixed in the underdamped regime. The target is the mass acceleration along trajectories that decay toward mechanical equilibrium.",
+  "record_id": "m2_classical_mechanics_20280761_003",
+  "generation": 5,
+  "_n_total": 5000,
+  "mechanism_observation_history": [
+    {
+      "generation": 1,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The acceleration is an affine linear combination of displacement and velocity, dv_dt = -(spring_stiffness/mass)*x - (damping_coefficient/mass)*v, so at fixed v the slope with respect to x is constant.",
+          "child_relation": "Relax the linear-spring assumption so the restoring force stiffens with amplitude, making dv_dt depend nonlinearly on x while keeping damping opposing motion and equilibrium at x=0 unchanged.",
+          "affected_inputs": [
+            "x",
+            "v",
+            "spring_stiffness"
+          ],
+          "observable_effect": "For larger |x| at similar v, the magnitude of restoring acceleration grows faster than linearly, producing amplitude-dependent curvature in dv_dt versus x that is absent in the parent."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "disp_vel_plane",
+            "expression": "x*v",
+            "role": "Separates turning-point regions from high-speed crossing regions when comparing restoring and damping contributions."
+          },
+          {
+            "name": "amplitude_scale",
+            "expression": "x**2",
+            "role": "Measures departure from the small-displacement regime where linear Hooke response is valid."
+          },
+          {
+            "name": "parent_accel_core",
+            "expression": "-(spring_stiffness/mass)*x - (damping_coefficient/mass)*v",
+            "role": "Baseline linear target mapping to compare against amplitude-dependent restoring curvature."
+          }
+        ],
+        "activation_condition": "Observable when sampled trajectories include displacements large enough that spring extension leaves the strictly linear Hooke regime, while damping remains dissipative and motion stays bounded; the effect is weakest near x=0.",
+        "train_hidden_contrast": "In training, modest amplitude variation would already show small systematic curvature in acceleration versus displacement; in holdout with larger initial displacement magnitudes but the same fixed damping and mass, the deviation strengthens as faster-than-linear restoring acceleration.",
+        "continuation_path": "Recover the parent law in the small-amplitude limit where nonlinear spring corrections vanish over the sampled displacement range.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The model assumes the spring response stays exactly linear over all sampled displacements, omitting realistic amplitude-dependent stiffness of a mechanical spring outside the strict small-deflection regime.",
+        "baseline_assumption": "The spring response is linear over the sampled displacements.",
+        "scientific_mechanism": "Weak conservative geometric/material nonlinearity in the spring restoring force, such as Duffing-type hardening stiffness.",
+        "affected_symbols": [
+          "x",
+          "v",
+          "spring_stiffness",
+          "mass"
+        ],
+        "rationale": "A natural next refinement is to relax the idealized linear restoring-force assumption rather than add a new dissipation channel. The parent target mapping has a single constant displacement gain: at any fixed velocity, changing x changes dv_dt with the same slope everywhere. If initial displacement is varied while mass, linear damping strength, and the equilibrium location are held fixed, a weak hardening spring gives a concrete contrast: near x=0 the acceleration-displacement relation remains close to linear, but at larger |x| the restoring acceleration becomes steeper, so turning points at larger amplitudes show disproportionately larger inward acceleration than a single globally refit linear spring can reproduce. This is a true change in the scored target mapping dv_dt(x,v), not merely an auxiliary-state effect. The admissible regime is underdamped bounded motion with nonincreasing mechanical energy; a conservative odd-in-x spring nonlinearity preserves zero equilibrium, and linear damping still opposes motion. A single refit of spring_stiffness and damping_coefficient cannot match both the near-origin slope and the stronger large-amplitude restoring curvature across trajectories with different initial amplitudes, because the parent remains exactly linear in x."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The acceleration is an affine linear combination of displacement and velocity, dv_dt = -(spring_stiffness/mass)*x - (damping_coefficient/mass)*v, so at fixed v the slope with respect to x is constant.",
+          "child_relation": "Relax the linear-spring assumption so the restoring force stiffens with amplitude, making dv_dt depend nonlinearly on x while keeping damping opposing motion and equilibrium at x=0 unchanged.",
+          "affected_inputs": [
+            "x",
+            "v",
+            "spring_stiffness"
+          ],
+          "observable_effect": "For larger |x| at similar v, the magnitude of restoring acceleration grows faster than linearly, producing amplitude-dependent curvature in dv_dt versus x that is absent in the parent."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "disp_vel_plane",
+            "expression": "x*v",
+            "role": "Separates turning-point regions from high-speed crossing regions when comparing restoring and damping contributions."
+          },
+          {
+            "name": "amplitude_scale",
+            "expression": "x**2",
+            "role": "Measures departure from the small-displacement regime where linear Hooke response is valid."
+          },
+          {
+            "name": "parent_accel_core",
+            "expression": "-(spring_stiffness/mass)*x - (damping_coefficient/mass)*v",
+            "role": "Baseline linear target mapping to compare against amplitude-dependent restoring curvature."
+          }
+        ],
+        "activation_condition": "Observable when sampled trajectories include displacements large enough that spring extension leaves the strictly linear Hooke regime, while damping remains dissipative and motion stays bounded; the effect is weakest near x=0.",
+        "train_hidden_contrast": "In training, modest amplitude variation would already show small systematic curvature in acceleration versus displacement; in holdout with larger initial displacement magnitudes but the same fixed damping and mass, the deviation strengthens as faster-than-linear restoring acceleration.",
+        "continuation_path": "Recover the parent law in the small-amplitude limit where nonlinear spring corrections vanish over the sampled displacement range.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "x",
+          "v"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Duffing-type amplitude-dependent spring restoring force",
+        "scientific_mechanism": "Weak conservative geometric/material nonlinearity in the spring restoring force, such as Duffing-type hardening stiffness.",
+        "embedding_pattern": "state_coupling",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the displacement contribution is no longer a single global gain on x; the effective restoring slope depends on amplitude through x**2, so matching both near-origin and large-amplitude acceleration requires curvature rather than refitting one linear stiffness.",
+        "taxonomy_match": "known",
+        "assumption_before": "The spring response is linear over the sampled displacements.",
+        "assumption_after": "The spring has weak amplitude-dependent hardening, adding the leading odd nonlinear restoring term while keeping the same equilibrium.",
+        "before_fragment": "-(spring_stiffness/mass)*x - (damping_coefficient/mass)*v",
+        "after_fragment": "-(spring_stiffness/mass)*x - (damping_coefficient/mass)*v - (cubic_stiffness/mass)*x**3",
+        "parent_reduction": "Recover the parent law when cubic_stiffness -> 0, or when cubic_stiffness*x**2 << spring_stiffness throughout the sampled trajectories.",
+        "observable_signature": "At fixed or similar v, dv_dt versus x is no longer a straight line: it remains approximately linear near x=0 but bends to steeper inward acceleration at larger |x|. Across trajectories generated by different initial displacements with the same mass and damping, larger-amplitude turning points show disproportionately larger restoring acceleration than the parent predicts.",
+        "shortcut_blocked": "A single refit of spring_stiffness and damping_coefficient cannot reproduce both the small-amplitude near-origin slope and the stronger large-|x| restoring acceleration across those trajectories, because the parent target mapping remains exactly linear in x for every shared parameter set."
+      },
+      "range_suggestions": {
+        "cubic_stiffness": "positive and small enough that cubic stiffening is weak near x=0 but observable at larger |x|; e.g. 0 < cubic_stiffness*x**2/spring_stiffness on the order of 10**-2 to 1 across the sampled largest displacements"
+      }
+    },
+    {
+      "generation": 2,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The parent maps displacement and velocity to acceleration with damping linear in v: dv_dt = -(spring_stiffness/mass)*x -(damping_coefficient/mass)*v -(cubic_stiffness/mass)*x**3, so at fixed x the damping contribution has one constant slope with respect to v.",
+          "child_relation": "Relax the idealization of purely linear viscous drag by making damping amplitude-dependent while still opposing motion, so at fixed x the damping part of dv_dt bends with |v| and produces stronger deceleration at larger speeds than a single linear slope predicts.",
+          "affected_inputs": [
+            "x",
+            "v",
+            "damping_coefficient"
+          ],
+          "observable_effect": "Across trajectories with the same fixed parameters but different initial amplitudes, high-speed segments decay faster than low-speed segments in a way that changes the acceleration-versus-velocity curvature; one shared linear-damping parent cannot match both the near-origin small-v behavior and the stronger large-|v| braking simultaneously."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "linear_restore",
+            "expression": "(spring_stiffness/mass)*x",
+            "role": "baseline linear restoring acceleration scale"
+          },
+          {
+            "name": "duffing_restore",
+            "expression": "(cubic_stiffness/mass)*x**3",
+            "role": "existing amplitude-dependent conservative restoring contribution"
+          },
+          {
+            "name": "viscous_scale",
+            "expression": "(damping_coefficient/mass)*v",
+            "role": "parent linear dissipative contribution"
+          },
+          {
+            "name": "speed_level",
+            "expression": "v**2",
+            "role": "kinetic-amplitude coordinate controlling observability of nonlinear damping"
+          }
+        ],
+        "activation_condition": "Observable when sampled trajectories include sufficiently different speed ranges, with |v| large enough that nonlinear damping is not negligible compared with (damping_coefficient/mass)*|v|, while remaining in a bounded underdamped regime and with damping still sign-opposing.",
+        "train_hidden_contrast": "In training, moderate-amplitude trajectories already show slightly stronger-than-linear braking at larger |v|; in holdout, larger initial displacement or velocity extends the same curvature change more clearly without changing the equilibrium location.",
+        "continuation_path": "Recover the parent law in the limit that the nonlinear damping correction tends to zero, or on trajectory segments with sufficiently small |v| where the damping law reduces effectively to linear viscous damping.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The current model assumes all dissipation is strictly proportional to velocity, omitting realistic speed-dependent drag or internal loss that increases damping magnitude away from the small-velocity limit.",
+        "baseline_assumption": "Damping strength is constant and exactly linear in velocity over the sampled motion.",
+        "scientific_mechanism": "Weak nonlinear dissipation, such as quadratic air drag or amplitude-dependent internal material damping, superposed on viscous damping while preserving monotone energy decay.",
+        "affected_symbols": [
+          "x",
+          "v",
+          "damping_coefficient"
+        ],
+        "rationale": "A natural next refinement is to relax the parent's linear-damping assumption rather than add an unrelated new process. The parent already includes amplitude-dependent conservative stiffness through x**3, but its dissipative target mapping remains a single-slope function of v. Vary initial displacement and/or initial velocity while holding mass, spring_stiffness, damping_coefficient, and cubic_stiffness fixed. Then trajectories with larger amplitudes pass through larger speed ranges. Under weak nonlinear damping, the measured acceleration at a given x acquires extra speed-dependent curvature: for small |v| it remains close to the parent law, but for larger |v| the deceleration opposing motion becomes stronger than a linear v term alone predicts. This changes the scored mapping dv_dt(x,v), not merely an auxiliary state. The contrast is scientifically admissible when sampled motions are large enough that the nonlinear dissipative correction is comparable to the linear damping term over part of the trajectory, yet not so large that motion leaves the bounded weakly nonlinear oscillator regime. A single refit of the parent parameters cannot generally absorb this across conditions because changing damping_coefficient alters the slope near v=0 and everywhere else together, whereas the child specifically changes curvature with speed, allowing near-origin behavior to remain approximately the same while increasing damping at larger |v|."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The parent maps displacement and velocity to acceleration with damping linear in v: dv_dt = -(spring_stiffness/mass)*x -(damping_coefficient/mass)*v -(cubic_stiffness/mass)*x**3, so at fixed x the damping contribution has one constant slope with respect to v.",
+          "child_relation": "Relax the idealization of purely linear viscous drag by making damping amplitude-dependent while still opposing motion, so at fixed x the damping part of dv_dt bends with |v| and produces stronger deceleration at larger speeds than a single linear slope predicts.",
+          "affected_inputs": [
+            "x",
+            "v",
+            "damping_coefficient"
+          ],
+          "observable_effect": "Across trajectories with the same fixed parameters but different initial amplitudes, high-speed segments decay faster than low-speed segments in a way that changes the acceleration-versus-velocity curvature; one shared linear-damping parent cannot match both the near-origin small-v behavior and the stronger large-|v| braking simultaneously."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "linear_restore",
+            "expression": "(spring_stiffness/mass)*x",
+            "role": "baseline linear restoring acceleration scale"
+          },
+          {
+            "name": "duffing_restore",
+            "expression": "(cubic_stiffness/mass)*x**3",
+            "role": "existing amplitude-dependent conservative restoring contribution"
+          },
+          {
+            "name": "viscous_scale",
+            "expression": "(damping_coefficient/mass)*v",
+            "role": "parent linear dissipative contribution"
+          },
+          {
+            "name": "speed_level",
+            "expression": "v**2",
+            "role": "kinetic-amplitude coordinate controlling observability of nonlinear damping"
+          }
+        ],
+        "activation_condition": "Observable when sampled trajectories include sufficiently different speed ranges, with |v| large enough that nonlinear damping is not negligible compared with (damping_coefficient/mass)*|v|, while remaining in a bounded underdamped regime and with damping still sign-opposing.",
+        "train_hidden_contrast": "In training, moderate-amplitude trajectories already show slightly stronger-than-linear braking at larger |v|; in holdout, larger initial displacement or velocity extends the same curvature change more clearly without changing the equilibrium location.",
+        "continuation_path": "Recover the parent law in the limit that the nonlinear damping correction tends to zero, or on trajectory segments with sufficiently small |v| where the damping law reduces effectively to linear viscous damping.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "unary",
+        "scope_symbols": [
+          "v"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "speed-dependent damping in an underdamped Duffing oscillator",
+        "scientific_mechanism": "Weak nonlinear dissipation, such as quadratic air drag or amplitude-dependent internal material damping, superposed on viscous damping while preserving monotone energy decay.",
+        "embedding_pattern": "nested_nonlinearity",
+        "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the damping contribution is no longer a single global slope in v; the nested factor (1 + nonlinear_damping_strength*v**2) changes curvature while preserving the small-speed linear limit.",
+        "taxonomy_match": "known",
+        "assumption_before": "Damping strength is constant and exactly linear in velocity over the sampled motion.",
+        "assumption_after": "Damping remains sign-opposing but its magnitude increases with speed through a weak nonlinear correction to the viscous law.",
+        "before_fragment": "-(spring_stiffness/mass)*x - (damping_coefficient/mass)*v - (cubic_stiffness/mass)*x**3",
+        "after_fragment": "-(spring_stiffness/mass)*x - (damping_coefficient/mass)*(1 + nonlinear_damping_strength*v**2)*v - (cubic_stiffness/mass)*x**3",
+        "parent_reduction": "nonlinear_damping_strength -> 0",
+        "observable_signature": "At fixed x, dv_dt versus v is approximately linear near v = 0 but bends downward for v > 0 and upward for v < 0 because the damping magnitude grows like |v| plus a cubic-in-v correction. Across trajectories with different initial amplitudes but shared parameters, larger-speed segments show stronger-than-linear deceleration while low-speed segments still follow the parent's local slope.",
+        "shortcut_blocked": "Refitting spring_stiffness, cubic_stiffness, or damping_coefficient alone cannot reproduce this contrast with one shared parameter set because those changes either alter restoring terms or impose one linear damping slope across all v. The child keeps nearly the same small-|v| damping while selectively increasing dissipation at larger |v|, which a single linear-damping parent cannot match simultaneously over both low-speed and high-speed conditions."
+      },
+      "range_suggestions": {
+        "nonlinear_damping_strength": "positive and weak enough that nonlinear_damping_strength*v**2 ranges from much less than 1 on small-speed segments to order 10**-2 to 1 on the largest sampled speeds, preserving monotone sign-opposing damping and bounded underdamped motion"
+      }
+    },
+    {
+      "generation": 3,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "interaction_emergence",
+          "parent_relation": "The damping contribution depends only on the instantaneous velocity through a fixed odd drag law, so for the same x and v the target acceleration is identical regardless of prior oscillation amplitude history.",
+          "child_relation": "The effective damping strength is allowed to evolve with the recent vibrational state via a slow internal-loss state, making dv_dt at the same instantaneous x and v depend on both velocity and accumulated oscillation level.",
+          "affected_inputs": [
+            "x",
+            "v"
+          ],
+          "observable_effect": "Across trajectories with different initial amplitudes but fixed parameters, later-cycle accelerations at similar x and v can show systematically stronger or weaker damping depending on prior amplitude decay history; the parent predicts collapse to one shared dv_dt(x,v) surface."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "restoring_load",
+            "expression": "(spring_stiffness/mass)*x + (cubic_stiffness/mass)*x**3",
+            "role": "Instantaneous conservative restoring contribution"
+          },
+          {
+            "name": "base_damping_load",
+            "expression": "(damping_coefficient/mass)*(1 + nonlinear_damping_strength*v**2)*v",
+            "role": "Parent instantaneous dissipative contribution"
+          },
+          {
+            "name": "kinetic_level",
+            "expression": "v**2",
+            "role": "Local motion intensity that can drive slow internal dissipation-state evolution"
+          }
+        ],
+        "activation_condition": "Observable when oscillation amplitudes are large enough that internal friction or thermoelastic loss evolves over several cycles but still weak enough to preserve underdamped bounded motion and monotone energy decay; negligible in the near-linear small-amplitude limit.",
+        "train_hidden_contrast": "In training, different initial conditions already generate different amplitude envelopes, so a slow amplitude-history-dependent damping modulation can appear within and across trajectories; in holdout, the same mechanism extends to larger or smaller initial amplitudes by changing when the modulation turns on and how long it persists.",
+        "continuation_path": "Recover the parent when the internal-loss adaptation rate tends to zero or its coupling to motion tends to zero, so damping reverts to a fixed function of v only.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A true history-dependent damping modulation cannot be represented by the existing instantaneous states x and v alone without violating the Markov ODE structure; one additional state is needed to summarize slow internal loss evolution.",
+        "gap_statement": "The current model assumes dissipation is an instantaneous memoryless function of velocity, omitting slow amplitude-history-dependent internal damping changes common in real damped oscillators.",
+        "baseline_assumption": "The damping law is time-local and fully determined by the current velocity with fixed coefficients.",
+        "scientific_mechanism": "Slow evolution of internal material loss or microstructural dissipation level driven by vibration intensity, which modulates the effective damping strength while remaining sign-opposing and energy dissipative.",
+        "affected_symbols": [
+          "x",
+          "v",
+          "damping_coefficient"
+        ],
+        "rationale": "A realistic next refinement is to relax the parent's memoryless damping assumption rather than adding another conservative spring term. Hold mass and spring parameters fixed and vary only the initial displacement/velocity, as in the benchmark. In the parent, once x and v are specified, dv_dt is fixed; trajectories with different earlier amplitudes but the same current x and v must have the same acceleration. In the child, a slow dissipative state driven by motion intensity can modulate effective damping, so two trajectories that reach similar x and v after different amplitude histories need not have identical dv_dt. This is a changed target mapping, not merely an auxiliary-state embellishment, because the extra state enters the v equation. The contrast is scientifically admissible when internal-loss evolution is weak but not negligible over the observed decay window: large enough initial oscillations activate it, while small-amplitude motion approximately follows the parent. The mechanism respects the constraints if the added state only increases damping magnitude without changing its sign, keeping energy nonincreasing and the origin fixed. A single refit of the parent parameters cannot reproduce both the early high-amplitude and later history-shifted damping behavior across trajectories, because the parent enforces one universal instantaneous dv_dt(x,v) relation with no amplitude-memory channel."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "interaction_emergence",
+          "parent_relation": "The damping contribution depends only on the instantaneous velocity through a fixed odd drag law, so for the same x and v the target acceleration is identical regardless of prior oscillation amplitude history.",
+          "child_relation": "The effective damping strength is allowed to evolve with the recent vibrational state via a slow internal-loss state, making dv_dt at the same instantaneous x and v depend on both velocity and accumulated oscillation level.",
+          "affected_inputs": [
+            "x",
+            "v"
+          ],
+          "observable_effect": "Across trajectories with different initial amplitudes but fixed parameters, later-cycle accelerations at similar x and v can show systematically stronger or weaker damping depending on prior amplitude decay history; the parent predicts collapse to one shared dv_dt(x,v) surface."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "restoring_load",
+            "expression": "(spring_stiffness/mass)*x + (cubic_stiffness/mass)*x**3",
+            "role": "Instantaneous conservative restoring contribution"
+          },
+          {
+            "name": "base_damping_load",
+            "expression": "(damping_coefficient/mass)*(1 + nonlinear_damping_strength*v**2)*v",
+            "role": "Parent instantaneous dissipative contribution"
+          },
+          {
+            "name": "kinetic_level",
+            "expression": "v**2",
+            "role": "Local motion intensity that can drive slow internal dissipation-state evolution"
+          }
+        ],
+        "activation_condition": "Observable when oscillation amplitudes are large enough that internal friction or thermoelastic loss evolves over several cycles but still weak enough to preserve underdamped bounded motion and monotone energy decay; negligible in the near-linear small-amplitude limit.",
+        "train_hidden_contrast": "In training, different initial conditions already generate different amplitude envelopes, so a slow amplitude-history-dependent damping modulation can appear within and across trajectories; in holdout, the same mechanism extends to larger or smaller initial amplitudes by changing when the modulation turns on and how long it persists.",
+        "continuation_path": "Recover the parent when the internal-loss adaptation rate tends to zero or its coupling to motion tends to zero, so damping reverts to a fixed function of v only.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A true history-dependent damping modulation cannot be represented by the existing instantaneous states x and v alone without violating the Markov ODE structure; one additional state is needed to summarize slow internal loss evolution.",
+        "scope_kind": "memory",
+        "scope_symbols": [
+          "v",
+          "internal_loss_level"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "History-dependent internal damping modulation by a slow loss state",
+        "scientific_mechanism": "Slow evolution of internal material loss or microstructural dissipation level driven by vibration intensity, which modulates the effective damping strength while remaining sign-opposing and energy dissipative.",
+        "embedding_pattern": "multiplicative_modulation",
+        "difficulty_rationale": "This embedding is structurally harder than a coefficient-only correction because the damping load is no longer a fixed instantaneous function of v; it is multiplicatively modulated by a hidden state whose own dynamics are driven by motion intensity and relaxation, creating trajectory-history-dependent dv_dt at fixed x and v.",
+        "taxonomy_match": "known",
+        "assumption_before": "The damping law is time-local and fully determined by the current velocity with fixed coefficients.",
+        "assumption_after": "The effective damping strength evolves through a slow internal-loss state driven by vibration intensity and relaxing toward a reference level.",
+        "before_fragment": "-(spring_stiffness/mass)*x - (damping_coefficient/mass)*(1 + nonlinear_damping_strength*v**2)*v - (cubic_stiffness/mass)*x**3",
+        "after_fragment": "-(spring_stiffness/mass)*x - (damping_coefficient/mass)*(1 + internal_loss_level)*(1 + nonlinear_damping_strength*v**2)*v - (cubic_stiffness/mass)*x**3",
+        "parent_reduction": "The parent is recovered when loss_drive_rate -> 0 or, equivalently for initialized internal_loss_level=0, when internal_loss_level stays at zero so the multiplicative damping modulation equals one.",
+        "observable_signature": "The parent gives one universal dv_dt surface over (x,v). The child predicts a family of such surfaces indexed by internal_loss_level, so trajectories started with different initial amplitudes can later pass through similar x and v with different accelerations because the damping term has been history-modulated. This is observable when the slow loss state is activated by moderate-to-large oscillation levels and remains negligible near the small-amplitude limit.",
+        "shortcut_blocked": "A single parent parameter set cannot reproduce this contrast because it enforces dv_dt as a unique function of only x and v for all trajectories. Refitting spring_stiffness, damping_coefficient, cubic_stiffness, or nonlinear_damping_strength merely changes that shared surface; it cannot generate systematic history-dependent separation of accelerations at the same instantaneous x and v across different amplitude-decay histories."
+      },
+      "range_suggestions": {
+        "internal_loss_level": "nonnegative and typically small to order unity during observed trajectories",
+        "loss_drive_rate": "positive and weak enough that internal_loss_level evolves over several oscillation periods rather than instantaneously",
+        "loss_relaxation_rate": "positive and small compared with the oscillation frequency but large enough to keep internal_loss_level bounded over the decay window"
+      }
+    },
+    {
+      "generation": 4,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The target mapping uses a single instantaneous internal-loss multiplier on damping, so at fixed x and internal_loss_level the acceleration depends on velocity through one odd cubic-like damping law with no memory of recent velocity sign changes beyond the current state values.",
+          "child_relation": "Replace the idealized loss-state drive by a saturating activation so the damping modulation grows roughly linearly with vibration intensity at low levels but bends over at higher v**2, producing weaker-than-parent incremental damping growth during large-amplitude portions of decay while recovering the parent law at low intensity.",
+          "affected_inputs": [
+            "v",
+            "internal_loss_level",
+            "loss_drive_rate"
+          ],
+          "observable_effect": "Across trajectories with larger versus smaller initial amplitudes, the child shows less extra acceleration suppression near early large-|v| peaks than the parent predicts from a single unsaturated drive, while later low-amplitude decay remains close to the parent."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "vibration_intensity",
+            "expression": "v**2",
+            "role": "Instantaneous drive level for slow internal loss buildup"
+          },
+          {
+            "name": "effective_damping_factor",
+            "expression": "(1 + internal_loss_level)*(1 + nonlinear_damping_strength*v**2)",
+            "role": "Current multiplier on the baseline viscous damping term"
+          },
+          {
+            "name": "elastic_force_scale",
+            "expression": "(spring_stiffness/mass)*x + (cubic_stiffness/mass)*x**3",
+            "role": "Competing conservative acceleration scale against which damping-induced curvature changes are observed"
+          }
+        ],
+        "activation_condition": "Observable when early-trajectory vibration intensity is high enough that the internal-loss build-up law would begin to bend away from proportionality in v**2, yet damping remains sign-opposing and the motion stays underdamped and bounded; at small v**2 the refinement is effectively inactive.",
+        "train_hidden_contrast": "In training, moderate amplitudes reveal the near-linear onset of loss buildup; in holdout, larger-amplitude decays extend into the bent-over regime where the parent's single proportional drive overpredicts damping-memory accumulation.",
+        "continuation_path": "Take the saturation scale large enough that the internal-loss drive is effectively proportional to v**2 over the observed range, recovering the parent evolution law.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A separate slow activation state is needed if the saturating loss generation is implemented in a physically consistent first-order way without directly violating the existing role of internal_loss_level; existing states alone do not distinguish accumulated defect activation from the currently observed loss multiplier.",
+        "gap_statement": "The current model assumes internal dissipation buildup remains proportional to vibration intensity at all admissible amplitudes, omitting the common material limitation that only a finite population of lossy microstructural channels can be activated strongly.",
+        "baseline_assumption": "The parent assumes the loss-generation process is an unsaturated linear function of v**2.",
+        "scientific_mechanism": "Finite-capacity activation of internal friction mechanisms causes slow dissipation enhancement to increase with vibration intensity at low levels but saturate at higher levels.",
+        "affected_symbols": [
+          "v",
+          "internal_loss_level",
+          "loss_drive_rate",
+          "loss_relaxation_rate"
+        ],
+        "rationale": "A realistic next refinement is to relax the parent's idealized linear buildup law for internal_loss_level, not to add an unrelated force. Holding mass, spring_stiffness, damping_coefficient, cubic_stiffness, nonlinear_damping_strength, loss_drive_rate, and loss_relaxation_rate fixed across trajectories while varying only initial displacement/velocity, the parent predicts that stronger motion always drives proportionally stronger extra loss accumulation through v**2. The child instead posits finite-capacity internal-loss activation, so the target dv_dt changes because the damping multiplier inherited from internal_loss_level grows sublinearly once vibration intensity is large enough. This is a genuine target-mapping change, not only an auxiliary-trajectory change, because for the same observed x and v encountered during large-amplitude portions of decay, the evolved internal-loss state feeding the damping term differs systematically from the parent's proportional-memory prediction. The observable contrast is that high-amplitude trajectories experience less-than-parent extra damping buildup early in the decay, while small-amplitude trajectories remain close to the old law. A single refit of the parent parameters cannot reproduce both regimes well if the data include both near-linear and onset-of-saturation conditions, because increasing or decreasing loss_drive_rate globally rescales buildup everywhere rather than changing its curvature versus vibration intensity. Limitation: if all observed trajectories stay in a weak-motion regime where the buildup remains effectively linear, this refinement would not be identifiable and should be regarded as dormant."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The target mapping uses a single instantaneous internal-loss multiplier on damping, so at fixed x and internal_loss_level the acceleration depends on velocity through one odd cubic-like damping law with no memory of recent velocity sign changes beyond the current state values.",
+          "child_relation": "Replace the idealized loss-state drive by a saturating activation so the damping modulation grows roughly linearly with vibration intensity at low levels but bends over at higher v**2, producing weaker-than-parent incremental damping growth during large-amplitude portions of decay while recovering the parent law at low intensity.",
+          "affected_inputs": [
+            "v",
+            "internal_loss_level",
+            "loss_drive_rate"
+          ],
+          "observable_effect": "Across trajectories with larger versus smaller initial amplitudes, the child shows less extra acceleration suppression near early large-|v| peaks than the parent predicts from a single unsaturated drive, while later low-amplitude decay remains close to the parent."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "vibration_intensity",
+            "expression": "v**2",
+            "role": "Instantaneous drive level for slow internal loss buildup"
+          },
+          {
+            "name": "effective_damping_factor",
+            "expression": "(1 + internal_loss_level)*(1 + nonlinear_damping_strength*v**2)",
+            "role": "Current multiplier on the baseline viscous damping term"
+          },
+          {
+            "name": "elastic_force_scale",
+            "expression": "(spring_stiffness/mass)*x + (cubic_stiffness/mass)*x**3",
+            "role": "Competing conservative acceleration scale against which damping-induced curvature changes are observed"
+          }
+        ],
+        "activation_condition": "Observable when early-trajectory vibration intensity is high enough that the internal-loss build-up law would begin to bend away from proportionality in v**2, yet damping remains sign-opposing and the motion stays underdamped and bounded; at small v**2 the refinement is effectively inactive.",
+        "train_hidden_contrast": "In training, moderate amplitudes reveal the near-linear onset of loss buildup; in holdout, larger-amplitude decays extend into the bent-over regime where the parent's single proportional drive overpredicts damping-memory accumulation.",
+        "continuation_path": "Take the saturation scale large enough that the internal-loss drive is effectively proportional to v**2 over the observed range, recovering the parent evolution law.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A separate slow activation state is needed if the saturating loss generation is implemented in a physically consistent first-order way without directly violating the existing role of internal_loss_level; existing states alone do not distinguish accumulated defect activation from the currently observed loss multiplier.",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "v",
+          "loss_activation_level",
+          "internal_loss_level"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "finite-capacity internal friction channel activation feeding dissipation buildup",
+        "scientific_mechanism": "Finite-capacity activation of internal friction mechanisms causes slow dissipation enhancement to increase with vibration intensity at low levels but saturate at higher levels.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the observed acceleration changes through a hidden slow state that alters the curvature of loss accumulation versus vibration intensity, not through one global rescaling of damping or loss_drive_rate.",
+        "taxonomy_match": "known",
+        "assumption_before": "The parent assumes the loss-generation process is an unsaturated linear function of v**2.",
+        "assumption_after": "The loss-generation process is limited by a finite-capacity activation state whose drive saturates with vibration intensity before feeding internal_loss_level.",
+        "before_fragment": "-(spring_stiffness/mass)*x - (damping_coefficient/mass)*(1 + internal_loss_level)*(1 + nonlinear_damping_strength*v**2)*v - (cubic_stiffness/mass)*x**3",
+        "after_fragment": "-(spring_stiffness/mass)*x - (damping_coefficient/mass)*(1 + internal_loss_level)*(1 + nonlinear_damping_strength*v**2)*v - (cubic_stiffness/mass)*x**3",
+        "parent_reduction": "In the fast-unsaturated limit where loss_activation_level tracks v**2/loss_saturation_scale and the product loss_drive_rate*loss_activation_rate/loss_saturation_scale is identified with the parent loss_drive_rate, the augmented buildup law reduces effectively to loss_drive_rate*v**2 - loss_relaxation_rate*internal_loss_level.",
+        "observable_signature": "Holding fixed the shared mechanical parameters and varying only initial displacement and velocity, early large-amplitude portions of trajectories show smaller growth of internal_loss_level and therefore less damping-induced suppression in dv_dt than the parent predicts, while later small-amplitude portions recover the near-parent decay law; this is a changed target mapping because the acceleration receives a systematically different internal_loss_level history under high v**2, not merely a relabeling of an auxiliary variable.",
+        "shortcut_blocked": "A single parent parameter set cannot reproduce both the near-linear low-intensity buildup and the bent-over high-intensity buildup across trajectories, because refitting loss_drive_rate or damping_coefficient only rescales the same unsaturated proportional drive everywhere and cannot create the required curvature change versus v**2 while keeping the same late-time low-amplitude behavior."
+      },
+      "range_suggestions": {
+        "loss_activation_level": "nonnegative and typically bounded near 0 to order unity as a normalized occupancy-like activation state",
+        "loss_activation_rate": "positive and small compared with the oscillation frequency so activation evolves over several oscillation periods",
+        "loss_saturation_scale": "positive, with saturation becoming observable when v**2 is comparable to this scale and weakly active when v**2 is far below it"
+      }
+    },
+    {
+      "generation": 5,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The damping contribution to dv_dt is proportional to v times a multiplicative factor (1 + internal_loss_level)(1 + nonlinear_damping_strength*v**2), so at fixed internal_loss_level the effective damping grows without bound like v + v^3 with no high-speed bending of that growth.",
+          "child_relation": "Replace the unsaturated speed-dependent damping correction by a bounded or sublinearly growing velocity-dependent factor, so the damping-versus-|v| relation bends from its low-speed cubic correction toward a weaker incremental growth at larger |v| while remaining sign-opposing.",
+          "affected_inputs": [
+            "v",
+            "internal_loss_level",
+            "nonlinear_damping_strength"
+          ],
+          "observable_effect": "Across trajectories with different initial velocities but the same parameters, the child predicts less-than-parent extra deceleration at high |v| relative to moderate |v|, i.e. the acceleration-versus-velocity curve has reduced upward curvature in magnitude once |v| is large compared with the nonlinear damping scale."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "restoring_load",
+            "expression": "(spring_stiffness/mass)*x + (cubic_stiffness/mass)*x**3",
+            "role": "Conservative acceleration load from the spring at the observed displacement"
+          },
+          {
+            "name": "baseline_loss_prefactor",
+            "expression": "(damping_coefficient/mass)*(1 + internal_loss_level)",
+            "role": "Current slow-loss-modulated viscous damping scale multiplying the velocity law"
+          },
+          {
+            "name": "speed_intensity",
+            "expression": "nonlinear_damping_strength*v**2",
+            "role": "Dimensionless measure of when the existing nonlinear damping correction becomes active"
+          }
+        ],
+        "activation_condition": "Observable when trajectories sample both nonlinear_damping_strength*v**2 << 1 and nonlinear_damping_strength*v**2 greater than order unity, while internal_loss_level is nonnegative and varies slowly enough that instantaneous acceleration can still be compared across different |v| on the same decay.",
+        "train_hidden_contrast": "In training, moderate-amplitude motion reveals the low-speed onset of amplitude-dependent damping; in holdout, larger initial velocities extend into the regime where the parent's unbounded cubic-in-v correction overpredicts deceleration, so the same mechanism appears as a stronger curvature contrast rather than a new qualitative branch.",
+        "continuation_path": "Recover the parent law in the limit where the revised damping correction is expanded for small nonlinear_damping_strength*v**2, or in the regime nonlinear_damping_strength*v**2 << 1 over all observed trajectories.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The current model assumes the speed-dependent damping enhancement keeps increasing with the same polynomial trend at arbitrarily large speed, which is an idealization for many internal-friction or drag-like corrections that weaken in incremental slope once the relevant dissipative channels are fully engaged.",
+        "baseline_assumption": "The existing weak nonlinear dissipation is modeled by an unsaturated polynomial factor (1 + nonlinear_damping_strength*v**2) multiplying viscous damping.",
+        "scientific_mechanism": "Finite-response-rate or finite-capacity dissipation causes the amplitude-dependent damping increment to bend toward saturation at higher speed rather than growing indefinitely as a cubic correction.",
+        "affected_symbols": [
+          "v",
+          "internal_loss_level",
+          "nonlinear_damping_strength",
+          "damping_coefficient"
+        ],
+        "rationale": "A natural next refinement is to relax the parent's unsaturated polynomial law for velocity-dependent damping, not to add an unrelated new process. The parent already includes amplitude-dependent dissipation, but it encodes a single-gain shortcut: once internal_loss_level is fixed, the extra damping is entirely determined by one polynomial speed factor, so increasing |v| always steepens the deceleration with the same sign and ever-growing curvature. Under the stated experiment, initial displacement and velocity vary while mass, stiffness, and damping parameters are held fixed, so different trajectories can probe different speed ranges. If some trajectories remain in nonlinear_damping_strength*v**2 << 1 and others reach order-unity or larger values, a child with saturating speed dependence predicts that dv_dt versus v bends over: compared at similar x and internal_loss_level, high-speed segments experience weaker additional damping than the parent's cubic law would require. This changes the scored target mapping directly because dv_dt itself as a function of observed x, v, and internal_loss_level is altered, not merely an auxiliary state trajectory. The effect is scientifically admissible because damping still opposes motion and energy decay is preserved if the revised factor remains positive and monotone in |v|. The limitation is that if all observed trajectories stay at very small |v| so nonlinear_damping_strength*v**2 never approaches unity, then the refinement collapses to the parent's low-speed expansion and is not distinguishable."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The damping contribution to dv_dt is proportional to v times a multiplicative factor (1 + internal_loss_level)(1 + nonlinear_damping_strength*v**2), so at fixed internal_loss_level the effective damping grows without bound like v + v^3 with no high-speed bending of that growth.",
+          "child_relation": "Replace the unsaturated speed-dependent damping correction by a bounded or sublinearly growing velocity-dependent factor, so the damping-versus-|v| relation bends from its low-speed cubic correction toward a weaker incremental growth at larger |v| while remaining sign-opposing.",
+          "affected_inputs": [
+            "v",
+            "internal_loss_level",
+            "nonlinear_damping_strength"
+          ],
+          "observable_effect": "Across trajectories with different initial velocities but the same parameters, the child predicts less-than-parent extra deceleration at high |v| relative to moderate |v|, i.e. the acceleration-versus-velocity curve has reduced upward curvature in magnitude once |v| is large compared with the nonlinear damping scale."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "restoring_load",
+            "expression": "(spring_stiffness/mass)*x + (cubic_stiffness/mass)*x**3",
+            "role": "Conservative acceleration load from the spring at the observed displacement"
+          },
+          {
+            "name": "baseline_loss_prefactor",
+            "expression": "(damping_coefficient/mass)*(1 + internal_loss_level)",
+            "role": "Current slow-loss-modulated viscous damping scale multiplying the velocity law"
+          },
+          {
+            "name": "speed_intensity",
+            "expression": "nonlinear_damping_strength*v**2",
+            "role": "Dimensionless measure of when the existing nonlinear damping correction becomes active"
+          }
+        ],
+        "activation_condition": "Observable when trajectories sample both nonlinear_damping_strength*v**2 << 1 and nonlinear_damping_strength*v**2 greater than order unity, while internal_loss_level is nonnegative and varies slowly enough that instantaneous acceleration can still be compared across different |v| on the same decay.",
+        "train_hidden_contrast": "In training, moderate-amplitude motion reveals the low-speed onset of amplitude-dependent damping; in holdout, larger initial velocities extend into the regime where the parent's unbounded cubic-in-v correction overpredicts deceleration, so the same mechanism appears as a stronger curvature contrast rather than a new qualitative branch.",
+        "continuation_path": "Recover the parent law in the limit where the revised damping correction is expanded for small nonlinear_damping_strength*v**2, or in the regime nonlinear_damping_strength*v**2 << 1 over all observed trajectories.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "v",
+          "internal_loss_level",
+          "nonlinear_damping_strength"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Saturating amplitude-dependent damping in an internally lossy oscillator",
+        "scientific_mechanism": "Finite-response-rate or finite-capacity dissipation causes the amplitude-dependent damping increment to bend toward saturation at higher speed rather than growing indefinitely as a cubic correction.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This embedding is harder than a coefficient-only correction because it changes the shape of the velocity-to-acceleration law across speed regimes: one shared parameter set must match both the low-speed cubic onset and the high-speed bent-over damping response, which cannot be achieved by merely rescaling the existing polynomial factor.",
+        "taxonomy_match": "known",
+        "assumption_before": "The current model assumes the speed-dependent damping enhancement keeps increasing with the same polynomial trend at arbitrarily large speed, which is an idealization for many internal-friction or drag-like corrections that weaken in incremental slope once the relevant dissipative channels are fully engaged.",
+        "assumption_after": "The nonlinear damping enhancement is a finite-capacity response of the existing dissipative process, so its coefficient depends on speed intensity through a saturating rational law.",
+        "before_fragment": "-(spring_stiffness/mass)*x - (damping_coefficient/mass)*(1 + internal_loss_level)*(1 + nonlinear_damping_strength*v**2)*v - (cubic_stiffness/mass)*x**3",
+        "after_fragment": "-(spring_stiffness/mass)*x - (damping_coefficient/mass)*(1 + internal_loss_level)*(1 + nonlinear_damping_strength*v**2/(1 + nonlinear_damping_strength*v**2))*v - (cubic_stiffness/mass)*x**3",
+        "parent_reduction": "For nonlinear_damping_strength*v**2 << 1, the added denominator is approximately 1 and the child recovers the parent's leading-order damping law.",
+        "observable_signature": "Holding parameters fixed and comparing trajectory segments with similar x and internal_loss_level, the parent predicts damping magnitude that continues to steepen roughly like |v| + nonlinear_damping_strength*|v|^3, whereas the child bends to a weaker high-speed increase once nonlinear_damping_strength*v**2 reaches order unity. This is a direct change in the scored target mapping dv_dt(x, v, internal_loss_level), not merely a change in the auxiliary loss trajectories.",
+        "shortcut_blocked": "A single refit of the parent parameters cannot reproduce both regimes across the same dataset because its damping correction has fixed polynomial curvature in v: increasing nonlinear_damping_strength to fit stronger moderate-speed damping necessarily overpredicts high-speed deceleration, while reducing it to fit high-speed segments underpredicts the moderate-speed onset. Retuning damping_coefficient or internal-loss parameters only rescales the same unbounded shape and does not create the required curvature bend."
+      },
+      "range_suggestions": {}
+    }
+  ],
+  "evolution_provenance": {
+    "dimension_track": null,
+    "mechanism_profile": {
+      "allowed_structural_roles": [
+        "contribution",
+        "response_law",
+        "modulation",
+        "interaction",
+        "transition",
+        "timescale"
+      ],
+      "preferred_scopes": [
+        "unary",
+        "pairwise",
+        "state_coupling",
+        "time_forcing"
+      ],
+      "domain_mechanisms": [
+        {
+          "id": "nonlinear_drag",
+          "description": "velocity-dependent nonlinear dissipation",
+          "operations": [
+            "add_term",
+            "change_assumption"
+          ]
+        },
+        {
+          "id": "position_dependent_force",
+          "description": "nonlinear or spatially varying restoring/drive force",
+          "operations": [
+            "add_term",
+            "change_assumption"
+          ]
+        },
+        {
+          "id": "thermal_friction",
+          "description": "temperature-dependent or regime-dependent friction",
+          "operations": [
+            "change_assumption"
+          ]
+        },
+        {
+          "id": "coupled_auxiliary_force",
+          "description": "force mediated by an already modeled auxiliary state",
+          "operations": [
+            "add_term"
+          ]
+        }
+      ],
+      "profile_source": "subfield",
+      "ontology_schema_version": "1.0",
+      "taxonomy_schema_version": "1.0"
+    },
+    "baseline_mechanisms": [
+      "Inertial response of the moving mass.",
+      "Linear restoring force toward equilibrium.",
+      "Linear damping opposing velocity."
+    ],
+    "baseline_assumptions": [
+      "Mass, stiffness, and damping strength are constant.",
+      "Motion is confined to one dimension.",
+      "The spring response is linear over the sampled displacements.",
+      "No external driving force acts on the mass."
+    ],
+    "scientific_constraints": [
+      "Mechanical energy is nonincreasing along every non-equilibrium trajectory.",
+      "The equilibrium state remains fixed at zero displacement and zero velocity.",
+      "Damping always opposes motion.",
+      "Solutions remain bounded over the stated time range."
+    ],
+    "refinement_agenda": [
+      "Add a periodic external drive.",
+      "Introduce a nonlinear restoring contribution.",
+      "Allow damping to depend on speed.",
+      "Add dry friction and sticking near equilibrium."
+    ],
+    "evolution_contracts": [
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The acceleration is an affine linear combination of displacement and velocity, dv_dt = -(spring_stiffness/mass)*x - (damping_coefficient/mass)*v, so at fixed v the slope with respect to x is constant.",
+          "child_relation": "Relax the linear-spring assumption so the restoring force stiffens with amplitude, making dv_dt depend nonlinearly on x while keeping damping opposing motion and equilibrium at x=0 unchanged.",
+          "affected_inputs": [
+            "x",
+            "v",
+            "spring_stiffness"
+          ],
+          "observable_effect": "For larger |x| at similar v, the magnitude of restoring acceleration grows faster than linearly, producing amplitude-dependent curvature in dv_dt versus x that is absent in the parent."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "disp_vel_plane",
+            "expression": "x*v",
+            "role": "Separates turning-point regions from high-speed crossing regions when comparing restoring and damping contributions."
+          },
+          {
+            "name": "amplitude_scale",
+            "expression": "x**2",
+            "role": "Measures departure from the small-displacement regime where linear Hooke response is valid."
+          },
+          {
+            "name": "parent_accel_core",
+            "expression": "-(spring_stiffness/mass)*x - (damping_coefficient/mass)*v",
+            "role": "Baseline linear target mapping to compare against amplitude-dependent restoring curvature."
+          }
+        ],
+        "activation_condition": "Observable when sampled trajectories include displacements large enough that spring extension leaves the strictly linear Hooke regime, while damping remains dissipative and motion stays bounded; the effect is weakest near x=0.",
+        "train_hidden_contrast": "In training, modest amplitude variation would already show small systematic curvature in acceleration versus displacement; in holdout with larger initial displacement magnitudes but the same fixed damping and mass, the deviation strengthens as faster-than-linear restoring acceleration.",
+        "continuation_path": "Recover the parent law in the small-amplitude limit where nonlinear spring corrections vanish over the sampled displacement range.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "x",
+          "v"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Duffing-type amplitude-dependent spring restoring force",
+        "scientific_mechanism": "Weak conservative geometric/material nonlinearity in the spring restoring force, such as Duffing-type hardening stiffness.",
+        "embedding_pattern": "state_coupling",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the displacement contribution is no longer a single global gain on x; the effective restoring slope depends on amplitude through x**2, so matching both near-origin and large-amplitude acceleration requires curvature rather than refitting one linear stiffness.",
+        "taxonomy_match": "known",
+        "assumption_before": "The spring response is linear over the sampled displacements.",
+        "assumption_after": "The spring has weak amplitude-dependent hardening, adding the leading odd nonlinear restoring term while keeping the same equilibrium.",
+        "before_fragment": "-(spring_stiffness/mass)*x - (damping_coefficient/mass)*v",
+        "after_fragment": "-(spring_stiffness/mass)*x - (damping_coefficient/mass)*v - (cubic_stiffness/mass)*x**3",
+        "parent_reduction": "Recover the parent law when cubic_stiffness -> 0, or when cubic_stiffness*x**2 << spring_stiffness throughout the sampled trajectories.",
+        "observable_signature": "At fixed or similar v, dv_dt versus x is no longer a straight line: it remains approximately linear near x=0 but bends to steeper inward acceleration at larger |x|. Across trajectories generated by different initial displacements with the same mass and damping, larger-amplitude turning points show disproportionately larger restoring acceleration than the parent predicts.",
+        "shortcut_blocked": "A single refit of spring_stiffness and damping_coefficient cannot reproduce both the small-amplitude near-origin slope and the stronger large-|x| restoring acceleration across those trajectories, because the parent target mapping remains exactly linear in x for every shared parameter set."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The parent maps displacement and velocity to acceleration with damping linear in v: dv_dt = -(spring_stiffness/mass)*x -(damping_coefficient/mass)*v -(cubic_stiffness/mass)*x**3, so at fixed x the damping contribution has one constant slope with respect to v.",
+          "child_relation": "Relax the idealization of purely linear viscous drag by making damping amplitude-dependent while still opposing motion, so at fixed x the damping part of dv_dt bends with |v| and produces stronger deceleration at larger speeds than a single linear slope predicts.",
+          "affected_inputs": [
+            "x",
+            "v",
+            "damping_coefficient"
+          ],
+          "observable_effect": "Across trajectories with the same fixed parameters but different initial amplitudes, high-speed segments decay faster than low-speed segments in a way that changes the acceleration-versus-velocity curvature; one shared linear-damping parent cannot match both the near-origin small-v behavior and the stronger large-|v| braking simultaneously."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "linear_restore",
+            "expression": "(spring_stiffness/mass)*x",
+            "role": "baseline linear restoring acceleration scale"
+          },
+          {
+            "name": "duffing_restore",
+            "expression": "(cubic_stiffness/mass)*x**3",
+            "role": "existing amplitude-dependent conservative restoring contribution"
+          },
+          {
+            "name": "viscous_scale",
+            "expression": "(damping_coefficient/mass)*v",
+            "role": "parent linear dissipative contribution"
+          },
+          {
+            "name": "speed_level",
+            "expression": "v**2",
+            "role": "kinetic-amplitude coordinate controlling observability of nonlinear damping"
+          }
+        ],
+        "activation_condition": "Observable when sampled trajectories include sufficiently different speed ranges, with |v| large enough that nonlinear damping is not negligible compared with (damping_coefficient/mass)*|v|, while remaining in a bounded underdamped regime and with damping still sign-opposing.",
+        "train_hidden_contrast": "In training, moderate-amplitude trajectories already show slightly stronger-than-linear braking at larger |v|; in holdout, larger initial displacement or velocity extends the same curvature change more clearly without changing the equilibrium location.",
+        "continuation_path": "Recover the parent law in the limit that the nonlinear damping correction tends to zero, or on trajectory segments with sufficiently small |v| where the damping law reduces effectively to linear viscous damping.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "unary",
+        "scope_symbols": [
+          "v"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "speed-dependent damping in an underdamped Duffing oscillator",
+        "scientific_mechanism": "Weak nonlinear dissipation, such as quadratic air drag or amplitude-dependent internal material damping, superposed on viscous damping while preserving monotone energy decay.",
+        "embedding_pattern": "nested_nonlinearity",
+        "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the damping contribution is no longer a single global slope in v; the nested factor (1 + nonlinear_damping_strength*v**2) changes curvature while preserving the small-speed linear limit.",
+        "taxonomy_match": "known",
+        "assumption_before": "Damping strength is constant and exactly linear in velocity over the sampled motion.",
+        "assumption_after": "Damping remains sign-opposing but its magnitude increases with speed through a weak nonlinear correction to the viscous law.",
+        "before_fragment": "-(spring_stiffness/mass)*x - (damping_coefficient/mass)*v - (cubic_stiffness/mass)*x**3",
+        "after_fragment": "-(spring_stiffness/mass)*x - (damping_coefficient/mass)*(1 + nonlinear_damping_strength*v**2)*v - (cubic_stiffness/mass)*x**3",
+        "parent_reduction": "nonlinear_damping_strength -> 0",
+        "observable_signature": "At fixed x, dv_dt versus v is approximately linear near v = 0 but bends downward for v > 0 and upward for v < 0 because the damping magnitude grows like |v| plus a cubic-in-v correction. Across trajectories with different initial amplitudes but shared parameters, larger-speed segments show stronger-than-linear deceleration while low-speed segments still follow the parent's local slope.",
+        "shortcut_blocked": "Refitting spring_stiffness, cubic_stiffness, or damping_coefficient alone cannot reproduce this contrast with one shared parameter set because those changes either alter restoring terms or impose one linear damping slope across all v. The child keeps nearly the same small-|v| damping while selectively increasing dissipation at larger |v|, which a single linear-damping parent cannot match simultaneously over both low-speed and high-speed conditions."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "interaction_emergence",
+          "parent_relation": "The damping contribution depends only on the instantaneous velocity through a fixed odd drag law, so for the same x and v the target acceleration is identical regardless of prior oscillation amplitude history.",
+          "child_relation": "The effective damping strength is allowed to evolve with the recent vibrational state via a slow internal-loss state, making dv_dt at the same instantaneous x and v depend on both velocity and accumulated oscillation level.",
+          "affected_inputs": [
+            "x",
+            "v"
+          ],
+          "observable_effect": "Across trajectories with different initial amplitudes but fixed parameters, later-cycle accelerations at similar x and v can show systematically stronger or weaker damping depending on prior amplitude decay history; the parent predicts collapse to one shared dv_dt(x,v) surface."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "restoring_load",
+            "expression": "(spring_stiffness/mass)*x + (cubic_stiffness/mass)*x**3",
+            "role": "Instantaneous conservative restoring contribution"
+          },
+          {
+            "name": "base_damping_load",
+            "expression": "(damping_coefficient/mass)*(1 + nonlinear_damping_strength*v**2)*v",
+            "role": "Parent instantaneous dissipative contribution"
+          },
+          {
+            "name": "kinetic_level",
+            "expression": "v**2",
+            "role": "Local motion intensity that can drive slow internal dissipation-state evolution"
+          }
+        ],
+        "activation_condition": "Observable when oscillation amplitudes are large enough that internal friction or thermoelastic loss evolves over several cycles but still weak enough to preserve underdamped bounded motion and monotone energy decay; negligible in the near-linear small-amplitude limit.",
+        "train_hidden_contrast": "In training, different initial conditions already generate different amplitude envelopes, so a slow amplitude-history-dependent damping modulation can appear within and across trajectories; in holdout, the same mechanism extends to larger or smaller initial amplitudes by changing when the modulation turns on and how long it persists.",
+        "continuation_path": "Recover the parent when the internal-loss adaptation rate tends to zero or its coupling to motion tends to zero, so damping reverts to a fixed function of v only.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A true history-dependent damping modulation cannot be represented by the existing instantaneous states x and v alone without violating the Markov ODE structure; one additional state is needed to summarize slow internal loss evolution.",
+        "scope_kind": "memory",
+        "scope_symbols": [
+          "v",
+          "internal_loss_level"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "History-dependent internal damping modulation by a slow loss state",
+        "scientific_mechanism": "Slow evolution of internal material loss or microstructural dissipation level driven by vibration intensity, which modulates the effective damping strength while remaining sign-opposing and energy dissipative.",
+        "embedding_pattern": "multiplicative_modulation",
+        "difficulty_rationale": "This embedding is structurally harder than a coefficient-only correction because the damping load is no longer a fixed instantaneous function of v; it is multiplicatively modulated by a hidden state whose own dynamics are driven by motion intensity and relaxation, creating trajectory-history-dependent dv_dt at fixed x and v.",
+        "taxonomy_match": "known",
+        "assumption_before": "The damping law is time-local and fully determined by the current velocity with fixed coefficients.",
+        "assumption_after": "The effective damping strength evolves through a slow internal-loss state driven by vibration intensity and relaxing toward a reference level.",
+        "before_fragment": "-(spring_stiffness/mass)*x - (damping_coefficient/mass)*(1 + nonlinear_damping_strength*v**2)*v - (cubic_stiffness/mass)*x**3",
+        "after_fragment": "-(spring_stiffness/mass)*x - (damping_coefficient/mass)*(1 + internal_loss_level)*(1 + nonlinear_damping_strength*v**2)*v - (cubic_stiffness/mass)*x**3",
+        "parent_reduction": "The parent is recovered when loss_drive_rate -> 0 or, equivalently for initialized internal_loss_level=0, when internal_loss_level stays at zero so the multiplicative damping modulation equals one.",
+        "observable_signature": "The parent gives one universal dv_dt surface over (x,v). The child predicts a family of such surfaces indexed by internal_loss_level, so trajectories started with different initial amplitudes can later pass through similar x and v with different accelerations because the damping term has been history-modulated. This is observable when the slow loss state is activated by moderate-to-large oscillation levels and remains negligible near the small-amplitude limit.",
+        "shortcut_blocked": "A single parent parameter set cannot reproduce this contrast because it enforces dv_dt as a unique function of only x and v for all trajectories. Refitting spring_stiffness, damping_coefficient, cubic_stiffness, or nonlinear_damping_strength merely changes that shared surface; it cannot generate systematic history-dependent separation of accelerations at the same instantaneous x and v across different amplitude-decay histories."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The target mapping uses a single instantaneous internal-loss multiplier on damping, so at fixed x and internal_loss_level the acceleration depends on velocity through one odd cubic-like damping law with no memory of recent velocity sign changes beyond the current state values.",
+          "child_relation": "Replace the idealized loss-state drive by a saturating activation so the damping modulation grows roughly linearly with vibration intensity at low levels but bends over at higher v**2, producing weaker-than-parent incremental damping growth during large-amplitude portions of decay while recovering the parent law at low intensity.",
+          "affected_inputs": [
+            "v",
+            "internal_loss_level",
+            "loss_drive_rate"
+          ],
+          "observable_effect": "Across trajectories with larger versus smaller initial amplitudes, the child shows less extra acceleration suppression near early large-|v| peaks than the parent predicts from a single unsaturated drive, while later low-amplitude decay remains close to the parent."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "vibration_intensity",
+            "expression": "v**2",
+            "role": "Instantaneous drive level for slow internal loss buildup"
+          },
+          {
+            "name": "effective_damping_factor",
+            "expression": "(1 + internal_loss_level)*(1 + nonlinear_damping_strength*v**2)",
+            "role": "Current multiplier on the baseline viscous damping term"
+          },
+          {
+            "name": "elastic_force_scale",
+            "expression": "(spring_stiffness/mass)*x + (cubic_stiffness/mass)*x**3",
+            "role": "Competing conservative acceleration scale against which damping-induced curvature changes are observed"
+          }
+        ],
+        "activation_condition": "Observable when early-trajectory vibration intensity is high enough that the internal-loss build-up law would begin to bend away from proportionality in v**2, yet damping remains sign-opposing and the motion stays underdamped and bounded; at small v**2 the refinement is effectively inactive.",
+        "train_hidden_contrast": "In training, moderate amplitudes reveal the near-linear onset of loss buildup; in holdout, larger-amplitude decays extend into the bent-over regime where the parent's single proportional drive overpredicts damping-memory accumulation.",
+        "continuation_path": "Take the saturation scale large enough that the internal-loss drive is effectively proportional to v**2 over the observed range, recovering the parent evolution law.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A separate slow activation state is needed if the saturating loss generation is implemented in a physically consistent first-order way without directly violating the existing role of internal_loss_level; existing states alone do not distinguish accumulated defect activation from the currently observed loss multiplier.",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "v",
+          "loss_activation_level",
+          "internal_loss_level"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "finite-capacity internal friction channel activation feeding dissipation buildup",
+        "scientific_mechanism": "Finite-capacity activation of internal friction mechanisms causes slow dissipation enhancement to increase with vibration intensity at low levels but saturate at higher levels.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the observed acceleration changes through a hidden slow state that alters the curvature of loss accumulation versus vibration intensity, not through one global rescaling of damping or loss_drive_rate.",
+        "taxonomy_match": "known",
+        "assumption_before": "The parent assumes the loss-generation process is an unsaturated linear function of v**2.",
+        "assumption_after": "The loss-generation process is limited by a finite-capacity activation state whose drive saturates with vibration intensity before feeding internal_loss_level.",
+        "before_fragment": "-(spring_stiffness/mass)*x - (damping_coefficient/mass)*(1 + internal_loss_level)*(1 + nonlinear_damping_strength*v**2)*v - (cubic_stiffness/mass)*x**3",
+        "after_fragment": "-(spring_stiffness/mass)*x - (damping_coefficient/mass)*(1 + internal_loss_level)*(1 + nonlinear_damping_strength*v**2)*v - (cubic_stiffness/mass)*x**3",
+        "parent_reduction": "In the fast-unsaturated limit where loss_activation_level tracks v**2/loss_saturation_scale and the product loss_drive_rate*loss_activation_rate/loss_saturation_scale is identified with the parent loss_drive_rate, the augmented buildup law reduces effectively to loss_drive_rate*v**2 - loss_relaxation_rate*internal_loss_level.",
+        "observable_signature": "Holding fixed the shared mechanical parameters and varying only initial displacement and velocity, early large-amplitude portions of trajectories show smaller growth of internal_loss_level and therefore less damping-induced suppression in dv_dt than the parent predicts, while later small-amplitude portions recover the near-parent decay law; this is a changed target mapping because the acceleration receives a systematically different internal_loss_level history under high v**2, not merely a relabeling of an auxiliary variable.",
+        "shortcut_blocked": "A single parent parameter set cannot reproduce both the near-linear low-intensity buildup and the bent-over high-intensity buildup across trajectories, because refitting loss_drive_rate or damping_coefficient only rescales the same unsaturated proportional drive everywhere and cannot create the required curvature change versus v**2 while keeping the same late-time low-amplitude behavior."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The damping contribution to dv_dt is proportional to v times a multiplicative factor (1 + internal_loss_level)(1 + nonlinear_damping_strength*v**2), so at fixed internal_loss_level the effective damping grows without bound like v + v^3 with no high-speed bending of that growth.",
+          "child_relation": "Replace the unsaturated speed-dependent damping correction by a bounded or sublinearly growing velocity-dependent factor, so the damping-versus-|v| relation bends from its low-speed cubic correction toward a weaker incremental growth at larger |v| while remaining sign-opposing.",
+          "affected_inputs": [
+            "v",
+            "internal_loss_level",
+            "nonlinear_damping_strength"
+          ],
+          "observable_effect": "Across trajectories with different initial velocities but the same parameters, the child predicts less-than-parent extra deceleration at high |v| relative to moderate |v|, i.e. the acceleration-versus-velocity curve has reduced upward curvature in magnitude once |v| is large compared with the nonlinear damping scale."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "restoring_load",
+            "expression": "(spring_stiffness/mass)*x + (cubic_stiffness/mass)*x**3",
+            "role": "Conservative acceleration load from the spring at the observed displacement"
+          },
+          {
+            "name": "baseline_loss_prefactor",
+            "expression": "(damping_coefficient/mass)*(1 + internal_loss_level)",
+            "role": "Current slow-loss-modulated viscous damping scale multiplying the velocity law"
+          },
+          {
+            "name": "speed_intensity",
+            "expression": "nonlinear_damping_strength*v**2",
+            "role": "Dimensionless measure of when the existing nonlinear damping correction becomes active"
+          }
+        ],
+        "activation_condition": "Observable when trajectories sample both nonlinear_damping_strength*v**2 << 1 and nonlinear_damping_strength*v**2 greater than order unity, while internal_loss_level is nonnegative and varies slowly enough that instantaneous acceleration can still be compared across different |v| on the same decay.",
+        "train_hidden_contrast": "In training, moderate-amplitude motion reveals the low-speed onset of amplitude-dependent damping; in holdout, larger initial velocities extend into the regime where the parent's unbounded cubic-in-v correction overpredicts deceleration, so the same mechanism appears as a stronger curvature contrast rather than a new qualitative branch.",
+        "continuation_path": "Recover the parent law in the limit where the revised damping correction is expanded for small nonlinear_damping_strength*v**2, or in the regime nonlinear_damping_strength*v**2 << 1 over all observed trajectories.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "v",
+          "internal_loss_level",
+          "nonlinear_damping_strength"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Saturating amplitude-dependent damping in an internally lossy oscillator",
+        "scientific_mechanism": "Finite-response-rate or finite-capacity dissipation causes the amplitude-dependent damping increment to bend toward saturation at higher speed rather than growing indefinitely as a cubic correction.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This embedding is harder than a coefficient-only correction because it changes the shape of the velocity-to-acceleration law across speed regimes: one shared parameter set must match both the low-speed cubic onset and the high-speed bent-over damping response, which cannot be achieved by merely rescaling the existing polynomial factor.",
+        "taxonomy_match": "known",
+        "assumption_before": "The current model assumes the speed-dependent damping enhancement keeps increasing with the same polynomial trend at arbitrarily large speed, which is an idealization for many internal-friction or drag-like corrections that weaken in incremental slope once the relevant dissipative channels are fully engaged.",
+        "assumption_after": "The nonlinear damping enhancement is a finite-capacity response of the existing dissipative process, so its coefficient depends on speed intensity through a saturating rational law.",
+        "before_fragment": "-(spring_stiffness/mass)*x - (damping_coefficient/mass)*(1 + internal_loss_level)*(1 + nonlinear_damping_strength*v**2)*v - (cubic_stiffness/mass)*x**3",
+        "after_fragment": "-(spring_stiffness/mass)*x - (damping_coefficient/mass)*(1 + internal_loss_level)*(1 + nonlinear_damping_strength*v**2/(1 + nonlinear_damping_strength*v**2))*v - (cubic_stiffness/mass)*x**3",
+        "parent_reduction": "For nonlinear_damping_strength*v**2 << 1, the added denominator is approximately 1 and the child recovers the parent's leading-order damping law.",
+        "observable_signature": "Holding parameters fixed and comparing trajectory segments with similar x and internal_loss_level, the parent predicts damping magnitude that continues to steepen roughly like |v| + nonlinear_damping_strength*|v|^3, whereas the child bends to a weaker high-speed increase once nonlinear_damping_strength*v**2 reaches order unity. This is a direct change in the scored target mapping dv_dt(x, v, internal_loss_level), not merely a change in the auxiliary loss trajectories.",
+        "shortcut_blocked": "A single refit of the parent parameters cannot reproduce both regimes across the same dataset because its damping correction has fixed polynomial curvature in v: increasing nonlinear_damping_strength to fit stronger moderate-speed damping necessarily overpredicts high-speed deceleration, while reducing it to fit high-speed segments underpredicts the moderate-speed onset. Retuning damping_coefficient or internal-loss parameters only rescales the same unbounded shape and does not create the required curvature bend."
+      }
+    ]
+  },
+  "finalization": {
+    "mode": "candidate",
+    "accepted_generations": 5,
+    "novelty": {
+      "answer": "NOT_EVALUATED"
+    },
+    "total_points": 5000,
+    "evaluation_status": "not_evaluated"
+  }
+}

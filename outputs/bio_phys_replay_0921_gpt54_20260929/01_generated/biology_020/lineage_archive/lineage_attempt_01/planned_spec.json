@@ -1,0 +1,229 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "A",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        80.0
+      ],
+      "n_points": 401,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "juvenile_recruitment_rate",
+      "value": 0.06
+    },
+    {
+      "symbol": "juvenile_mortality_rate",
+      "value": 0.03
+    },
+    {
+      "symbol": "adult_mortality_rate",
+      "value": 0.03
+    },
+    {
+      "symbol": "juvenile_crowding_coefficient",
+      "value": 0.01
+    },
+    {
+      "symbol": "adult_density_loss_coefficient",
+      "value": 0.015
+    },
+    {
+      "symbol": "adult_density_half_saturation_coefficient",
+      "value": 0.01
+    },
+    {
+      "symbol": "juvenile_crowding_quadratic_coefficient",
+      "value": 2e-05
+    },
+    {
+      "symbol": "adult_maturation_inhibition_coefficient",
+      "value": 8e-05
+    },
+    {
+      "symbol": "maturation_capacity_recovery_rate",
+      "value": 0.08
+    },
+    {
+      "symbol": "maturation_capacity_stress_sensitivity",
+      "value": 0.0008
+    },
+    {
+      "symbol": "baseline_maturation_rate",
+      "value": 1.2
+    }
+  ],
+  "benchmark_output": "dA_dt",
+  "benchmark_target_state": "A",
+  "observed_variables": [
+    "t",
+    "J",
+    "A",
+    "maturation_rate"
+  ],
+  "rhs_for_integrator": "maturation_rate*J/(1 + juvenile_crowding_coefficient*J + juvenile_crowding_quadratic_coefficient*J**2 + adult_maturation_inhibition_coefficient*A*J) - adult_mortality_rate*A*(1 + adult_density_loss_coefficient*A/(1 + adult_density_half_saturation_coefficient*A))",
+  "state_variables": [
+    "J",
+    "A",
+    "maturation_rate"
+  ],
+  "state_rhs": [
+    "juvenile_recruitment_rate*A - maturation_rate*J/(1 + juvenile_crowding_coefficient*J + juvenile_crowding_quadratic_coefficient*J**2 + adult_maturation_inhibition_coefficient*A*J) - juvenile_mortality_rate*J",
+    "maturation_rate*J/(1 + juvenile_crowding_coefficient*J + juvenile_crowding_quadratic_coefficient*J**2 + adult_maturation_inhibition_coefficient*A*J) - adult_mortality_rate*A*(1 + adult_density_loss_coefficient*A/(1 + adult_density_half_saturation_coefficient*A))",
+    "maturation_capacity_recovery_rate*(baseline_maturation_rate - maturation_rate) - maturation_capacity_stress_sensitivity*J*maturation_rate"
+  ],
+  "initial_conditions": {
+    "J": 100.0,
+    "A": 50.0,
+    "maturation_rate": 1.0
+  },
+  "sanity_expectations": [
+    "All sampled trajectories should remain finite and real over t in [0,80] for the chosen parameters.",
+    "Because juvenile_crowding_coefficient*J, juvenile_crowding_quadratic_coefficient*J^2, and adult_maturation_inhibition_coefficient*A*J are already order 10^0 at the initial condition, adult gain from juveniles should be substantially below the uncrowded flux maturation_rate*J and should vary nonlinearly with both J and A along the trajectory.",
+    "The dynamic maturation_rate state should not stay locked at its initial value or baseline: with J(0)=100, the stress-depletion term is comparable to recovery, so maturation_rate should show an observable transient shaped by competition between depletion and recovery.",
+    "Relative to a hypothetical fixed-rate parent with maturation_rate held near baseline, periods of sustained moderate-to-high J should produce lower adult growth contribution because maturation_rate is dynamically depressed by juvenile load.",
+    "Adult net change dA/dt should become more negative at larger A not only from the explicit adult loss term but also, during coexistence with substantial J, from reduced maturation inflow through the A*J inhibition term.",
+    "The chosen time horizon should include visible transient curvature before any late-time approach toward a steady regime; the dataset should therefore contain non-flat segments for A over much of the window."
+  ],
+  "role_corrections": [
+    "dA_dt: claimed-output/target derivative -> target derivative for state A in an ode_system (confirmed by provided ODE contract)",
+    "t: claimed-input/time axis -> independent variable/time axis (confirmed)",
+    "J: claimed-dynamic state -> dynamic state variable (confirmed by contract)",
+    "A: claimed-dynamic state -> dependent variable and dynamic state variable (confirmed by contract)",
+    "maturation_rate: claimed-dynamic state -> dynamic state variable, preserved due to explicit freedom_change parameter_to_state decision (confirmed)",
+    "juvenile_recruitment_rate: claimed-parameter -> fixed parameter (confirmed)",
+    "juvenile_mortality_rate: claimed-parameter -> fixed parameter (confirmed)",
+    "adult_mortality_rate: claimed-parameter -> fixed parameter (confirmed)",
+    "juvenile_crowding_coefficient: claimed-parameter -> fixed parameter (confirmed)",
+    "adult_density_loss_coefficient: claimed-parameter -> fixed parameter (confirmed)",
+    "adult_density_half_saturation_coefficient: claimed-parameter -> fixed parameter (confirmed)",
+    "juvenile_crowding_quadratic_coefficient: claimed-parameter -> fixed parameter (confirmed)",
+    "adult_maturation_inhibition_coefficient: claimed-parameter -> fixed parameter (confirmed)",
+    "maturation_capacity_recovery_rate: claimed-parameter -> fixed parameter (confirmed)",
+    "maturation_capacity_stress_sensitivity: claimed-parameter -> fixed parameter (confirmed)",
+    "baseline_maturation_rate: claimed-parameter -> fixed parameter (confirmed)"
+  ],
+  "rationale": "The typed upstream contract is preserved exactly: this is an ODE system in time with dynamic states J, A, and maturation_rate, and the target output is the adult state A. The chosen time window 0-80 with 401 samples is long enough to capture the intended transient memory effect without pushing only into late near-equilibrium behavior. Parameter values are selected so the system is biologically admissible and finite at the inherited initial condition, while keeping multiple mechanisms visible but not overwhelmingly saturated. In particular, the juvenile crowding denominator at the initial state is appreciable but not extreme: juvenile_crowding_coefficient*J = 1, juvenile_crowding_quadratic_coefficient*J^2 = 0.2, and adult_maturation_inhibition_coefficient*A*J = 0.4, so maturation is clearly density-limited from the start yet still responsive to changes in J and A. Adult density-dependent loss is present but moderate: adult_density_half_saturation_coefficient*A = 0.5 initially, so the mortality amplification is active without collapsing adults immediately. The promoted state maturation_rate is intentionally not fixed back to a parameter; its recovery and stress parameters are chosen so depletion by sustained juvenile load is observable on the same timescale as demographic change. Initially, maturation capacity tends to recover toward baseline 1.2 from the initial 1.0, but the depletion term maturation_capacity_stress_sensitivity*J*maturation_rate is of comparable magnitude at t=0, so the history-dependent state can move meaningfully rather than remain nearly constant. This exposes the recorded generation-5 contrast: along trajectories with sustained moderate juvenile load, maturation_rate should be depressed below baseline, reducing adult gain beyond what instantaneous J and A alone would imply under a fixed-rate parent. Weak or inactive limits are honestly avoided: neither the stress sensitivity nor the recovery is set near zero, and crowding coefficients are not so small that the model collapses to the parent-recovery regime. At the same time, no mechanism is placed so deep into saturation that the response becomes flat everywhere.",
+  "coverage_report": {},
+  "inactive_mechanisms": [],
+  "target_variance": {},
+  "parent_absorption_report": {},
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_LUftCaXvARfoRzEAEnOPnGV3"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "maturation_rate*J/(1 + juvenile_crowding_coefficient*J + juvenile_crowding_quadratic_coefficient*J**2 + adult_maturation_inhibition_coefficient*A*J) - adult_mortality_rate*A*(1 + adult_density_loss_coefficient*A/(1 + adult_density_half_saturation_coefficient*A))",
+        "target_symbol": "A"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "A",
+          "J",
+          "adult_density_half_saturation_coefficient",
+          "adult_density_loss_coefficient",
+          "adult_maturation_inhibition_coefficient",
+          "adult_mortality_rate",
+          "juvenile_crowding_coefficient",
+          "juvenile_crowding_quadratic_coefficient",
+          "maturation_rate"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": false,
+        "explicit_solution_preview": null,
+        "classification_hint": "implicit_or_explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_p24lirHSeqoA9DN5G8TaJWEK"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "maturation_rate*J/(1 + juvenile_crowding_coefficient*J + juvenile_crowding_quadratic_coefficient*J**2 + adult_maturation_inhibition_coefficient*A*J) - adult_mortality_rate*A*(1 + adult_density_loss_coefficient*A/(1 + adult_density_half_saturation_coefficient*A))",
+        "target_symbol": "A",
+        "assignments": {
+          "A": 50,
+          "J": 100,
+          "maturation_rate": 1.2,
+          "juvenile_crowding_coefficient": 0.01,
+          "juvenile_crowding_quadratic_coefficient": 2e-05,
+          "adult_maturation_inhibition_coefficient": 8e-05,
+          "adult_mortality_rate": 0.03,
+          "adult_density_loss_coefficient": 0.015,
+          "adult_density_half_saturation_coefficient": 0.01
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": 43.90384615384615,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_drFGKE2RNWd5WvJzQs6gZhQR"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_K4stLGnttC6L0wXHo2XxNpsx"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 4
+}

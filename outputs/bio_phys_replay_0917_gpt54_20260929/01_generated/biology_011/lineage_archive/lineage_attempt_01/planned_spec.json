@@ -1,0 +1,226 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "D",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        25.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "recombination_relaxation_rate",
+      "value": 0.8
+    },
+    {
+      "symbol": "recombination_setpoint",
+      "value": 0.55
+    },
+    {
+      "symbol": "occupancy_relaxation_rate",
+      "value": 1.2
+    },
+    {
+      "symbol": "occupancy_sensitivity",
+      "value": 14.0
+    },
+    {
+      "symbol": "nonlinear_ld_coupling",
+      "value": 8.0
+    },
+    {
+      "symbol": "boundary_compression_strength",
+      "value": 12.0
+    },
+    {
+      "symbol": "refractory_occupancy_relaxation_rate",
+      "value": 0.18
+    },
+    {
+      "symbol": "refractory_occupancy_sensitivity",
+      "value": 20.0
+    },
+    {
+      "symbol": "refractory_occupancy_strength",
+      "value": 3.0
+    },
+    {
+      "symbol": "refractory_occupancy_halfscale",
+      "value": 0.5
+    }
+  ],
+  "benchmark_output": "dD_dt",
+  "benchmark_target_state": "D",
+  "observed_variables": [
+    "t",
+    "D",
+    "recombination_rate",
+    "occupancy_buffer",
+    "refractory_occupancy"
+  ],
+  "rhs_for_integrator": "-recombination_rate*D*(1 + nonlinear_ld_coupling*D**2)/(1 + occupancy_buffer + boundary_compression_strength*D**2 + refractory_occupancy_strength*refractory_occupancy/(1 + refractory_occupancy_halfscale + refractory_occupancy))",
+  "state_variables": [
+    "D",
+    "recombination_rate",
+    "occupancy_buffer",
+    "refractory_occupancy"
+  ],
+  "state_rhs": [
+    "-recombination_rate*D*(1 + nonlinear_ld_coupling*D**2)/(1 + occupancy_buffer + boundary_compression_strength*D**2 + refractory_occupancy_strength*refractory_occupancy/(1 + refractory_occupancy_halfscale + refractory_occupancy))",
+    "recombination_relaxation_rate*(recombination_setpoint - recombination_rate)",
+    "occupancy_relaxation_rate*(occupancy_sensitivity*D**2 - occupancy_buffer)",
+    "refractory_occupancy_relaxation_rate*(refractory_occupancy_sensitivity*D**2 - refractory_occupancy)"
+  ],
+  "initial_conditions": {
+    "D": 0.05,
+    "recombination_rate": 0.3,
+    "occupancy_buffer": 0.01,
+    "refractory_occupancy": 0.02
+  },
+  "sanity_expectations": [
+    "D=0 remains an invariant state; with the supplied positive initial D, D(t) should stay nonnegative and relax toward 0 rather than crossing far through it.",
+    "recombination_rate(t) should increase monotonically from 0.3 toward its setpoint 0.55.",
+    "occupancy_buffer and refractory_occupancy should remain nonnegative for these nonnegative initial conditions and positive sensitivities/relaxation rates.",
+    "Because refractory_occupancy_relaxation_rate is much smaller than occupancy_relaxation_rate, refractory_occupancy should lag occupancy_buffer and decay more slowly after D becomes small.",
+    "The effective decay factor multiplying -D should vary over time, so log|D| versus t should show curvature rather than a single straight exponential segment.",
+    "Boundary compression and refractory suppression are active but not overwhelming at the inherited small initial D; expect mild-to-moderate modulation of decay, not deep saturation of the denominator."
+  ],
+  "role_corrections": [
+    "dD_dt: claimed-output/target derivative -> derivative of dependent state D (confirmed as state RHS, not sampled independent target)",
+    "t: claimed-input/time axis -> independent variable (confirmed)",
+    "D: claimed-dynamic state -> dependent variable and dynamic state (confirmed)",
+    "recombination_rate: claimed-dynamic state -> dynamic state (confirmed by typed ODE contract / preserved freedom decision)",
+    "occupancy_buffer: claimed-dynamic state -> dynamic state (confirmed by typed ODE contract / preserved freedom decision)",
+    "refractory_occupancy: claimed-dynamic state -> dynamic state (confirmed by typed ODE contract / preserved freedom decision)",
+    "recombination_relaxation_rate: claimed-parameter -> parameter (confirmed)",
+    "recombination_setpoint: claimed-parameter -> parameter (confirmed)",
+    "occupancy_relaxation_rate: claimed-parameter -> parameter (confirmed)",
+    "occupancy_sensitivity: claimed-parameter -> parameter (confirmed)",
+    "nonlinear_ld_coupling: claimed-parameter -> parameter (confirmed)",
+    "boundary_compression_strength: claimed-parameter -> parameter (confirmed)",
+    "refractory_occupancy_relaxation_rate: claimed-parameter -> parameter (confirmed)",
+    "refractory_occupancy_sensitivity: claimed-parameter -> parameter (confirmed)",
+    "refractory_occupancy_strength: claimed-parameter -> parameter (confirmed)",
+    "refractory_occupancy_halfscale: claimed-parameter -> parameter (confirmed)",
+    "equation_type: upstream ode_system contract retained (overrides local scalar-expression explicit hint because the full provided governing contract supplies the coupled state system)"
+  ],
+  "rationale": "Preserve the supplied typed ODE-system contract exactly: time is the only sampled axis; D is the dependent target state; recombination_rate, occupancy_buffer, and refractory_occupancy remain dynamic states per the explicit freedom-change history and must not be demoted to fixed parameters. The chosen window t in [0,25] with 300 points is long enough to show the multiscale transition structure without pushing everything into an almost-flat terminal equilibrium immediately: recombination_rate relaxes on an O(1) timescale toward a higher setpoint, occupancy_buffer responds on a similar but somewhat faster timescale to D^2, and refractory_occupancy evolves more slowly, so the same trajectory can exhibit early changing proportional decay, amplitude-dependent curvature from the nonlinear D term and boundary-compression term, and delayed extra suppression from refractory memory. Parameter values are kept within the suggested magnitudes and away from recovery limits: nonlinear_ld_coupling>0 makes per-unit-LD erosion increase with |D|, boundary_compression_strength>0 counteracts unchecked cubic steepening at larger |D|, and refractory_occupancy_strength>0 with slow refractory_occupancy_relaxation_rate introduces visible but not dominant path-dependent suppression. The initial D=0.05 is modest, so the strongest large-|D| contrasts are not activated immediately; accordingly this dataset will emphasize transient time-varying slope and mild-to-moderate memory/buffering effects rather than extreme boundary compression. No observation noise is added.",
+  "coverage_report": {},
+  "inactive_mechanisms": [],
+  "target_variance": {},
+  "parent_absorption_report": {},
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_S3hacdm8LJ3ELTLUgMBIbKQ7"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "-recombination_rate*D*(1 + nonlinear_ld_coupling*D**2)/(1 + occupancy_buffer + boundary_compression_strength*D**2 + refractory_occupancy_strength*refractory_occupancy/(1 + refractory_occupancy_halfscale + refractory_occupancy))",
+        "target_symbol": "D"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "D",
+          "boundary_compression_strength",
+          "nonlinear_ld_coupling",
+          "occupancy_buffer",
+          "recombination_rate",
+          "refractory_occupancy",
+          "refractory_occupancy_halfscale",
+          "refractory_occupancy_strength"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "0",
+          "-sqrt(-1/nonlinear_ld_coupling)",
+          "sqrt(-1/nonlinear_ld_coupling)"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_s1KBRCaMGWAgm65wPSmMxSKe"
+        },
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_HIXiMsaBHHUgQzpfKyjCNOX6"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "-recombination_rate*D*(1 + nonlinear_ld_coupling*D**2)/(1 + occupancy_buffer + boundary_compression_strength*D**2 + refractory_occupancy_strength*refractory_occupancy/(1 + refractory_occupancy_halfscale + refractory_occupancy))",
+        "target_symbol": "D",
+        "assignments": {
+          "D": 0.05,
+          "recombination_rate": 0.3,
+          "occupancy_buffer": 0.01,
+          "refractory_occupancy": 0.02,
+          "nonlinear_ld_coupling": 8.0,
+          "boundary_compression_strength": 12.0,
+          "refractory_occupancy_strength": 3.0,
+          "refractory_occupancy_halfscale": 0.5
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": -0.01417357386640663,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_1mX16uI4iFvp3LAyoF3SlrY4"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 3
+}

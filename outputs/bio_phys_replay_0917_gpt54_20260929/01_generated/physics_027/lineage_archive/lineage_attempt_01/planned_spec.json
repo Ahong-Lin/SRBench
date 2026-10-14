@@ -1,0 +1,213 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "U",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        20.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "pressure_gradient_magnitude",
+      "value": 120.0
+    },
+    {
+      "symbol": "fluid_density",
+      "value": 1000.0
+    },
+    {
+      "symbol": "viscous_drag_rate",
+      "value": 0.8
+    },
+    {
+      "symbol": "nonlinear_drag_coefficient",
+      "value": 1.8
+    },
+    {
+      "symbol": "resistance_relaxation_rate",
+      "value": 1.2
+    },
+    {
+      "symbol": "drag_saturation_velocity",
+      "value": 0.12
+    },
+    {
+      "symbol": "slow_resistance_relaxation_rate",
+      "value": 0.18
+    },
+    {
+      "symbol": "slow_resistance_weight",
+      "value": 0.6
+    },
+    {
+      "symbol": "startup_phase_relaxation_rate",
+      "value": 0.5
+    },
+    {
+      "symbol": "startup_phase_coupling",
+      "value": 0.8
+    }
+  ],
+  "benchmark_output": "dU_dt",
+  "benchmark_target_state": "U",
+  "observed_variables": [
+    "t",
+    "U",
+    "R",
+    "Q",
+    "H"
+  ],
+  "rhs_for_integrator": "pressure_gradient_magnitude / fluid_density - viscous_drag_rate * (R + slow_resistance_weight*Q) * U",
+  "state_variables": [
+    "U",
+    "R",
+    "Q",
+    "H"
+  ],
+  "state_rhs": [
+    "pressure_gradient_magnitude / fluid_density - viscous_drag_rate * (R + slow_resistance_weight*Q) * U",
+    "resistance_relaxation_rate * (1 + H) * ((1 + nonlinear_drag_coefficient * drag_saturation_velocity * tanh(U / drag_saturation_velocity)) - R)",
+    "slow_resistance_relaxation_rate * (1 + H) * (tanh(1 + nonlinear_drag_coefficient * drag_saturation_velocity * tanh(U / drag_saturation_velocity)) - Q)",
+    "startup_phase_relaxation_rate * (startup_phase_coupling * tanh(U / drag_saturation_velocity) - H)"
+  ],
+  "initial_conditions": {
+    "U": 0.0,
+    "R": 0.0,
+    "Q": 0.0,
+    "H": 0.0
+  },
+  "sanity_expectations": [
+    "At t=0, dU_dt = pressure_gradient_magnitude/fluid_density = 0.12 exactly because U(0)=R(0)=Q(0)=0, so the trajectory initially accelerates upward from rest.",
+    "H starts at 0, rises transiently as U becomes positive through startup_phase_coupling*tanh(U/drag_saturation_velocity), and later decays back toward 0 as startup intensity weakens near the finite steady regime.",
+    "R should grow more rapidly than Q because resistance_relaxation_rate > slow_resistance_relaxation_rate, while Q should lag and extend drag strengthening over a longer startup interval.",
+    "Because slow_resistance_weight is positive and moderate, the drag term viscous_drag_rate*(R + slow_resistance_weight*Q)*U should show an early fast increase followed by a slower continued increase, producing extra downward bending of U(t) and dU_dt compared with a single-memory-phase response.",
+    "Since drag_saturation_velocity is comparable to reachable U, tanh(U/drag_saturation_velocity) should move away from its linear small-U regime during startup; the resistance targets therefore show visible non-affine curvature rather than remaining nearly parent-linear throughout.",
+    "All states should remain finite and real over the sampled window; U should stay nonnegative for this positive-drive startup from zero initial conditions, and the system should approach a finite dissipative regime rather than exhibiting runaway growth."
+  ],
+  "role_corrections": [
+    "dU_dt: claimed-output/target derivative -> derived quantity from state RHS (overridden: dataset target state is U per typed ODE contract, while dU_dt is the scored derivative produced by the RHS)",
+    "t: claimed-input/time axis -> independent variable/time axis (confirmed)",
+    "U: claimed-dynamic state -> dependent variable and state variable (confirmed)",
+    "R: claimed-dynamic state -> state variable (confirmed)",
+    "Q: claimed-dynamic state -> state variable (confirmed)",
+    "H: claimed-dynamic state -> state variable (confirmed)",
+    "pressure_gradient_magnitude: claimed-parameter -> parameter (confirmed)",
+    "fluid_density: claimed-parameter -> parameter (confirmed)",
+    "viscous_drag_rate: claimed-parameter -> parameter (confirmed)",
+    "nonlinear_drag_coefficient: claimed-parameter -> parameter (confirmed)",
+    "resistance_relaxation_rate: claimed-parameter -> parameter (confirmed)",
+    "drag_saturation_velocity: claimed-parameter -> parameter (confirmed)",
+    "slow_resistance_relaxation_rate: claimed-parameter -> parameter (confirmed)",
+    "slow_resistance_weight: claimed-parameter -> parameter (confirmed)",
+    "startup_phase_relaxation_rate: claimed-parameter -> parameter (confirmed)",
+    "startup_phase_coupling: claimed-parameter -> parameter (confirmed)"
+  ],
+  "rationale": "Preserved the supplied typed ODE-system contract exactly, as required for this explicit add_state freedom decision: t is the only sampled axis, U is the target state, and R, Q, H remain dynamic states rather than fixed coefficients. Although the bare target expression alone looks algebraically explicit in U, the provided structurally validated ODE contract governs how exact trajectory labels are generated, so the correct dataset type here is ode_system with the inherited 4-state RHS and initial conditions unchanged. Parameter choices are positive and keep the dynamics finite and laminar-like while exposing the intended contrast. The pressure-drive scale pressure_gradient_magnitude/fluid_density = 0.12 gives an initial acceleration of 0.12 from rest. Choosing drag_saturation_velocity = 0.12 places the startup in the regime U/drag_saturation_velocity = O(1) within the sampled window, so the tanh-based non-affine resistance targets are activated rather than remaining in the parent-recovery limit. The fast resistance rate 1.2 and slow rate 0.18 create a clear two-timescale drag-establishment process, with the slow branch appreciably lagging the fast branch. The slow_resistance_weight 0.6 makes Q materially affect dU_dt without dominating R. The startup-phase parameters startup_phase_coupling = 0.8 and startup_phase_relaxation_rate = 0.5 satisfy the suggestion that H be O(1) or smaller and persist over early-to-intermediate startup; H can transiently amplify both resistance-establishment rates by a factor up to about 1+H, creating the intended sharper mid-startup drag catch-up. The time window [0,20] with 300 points is long enough to capture the early inertial rise, transient H activation, fast R buildup, slower Q accumulation, and approach toward a finite near-steady regime without placing the whole trajectory only in the asymptotic tail. A representative substitution check on the scored RHS returned a finite real value.",
+  "coverage_report": {},
+  "inactive_mechanisms": [],
+  "target_variance": {},
+  "parent_absorption_report": {},
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_BGTTPmWTPTkR5PYtsgv8mTGQ"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "pressure_gradient_magnitude / fluid_density - viscous_drag_rate * (R + slow_resistance_weight*Q) * U",
+        "target_symbol": "U"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "Q",
+          "R",
+          "U",
+          "fluid_density",
+          "pressure_gradient_magnitude",
+          "slow_resistance_weight",
+          "viscous_drag_rate"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "pressure_gradient_magnitude/(fluid_density*viscous_drag_rate*(Q*slow_resistance_weight + R))"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_OCaRgy35AcFG6yChFqMejtRv"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "pressure_gradient_magnitude / fluid_density - viscous_drag_rate * (R + slow_resistance_weight*Q) * U",
+        "target_symbol": "U",
+        "assignments": {
+          "pressure_gradient_magnitude": 120,
+          "fluid_density": 1000,
+          "viscous_drag_rate": 0.8,
+          "slow_resistance_weight": 0.6,
+          "R": 0.8,
+          "Q": 0.5,
+          "U": 0.12
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": 0.014399999999999982,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_tqcsAfJvUuXRUSgtBchkKABC"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 3
+}

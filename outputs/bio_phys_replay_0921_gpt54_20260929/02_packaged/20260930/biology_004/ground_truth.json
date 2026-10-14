@@ -1,0 +1,1697 @@
+{
+  "version": 7,
+  "spec": {
+    "equation_type": "explicit",
+    "integrator": "evaluate_explicit",
+    "dependent_variable": "m_inf",
+    "independent_variables": [
+      {
+        "symbol": "V",
+        "range": [
+          -100.0,
+          40.0
+        ],
+        "n_points": 181,
+        "scale": "linear"
+      },
+      {
+        "symbol": "S_ext",
+        "range": [
+          0.0,
+          4.0
+        ],
+        "n_points": 9,
+        "scale": "linear"
+      }
+    ],
+    "parameters": [
+      {
+        "symbol": "m_lower",
+        "value": 0.02
+      },
+      {
+        "symbol": "m_upper",
+        "value": 0.98
+      },
+      {
+        "symbol": "V_half",
+        "value": -30.0
+      },
+      {
+        "symbol": "k_activation",
+        "value": 8.0
+      },
+      {
+        "symbol": "curvature_scale",
+        "value": 0.003
+      },
+      {
+        "symbol": "threshold_shift_max",
+        "value": 20.0
+      },
+      {
+        "symbol": "S_half",
+        "value": 1.0
+      },
+      {
+        "symbol": "steepness_screening_max",
+        "value": 0.5
+      },
+      {
+        "symbol": "subpopulation_weight",
+        "value": 0.28
+      },
+      {
+        "symbol": "subpopulation_shift_ratio",
+        "value": 0.45
+      },
+      {
+        "symbol": "occupancy_redistribution_max",
+        "value": 1.4
+      }
+    ],
+    "benchmark_output": null,
+    "benchmark_target_state": null,
+    "observed_variables": [],
+    "rhs_for_integrator": "m_lower + (m_upper - m_lower)*((1 - subpopulation_weight*(1 + occupancy_redistribution_max*S_ext/(S_half + S_ext))/(1 + occupancy_redistribution_max*subpopulation_weight*S_ext/(S_half + S_ext)))/(1 + exp(-(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext)))/(k_activation*(1 + steepness_screening_max*S_ext/(S_half + S_ext))*(1 + curvature_scale*(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext))))))) + (subpopulation_weight*(1 + occupancy_redistribution_max*S_ext/(S_half + S_ext))/(1 + occupancy_redistribution_max*subpopulation_weight*S_ext/(S_half + S_ext)))/(1 + exp(-(V - (V_half + subpopulation_shift_ratio*threshold_shift_max*S_ext/(S_half + S_ext)))/(k_activation*(1 + steepness_screening_max*S_ext/(S_half + S_ext))*(1 + curvature_scale*(V - (V_half + subpopulation_shift_ratio*threshold_shift_max*S_ext/(S_half + S_ext))))))))",
+    "state_variables": [],
+    "state_rhs": [],
+    "initial_conditions": {},
+    "sanity_expectations": [
+      "For every fixed S_ext in the sampled set, m_inf remains bounded between m_lower and m_upper, here approximately 0.02 and 0.98.",
+      "At S_ext = 0, the effective secondary weight reduces exactly to subpopulation_weight and the law collapses to the parent two-subpopulation form without occupancy redistribution.",
+      "As S_ext increases from 0 toward 4 with the chosen positive threshold_shift_max, the activation curve shifts to higher V overall; the midpoint region should move rightward by an observable fraction of the total voltage span.",
+      "Because steepness_screening_max > 0, increasing S_ext broadens the transition width in addition to shifting it; after aligning curves by their shifted centers, the high-S_ext curve should be less steep near half-activation than the low-S_ext curve.",
+      "Because subpopulation_shift_ratio = 0.45 differs from 1 and subpopulation_weight is intermediate, nonzero S_ext creates separated branch centers; around intermediate voltages the composite curve should show broader/shouldered curvature than any single-transition shape.",
+      "Because occupancy_redistribution_max > 0, the effective secondary-branch occupancy increases with S_ext; thus the shoulder/skew associated with the secondary branch should become more prominent at intermediate/high S_ext than at S_ext = 0.",
+      "At very low V, all sampled S_ext conditions remain near the lower plateau; at high V, all conditions approach the upper plateau, so the strongest cross-condition differences occur in the central transition region rather than at the extremes."
+    ],
+    "role_corrections": [
+      "m_inf: claimed-output/target derivative -> dependent_variable (confirmed: explicit static target, no derivatives present)",
+      "V: claimed-input/time axis -> independent_variable (confirmed: sampled clamp-voltage axis in explicit relation)",
+      "S_ext: claimed-input/time axis -> independent_variable (confirmed: sampled extracellular-condition axis in explicit relation)",
+      "m_lower: claimed-parameter -> parameter (confirmed)",
+      "m_upper: claimed-parameter -> parameter (confirmed)",
+      "V_half: claimed-parameter -> parameter (confirmed)",
+      "k_activation: claimed-parameter -> parameter (confirmed)",
+      "curvature_scale: claimed-parameter -> parameter (confirmed)",
+      "threshold_shift_max: claimed-parameter -> parameter (confirmed)",
+      "S_half: claimed-parameter -> parameter (confirmed)",
+      "steepness_screening_max: claimed-parameter -> parameter (confirmed)",
+      "subpopulation_weight: claimed-parameter -> parameter (confirmed)",
+      "subpopulation_shift_ratio: claimed-parameter -> parameter (confirmed)",
+      "occupancy_redistribution_max: claimed-parameter -> parameter (confirmed)"
+    ],
+    "rationale": "Structure check shows a static algebraic relation with no derivatives, no integrals, and no hidden state; despite the prior wording 'target derivative', this is an explicit response surface m_inf(V,S_ext). The freedom decision is none, so the declared sampled inputs V and S_ext are preserved and all other symbols are fixed parameters. The chosen voltage range spans well below and above the transition so the lower plateau, central rise, and upper plateau are all represented. The chosen S_ext range starts at the parent reference condition S_ext=0 and extends to several times S_half, so the saturating screening coordinate S_ext/(S_half+S_ext) moves from 0 to 0.8, enough to expose threshold shift, width modulation, and condition-dependent redistribution without pushing entirely into the asymptotic saturation limit. Parameter values are selected to keep the effective width factor positive over the sampled domain: 1 + steepness_screening_max*S_ext/(S_half+S_ext) > 1 and 1 + curvature_scale*(V - shifted_center) stays positive on the chosen V range. threshold_shift_max is comparable to a few k_activation so S_ext visibly moves the transition. subpopulation_shift_ratio < 1 separates the two branch centers at nonzero S_ext, and an intermediate subpopulation_weight with positive occupancy_redistribution_max makes the secondary branch gain occupancy as S_ext rises, strengthening shoulder/skew changes in the mid-activation region. This directly addresses the recorded distinguishing condition: compare m_inf versus V across at least low, intermediate, and high S_ext levels, especially near intermediate activation where the two branch midpoints are separated but overlapping; the effect is weak only near deep plateaus or at S_ext=0 where the child collapses to the parent. Numeric substitution checks at representative interior and high-range points were finite and real.",
+    "coverage_report": {
+      "groups": [
+        {
+          "generation": 1,
+          "name": "eta",
+          "expression": "(V - V_half)/k_activation",
+          "role": "parent Boltzmann drive measuring distance from half-activation in slope units",
+          "train_range": [
+            -8.746904085855931,
+            8.741762526333332
+          ],
+          "hidden_range": [
+            3.217104809757119,
+            8.746020870199363
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -8.746904085855931,
+            "max": 8.741762526333332,
+            "q05": -7.959576140972786,
+            "median": -0.876494626281783,
+            "q95": 7.593789507169278,
+            "range": 17.488666612189263,
+            "robust_range": 15.553365648142064
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 3.217104809757119,
+            "max": 8.746020870199363,
+            "q05": 3.491175533956324,
+            "median": 5.984461825429324,
+            "q95": 8.465238860756129,
+            "range": 5.528916060442244,
+            "robust_range": 4.974063326799804
+          }
+        },
+        {
+          "generation": 1,
+          "name": "sigma_parent",
+          "expression": "1/(1 + exp(-(V - V_half)/k_activation))",
+          "role": "parent normalized activation shape used to diagnose symmetric single-slope behavior",
+          "train_range": [
+            0.00015892740602344718,
+            0.9998402534858511
+          ],
+          "hidden_range": [
+            0.9614729118548625,
+            0.9998409321871355
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.00015892740602344718,
+            "max": 0.9998402534858511,
+            "q05": 0.0003491793007299937,
+            "median": 0.2939048712952471,
+            "q95": 0.9994966832271809,
+            "range": 0.9996813260798277,
+            "robust_range": 0.9991475039264509
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.9614729118548625,
+            "max": 0.9998409321871355,
+            "q05": 0.9704355482972287,
+            "median": 0.9974886615744262,
+            "q95": 0.9997893786274029,
+            "range": 0.038368020332273045,
+            "robust_range": 0.029353830330174246
+          }
+        },
+        {
+          "generation": 1,
+          "name": "tail_gap",
+          "expression": "exp(-(V - V_half)/k_activation)",
+          "role": "subthreshold-versus-midpoint scale showing where deviations from constant steepness are most visible",
+          "train_range": [
+            0.00015977203717498542,
+            6291.180971307529
+          ],
+          "hidden_range": [
+            0.0001590931194589926,
+            0.040070903371382
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.00015977203717498542,
+            "max": 6291.180971307529,
+            "q05": 0.0005035702292367302,
+            "median": 2.4024680748593474,
+            "q95": 2862.8603068821494,
+            "range": 6291.180811535492,
+            "robust_range": 2862.85980331192
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.0001590931194589926,
+            "max": 0.040070903371382,
+            "q05": 0.00021066574339582378,
+            "median": 0.0025176615935490992,
+            "q95": 0.03046514299297038,
+            "range": 0.03991181025192301,
+            "robust_range": 0.030254477249574557
+          }
+        },
+        {
+          "generation": 2,
+          "name": "voltage_offset",
+          "expression": "V - V_half",
+          "role": "Parent voltage distance from the nominal half-activation point",
+          "train_range": [
+            -69.97523268684745,
+            69.93410021066666
+          ],
+          "hidden_range": [
+            25.736838478056953,
+            69.9681669615949
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -69.97523268684745,
+            "max": 69.93410021066666,
+            "q05": -63.676609127782285,
+            "median": -7.011957010254264,
+            "q95": 60.750316057354226,
+            "range": 139.9093328975141,
+            "robust_range": 124.42692518513651
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 25.736838478056953,
+            "max": 69.9681669615949,
+            "q05": 27.929404271650593,
+            "median": 47.87569460343459,
+            "q95": 67.72191088604903,
+            "range": 44.23132848353795,
+            "robust_range": 39.792506614398434
+          }
+        },
+        {
+          "generation": 2,
+          "name": "local_steepness_denominator",
+          "expression": "k_activation*(1 + curvature_scale*(V - V_half))",
+          "role": "Parent effective voltage-sensitivity scale controlling local sigmoid width and asymmetry",
+          "train_range": [
+            6.320594415515661,
+            9.678418405056
+          ],
+          "hidden_range": [
+            8.617684123473367,
+            9.679236007078277
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 6.320594415515661,
+            "max": 9.678418405056,
+            "q05": 6.471761380933225,
+            "median": 7.831713031753898,
+            "q95": 9.458007585376501,
+            "range": 3.3578239895403392,
+            "robust_range": 2.986246204443276
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 8.617684123473367,
+            "max": 9.679236007078277,
+            "q05": 8.670305702519615,
+            "median": 9.14901667048243,
+            "q95": 9.625325861265177,
+            "range": 1.0615518836049098,
+            "robust_range": 0.9550201587455618
+          }
+        },
+        {
+          "generation": 3,
+          "name": "screen_frac",
+          "expression": "S_ext/(S_half + S_ext)",
+          "role": "saturating extracellular screening occupancy already computable from supplied inputs and parameters",
+          "train_range": [
+            8.049704305417687e-05,
+            0.7999455747955083
+          ],
+          "hidden_range": [
+            0.7323794436758716,
+            0.7999985426122522
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 8.049704305417687e-05,
+            "max": 0.7999455747955083,
+            "q05": 0.1518430276828107,
+            "median": 0.6430066265266325,
+            "q95": 0.7886964128002909,
+            "range": 0.7998650777524542,
+            "robust_range": 0.6368533851174802
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.7323794436758716,
+            "max": 0.7999985426122522,
+            "q05": 0.73678627237268,
+            "median": 0.7709979488610188,
+            "q95": 0.7974670451037152,
+            "range": 0.06761909893638063,
+            "robust_range": 0.060680772731035226
+          }
+        },
+        {
+          "generation": 3,
+          "name": "shifted_voltage",
+          "expression": "V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext))",
+          "role": "voltage relative to the environment-shifted activation center, where slope differences are most diagnostic",
+          "train_range": [
+            -85.9218376951178,
+            68.66435583141504
+          ],
+          "hidden_range": [
+            10.026595538649246,
+            55.125688736038214
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -85.9218376951178,
+            "max": 68.66435583141504,
+            "q05": -75.88372880759921,
+            "median": -19.016772718876023,
+            "q95": 50.41429159578937,
+            "range": 154.58619352653284,
+            "robust_range": 126.29802040338859
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 10.026595538649246,
+            "max": 55.125688736038214,
+            "q05": 12.551684668687338,
+            "median": 32.46427192899172,
+            "q95": 52.26434071448787,
+            "range": 45.09909319738897,
+            "robust_range": 39.712656045800536
+          }
+        },
+        {
+          "generation": 3,
+          "name": "parent_width",
+          "expression": "k_activation*(1 + curvature_scale*(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext))))",
+          "role": "parent effective width showing that S_ext enters only through the shifted voltage coordinate",
+          "train_range": [
+            5.937875895317173,
+            9.647944539953961
+          ],
+          "hidden_range": [
+            8.240638292927581,
+            9.323016529664917
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 5.937875895317173,
+            "max": 9.647944539953961,
+            "q05": 6.178790508617619,
+            "median": 7.543597454746975,
+            "q95": 9.209942998298946,
+            "range": 3.710068644636788,
+            "robust_range": 3.0311524896813262
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 8.240638292927581,
+            "max": 9.323016529664917,
+            "q05": 8.301240432048496,
+            "median": 8.7791425262958,
+            "q95": 9.254344177147708,
+            "range": 1.0823782367373358,
+            "robust_range": 0.9531037450992113
+          }
+        },
+        {
+          "generation": 4,
+          "name": "screen_occ",
+          "expression": "S_ext/(S_half + S_ext)",
+          "role": "extracellular screening occupancy already controlling condition dependence",
+          "train_range": [
+            8.049704305417687e-05,
+            0.7999455747955083
+          ],
+          "hidden_range": [
+            0.7323794436758716,
+            0.7999985426122522
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 8.049704305417687e-05,
+            "max": 0.7999455747955083,
+            "q05": 0.1518430276828107,
+            "median": 0.6430066265266325,
+            "q95": 0.7886964128002909,
+            "range": 0.7998650777524542,
+            "robust_range": 0.6368533851174802
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.7323794436758716,
+            "max": 0.7999985426122522,
+            "q05": 0.73678627237268,
+            "median": 0.7709979488610188,
+            "q95": 0.7974670451037152,
+            "range": 0.06761909893638063,
+            "robust_range": 0.060680772731035226
+          }
+        },
+        {
+          "generation": 4,
+          "name": "parent_width_factor",
+          "expression": "(1 + steepness_screening_max*S_ext/(S_half + S_ext))*(1 + curvature_scale*(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext))))",
+          "role": "parent single-transition voltage-sensitivity factor",
+          "train_range": [
+            0.7971523210185747,
+            1.5911611808425097
+          ],
+          "hidden_range": [
+            1.4138152484648747,
+            1.6226760661791086
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.7971523210185747,
+            "max": 1.5911611808425097,
+            "q05": 0.9697733263337812,
+            "median": 1.2180560003610714,
+            "q95": 1.4886658536084407,
+            "range": 0.794008859823935,
+            "robust_range": 0.5188925272746595
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 1.4138152484648747,
+            "max": 1.6226760661791086,
+            "q05": 1.4375334812199971,
+            "median": 1.5199542081436537,
+            "q95": 1.6037549600057706,
+            "range": 0.20886081771423393,
+            "robust_range": 0.16622147878577342
+          }
+        },
+        {
+          "generation": 5,
+          "name": "branch_sep",
+          "expression": "threshold_shift_max*(1 - subpopulation_shift_ratio)*S_ext/(S_half + S_ext)",
+          "role": "condition-dependent voltage separation between primary and secondary branch half-activation shifts",
+          "train_range": [
+            0.0008854674735959456,
+            8.799401322750592
+          ],
+          "hidden_range": [
+            8.056173880434589,
+            8.799983968734775
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0008854674735959456,
+            "max": 8.799401322750592,
+            "q05": 1.6702733045109175,
+            "median": 7.073072891792957,
+            "q95": 8.675660540803198,
+            "range": 8.798515855276996,
+            "robust_range": 7.005387236292281
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 8.056173880434589,
+            "max": 8.799983968734775,
+            "q05": 8.104648996099481,
+            "median": 8.480977437471207,
+            "q95": 8.772137496140866,
+            "range": 0.7438100883001866,
+            "robust_range": 0.6674885000413848
+          }
+        },
+        {
+          "generation": 5,
+          "name": "cross_bias",
+          "expression": "(V - V_half)*threshold_shift_max*(1 - subpopulation_shift_ratio)*S_ext/(S_half + S_ext)",
+          "role": "regime where branch separation and clamp voltage jointly expose mixture redistribution",
+          "train_range": [
+            -615.2027158122688,
+            560.7325754847259
+          ],
+          "hidden_range": [
+            211.6165639725706,
+            609.2795449195169
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -615.2027158122688,
+            "max": 560.7325754847259,
+            "q05": -473.3911924844259,
+            "median": -32.27584953143068,
+            "q95": 386.06418822611136,
+            "range": 1175.9352912969948,
+            "robust_range": 859.4553807105373
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 211.6165639725706,
+            "max": 609.2795449195169,
+            "q05": 236.76528407861088,
+            "median": 405.0967616514481,
+            "q95": 571.3233347588706,
+            "range": 397.6629809469463,
+            "robust_range": 334.5580506802597
+          }
+        }
+      ],
+      "inactive_mechanisms": [],
+      "visible_mechanisms": [
+        "eta",
+        "sigma_parent",
+        "tail_gap",
+        "voltage_offset",
+        "local_steepness_denominator",
+        "screen_frac",
+        "shifted_voltage",
+        "parent_width",
+        "screen_occ",
+        "parent_width_factor",
+        "branch_sep",
+        "cross_bias"
+      ],
+      "extended_mechanisms": [
+        "eta",
+        "sigma_parent",
+        "tail_gap",
+        "voltage_offset",
+        "local_steepness_denominator",
+        "screen_frac",
+        "shifted_voltage",
+        "parent_width",
+        "screen_occ",
+        "parent_width_factor",
+        "branch_sep",
+        "cross_bias"
+      ]
+    },
+    "inactive_mechanisms": [],
+    "target_variance": {
+      "train": {
+        "n": 4500,
+        "variance": 0.14501530982348598,
+        "range": 0.9591166739565556
+      },
+      "hidden": {
+        "n": 500,
+        "variance": 0.003446107399167046,
+        "range": 0.218619888757287
+      }
+    },
+    "parent_absorption_report": {
+      "status": "ok",
+      "n_points": 512,
+      "fixed_parent_normalized_rmse": 0.02988020687070644,
+      "refit": {
+        "status": "not_run",
+        "reason": "no free parent parameters"
+      },
+      "interpretation": "<1e-3 nearly absorbed; 1e-3..1e-2 weak; >1e-2 visible structure"
+    },
+    "noise": 0.0,
+    "_trace": [
+      {
+        "turn": 1,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "analyze_expression",
+            "id": "call_IGu0H8bXgpWn3pdMwEd0tCF0"
+          }
+        ]
+      },
+      {
+        "tool": "analyze_expression",
+        "input": {
+          "expression": "m_inf - (m_lower + (m_upper - m_lower)*((1 - subpopulation_weight*(1 + occupancy_redistribution_max*S_ext/(S_half + S_ext))/(1 + occupancy_redistribution_max*subpopulation_weight*S_ext/(S_half + S_ext)))/(1 + exp(-(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext)))/(k_activation*(1 + steepness_screening_max*S_ext/(S_half + S_ext))*(1 + curvature_scale*(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext))))))) + (subpopulation_weight*(1 + occupancy_redistribution_max*S_ext/(S_half + S_ext))/(1 + occupancy_redistribution_max*subpopulation_weight*S_ext/(S_half + S_ext)))/(1 + exp(-(V - (V_half + subpopulation_shift_ratio*threshold_shift_max*S_ext/(S_half + S_ext)))/(k_activation*(1 + steepness_screening_max*S_ext/(S_half + S_ext))*(1 + curvature_scale*(V - (V_half + subpopulation_shift_ratio*threshold_shift_max*S_ext/(S_half + S_ext)))))))))",
+          "target_symbol": "m_inf"
+        },
+        "result": {
+          "ok": true,
+          "free_symbols": [
+            "S_ext",
+            "S_half",
+            "V",
+            "V_half",
+            "curvature_scale",
+            "k_activation",
+            "m_inf",
+            "m_lower",
+            "m_upper",
+            "occupancy_redistribution_max",
+            "steepness_screening_max",
+            "subpopulation_shift_ratio",
+            "subpopulation_weight",
+            "threshold_shift_max"
+          ],
+          "functions_of": {},
+          "target_function_calls": [],
+          "delayed_target_calls": [],
+          "ungoverned_functions": [],
+          "derivatives": [],
+          "max_derivative_order": 0,
+          "integral_kernels": [],
+          "explicitly_solvable_for_target": false,
+          "explicit_solution_preview": null,
+          "classification_hint": "implicit_or_explicit",
+          "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+        }
+      },
+      {
+        "turn": 2,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "check_substitution",
+            "id": "call_oj9U5lPCyVGOH5UZjBPoHLfS"
+          },
+          {
+            "name": "check_substitution",
+            "id": "call_iGAwD03tjaQf00J0cYq46NNT"
+          }
+        ]
+      },
+      {
+        "tool": "check_substitution",
+        "input": {
+          "expression": "m_inf - (m_lower + (m_upper - m_lower)*((1 - subpopulation_weight*(1 + occupancy_redistribution_max*S_ext/(S_half + S_ext))/(1 + occupancy_redistribution_max*subpopulation_weight*S_ext/(S_half + S_ext)))/(1 + exp(-(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext)))/(k_activation*(1 + steepness_screening_max*S_ext/(S_half + S_ext))*(1 + curvature_scale*(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext))))))) + (subpopulation_weight*(1 + occupancy_redistribution_max*S_ext/(S_half + S_ext))/(1 + occupancy_redistribution_max*subpopulation_weight*S_ext/(S_half + S_ext)))/(1 + exp(-(V - (V_half + subpopulation_shift_ratio*threshold_shift_max*S_ext/(S_half + S_ext)))/(k_activation*(1 + steepness_screening_max*S_ext/(S_half + S_ext))*(1 + curvature_scale*(V - (V_half + subpopulation_shift_ratio*threshold_shift_max*S_ext/(S_half + S_ext)))))))))",
+          "target_symbol": "m_inf",
+          "assignments": {
+            "m_inf": 0.5,
+            "V": -20,
+            "S_ext": 1,
+            "m_lower": 0.02,
+            "m_upper": 0.98,
+            "V_half": -25,
+            "k_activation": 8,
+            "curvature_scale": 0.003,
+            "threshold_shift_max": 20,
+            "S_half": 1,
+            "steepness_screening_max": 0.5,
+            "subpopulation_weight": 0.3,
+            "subpopulation_shift_ratio": 0.5,
+            "occupancy_redistribution_max": 1.2
+          }
+        },
+        "result": {
+          "ok": true,
+          "value_real": 0.07075762724470283,
+          "value_imag": 0.0,
+          "is_finite": true,
+          "is_real": true,
+          "verdict": "ok",
+          "residual_free_symbols": []
+        }
+      },
+      {
+        "tool": "check_substitution",
+        "input": {
+          "expression": "m_inf - (m_lower + (m_upper - m_lower)*((1 - subpopulation_weight*(1 + occupancy_redistribution_max*S_ext/(S_half + S_ext))/(1 + occupancy_redistribution_max*subpopulation_weight*S_ext/(S_half + S_ext)))/(1 + exp(-(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext)))/(k_activation*(1 + steepness_screening_max*S_ext/(S_half + S_ext))*(1 + curvature_scale*(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext))))))) + (subpopulation_weight*(1 + occupancy_redistribution_max*S_ext/(S_half + S_ext))/(1 + occupancy_redistribution_max*subpopulation_weight*S_ext/(S_half + S_ext)))/(1 + exp(-(V - (V_half + subpopulation_shift_ratio*threshold_shift_max*S_ext/(S_half + S_ext)))/(k_activation*(1 + steepness_screening_max*S_ext/(S_half + S_ext))*(1 + curvature_scale*(V - (V_half + subpopulation_shift_ratio*threshold_shift_max*S_ext/(S_half + S_ext)))))))))",
+          "target_symbol": "m_inf",
+          "assignments": {
+            "m_inf": 0.5,
+            "V": 40,
+            "S_ext": 4,
+            "m_lower": 0.02,
+            "m_upper": 0.98,
+            "V_half": -25,
+            "k_activation": 8,
+            "curvature_scale": 0.003,
+            "threshold_shift_max": 20,
+            "S_half": 1,
+            "steepness_screening_max": 0.5,
+            "subpopulation_weight": 0.3,
+            "subpopulation_shift_ratio": 0.5,
+            "occupancy_redistribution_max": 1.2
+          }
+        },
+        "result": {
+          "ok": true,
+          "value_real": -0.46313625501932,
+          "value_imag": 0.0,
+          "is_finite": true,
+          "is_real": true,
+          "verdict": "ok",
+          "residual_free_symbols": []
+        }
+      },
+      {
+        "turn": 3,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "emit_data_gen_spec",
+            "id": "call_ywdl6nRi0lhIprGJK0xcHowB"
+          }
+        ]
+      },
+      {
+        "tool": "emit_data_gen_spec",
+        "accepted": true
+      }
+    ],
+    "_provider": "openai",
+    "_num_turns": 3,
+    "discipline": "biology",
+    "scenario_text": "Measure the steady fraction of a neuronal membrane channel population that is activated at each independently clamped membrane voltage. The membrane is held long enough for activation to equilibrate, so channel-history and initial-condition effects are excluded. The target is a bounded activation fraction that rises from a nearly closed regime toward a fully activated plateau.",
+    "record_id": "m2_neuroscience_and_neural_dynamics_20260921_000",
+    "generation": 5,
+    "_n_total": 5000,
+    "mechanism_observation_history": [
+      {
+        "generation": 1,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "A single Boltzmann sigmoid gives one shared steepness and symmetric logit curvature around V_half for all voltages.",
+            "child_relation": "Replace the constant activation steepness with a voltage-dependent effective slope so the activation curve remains monotone and bounded but has asymmetric curvature, with a broader foot and sharper rise near mid-activation or vice versa.",
+            "affected_inputs": [
+              "V"
+            ],
+            "observable_effect": "Across a sufficiently wide clamped-voltage range, the semiactivation region can be fit while the low-activation tail is still systematically too shallow or too steep for any single parent parameter set; the child resolves this by allowing slope to vary with voltage."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "eta",
+              "expression": "(V - V_half)/k_activation",
+              "role": "parent Boltzmann drive measuring distance from half-activation in slope units"
+            },
+            {
+              "name": "sigma_parent",
+              "expression": "1/(1 + exp(-(V - V_half)/k_activation))",
+              "role": "parent normalized activation shape used to diagnose symmetric single-slope behavior"
+            },
+            {
+              "name": "tail_gap",
+              "expression": "exp(-(V - V_half)/k_activation)",
+              "role": "subthreshold-versus-midpoint scale showing where deviations from constant steepness are most visible"
+            }
+          ],
+          "activation_condition": "Visible when V is sampled from well below to well above V_half so both the low-activation tail and the transition region are observed; deviations are admissible when activation remains monotone between finite plateaus and within [0,1].",
+          "train_hidden_contrast": "The same voltage-dependent steepness mechanism affects both training-range tail points and holdout transition/plateau approach points, extending a shared asymmetry in curvature rather than introducing a separate regime.",
+          "continuation_path": "The child should reduce to the parent when the added voltage dependence of the effective steepness vanishes, restoring a constant k_activation.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The current model assumes one constant voltage-sensitivity scale for the entire activation curve, forcing a symmetric single-slope Boltzmann shape that cannot capture realistic asymmetric curvature of steady activation.",
+          "baseline_assumption": "All channels are identical and statistically independent in a way that yields a single constant activation steepness across voltage.",
+          "scientific_mechanism": "Weak heterogeneity or multi-step activation within the channel population can make the apparent equilibrium voltage sensitivity vary with voltage even though activation remains a static monotone bounded function of clamp voltage.",
+          "affected_symbols": [
+            "V",
+            "k_activation",
+            "V_half"
+          ],
+          "rationale": "Parent response: with V varied and all parameters fixed, m_inf follows one logistic transition with a single shared steepness; changing k_activation only rescales the whole transition and cannot independently alter the low-voltage tail versus the midpoint curvature. Child response: still at equilibrium under each fixed clamp, but the effective slope changes with V, producing a measurably different mapping from clamped voltage to steady activation fraction. Concrete contrast: when V spans from near-closed values through the midpoint toward saturation, a single refitted parent can match either the central rise or the tails, but not both if the observed curve has asymmetric curvature while remaining monotone. This is a changed target mapping, not merely an auxiliary reformulation, and it is observable whenever the experiment samples a broad enough voltage range to compare tail and mid-transition behavior."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "A single Boltzmann sigmoid gives one shared steepness and symmetric logit curvature around V_half for all voltages.",
+            "child_relation": "Replace the constant activation steepness with a voltage-dependent effective slope so the activation curve remains monotone and bounded but has asymmetric curvature, with a broader foot and sharper rise near mid-activation or vice versa.",
+            "affected_inputs": [
+              "V"
+            ],
+            "observable_effect": "Across a sufficiently wide clamped-voltage range, the semiactivation region can be fit while the low-activation tail is still systematically too shallow or too steep for any single parent parameter set; the child resolves this by allowing slope to vary with voltage."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "eta",
+              "expression": "(V - V_half)/k_activation",
+              "role": "parent Boltzmann drive measuring distance from half-activation in slope units"
+            },
+            {
+              "name": "sigma_parent",
+              "expression": "1/(1 + exp(-(V - V_half)/k_activation))",
+              "role": "parent normalized activation shape used to diagnose symmetric single-slope behavior"
+            },
+            {
+              "name": "tail_gap",
+              "expression": "exp(-(V - V_half)/k_activation)",
+              "role": "subthreshold-versus-midpoint scale showing where deviations from constant steepness are most visible"
+            }
+          ],
+          "activation_condition": "Visible when V is sampled from well below to well above V_half so both the low-activation tail and the transition region are observed; deviations are admissible when activation remains monotone between finite plateaus and within [0,1].",
+          "train_hidden_contrast": "The same voltage-dependent steepness mechanism affects both training-range tail points and holdout transition/plateau approach points, extending a shared asymmetry in curvature rather than introducing a separate regime.",
+          "continuation_path": "The child should reduce to the parent when the added voltage dependence of the effective steepness vanishes, restoring a constant k_activation.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "unary",
+          "scope_symbols": [
+            "V"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Voltage-dependent effective equilibrium sensitivity of activation",
+          "scientific_mechanism": "Weak heterogeneity or multi-step activation within the channel population can make the apparent equilibrium voltage sensitivity vary with voltage even though activation remains a static monotone bounded function of clamp voltage.",
+          "embedding_pattern": "state_dependent_coefficient",
+          "difficulty_rationale": "This embedding is harder than a coefficient-only correction because the coefficient of the exponential drive now varies with voltage, changing the shape of the input-output map across the voltage range instead of simply shifting or uniformly rescaling one logistic transition.",
+          "taxonomy_match": "known",
+          "assumption_before": "The activation curve has one constant voltage-sensitivity scale across all clamp voltages.",
+          "assumption_after": "The effective activation steepness varies with voltage while remaining positive over the sampled range, capturing asymmetric equilibrium curvature.",
+          "before_fragment": "m_lower + (m_upper - m_lower)/(1 + exp(-(V - V_half)/k_activation))",
+          "after_fragment": "m_lower + (m_upper - m_lower)/(1 + exp(-(V - V_half)/(k_activation*(1 + curvature_scale*(V - V_half)))))",
+          "parent_reduction": "Setting curvature_scale = 0 recovers the parent expression exactly.",
+          "observable_signature": "Parent response: with V varied and all parameters fixed, m_inf follows one logistic transition with a single shared steepness; changing k_activation only rescales the whole transition and cannot independently alter the low-voltage tail versus the midpoint curvature. Child response: still at equilibrium under each fixed clamp, but the effective slope changes with V, producing a measurably different mapping from clamped voltage to steady activation fraction. Concrete contrast: when V spans from near-closed values through the midpoint toward saturation, a single refitted parent can match either the central rise or the tails, but not both if the observed curve has asymmetric curvature while remaining monotone. This is a changed target mapping, not merely an auxiliary reformulation, and it is observable whenever the experiment samples a broad enough voltage range to compare tail and mid-transition behavior.",
+          "shortcut_blocked": "Refitting m_lower, m_upper, V_half, and one constant k_activation can only shift the midpoint, rescale the amplitude, and apply one shared steepness to the entire curve. It cannot create voltage-dependent steepness, so one parent parameter set cannot simultaneously reproduce an asymmetric tail-versus-midpoint curvature pattern over the same admissible voltage range."
+        },
+        "range_suggestions": {
+          "curvature_scale": "Choose so that 1 + curvature_scale*(V - V_half) stays positive over the sampled voltage range; small signed values around zero are admissible for weak asymmetry"
+        }
+      },
+      {
+        "generation": 2,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_threshold",
+          "response_change": {
+            "type": "threshold_surface",
+            "parent_relation": "With fixed temperature and chemistry, the equilibrium activation fraction is a bounded monotone function of voltage alone with one shared half-activation scale and one shared steepness profile.",
+            "child_relation": "Release the fixed-environment assumption by allowing the activation midpoint to depend on an independently varied extracellular ion condition, so the equilibrium activation becomes a bounded monotone function on a two-input surface m_inf(V, S) whose voltage threshold shifts systematically with that condition.",
+            "affected_inputs": [
+              "V"
+            ],
+            "observable_effect": "Across recordings taken at different extracellular conditions, the activation curve translates along the voltage axis while retaining finite lower and upper plateaus; a single parent parameter set cannot match both the low-condition and high-condition threshold locations simultaneously."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "voltage_offset",
+              "expression": "V - V_half",
+              "role": "Parent voltage distance from the nominal half-activation point"
+            },
+            {
+              "name": "local_steepness_denominator",
+              "expression": "k_activation*(1 + curvature_scale*(V - V_half))",
+              "role": "Parent effective voltage-sensitivity scale controlling local sigmoid width and asymmetry"
+            }
+          ],
+          "activation_condition": "Observable when equilibrium activation curves are measured over the same voltage range under at least two extracellular environments that shift gating energetics by an amount comparable to or larger than the local transition width, while activation remains monotone and bounded between the finite plateaus.",
+          "train_hidden_contrast": "In training, modest environment changes already produce visible left/right displacement of the activation curve; in holdout, the same mechanism extends to somewhat broader environments where the threshold shift continues smoothly rather than requiring separate refits for each condition.",
+          "continuation_path": "Recover the parent law when the added environmental dependence vanishes, e.g. the new threshold-shift coefficient tends to zero or the new input is held fixed at its reference value for all samples.",
+          "freedom_change": "add_input",
+          "promoted_symbol": null,
+          "promotion_reason": "The missing effect is a genuine environment-dependent change in the scored equilibrium mapping. Existing voltage-only inputs cannot express condition-dependent threshold shifts without incorrectly refitting separate parameter sets for each environment.",
+          "gap_statement": "The current model assumes one universal half-activation location for all measurements, omitting experimentally realistic shifts of the activation threshold caused by changes in extracellular conditions while the membrane is still clamped to equilibrium.",
+          "baseline_assumption": "Temperature and extracellular ion concentrations are fixed.",
+          "scientific_mechanism": "Extracellular ionic conditions can alter surface-potential screening or electrostatic stabilization of gating conformations, shifting the voltage required for half-activation without requiring dynamics or violating bounded monotone activation.",
+          "affected_symbols": [
+            "V_half",
+            "V"
+          ],
+          "rationale": "The parent already captures a static bounded activation curve with voltage-dependent asymmetry, but it still uses a single shared threshold reference V_half for all observations. A realistic next refinement is to relax the fixed-environment assumption and let an independently varied extracellular condition shift the activation threshold. The varied condition is the new extracellular input; the held-fixed aspects are the equilibrium protocol, voltage clamp duration, and finite activation plateaus. Under admissible conditions where the environmental perturbation is strong enough to move the midpoint by a noticeable fraction of the activation width but not so strong as to break monotonic activation, the child predicts a family of activation curves whose midpoint moves across conditions. The scored target mapping changes directly because m_inf at the same V differs between environments. A single parent parameter set cannot reproduce this cross-condition contrast: its one V_half and one curvature profile can fit only one common threshold trajectory in V, so it cannot simultaneously place the transition region at distinct voltages for multiple environments without separate refits. This is therefore a consequential target-mapping refinement rather than a decorative algebraic change."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_threshold",
+          "response_change": {
+            "type": "threshold_surface",
+            "parent_relation": "With fixed temperature and chemistry, the equilibrium activation fraction is a bounded monotone function of voltage alone with one shared half-activation scale and one shared steepness profile.",
+            "child_relation": "Release the fixed-environment assumption by allowing the activation midpoint to depend on an independently varied extracellular ion condition, so the equilibrium activation becomes a bounded monotone function on a two-input surface m_inf(V, S) whose voltage threshold shifts systematically with that condition.",
+            "affected_inputs": [
+              "V"
+            ],
+            "observable_effect": "Across recordings taken at different extracellular conditions, the activation curve translates along the voltage axis while retaining finite lower and upper plateaus; a single parent parameter set cannot match both the low-condition and high-condition threshold locations simultaneously."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "voltage_offset",
+              "expression": "V - V_half",
+              "role": "Parent voltage distance from the nominal half-activation point"
+            },
+            {
+              "name": "local_steepness_denominator",
+              "expression": "k_activation*(1 + curvature_scale*(V - V_half))",
+              "role": "Parent effective voltage-sensitivity scale controlling local sigmoid width and asymmetry"
+            }
+          ],
+          "activation_condition": "Observable when equilibrium activation curves are measured over the same voltage range under at least two extracellular environments that shift gating energetics by an amount comparable to or larger than the local transition width, while activation remains monotone and bounded between the finite plateaus.",
+          "train_hidden_contrast": "In training, modest environment changes already produce visible left/right displacement of the activation curve; in holdout, the same mechanism extends to somewhat broader environments where the threshold shift continues smoothly rather than requiring separate refits for each condition.",
+          "continuation_path": "Recover the parent law when the added environmental dependence vanishes, e.g. the new threshold-shift coefficient tends to zero or the new input is held fixed at its reference value for all samples.",
+          "freedom_change": "add_input",
+          "promoted_symbol": null,
+          "promotion_reason": "The missing effect is a genuine environment-dependent change in the scored equilibrium mapping. Existing voltage-only inputs cannot express condition-dependent threshold shifts without incorrectly refitting separate parameter sets for each environment.",
+          "scope_kind": "pairwise",
+          "scope_symbols": [
+            "V",
+            "S_ext"
+          ],
+          "structural_role": "interaction",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Extracellular-condition-dependent electrostatic shifting of the activation threshold",
+          "scientific_mechanism": "Extracellular ionic conditions can alter surface-potential screening or electrostatic stabilization of gating conformations, shifting the voltage required for half-activation without requiring dynamics or violating bounded monotone activation.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "This embedding is harder than a coefficient-only correction because the scored mapping becomes a two-input threshold surface with a saturating environmental dependence of the midpoint, so one shared voltage-only threshold cannot represent the systematic cross-condition displacement.",
+          "taxonomy_match": "known",
+          "assumption_before": "Temperature and extracellular ion concentrations are fixed.",
+          "assumption_after": "An independently varied extracellular ionic condition shifts the half-activation location through a finite-capacity saturating response.",
+          "before_fragment": "m_lower + (m_upper - m_lower)/(1 + exp(-(V - V_half)/(k_activation*(1 + curvature_scale*(V - V_half)))))",
+          "after_fragment": "m_lower + (m_upper - m_lower)/(1 + exp(-(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext)))/(k_activation*(1 + curvature_scale*(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext)))))))",
+          "parent_reduction": "The successor reduces to the parent when S_ext = 0 for all samples, or equivalently when threshold_shift_max = 0 so the environment-dependent midpoint shift vanishes.",
+          "observable_signature": "The parent response relationship is one bounded monotone activation curve of voltage alone with a single shared threshold location. The child changes the scored target mapping itself: at the same clamped V, m_inf now differs across S_ext because the transition region shifts left or right by a saturating amount. This is observable when V is varied while separate equilibrium curves are collected at at least two extracellular conditions whose induced midpoint displacement is comparable to the activation width, with lower and upper plateaus remaining finite and shared.",
+          "shortcut_blocked": "Refitting all existing parent parameters still leaves only one common V_half and one common voltage-only sigmoid shape for the entire dataset. Therefore a single parent parameter set cannot place the activation transition at different voltages for different S_ext values over the same sampled V range; matching one environment forces a mismatch in another unless separate per-condition refits are allowed, which is outside the parent mapping."
+        },
+        "range_suggestions": {
+          "S_ext": "nonnegative extracellular condition spanning at least two experimentally distinct levels; choose units consistently so S_half > 0 and S_ext/(S_half + S_ext) varies appreciably across the sampled range",
+          "threshold_shift_max": "signed voltage shift magnitude on the order of a fraction to several times k_activation, with sign chosen by whether the extracellular condition right-shifts or left-shifts activation",
+          "S_half": "positive condition scale within or near the sampled S_ext range so the threshold shift is neither fully negligible nor fully saturated over all measurements"
+        }
+      },
+      {
+        "generation": 3,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_threshold",
+          "response_change": {
+            "type": "interaction_emergence",
+            "parent_relation": "Extracellular condition S_ext only shifts the apparent half-activation voltage through a saturating term, while the voltage-sensitivity scale remains otherwise shared across S_ext except for its existing dependence on V relative to that shifted midpoint.",
+            "child_relation": "Extracellular condition S_ext also modulates the effective activation steepness, so S_ext changes both where the curve is centered and how rapidly activation rises with V.",
+            "affected_inputs": [
+              "V",
+              "S_ext"
+            ],
+            "observable_effect": "At two extracellular conditions with comparable midpoint shift already accounted for, the high-S_ext activation curve can be systematically broader or steeper around half-activation than the low-S_ext curve; a single shared threshold-shift-only parent cannot match both midpoint and width across conditions."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "screen_frac",
+              "expression": "S_ext/(S_half + S_ext)",
+              "role": "saturating extracellular screening occupancy already computable from supplied inputs and parameters"
+            },
+            {
+              "name": "shifted_voltage",
+              "expression": "V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext))",
+              "role": "voltage relative to the environment-shifted activation center, where slope differences are most diagnostic"
+            },
+            {
+              "name": "parent_width",
+              "expression": "k_activation*(1 + curvature_scale*(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext))))",
+              "role": "parent effective width showing that S_ext enters only through the shifted voltage coordinate"
+            }
+          ],
+          "activation_condition": "Observable when S_ext is sampled over at least two appreciably different nonnegative levels so S_ext/(S_half+S_ext) changes substantially, and voltages span the transition region near the shifted half-activation where 0 < m_inf < 1; the effect is weak if the extracellular shift is negligible or all data lie on plateaus.",
+          "train_hidden_contrast": "In training, differing S_ext levels can already show distinct transition widths near half-activation; in holdout, the same mechanism extends to intermediate or larger S_ext where both the threshold shift and width modulation vary smoothly with the same saturating screening coordinate.",
+          "continuation_path": "Recover the parent law when extracellular modulation of steepness vanishes, e.g. the added S_ext dependence of the effective width is set to zero.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The current model assumes extracellular ionic condition affects activation only by translating the voltage axis, omitting the plausible change in apparent gating steepness caused by condition-dependent screening or stabilization of distributed voltage-sensor states.",
+          "baseline_assumption": "S_ext modifies only the half-activation voltage and does not alter the effective voltage-sensitivity scale of equilibrium activation.",
+          "scientific_mechanism": "Extracellular ionic screening can change not only surface-potential offset but also the energetic spread of activation transitions, producing condition-dependent broadening or sharpening of the steady activation curve.",
+          "affected_symbols": [
+            "V",
+            "S_ext",
+            "k_activation",
+            "S_half",
+            "threshold_shift_max",
+            "curvature_scale"
+          ],
+          "rationale": "The parent mapping is a bounded monotone activation curve in V whose extracellular effect is restricted to a saturating threshold shift. Holding all channel-history assumptions and equilibrium conditions fixed, a realistic next refinement is to relax that idealization and allow S_ext to influence slope as well as threshold. The concrete distinguishing condition is to vary S_ext between at least two experimentally distinct nonnegative levels while clamping V across the activation range. If the measured curves show that, after accounting for the midpoint displacement, one S_ext level has a consistently different transition width or local slope near half-activation, then one shared parent parameter set cannot reproduce both curves because its S_ext action is confined to a single saturating center shift. This is a changed target mapping, not merely an auxiliary reformulation, because the predicted m_inf(V,S_ext) surface gains a genuine V-by-S_ext interaction in slope. The effect is scientifically admissible in the non-plateau regime and remains bounded and monotone if implemented carefully; if available data only sample extreme plateaus, the contrast would be weak and should not be overstated."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_threshold",
+          "response_change": {
+            "type": "interaction_emergence",
+            "parent_relation": "Extracellular condition S_ext only shifts the apparent half-activation voltage through a saturating term, while the voltage-sensitivity scale remains otherwise shared across S_ext except for its existing dependence on V relative to that shifted midpoint.",
+            "child_relation": "Extracellular condition S_ext also modulates the effective activation steepness, so S_ext changes both where the curve is centered and how rapidly activation rises with V.",
+            "affected_inputs": [
+              "V",
+              "S_ext"
+            ],
+            "observable_effect": "At two extracellular conditions with comparable midpoint shift already accounted for, the high-S_ext activation curve can be systematically broader or steeper around half-activation than the low-S_ext curve; a single shared threshold-shift-only parent cannot match both midpoint and width across conditions."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "screen_frac",
+              "expression": "S_ext/(S_half + S_ext)",
+              "role": "saturating extracellular screening occupancy already computable from supplied inputs and parameters"
+            },
+            {
+              "name": "shifted_voltage",
+              "expression": "V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext))",
+              "role": "voltage relative to the environment-shifted activation center, where slope differences are most diagnostic"
+            },
+            {
+              "name": "parent_width",
+              "expression": "k_activation*(1 + curvature_scale*(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext))))",
+              "role": "parent effective width showing that S_ext enters only through the shifted voltage coordinate"
+            }
+          ],
+          "activation_condition": "Observable when S_ext is sampled over at least two appreciably different nonnegative levels so S_ext/(S_half+S_ext) changes substantially, and voltages span the transition region near the shifted half-activation where 0 < m_inf < 1; the effect is weak if the extracellular shift is negligible or all data lie on plateaus.",
+          "train_hidden_contrast": "In training, differing S_ext levels can already show distinct transition widths near half-activation; in holdout, the same mechanism extends to intermediate or larger S_ext where both the threshold shift and width modulation vary smoothly with the same saturating screening coordinate.",
+          "continuation_path": "Recover the parent law when extracellular modulation of steepness vanishes, e.g. the added S_ext dependence of the effective width is set to zero.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "pairwise",
+          "scope_symbols": [
+            "V",
+            "S_ext"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "condition-dependent screening of activation energetics",
+          "scientific_mechanism": "Extracellular ionic screening can change not only surface-potential offset but also the energetic spread of activation transitions, producing condition-dependent broadening or sharpening of the steady activation curve.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "This embedding is harder than a coefficient-only correction because the target mapping gains a genuine saturating V-by-S_ext interaction in the denominator width, so S_ext changes local slope near half-activation in addition to translating the center. A single refit of the parent can move the curve along V but cannot independently control transition width across extracellular conditions while keeping one shared parameter set.",
+          "taxonomy_match": "known",
+          "assumption_before": "Extracellular condition only shifts the activation threshold through a saturating offset and leaves the effective voltage-sensitivity scale shared across S_ext.",
+          "assumption_after": "Extracellular condition shifts threshold and also rescales the effective activation width through the same saturating screening occupancy.",
+          "before_fragment": "m_lower + (m_upper - m_lower)/(1 + exp(-(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext)))/(k_activation*(1 + curvature_scale*(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext)))))))",
+          "after_fragment": "m_lower + (m_upper - m_lower)/(1 + exp(-(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext)))/(k_activation*(1 + steepness_screening_max*S_ext/(S_half + S_ext))*(1 + curvature_scale*(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext)))))))",
+          "parent_reduction": "Set steepness_screening_max = 0 to recover the parent exactly.",
+          "observable_signature": "With V clamped across the transition region and S_ext varied over at least two distinct nonnegative levels, the child predicts that curves can differ in both midpoint and width: after aligning by the shifted center V_half + threshold_shift_max*S_ext/(S_half + S_ext), the local slope near half-activation still changes systematically with screen_frac. The parent predicts only translated versions of one shared width law, so it cannot reproduce a consistent S_ext-dependent broadening or sharpening over the admissible non-plateau activation range.",
+          "shortcut_blocked": "Refitting all existing parent parameters with one shared parameter set cannot absorb this contrast because in the parent S_ext enters the width only through shifted_voltage inside the existing curvature term; once midpoint displacement is fixed across conditions, the transition width at the center remains tied to the same k_activation for all S_ext. Therefore a threshold-shift-only shortcut cannot simultaneously match both the observed center shift and the S_ext-dependent half-activation slope."
+        },
+        "range_suggestions": {
+          "steepness_screening_max": "dimensionless, choose > -1 over the admissible dataset and commonly between -0.8 and 2 so 1 + steepness_screening_max*S_ext/(S_half + S_ext) stays positive while producing observable width differences across sampled S_ext"
+        }
+      },
+      {
+        "generation": 4,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "At each S_ext, the activation curve is a single sigmoidal transition with one effective midpoint and one smoothly voltage-dependent width, so the semilogit shape has only one broad transition region.",
+            "child_relation": "At each S_ext, the channel population behaves as a weak mixture of two equilibrium activation subpopulations with different S_ext-dependent midpoint shifts, creating a shouldered or broadened two-stage static activation curve while remaining monotone and bounded.",
+            "affected_inputs": [
+              "V",
+              "S_ext"
+            ],
+            "observable_effect": "When S_ext is varied and V is swept, intermediate activation levels can broaden asymmetrically or develop a visible shoulder over voltage ranges where one subpopulation has already begun activating while the other remains mostly closed; a single parent curve family cannot match both the low-activation onset and the mid-range rise with one shared parameter set."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "screen_occ",
+              "expression": "S_ext/(S_half + S_ext)",
+              "role": "extracellular screening occupancy already controlling condition dependence"
+            },
+            {
+              "name": "shifted_voltage",
+              "expression": "V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext))",
+              "role": "parent effective distance from half-activation"
+            },
+            {
+              "name": "parent_width_factor",
+              "expression": "(1 + steepness_screening_max*S_ext/(S_half + S_ext))*(1 + curvature_scale*(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext))))",
+              "role": "parent single-transition voltage-sensitivity factor"
+            }
+          ],
+          "activation_condition": "Most visible for moderate extracellular occupancy S_ext/(S_half+S_ext) away from 0 and 1 and for voltage sweeps spanning the central activation range between m_inf near m_lower and near m_upper, especially when the two subpopulations have resolvably different midpoint shifts but overlapping plateaus.",
+          "train_hidden_contrast": "In training, the mechanism appears as condition-dependent asymmetry or broadening of the central rise; in holdout, the same mixed-population effect becomes clearer at intermediate S_ext where the two S_ext-dependent threshold shifts separate enough to create a shoulder not reproducible by one single-phase sigmoid family.",
+          "continuation_path": "Recover the parent law when the subpopulation difference tends to zero or the mixture weight tends to 0 or 1, collapsing the two transitions into the existing single effective activation curve.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The current model assumes all channels share one continuous activation transition family under each extracellular condition, whereas real channel populations can contain weakly heterogeneous or multi-step equilibrium subpopulations whose relative activation thresholds respond differently to screening.",
+          "baseline_assumption": "Relax the parent assumption that all channels are identical and statistically independent in their equilibrium activation parameters under each S_ext, replacing one homogeneous activation phase by a weak static mixture of two activation subpopulations.",
+          "scientific_mechanism": "Weak channel-population heterogeneity or two quasi-equilibrium activation pathways with distinct extracellular screening sensitivities produces a composite steady activation curve without introducing dynamics or violating monotonic bounded activation.",
+          "affected_symbols": [
+            "V",
+            "S_ext",
+            "V_half",
+            "threshold_shift_max",
+            "S_half",
+            "k_activation",
+            "steepness_screening_max",
+            "curvature_scale"
+          ],
+          "rationale": "Parent response: for each fixed S_ext, m_inf versus V is one monotone bounded sigmoid with a single main transition region, merely shifted and broadened by S_ext. Proposed child response: still static and monotone, but at fixed S_ext the rise can occur in two partially overlapping voltage bands because two equilibrium subpopulations experience different effective threshold shifts. V varies, S_ext is independently varied across conditions, and all other parameters are held fixed globally. Observable contrast: at an intermediate S_ext, the child can show an early shallow rise from the lower plateau followed by a steeper mid-voltage increase, or an extended central shoulder, while preserving the same finite plateaus; the parent with one shared parameter set cannot reproduce that two-stage curvature across conditions because changing its single midpoint, width modulation, and voltage-curvature only moves or smoothly warps one transition rather than creating a composite one. This is scientifically admissible in the stated steady-clamp protocol because the effect changes the scored static mapping itself, not hidden trajectories. Limitation: if the two subpopulations are nearly identical over the sampled voltage and S_ext range, the refinement may be hard to distinguish and collapses back toward the parent."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "At each S_ext, the activation curve is a single sigmoidal transition with one effective midpoint and one smoothly voltage-dependent width, so the semilogit shape has only one broad transition region.",
+            "child_relation": "At each S_ext, the channel population behaves as a weak mixture of two equilibrium activation subpopulations with different S_ext-dependent midpoint shifts, creating a shouldered or broadened two-stage static activation curve while remaining monotone and bounded.",
+            "affected_inputs": [
+              "V",
+              "S_ext"
+            ],
+            "observable_effect": "When S_ext is varied and V is swept, intermediate activation levels can broaden asymmetrically or develop a visible shoulder over voltage ranges where one subpopulation has already begun activating while the other remains mostly closed; a single parent curve family cannot match both the low-activation onset and the mid-range rise with one shared parameter set."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "screen_occ",
+              "expression": "S_ext/(S_half + S_ext)",
+              "role": "extracellular screening occupancy already controlling condition dependence"
+            },
+            {
+              "name": "shifted_voltage",
+              "expression": "V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext))",
+              "role": "parent effective distance from half-activation"
+            },
+            {
+              "name": "parent_width_factor",
+              "expression": "(1 + steepness_screening_max*S_ext/(S_half + S_ext))*(1 + curvature_scale*(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext))))",
+              "role": "parent single-transition voltage-sensitivity factor"
+            }
+          ],
+          "activation_condition": "Most visible for moderate extracellular occupancy S_ext/(S_half+S_ext) away from 0 and 1 and for voltage sweeps spanning the central activation range between m_inf near m_lower and near m_upper, especially when the two subpopulations have resolvably different midpoint shifts but overlapping plateaus.",
+          "train_hidden_contrast": "In training, the mechanism appears as condition-dependent asymmetry or broadening of the central rise; in holdout, the same mixed-population effect becomes clearer at intermediate S_ext where the two S_ext-dependent threshold shifts separate enough to create a shoulder not reproducible by one single-phase sigmoid family.",
+          "continuation_path": "Recover the parent law when the subpopulation difference tends to zero or the mixture weight tends to 0 or 1, collapsing the two transitions into the existing single effective activation curve.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "pairwise",
+          "scope_symbols": [
+            "V",
+            "S_ext"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Composite equilibrium activation from heterogeneous channel subpopulations with different screening sensitivities",
+          "scientific_mechanism": "Weak channel-population heterogeneity or two quasi-equilibrium activation pathways with distinct extracellular screening sensitivities produces a composite steady activation curve without introducing dynamics or violating monotonic bounded activation.",
+          "embedding_pattern": "nested_nonlinearity",
+          "difficulty_rationale": "The refinement is structurally harder because it combines declared quantities into two distinct shifted-voltage arguments before applying separate sigmoid nonlinearities and then mixes their outputs, creating composite curvature rather than a coefficient-only rescaling of one transition.",
+          "taxonomy_match": "provisional",
+          "assumption_before": "The current model assumes all channels share one continuous activation transition family under each extracellular condition.",
+          "assumption_after": "The channel population is a weak static mixture of two equilibrium activation subpopulations with different extracellular-condition sensitivities of their threshold shifts.",
+          "before_fragment": "m_lower + (m_upper - m_lower)/(1 + exp(-(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext)))/(k_activation*(1 + steepness_screening_max*S_ext/(S_half + S_ext))*(1 + curvature_scale*(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext)))))))",
+          "after_fragment": "m_lower + (m_upper - m_lower)*((1 - subpopulation_weight)/(1 + exp(-(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext)))/(k_activation*(1 + steepness_screening_max*S_ext/(S_half + S_ext))*(1 + curvature_scale*(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext))))))) + subpopulation_weight/(1 + exp(-(V - (V_half + subpopulation_shift_ratio*threshold_shift_max*S_ext/(S_half + S_ext)))/(k_activation*(1 + steepness_screening_max*S_ext/(S_half + S_ext))*(1 + curvature_scale*(V - (V_half + subpopulation_shift_ratio*threshold_shift_max*S_ext/(S_half + S_ext))))))))",
+          "parent_reduction": "The child collapses to the parent when subpopulation_shift_ratio = 1, or when subpopulation_weight = 0, with the latter exactly removing the secondary branch.",
+          "observable_signature": "At fixed S_ext and globally fixed parameters, m_inf versus V remains bounded and monotone but can show an early shallow rise followed by a steeper central increase or a broadened shoulder; this is most apparent at intermediate S_ext where the two midpoint shifts differ appreciably, whereas the parent only permits one main transition band per S_ext.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce this contrast because its one midpoint and one width-curvature law generate only one continuous activation transition at each S_ext. Retuning V_half, k_activation, threshold_shift_max, steepness_screening_max, and curvature_scale can shift or smoothly warp that single phase, but cannot simultaneously fit both an early onset from one subpopulation and a later stronger rise from another across the same V sweep and multiple S_ext conditions."
+        },
+        "range_suggestions": {
+          "subpopulation_weight": "dimensionless, typically between 0 and 1; weak-mixture regime often 0.05 to 0.4",
+          "subpopulation_shift_ratio": "dimensionless, positive; near-parent regime around 1, distinguishable heterogeneity often 0.5 to 1.5"
+        }
+      },
+      {
+        "generation": 5,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "latent_occupancy",
+          "response_change": {
+            "type": "weight_exchange",
+            "parent_relation": "The two activation subpopulations have a fixed mixture weight, so changing extracellular condition S_ext only shifts and broadens each branch while their relative contribution stays constant at all conditions.",
+            "child_relation": "The extracellular condition S_ext also redistributes equilibrium occupancy between the primary and secondary activation subpopulations, making the effective mixture weight condition dependent and changing which branch dominates the activation curve as S_ext varies.",
+            "affected_inputs": [
+              "V",
+              "S_ext"
+            ],
+            "observable_effect": "At fixed V near the crossover region between the two branch midpoints, m_inf can increase with S_ext mainly because the higher-activation branch gains occupancy, producing an S_ext-dependent shoulder or skew change that cannot be reproduced by only shifting/broadening two branches with one fixed global weight."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "screen_occ",
+              "expression": "S_ext/(S_half + S_ext)",
+              "role": "existing extracellular occupancy scale controlling screening strength"
+            },
+            {
+              "name": "branch_sep",
+              "expression": "threshold_shift_max*(1 - subpopulation_shift_ratio)*S_ext/(S_half + S_ext)",
+              "role": "condition-dependent voltage separation between primary and secondary branch half-activation shifts"
+            },
+            {
+              "name": "cross_bias",
+              "expression": "(V - V_half)*threshold_shift_max*(1 - subpopulation_shift_ratio)*S_ext/(S_half + S_ext)",
+              "role": "regime where branch separation and clamp voltage jointly expose mixture redistribution"
+            }
+          ],
+          "activation_condition": "Most visible when subpopulation_weight is in an intermediate range, subpopulation_shift_ratio differs appreciably from 1 so the two branch thresholds separate with S_ext, and V samples the midpoint/shoulder region rather than only deep plateaus where both branches are nearly 0 or 1.",
+          "train_hidden_contrast": "In training, the mechanism appears as S_ext-dependent skew or shoulder changes at sampled voltages near activation onset; in holdout, the same occupancy redistribution extends to larger S_ext where branch dominance crosses over more strongly because the saturating screening occupancy continues to rise toward its asymptote.",
+          "continuation_path": "Recover the parent law when extracellular redistribution of subpopulation occupancy vanishes, so the mixture weight becomes S_ext-independent and equal to the original constant subpopulation_weight.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The model allows extracellular condition to alter each subpopulation's activation energetics but assumes the fraction of channels occupying those subpopulations is fixed across conditions.",
+          "baseline_assumption": "Relax the assumption that subpopulation_weight is constant; instead, treat the weak heterogeneity as an equilibrium partition whose occupancy can itself depend on the same extracellular screening variable already present.",
+          "scientific_mechanism": "Extracellular ions can differentially stabilize channel microenvironments or conformational subensembles, changing not only each branch's half-activation but also the equilibrium fraction of channels assigned to each quasi-equilibrium activation pathway.",
+          "affected_symbols": [
+            "V",
+            "S_ext",
+            "subpopulation_weight",
+            "subpopulation_shift_ratio",
+            "threshold_shift_max",
+            "S_half"
+          ],
+          "rationale": "Parent response: with V varied and S_ext held at different fixed values, activation is always a convex combination of two sigmoids with one shared constant branch weight. Child response: with the same V and S_ext protocol, the branch weight itself changes with S_ext, so the apparent activation curve can change asymmetrically as extracellular condition rises, not just translate or broaden. A concrete contrast is obtained by comparing two S_ext levels at fixed V near the voltage where the two branch contributions are comparable: the child can show a selective increase in the contribution of one branch, creating a stronger shoulder or altered local skew, whereas the parent with a single refitted constant weight must preserve the same branch proportion at all S_ext and therefore cannot match both low-S_ext and high-S_ext shoulder prominence simultaneously. This remains a bounded monotone equilibrium activation law and is admissible as long as observations include intermediate activation fractions rather than only saturation plateaus. Limitation: if subpopulation_shift_ratio is effectively 1 or data only cover deep plateaus, the redistribution becomes weakly identifiable and the parent may suffice."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "latent_occupancy",
+          "response_change": {
+            "type": "weight_exchange",
+            "parent_relation": "The two activation subpopulations have a fixed mixture weight, so changing extracellular condition S_ext only shifts and broadens each branch while their relative contribution stays constant at all conditions.",
+            "child_relation": "The extracellular condition S_ext also redistributes equilibrium occupancy between the primary and secondary activation subpopulations, making the effective mixture weight condition dependent and changing which branch dominates the activation curve as S_ext varies.",
+            "affected_inputs": [
+              "V",
+              "S_ext"
+            ],
+            "observable_effect": "At fixed V near the crossover region between the two branch midpoints, m_inf can increase with S_ext mainly because the higher-activation branch gains occupancy, producing an S_ext-dependent shoulder or skew change that cannot be reproduced by only shifting/broadening two branches with one fixed global weight."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "screen_occ",
+              "expression": "S_ext/(S_half + S_ext)",
+              "role": "existing extracellular occupancy scale controlling screening strength"
+            },
+            {
+              "name": "branch_sep",
+              "expression": "threshold_shift_max*(1 - subpopulation_shift_ratio)*S_ext/(S_half + S_ext)",
+              "role": "condition-dependent voltage separation between primary and secondary branch half-activation shifts"
+            },
+            {
+              "name": "cross_bias",
+              "expression": "(V - V_half)*threshold_shift_max*(1 - subpopulation_shift_ratio)*S_ext/(S_half + S_ext)",
+              "role": "regime where branch separation and clamp voltage jointly expose mixture redistribution"
+            }
+          ],
+          "activation_condition": "Most visible when subpopulation_weight is in an intermediate range, subpopulation_shift_ratio differs appreciably from 1 so the two branch thresholds separate with S_ext, and V samples the midpoint/shoulder region rather than only deep plateaus where both branches are nearly 0 or 1.",
+          "train_hidden_contrast": "In training, the mechanism appears as S_ext-dependent skew or shoulder changes at sampled voltages near activation onset; in holdout, the same occupancy redistribution extends to larger S_ext where branch dominance crosses over more strongly because the saturating screening occupancy continues to rise toward its asymptote.",
+          "continuation_path": "Recover the parent law when extracellular redistribution of subpopulation occupancy vanishes, so the mixture weight becomes S_ext-independent and equal to the original constant subpopulation_weight.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "pairwise",
+          "scope_symbols": [
+            "V",
+            "S_ext"
+          ],
+          "structural_role": "heterogeneity",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Extracellular-condition-dependent redistribution between activation subpopulations",
+          "scientific_mechanism": "Extracellular ions can differentially stabilize channel microenvironments or conformational subensembles, changing not only each branch's half-activation but also the equilibrium fraction of channels assigned to each quasi-equilibrium activation pathway.",
+          "embedding_pattern": "competing_processes",
+          "difficulty_rationale": "The added mechanism creates competition between occupancy gain of the secondary branch and loss of the primary branch across the same S_ext range, so the target mapping changes through a normalized branch-exchange law rather than a coefficient tweak on a fixed convex mixture. This structurally alters how V and S_ext combine to determine local skew and shoulder prominence.",
+          "taxonomy_match": "known",
+          "assumption_before": "The model allows extracellular condition to alter each subpopulation's activation energetics but assumes the fraction of channels occupying those subpopulations is fixed across conditions.",
+          "assumption_after": "The weak heterogeneity is treated as an equilibrium partition whose occupancy itself depends on the extracellular screening variable, producing a condition-dependent normalized mixture weight.",
+          "before_fragment": "m_lower + (m_upper - m_lower)*((1 - subpopulation_weight)/(1 + exp(-(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext)))/(k_activation*(1 + steepness_screening_max*S_ext/(S_half + S_ext))*(1 + curvature_scale*(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext))))))) + subpopulation_weight/(1 + exp(-(V - (V_half + subpopulation_shift_ratio*threshold_shift_max*S_ext/(S_half + S_ext)))/(k_activation*(1 + steepness_screening_max*S_ext/(S_half + S_ext))*(1 + curvature_scale*(V - (V_half + subpopulation_shift_ratio*threshold_shift_max*S_ext/(S_half + S_ext))))))))",
+          "after_fragment": "m_lower + (m_upper - m_lower)*((1 - subpopulation_weight*(1 + occupancy_redistribution_max*S_ext/(S_half + S_ext))/(1 + occupancy_redistribution_max*subpopulation_weight*S_ext/(S_half + S_ext)))/(1 + exp(-(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext)))/(k_activation*(1 + steepness_screening_max*S_ext/(S_half + S_ext))*(1 + curvature_scale*(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext))))))) + (subpopulation_weight*(1 + occupancy_redistribution_max*S_ext/(S_half + S_ext))/(1 + occupancy_redistribution_max*subpopulation_weight*S_ext/(S_half + S_ext)))/(1 + exp(-(V - (V_half + subpopulation_shift_ratio*threshold_shift_max*S_ext/(S_half + S_ext)))/(k_activation*(1 + steepness_screening_max*S_ext/(S_half + S_ext))*(1 + curvature_scale*(V - (V_half + subpopulation_shift_ratio*threshold_shift_max*S_ext/(S_half + S_ext))))))))",
+          "parent_reduction": "Setting occupancy_redistribution_max = 0, or evaluating at S_ext = 0, recovers the parent expression exactly because the effective secondary weight becomes subpopulation_weight.",
+          "observable_signature": "With V varied and S_ext compared across fixed levels, the child predicts that the prominence and skew of the midpoint shoulder can change because the secondary branch weight itself rises or falls with S_ext; the parent can only shift and broaden two branches while keeping their relative contribution fixed. The contrast is observable for intermediate activation fractions near the crossover region, not just at deep lower or upper plateaus.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce both low-S_ext and high-S_ext shoulder prominence when branch separation changes with S_ext, because its branch proportion is globally fixed at subpopulation_weight across all conditions. Refitting threshold or width parameters can translate or smooth both branches, but cannot create a condition-specific exchange of occupancy between them without breaking the same fit at another S_ext."
+        },
+        "range_suggestions": {
+          "occupancy_redistribution_max": "dimensionless, greater than -1 and typically between -0.9 and 3; positive values enrich the secondary subpopulation as S_ext rises, negative values deplete it while preserving a bounded weight"
+        }
+      }
+    ],
+    "evolution_provenance": {
+      "dimension_track": null,
+      "mechanism_profile": {
+        "allowed_structural_roles": [
+          "contribution",
+          "response_law",
+          "modulation",
+          "interaction",
+          "constraint",
+          "transition",
+          "feedback",
+          "heterogeneity",
+          "timescale",
+          "transport_balance"
+        ],
+        "preferred_scopes": [
+          "unary",
+          "pairwise",
+          "state_coupling",
+          "time_forcing"
+        ],
+        "domain_mechanisms": [
+          {
+            "id": "finite_capacity_or_resource",
+            "description": "finite capacity, resource limitation, or saturation",
+            "operations": [
+              "add_term",
+              "change_assumption"
+            ]
+          },
+          {
+            "id": "regulatory_or_ecological_feedback",
+            "description": "regulatory, ecological, or biochemical feedback",
+            "operations": [
+              "add_term"
+            ]
+          },
+          {
+            "id": "environmental_modulation",
+            "description": "observed environmental or condition-dependent modulation",
+            "operations": [
+              "change_assumption"
+            ]
+          }
+        ],
+        "profile_source": "subject_fallback",
+        "ontology_schema_version": "1.0",
+        "taxonomy_schema_version": "1.0"
+      },
+      "baseline_mechanisms": [
+        "Voltage-dependent redistribution between inactive and activated channel conformations.",
+        "Finite channel availability producing upper and lower activation plateaus."
+      ],
+      "baseline_assumptions": [
+        "Each voltage condition is maintained until gating reaches equilibrium.",
+        "All channels are identical and statistically independent.",
+        "Temperature and extracellular ion concentrations are fixed.",
+        "Inactivation and slow channel modulation are absent."
+      ],
+      "scientific_constraints": [
+        "The activated fraction must remain between zero and one.",
+        "Depolarization must not reduce baseline activation.",
+        "The limiting plateaus must be finite."
+      ],
+      "refinement_agenda": [
+        "Add a separate voltage-dependent inactivation process.",
+        "Allow channel subpopulations with different activation thresholds.",
+        "Introduce temperature dependence of gating sensitivity.",
+        "Replace equilibrium sampling with finite-rate activation dynamics."
+      ],
+      "evolution_contracts": [
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "A single Boltzmann sigmoid gives one shared steepness and symmetric logit curvature around V_half for all voltages.",
+            "child_relation": "Replace the constant activation steepness with a voltage-dependent effective slope so the activation curve remains monotone and bounded but has asymmetric curvature, with a broader foot and sharper rise near mid-activation or vice versa.",
+            "affected_inputs": [
+              "V"
+            ],
+            "observable_effect": "Across a sufficiently wide clamped-voltage range, the semiactivation region can be fit while the low-activation tail is still systematically too shallow or too steep for any single parent parameter set; the child resolves this by allowing slope to vary with voltage."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "eta",
+              "expression": "(V - V_half)/k_activation",
+              "role": "parent Boltzmann drive measuring distance from half-activation in slope units"
+            },
+            {
+              "name": "sigma_parent",
+              "expression": "1/(1 + exp(-(V - V_half)/k_activation))",
+              "role": "parent normalized activation shape used to diagnose symmetric single-slope behavior"
+            },
+            {
+              "name": "tail_gap",
+              "expression": "exp(-(V - V_half)/k_activation)",
+              "role": "subthreshold-versus-midpoint scale showing where deviations from constant steepness are most visible"
+            }
+          ],
+          "activation_condition": "Visible when V is sampled from well below to well above V_half so both the low-activation tail and the transition region are observed; deviations are admissible when activation remains monotone between finite plateaus and within [0,1].",
+          "train_hidden_contrast": "The same voltage-dependent steepness mechanism affects both training-range tail points and holdout transition/plateau approach points, extending a shared asymmetry in curvature rather than introducing a separate regime.",
+          "continuation_path": "The child should reduce to the parent when the added voltage dependence of the effective steepness vanishes, restoring a constant k_activation.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "unary",
+          "scope_symbols": [
+            "V"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Voltage-dependent effective equilibrium sensitivity of activation",
+          "scientific_mechanism": "Weak heterogeneity or multi-step activation within the channel population can make the apparent equilibrium voltage sensitivity vary with voltage even though activation remains a static monotone bounded function of clamp voltage.",
+          "embedding_pattern": "state_dependent_coefficient",
+          "difficulty_rationale": "This embedding is harder than a coefficient-only correction because the coefficient of the exponential drive now varies with voltage, changing the shape of the input-output map across the voltage range instead of simply shifting or uniformly rescaling one logistic transition.",
+          "taxonomy_match": "known",
+          "assumption_before": "The activation curve has one constant voltage-sensitivity scale across all clamp voltages.",
+          "assumption_after": "The effective activation steepness varies with voltage while remaining positive over the sampled range, capturing asymmetric equilibrium curvature.",
+          "before_fragment": "m_lower + (m_upper - m_lower)/(1 + exp(-(V - V_half)/k_activation))",
+          "after_fragment": "m_lower + (m_upper - m_lower)/(1 + exp(-(V - V_half)/(k_activation*(1 + curvature_scale*(V - V_half)))))",
+          "parent_reduction": "Setting curvature_scale = 0 recovers the parent expression exactly.",
+          "observable_signature": "Parent response: with V varied and all parameters fixed, m_inf follows one logistic transition with a single shared steepness; changing k_activation only rescales the whole transition and cannot independently alter the low-voltage tail versus the midpoint curvature. Child response: still at equilibrium under each fixed clamp, but the effective slope changes with V, producing a measurably different mapping from clamped voltage to steady activation fraction. Concrete contrast: when V spans from near-closed values through the midpoint toward saturation, a single refitted parent can match either the central rise or the tails, but not both if the observed curve has asymmetric curvature while remaining monotone. This is a changed target mapping, not merely an auxiliary reformulation, and it is observable whenever the experiment samples a broad enough voltage range to compare tail and mid-transition behavior.",
+          "shortcut_blocked": "Refitting m_lower, m_upper, V_half, and one constant k_activation can only shift the midpoint, rescale the amplitude, and apply one shared steepness to the entire curve. It cannot create voltage-dependent steepness, so one parent parameter set cannot simultaneously reproduce an asymmetric tail-versus-midpoint curvature pattern over the same admissible voltage range."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_threshold",
+          "response_change": {
+            "type": "threshold_surface",
+            "parent_relation": "With fixed temperature and chemistry, the equilibrium activation fraction is a bounded monotone function of voltage alone with one shared half-activation scale and one shared steepness profile.",
+            "child_relation": "Release the fixed-environment assumption by allowing the activation midpoint to depend on an independently varied extracellular ion condition, so the equilibrium activation becomes a bounded monotone function on a two-input surface m_inf(V, S) whose voltage threshold shifts systematically with that condition.",
+            "affected_inputs": [
+              "V"
+            ],
+            "observable_effect": "Across recordings taken at different extracellular conditions, the activation curve translates along the voltage axis while retaining finite lower and upper plateaus; a single parent parameter set cannot match both the low-condition and high-condition threshold locations simultaneously."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "voltage_offset",
+              "expression": "V - V_half",
+              "role": "Parent voltage distance from the nominal half-activation point"
+            },
+            {
+              "name": "local_steepness_denominator",
+              "expression": "k_activation*(1 + curvature_scale*(V - V_half))",
+              "role": "Parent effective voltage-sensitivity scale controlling local sigmoid width and asymmetry"
+            }
+          ],
+          "activation_condition": "Observable when equilibrium activation curves are measured over the same voltage range under at least two extracellular environments that shift gating energetics by an amount comparable to or larger than the local transition width, while activation remains monotone and bounded between the finite plateaus.",
+          "train_hidden_contrast": "In training, modest environment changes already produce visible left/right displacement of the activation curve; in holdout, the same mechanism extends to somewhat broader environments where the threshold shift continues smoothly rather than requiring separate refits for each condition.",
+          "continuation_path": "Recover the parent law when the added environmental dependence vanishes, e.g. the new threshold-shift coefficient tends to zero or the new input is held fixed at its reference value for all samples.",
+          "freedom_change": "add_input",
+          "promoted_symbol": null,
+          "promotion_reason": "The missing effect is a genuine environment-dependent change in the scored equilibrium mapping. Existing voltage-only inputs cannot express condition-dependent threshold shifts without incorrectly refitting separate parameter sets for each environment.",
+          "scope_kind": "pairwise",
+          "scope_symbols": [
+            "V",
+            "S_ext"
+          ],
+          "structural_role": "interaction",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Extracellular-condition-dependent electrostatic shifting of the activation threshold",
+          "scientific_mechanism": "Extracellular ionic conditions can alter surface-potential screening or electrostatic stabilization of gating conformations, shifting the voltage required for half-activation without requiring dynamics or violating bounded monotone activation.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "This embedding is harder than a coefficient-only correction because the scored mapping becomes a two-input threshold surface with a saturating environmental dependence of the midpoint, so one shared voltage-only threshold cannot represent the systematic cross-condition displacement.",
+          "taxonomy_match": "known",
+          "assumption_before": "Temperature and extracellular ion concentrations are fixed.",
+          "assumption_after": "An independently varied extracellular ionic condition shifts the half-activation location through a finite-capacity saturating response.",
+          "before_fragment": "m_lower + (m_upper - m_lower)/(1 + exp(-(V - V_half)/(k_activation*(1 + curvature_scale*(V - V_half)))))",
+          "after_fragment": "m_lower + (m_upper - m_lower)/(1 + exp(-(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext)))/(k_activation*(1 + curvature_scale*(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext)))))))",
+          "parent_reduction": "The successor reduces to the parent when S_ext = 0 for all samples, or equivalently when threshold_shift_max = 0 so the environment-dependent midpoint shift vanishes.",
+          "observable_signature": "The parent response relationship is one bounded monotone activation curve of voltage alone with a single shared threshold location. The child changes the scored target mapping itself: at the same clamped V, m_inf now differs across S_ext because the transition region shifts left or right by a saturating amount. This is observable when V is varied while separate equilibrium curves are collected at at least two extracellular conditions whose induced midpoint displacement is comparable to the activation width, with lower and upper plateaus remaining finite and shared.",
+          "shortcut_blocked": "Refitting all existing parent parameters still leaves only one common V_half and one common voltage-only sigmoid shape for the entire dataset. Therefore a single parent parameter set cannot place the activation transition at different voltages for different S_ext values over the same sampled V range; matching one environment forces a mismatch in another unless separate per-condition refits are allowed, which is outside the parent mapping."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_threshold",
+          "response_change": {
+            "type": "interaction_emergence",
+            "parent_relation": "Extracellular condition S_ext only shifts the apparent half-activation voltage through a saturating term, while the voltage-sensitivity scale remains otherwise shared across S_ext except for its existing dependence on V relative to that shifted midpoint.",
+            "child_relation": "Extracellular condition S_ext also modulates the effective activation steepness, so S_ext changes both where the curve is centered and how rapidly activation rises with V.",
+            "affected_inputs": [
+              "V",
+              "S_ext"
+            ],
+            "observable_effect": "At two extracellular conditions with comparable midpoint shift already accounted for, the high-S_ext activation curve can be systematically broader or steeper around half-activation than the low-S_ext curve; a single shared threshold-shift-only parent cannot match both midpoint and width across conditions."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "screen_frac",
+              "expression": "S_ext/(S_half + S_ext)",
+              "role": "saturating extracellular screening occupancy already computable from supplied inputs and parameters"
+            },
+            {
+              "name": "shifted_voltage",
+              "expression": "V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext))",
+              "role": "voltage relative to the environment-shifted activation center, where slope differences are most diagnostic"
+            },
+            {
+              "name": "parent_width",
+              "expression": "k_activation*(1 + curvature_scale*(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext))))",
+              "role": "parent effective width showing that S_ext enters only through the shifted voltage coordinate"
+            }
+          ],
+          "activation_condition": "Observable when S_ext is sampled over at least two appreciably different nonnegative levels so S_ext/(S_half+S_ext) changes substantially, and voltages span the transition region near the shifted half-activation where 0 < m_inf < 1; the effect is weak if the extracellular shift is negligible or all data lie on plateaus.",
+          "train_hidden_contrast": "In training, differing S_ext levels can already show distinct transition widths near half-activation; in holdout, the same mechanism extends to intermediate or larger S_ext where both the threshold shift and width modulation vary smoothly with the same saturating screening coordinate.",
+          "continuation_path": "Recover the parent law when extracellular modulation of steepness vanishes, e.g. the added S_ext dependence of the effective width is set to zero.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "pairwise",
+          "scope_symbols": [
+            "V",
+            "S_ext"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "condition-dependent screening of activation energetics",
+          "scientific_mechanism": "Extracellular ionic screening can change not only surface-potential offset but also the energetic spread of activation transitions, producing condition-dependent broadening or sharpening of the steady activation curve.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "This embedding is harder than a coefficient-only correction because the target mapping gains a genuine saturating V-by-S_ext interaction in the denominator width, so S_ext changes local slope near half-activation in addition to translating the center. A single refit of the parent can move the curve along V but cannot independently control transition width across extracellular conditions while keeping one shared parameter set.",
+          "taxonomy_match": "known",
+          "assumption_before": "Extracellular condition only shifts the activation threshold through a saturating offset and leaves the effective voltage-sensitivity scale shared across S_ext.",
+          "assumption_after": "Extracellular condition shifts threshold and also rescales the effective activation width through the same saturating screening occupancy.",
+          "before_fragment": "m_lower + (m_upper - m_lower)/(1 + exp(-(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext)))/(k_activation*(1 + curvature_scale*(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext)))))))",
+          "after_fragment": "m_lower + (m_upper - m_lower)/(1 + exp(-(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext)))/(k_activation*(1 + steepness_screening_max*S_ext/(S_half + S_ext))*(1 + curvature_scale*(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext)))))))",
+          "parent_reduction": "Set steepness_screening_max = 0 to recover the parent exactly.",
+          "observable_signature": "With V clamped across the transition region and S_ext varied over at least two distinct nonnegative levels, the child predicts that curves can differ in both midpoint and width: after aligning by the shifted center V_half + threshold_shift_max*S_ext/(S_half + S_ext), the local slope near half-activation still changes systematically with screen_frac. The parent predicts only translated versions of one shared width law, so it cannot reproduce a consistent S_ext-dependent broadening or sharpening over the admissible non-plateau activation range.",
+          "shortcut_blocked": "Refitting all existing parent parameters with one shared parameter set cannot absorb this contrast because in the parent S_ext enters the width only through shifted_voltage inside the existing curvature term; once midpoint displacement is fixed across conditions, the transition width at the center remains tied to the same k_activation for all S_ext. Therefore a threshold-shift-only shortcut cannot simultaneously match both the observed center shift and the S_ext-dependent half-activation slope."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "At each S_ext, the activation curve is a single sigmoidal transition with one effective midpoint and one smoothly voltage-dependent width, so the semilogit shape has only one broad transition region.",
+            "child_relation": "At each S_ext, the channel population behaves as a weak mixture of two equilibrium activation subpopulations with different S_ext-dependent midpoint shifts, creating a shouldered or broadened two-stage static activation curve while remaining monotone and bounded.",
+            "affected_inputs": [
+              "V",
+              "S_ext"
+            ],
+            "observable_effect": "When S_ext is varied and V is swept, intermediate activation levels can broaden asymmetrically or develop a visible shoulder over voltage ranges where one subpopulation has already begun activating while the other remains mostly closed; a single parent curve family cannot match both the low-activation onset and the mid-range rise with one shared parameter set."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "screen_occ",
+              "expression": "S_ext/(S_half + S_ext)",
+              "role": "extracellular screening occupancy already controlling condition dependence"
+            },
+            {
+              "name": "shifted_voltage",
+              "expression": "V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext))",
+              "role": "parent effective distance from half-activation"
+            },
+            {
+              "name": "parent_width_factor",
+              "expression": "(1 + steepness_screening_max*S_ext/(S_half + S_ext))*(1 + curvature_scale*(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext))))",
+              "role": "parent single-transition voltage-sensitivity factor"
+            }
+          ],
+          "activation_condition": "Most visible for moderate extracellular occupancy S_ext/(S_half+S_ext) away from 0 and 1 and for voltage sweeps spanning the central activation range between m_inf near m_lower and near m_upper, especially when the two subpopulations have resolvably different midpoint shifts but overlapping plateaus.",
+          "train_hidden_contrast": "In training, the mechanism appears as condition-dependent asymmetry or broadening of the central rise; in holdout, the same mixed-population effect becomes clearer at intermediate S_ext where the two S_ext-dependent threshold shifts separate enough to create a shoulder not reproducible by one single-phase sigmoid family.",
+          "continuation_path": "Recover the parent law when the subpopulation difference tends to zero or the mixture weight tends to 0 or 1, collapsing the two transitions into the existing single effective activation curve.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "pairwise",
+          "scope_symbols": [
+            "V",
+            "S_ext"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Composite equilibrium activation from heterogeneous channel subpopulations with different screening sensitivities",
+          "scientific_mechanism": "Weak channel-population heterogeneity or two quasi-equilibrium activation pathways with distinct extracellular screening sensitivities produces a composite steady activation curve without introducing dynamics or violating monotonic bounded activation.",
+          "embedding_pattern": "nested_nonlinearity",
+          "difficulty_rationale": "The refinement is structurally harder because it combines declared quantities into two distinct shifted-voltage arguments before applying separate sigmoid nonlinearities and then mixes their outputs, creating composite curvature rather than a coefficient-only rescaling of one transition.",
+          "taxonomy_match": "provisional",
+          "assumption_before": "The current model assumes all channels share one continuous activation transition family under each extracellular condition.",
+          "assumption_after": "The channel population is a weak static mixture of two equilibrium activation subpopulations with different extracellular-condition sensitivities of their threshold shifts.",
+          "before_fragment": "m_lower + (m_upper - m_lower)/(1 + exp(-(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext)))/(k_activation*(1 + steepness_screening_max*S_ext/(S_half + S_ext))*(1 + curvature_scale*(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext)))))))",
+          "after_fragment": "m_lower + (m_upper - m_lower)*((1 - subpopulation_weight)/(1 + exp(-(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext)))/(k_activation*(1 + steepness_screening_max*S_ext/(S_half + S_ext))*(1 + curvature_scale*(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext))))))) + subpopulation_weight/(1 + exp(-(V - (V_half + subpopulation_shift_ratio*threshold_shift_max*S_ext/(S_half + S_ext)))/(k_activation*(1 + steepness_screening_max*S_ext/(S_half + S_ext))*(1 + curvature_scale*(V - (V_half + subpopulation_shift_ratio*threshold_shift_max*S_ext/(S_half + S_ext))))))))",
+          "parent_reduction": "The child collapses to the parent when subpopulation_shift_ratio = 1, or when subpopulation_weight = 0, with the latter exactly removing the secondary branch.",
+          "observable_signature": "At fixed S_ext and globally fixed parameters, m_inf versus V remains bounded and monotone but can show an early shallow rise followed by a steeper central increase or a broadened shoulder; this is most apparent at intermediate S_ext where the two midpoint shifts differ appreciably, whereas the parent only permits one main transition band per S_ext.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce this contrast because its one midpoint and one width-curvature law generate only one continuous activation transition at each S_ext. Retuning V_half, k_activation, threshold_shift_max, steepness_screening_max, and curvature_scale can shift or smoothly warp that single phase, but cannot simultaneously fit both an early onset from one subpopulation and a later stronger rise from another across the same V sweep and multiple S_ext conditions."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "latent_occupancy",
+          "response_change": {
+            "type": "weight_exchange",
+            "parent_relation": "The two activation subpopulations have a fixed mixture weight, so changing extracellular condition S_ext only shifts and broadens each branch while their relative contribution stays constant at all conditions.",
+            "child_relation": "The extracellular condition S_ext also redistributes equilibrium occupancy between the primary and secondary activation subpopulations, making the effective mixture weight condition dependent and changing which branch dominates the activation curve as S_ext varies.",
+            "affected_inputs": [
+              "V",
+              "S_ext"
+            ],
+            "observable_effect": "At fixed V near the crossover region between the two branch midpoints, m_inf can increase with S_ext mainly because the higher-activation branch gains occupancy, producing an S_ext-dependent shoulder or skew change that cannot be reproduced by only shifting/broadening two branches with one fixed global weight."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "screen_occ",
+              "expression": "S_ext/(S_half + S_ext)",
+              "role": "existing extracellular occupancy scale controlling screening strength"
+            },
+            {
+              "name": "branch_sep",
+              "expression": "threshold_shift_max*(1 - subpopulation_shift_ratio)*S_ext/(S_half + S_ext)",
+              "role": "condition-dependent voltage separation between primary and secondary branch half-activation shifts"
+            },
+            {
+              "name": "cross_bias",
+              "expression": "(V - V_half)*threshold_shift_max*(1 - subpopulation_shift_ratio)*S_ext/(S_half + S_ext)",
+              "role": "regime where branch separation and clamp voltage jointly expose mixture redistribution"
+            }
+          ],
+          "activation_condition": "Most visible when subpopulation_weight is in an intermediate range, subpopulation_shift_ratio differs appreciably from 1 so the two branch thresholds separate with S_ext, and V samples the midpoint/shoulder region rather than only deep plateaus where both branches are nearly 0 or 1.",
+          "train_hidden_contrast": "In training, the mechanism appears as S_ext-dependent skew or shoulder changes at sampled voltages near activation onset; in holdout, the same occupancy redistribution extends to larger S_ext where branch dominance crosses over more strongly because the saturating screening occupancy continues to rise toward its asymptote.",
+          "continuation_path": "Recover the parent law when extracellular redistribution of subpopulation occupancy vanishes, so the mixture weight becomes S_ext-independent and equal to the original constant subpopulation_weight.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "pairwise",
+          "scope_symbols": [
+            "V",
+            "S_ext"
+          ],
+          "structural_role": "heterogeneity",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Extracellular-condition-dependent redistribution between activation subpopulations",
+          "scientific_mechanism": "Extracellular ions can differentially stabilize channel microenvironments or conformational subensembles, changing not only each branch's half-activation but also the equilibrium fraction of channels assigned to each quasi-equilibrium activation pathway.",
+          "embedding_pattern": "competing_processes",
+          "difficulty_rationale": "The added mechanism creates competition between occupancy gain of the secondary branch and loss of the primary branch across the same S_ext range, so the target mapping changes through a normalized branch-exchange law rather than a coefficient tweak on a fixed convex mixture. This structurally alters how V and S_ext combine to determine local skew and shoulder prominence.",
+          "taxonomy_match": "known",
+          "assumption_before": "The model allows extracellular condition to alter each subpopulation's activation energetics but assumes the fraction of channels occupying those subpopulations is fixed across conditions.",
+          "assumption_after": "The weak heterogeneity is treated as an equilibrium partition whose occupancy itself depends on the extracellular screening variable, producing a condition-dependent normalized mixture weight.",
+          "before_fragment": "m_lower + (m_upper - m_lower)*((1 - subpopulation_weight)/(1 + exp(-(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext)))/(k_activation*(1 + steepness_screening_max*S_ext/(S_half + S_ext))*(1 + curvature_scale*(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext))))))) + subpopulation_weight/(1 + exp(-(V - (V_half + subpopulation_shift_ratio*threshold_shift_max*S_ext/(S_half + S_ext)))/(k_activation*(1 + steepness_screening_max*S_ext/(S_half + S_ext))*(1 + curvature_scale*(V - (V_half + subpopulation_shift_ratio*threshold_shift_max*S_ext/(S_half + S_ext))))))))",
+          "after_fragment": "m_lower + (m_upper - m_lower)*((1 - subpopulation_weight*(1 + occupancy_redistribution_max*S_ext/(S_half + S_ext))/(1 + occupancy_redistribution_max*subpopulation_weight*S_ext/(S_half + S_ext)))/(1 + exp(-(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext)))/(k_activation*(1 + steepness_screening_max*S_ext/(S_half + S_ext))*(1 + curvature_scale*(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext))))))) + (subpopulation_weight*(1 + occupancy_redistribution_max*S_ext/(S_half + S_ext))/(1 + occupancy_redistribution_max*subpopulation_weight*S_ext/(S_half + S_ext)))/(1 + exp(-(V - (V_half + subpopulation_shift_ratio*threshold_shift_max*S_ext/(S_half + S_ext)))/(k_activation*(1 + steepness_screening_max*S_ext/(S_half + S_ext))*(1 + curvature_scale*(V - (V_half + subpopulation_shift_ratio*threshold_shift_max*S_ext/(S_half + S_ext))))))))",
+          "parent_reduction": "Setting occupancy_redistribution_max = 0, or evaluating at S_ext = 0, recovers the parent expression exactly because the effective secondary weight becomes subpopulation_weight.",
+          "observable_signature": "With V varied and S_ext compared across fixed levels, the child predicts that the prominence and skew of the midpoint shoulder can change because the secondary branch weight itself rises or falls with S_ext; the parent can only shift and broaden two branches while keeping their relative contribution fixed. The contrast is observable for intermediate activation fractions near the crossover region, not just at deep lower or upper plateaus.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce both low-S_ext and high-S_ext shoulder prominence when branch separation changes with S_ext, because its branch proportion is globally fixed at subpopulation_weight across all conditions. Refitting threshold or width parameters can translate or smooth both branches, but cannot create a condition-specific exchange of occupancy between them without breaking the same fit at another S_ext."
+        }
+      ]
+    },
+    "finalization": {
+      "mode": "candidate",
+      "accepted_generations": 5,
+      "novelty": {
+        "answer": "NOT_EVALUATED"
+      },
+      "total_points": 5000,
+      "evaluation_status": "not_evaluated"
+    }
+  },
+  "contract": {
+    "features": [
+      "V",
+      "S_ext"
+    ],
+    "target": "m_inf",
+    "family": "static",
+    "expression": "m_lower + (m_upper - m_lower)*((1 - subpopulation_weight*(1 + occupancy_redistribution_max*S_ext/(S_half + S_ext))/(1 + occupancy_redistribution_max*subpopulation_weight*S_ext/(S_half + S_ext)))/(1 + exp(-(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext)))/(k_activation*(1 + steepness_screening_max*S_ext/(S_half + S_ext))*(1 + curvature_scale*(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext))))))) + (subpopulation_weight*(1 + occupancy_redistribution_max*S_ext/(S_half + S_ext))/(1 + occupancy_redistribution_max*subpopulation_weight*S_ext/(S_half + S_ext)))/(1 + exp(-(V - (V_half + subpopulation_shift_ratio*threshold_shift_max*S_ext/(S_half + S_ext)))/(k_activation*(1 + steepness_screening_max*S_ext/(S_half + S_ext))*(1 + curvature_scale*(V - (V_half + subpopulation_shift_ratio*threshold_shift_max*S_ext/(S_half + S_ext))))))))",
+    "parameters": {
+      "m_lower": 0.02,
+      "m_upper": 0.98,
+      "V_half": -30.0,
+      "k_activation": 8.0,
+      "curvature_scale": 0.003,
+      "threshold_shift_max": 20.0,
+      "S_half": 1.0,
+      "steepness_screening_max": 0.5,
+      "subpopulation_weight": 0.28,
+      "subpopulation_shift_ratio": 0.45,
+      "occupancy_redistribution_max": 1.4
+    },
+    "implicit_branch": null
+  }
+}

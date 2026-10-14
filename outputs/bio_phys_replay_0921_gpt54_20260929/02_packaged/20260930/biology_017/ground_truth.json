@@ -1,0 +1,1802 @@
+{
+  "version": 7,
+  "spec": {
+    "equation_type": "ode_system",
+    "integrator": "integrate_system",
+    "dependent_variable": "C",
+    "independent_variables": [
+      {
+        "symbol": "t",
+        "range": [
+          0.0,
+          80.0
+        ],
+        "n_points": 401,
+        "scale": "linear"
+      }
+    ],
+    "parameters": [
+      {
+        "symbol": "resource_growth_rate",
+        "value": 0.45
+      },
+      {
+        "symbol": "encounter_rate",
+        "value": 0.018
+      },
+      {
+        "symbol": "conversion_efficiency",
+        "value": 0.55
+      },
+      {
+        "symbol": "consumer_mortality_rate",
+        "value": 0.12
+      },
+      {
+        "symbol": "handling_saturation_scale",
+        "value": 0.03
+      },
+      {
+        "symbol": "consumer_interference_scale",
+        "value": 0.025
+      },
+      {
+        "symbol": "juvenile_maturation_rate",
+        "value": 0.35
+      },
+      {
+        "symbol": "juvenile_mortality_rate",
+        "value": 0.08
+      },
+      {
+        "symbol": "high_resource_inhibition_scale",
+        "value": 0.004
+      }
+    ],
+    "benchmark_output": "dC_dt",
+    "benchmark_target_state": "C",
+    "observed_variables": [
+      "t",
+      "R",
+      "C",
+      "J"
+    ],
+    "rhs_for_integrator": "juvenile_maturation_rate * R / (1 + handling_saturation_scale * R) * exp(-high_resource_inhibition_scale * R) * J - consumer_mortality_rate * C",
+    "state_variables": [
+      "R",
+      "C",
+      "J"
+    ],
+    "state_rhs": [
+      "resource_growth_rate * R - encounter_rate * R * C",
+      "juvenile_maturation_rate * R / (1 + handling_saturation_scale * R) * exp(-high_resource_inhibition_scale * R) * J - consumer_mortality_rate * C",
+      "conversion_efficiency * encounter_rate * R * C / (1 + handling_saturation_scale * R + consumer_interference_scale * C) - juvenile_maturation_rate * R / (1 + handling_saturation_scale * R) * exp(-high_resource_inhibition_scale * R) * J - juvenile_mortality_rate * J"
+    ],
+    "initial_conditions": {
+      "R": 100.0,
+      "C": 20.0,
+      "J": 5.0
+    },
+    "sanity_expectations": [
+      "All chosen parameters are nonnegative and the checked representative substitution at the inherited initial state gives a finite real dC_dt > 0 for the scored equation.",
+      "Because handling_saturation_scale*R is already about 3 at t=0, juvenile maturation is resource-modulated rather than approximately linear in R over the initial regime.",
+      "Because high_resource_inhibition_scale*R is about 0.4 at t=0 and increases with larger R, the maturation contribution juvenile_maturation_rate*R*exp(-high_resource_inhibition_scale*R)/(1+handling_saturation_scale*R)*J should show stronger high-R bending than the parent and can decrease at sufficiently high realized R.",
+      "Across trajectory segments with similar J but higher extreme R, the child model predicts lower-than-parent-plateau adult recruitment due to the exponential inhibition factor; equivalently, the scored dC_dt need not be monotone increasing in R at fixed J and C.",
+      "If oscillations occur, J should lag feeding-driven production and C should lag J, so similar current (R,C) reached on different cycle phases can still correspond to different dC_dt through different J.",
+      "The parameter choice does not sit in the exact parent-recovery limit: high_resource_inhibition_scale is positive, consumer_interference_scale is positive, and juvenile maturation is finite rather than instantaneous."
+    ],
+    "role_corrections": [
+      "dC_dt: claimed-output/target derivative -> target derivative within ODE system (confirmed; scored quantity corresponds to dC/dt but dependent variable for integration is C)",
+      "t: claimed-input/time axis -> independent variable/time axis (confirmed)",
+      "R: claimed-dynamic state -> dynamic state variable (confirmed)",
+      "C: claimed-dynamic state -> dynamic state variable and dependent_variable/target_state (confirmed)",
+      "J: claimed-dynamic state -> dynamic state variable (confirmed)",
+      "resource_growth_rate: claimed-parameter -> parameter (confirmed)",
+      "encounter_rate: claimed-parameter -> parameter (confirmed)",
+      "conversion_efficiency: claimed-parameter -> parameter (confirmed)",
+      "consumer_mortality_rate: claimed-parameter -> parameter (confirmed)",
+      "handling_saturation_scale: claimed-parameter -> parameter (confirmed)",
+      "consumer_interference_scale: claimed-parameter -> parameter (confirmed)",
+      "juvenile_maturation_rate: claimed-parameter -> parameter (confirmed)",
+      "juvenile_mortality_rate: claimed-parameter -> parameter (confirmed)",
+      "high_resource_inhibition_scale: claimed-parameter -> parameter (confirmed)",
+      "expression classification: explicit isolated formula -> ode_system for data generation (overridden by supplied validated ODE system contract as required)"
+    ],
+    "rationale": "Preserve the supplied ODE-system contract exactly: the scored quantity is the adult consumer state C within a 3-state system (R,C,J) evolving over time t. Although the isolated target expression is structurally an explicit algebraic formula for dC_dt, the typed upstream contract governs data generation here, so the correct dataset type is an ODE system integrated in time. Parameter values are chosen to keep all rates positive and moderate, maintain nontrivial coupled dynamics, and activate the intended sequence of mechanisms without collapsing to any recovery limit. In particular, handling_saturation_scale=0.03 makes handling effects visible around the inherited initial resource level R0=100 because handling_saturation_scale*R is about 3 initially, so recruitment/maturation is not in the low-R linear regime. consumer_interference_scale=0.025 makes juvenile production crowding-sensitive when C is in the tens, but not so strong that feeding is shut down everywhere. juvenile_maturation_rate=0.35 and juvenile_mortality_rate=0.08 leave a meaningful juvenile residence time, preserving stage-lag effects. high_resource_inhibition_scale=0.004 obeys the suggested 0 to 1/initial_resource_scale range (here 1/100=0.01) and yields high_resource_inhibition_scale*R about 0.4 at the initial resource level, enough to suppress maturation at high R without forcing the system into a near-zero maturation regime. This should expose the generation-5 contrast directly along reachable trajectories: for nonzero J, the adult recruitment term as a function of R is expected to rise at low-to-moderate R and then bend over more strongly than the parent monotone saturation, with possible decline at sufficiently high realized R. Time horizon 0 to 80 with 401 points is long enough to capture several oscillatory phases and phase-lagged juvenile/adult responses if they occur, while remaining in a typical biological timescale and sample count for exact noiseless training pairs. No observation noise is added.",
+    "coverage_report": {
+      "groups": [
+        {
+          "generation": 1,
+          "name": "consumer_per_capita_growth",
+          "expression": "dC_dt / C",
+          "role": "Observed net consumer growth rate per consumer when C>0",
+          "train_range": [
+            -0.06336280378301563,
+            1.346325100702961
+          ],
+          "hidden_range": [
+            -0.012126117385014908,
+            0.034966880318661034
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -0.06336280378301563,
+            "max": 1.346325100702961,
+            "q05": -0.06111128599377752,
+            "median": -0.0008636358634326655,
+            "q95": 0.06809293700613296,
+            "range": 1.4096879044859767,
+            "robust_range": 0.12920422299991047
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": -0.012126117385014908,
+            "max": 0.034966880318661034,
+            "q05": -0.009864271724591254,
+            "median": 0.01367280863964056,
+            "q95": 0.03354782426986895,
+            "range": 0.04709299770367594,
+            "robust_range": 0.043412095994460206
+          }
+        },
+        {
+          "generation": 1,
+          "name": "feeding_flux_parent",
+          "expression": "encounter_rate * R * C",
+          "role": "Mass-action consumption/recruitment driver in the parent model",
+          "train_range": [
+            4.827220533673779,
+            49.93016134827257
+          ],
+          "hidden_range": [
+            15.192581251858755,
+            24.36648735247421
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 4.827220533673779,
+            "max": 49.93016134827257,
+            "q05": 5.038752784210386,
+            "median": 13.388974563727547,
+            "q95": 45.90948179048448,
+            "range": 45.10294081459879,
+            "robust_range": 40.87072900627409
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 15.192581251858755,
+            "max": 24.36648735247421,
+            "q05": 15.771549855718762,
+            "median": 21.36075280754119,
+            "q95": 24.35644074406297,
+            "range": 9.173906100615454,
+            "robust_range": 8.584890888344207
+          }
+        },
+        {
+          "generation": 1,
+          "name": "resource_per_consumer",
+          "expression": "R",
+          "role": "Resource availability controlling whether feeding remains encounter-limited or becomes processing-limited",
+          "train_range": [
+            11.498576911381969,
+            101.51699752792976
+          ],
+          "hidden_range": [
+            28.58572735036482,
+            50.78801635574063
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 11.498576911381969,
+            "max": 101.51699752792976,
+            "q05": 12.03837787356818,
+            "median": 31.106564020266717,
+            "q95": 82.39277345593561,
+            "range": 90.01842061654779,
+            "robust_range": 70.35439558236743
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 28.58572735036482,
+            "max": 50.78801635574063,
+            "q05": 29.54501125757946,
+            "median": 40.24987282402759,
+            "q95": 50.12902529883674,
+            "range": 22.20228900537581,
+            "robust_range": 20.584014041257277
+          }
+        },
+        {
+          "generation": 2,
+          "name": "resource_per_consumer",
+          "expression": "R/C",
+          "role": "Resource availability relative to consumer crowding; low values favor interference effects when C>0.",
+          "train_range": [
+            0.4301771022059218,
+            5.0
+          ],
+          "hidden_range": [
+            0.9681428259526058,
+            1.9069405937589214
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.4301771022059218,
+            "max": 5.0,
+            "q05": 0.45420513374582094,
+            "median": 1.30522032524095,
+            "q95": 2.9138221370075765,
+            "range": 4.5698228977940785,
+            "robust_range": 2.4596170032617555
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.9681428259526058,
+            "max": 1.9069405937589214,
+            "q05": 0.9962456820195135,
+            "median": 1.3651644833841698,
+            "q95": 1.8566204241573803,
+            "range": 0.9387977678063156,
+            "robust_range": 0.8603747421378668
+          }
+        },
+        {
+          "generation": 2,
+          "name": "feeding_saturation_parent",
+          "expression": "handling_saturation_scale*R",
+          "role": "Parent's existing resource-driven saturation coordinate.",
+          "train_range": [
+            0.3449573073414591,
+            3.0455099258378926
+          ],
+          "hidden_range": [
+            0.8575718205109446,
+            1.523640490672219
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.3449573073414591,
+            "max": 3.0455099258378926,
+            "q05": 0.3611513362070454,
+            "median": 0.9331969206080015,
+            "q95": 2.471783203678068,
+            "range": 2.7005526184964337,
+            "robust_range": 2.1106318674710227
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.8575718205109446,
+            "max": 1.523640490672219,
+            "q05": 0.8863503377273838,
+            "median": 1.2074961847208276,
+            "q95": 1.5038707589651021,
+            "range": 0.6660686701612744,
+            "robust_range": 0.6175204212377183
+          }
+        },
+        {
+          "generation": 2,
+          "name": "consumer_pressure",
+          "expression": "encounter_rate*C/consumer_mortality_rate",
+          "role": "Consumer crowding relative to demographic loss scale; larger values indicate regimes where mutual interference can alter realized recruitment.",
+          "train_range": [
+            2.5696844391937983,
+            5.629755133589101
+          ],
+          "hidden_range": [
+            3.9949867753060166,
+            4.483887303887867
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 2.5696844391937983,
+            "max": 5.629755133589101,
+            "q05": 2.61397350814463,
+            "median": 3.6740641980330384,
+            "q95": 5.478321629410139,
+            "range": 3.0600706943953027,
+            "robust_range": 2.8643481212655093
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 3.9949867753060166,
+            "max": 4.483887303887867,
+            "q05": 4.050022239485784,
+            "median": 4.422530395197226,
+            "q95": 4.4832754392457295,
+            "range": 0.4889005285818504,
+            "robust_range": 0.43325319975994514
+          }
+        },
+        {
+          "generation": 3,
+          "name": "feeding_flux",
+          "expression": "conversion_efficiency*encounter_rate*R*C/(1 + handling_saturation_scale*R + consumer_interference_scale*C)",
+          "role": "current production of new consumer biomass/offspring from feeding",
+          "train_range": [
+            1.3860248586882262,
+            6.164737897867396
+          ],
+          "hidden_range": [
+            3.2191012037430844,
+            4.224584685430355
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 1.3860248586882262,
+            "max": 6.164737897867396,
+            "q05": 1.4312605013892008,
+            "median": 2.842104938337344,
+            "q95": 5.8459737837796375,
+            "range": 4.77871303917917,
+            "robust_range": 4.414713282390437
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 3.2191012037430844,
+            "max": 4.224584685430355,
+            "q05": 3.3010454520468953,
+            "median": 3.989837233684476,
+            "q95": 4.223444333705492,
+            "range": 1.0054834816872709,
+            "robust_range": 0.9223988816585971
+          }
+        },
+        {
+          "generation": 3,
+          "name": "adult_loss",
+          "expression": "consumer_mortality_rate*C",
+          "role": "background adult consumer loss rate",
+          "train_range": [
+            2.0557475513550387,
+            4.503804106871281
+          ],
+          "hidden_range": [
+            3.195989420244813,
+            3.5871098431102935
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 2.0557475513550387,
+            "max": 4.503804106871281,
+            "q05": 2.091178806515704,
+            "median": 2.9392513584264304,
+            "q95": 4.382657303528111,
+            "range": 2.4480565555162426,
+            "robust_range": 2.291478497012407
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 3.195989420244813,
+            "max": 3.5871098431102935,
+            "q05": 3.2400177915886275,
+            "median": 3.538024316157781,
+            "q95": 3.5866203513965833,
+            "range": 0.3911204228654803,
+            "robust_range": 0.34660255980795585
+          }
+        },
+        {
+          "generation": 3,
+          "name": "per_capita_feeding",
+          "expression": "conversion_efficiency*encounter_rate*R/(1 + handling_saturation_scale*R + consumer_interference_scale*C)",
+          "role": "resource-dependent instantaneous recruitment pressure per consumer",
+          "train_range": [
+            0.05728423820152563,
+            0.22000000000000003
+          ],
+          "hidden_range": [
+            0.10902467858245667,
+            0.15764409339349778
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.05728423820152563,
+            "max": 0.22000000000000003,
+            "q05": 0.05954692507465845,
+            "median": 0.12093843426002104,
+            "q95": 0.1905565404129038,
+            "range": 0.1627157617984744,
+            "robust_range": 0.13100961533824534
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.10902467858245667,
+            "max": 0.15764409339349778,
+            "q05": 0.11130990127049253,
+            "median": 0.135324250666108,
+            "q95": 0.1561173158264293,
+            "range": 0.04861941481104111,
+            "robust_range": 0.04480741455593676
+          }
+        },
+        {
+          "generation": 4,
+          "name": "juvenile_to_adult_flux_parent",
+          "expression": "juvenile_maturation_rate * J",
+          "role": "Parent adult recruitment flux from the juvenile pool",
+          "train_range": [
+            0.1456582024653389,
+            1.75
+          ],
+          "hidden_range": [
+            0.23204968720737099,
+            0.2568429078991269
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.1456582024653389,
+            "max": 1.75,
+            "q05": 0.1479814518780195,
+            "median": 0.20571113209404335,
+            "q95": 0.3465851652651996,
+            "range": 1.6043417975346612,
+            "robust_range": 0.1986037133871801
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.23204968720737099,
+            "max": 0.2568429078991269,
+            "q05": 0.23469783126765792,
+            "median": 0.25274019336151016,
+            "q95": 0.25679780079888953,
+            "range": 0.024793220691755907,
+            "robust_range": 0.02209996953123161
+          }
+        },
+        {
+          "generation": 4,
+          "name": "resource_to_juvenile_ratio",
+          "expression": "R / (1 + handling_saturation_scale * R)",
+          "role": "Proxy for whether current resource availability is low enough to plausibly limit juvenile development after production",
+          "train_range": [
+            8.549399188076011,
+            25.09374575490725
+          ],
+          "hidden_range": [
+            15.388760227048458,
+            20.124901523597085
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 8.549399188076011,
+            "max": 25.09374575490725,
+            "q05": 8.84426110872112,
+            "median": 16.09073726014337,
+            "q95": 23.732118348688537,
+            "range": 16.544346566831237,
+            "robust_range": 14.887857239967417
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 15.388760227048458,
+            "max": 20.124901523597085,
+            "q05": 15.662525692596176,
+            "median": 18.233267602118268,
+            "q95": 20.02061205875543,
+            "range": 4.736141296548627,
+            "robust_range": 4.358086366159252
+          }
+        },
+        {
+          "generation": 4,
+          "name": "adult_balance_parent",
+          "expression": "juvenile_maturation_rate * J - consumer_mortality_rate * C",
+          "role": "Parent net adult growth mapping being refined",
+          "train_range": [
+            -4.208865358216164,
+            -0.6499999999999999
+          ],
+          "hidden_range": [
+            -3.3433083667363337,
+            -2.9447099347027663
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -4.208865358216164,
+            "max": -0.6499999999999999,
+            "q05": -4.08989931456588,
+            "median": -2.7161342976640053,
+            "q95": -1.9338945886383792,
+            "range": 3.558865358216164,
+            "robust_range": 2.1560047259275006
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": -3.3433083667363337,
+            "max": -2.9447099347027663,
+            "q05": -3.3428497707165072,
+            "median": -3.2841146066285787,
+            "q95": -2.986962456104049,
+            "range": 0.3985984320335674,
+            "robust_range": 0.35588731461245837
+          }
+        },
+        {
+          "generation": 5,
+          "name": "maturation_flux_parent",
+          "expression": "juvenile_maturation_rate*R*J/(1 + handling_saturation_scale*R)",
+          "role": "Current juvenile-to-adult production term driving dC_dt",
+          "train_range": [
+            1.4335547682547818,
+            43.75
+          ],
+          "hidden_range": [
+            3.5709569971958257,
+            5.066731958631602
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 1.4335547682547818,
+            "max": 43.75,
+            "q05": 1.4842170930285565,
+            "median": 3.1878525442768297,
+            "q95": 8.311067441235867,
+            "range": 42.31644523174522,
+            "robust_range": 6.82685034820731
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 3.5709569971958257,
+            "max": 5.066731958631602,
+            "q05": 3.6759608679669595,
+            "median": 4.629603820174255,
+            "q95": 5.065147819645616,
+            "range": 1.4957749614357767,
+            "robust_range": 1.3891869516786564
+          }
+        },
+        {
+          "generation": 5,
+          "name": "resource_per_juvenile",
+          "expression": "R/(1 + handling_saturation_scale*R)",
+          "role": "Current effective maturation opportunity as a function of resource abundance",
+          "train_range": [
+            8.549399188076011,
+            25.09374575490725
+          ],
+          "hidden_range": [
+            15.388760227048458,
+            20.124901523597085
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 8.549399188076011,
+            "max": 25.09374575490725,
+            "q05": 8.84426110872112,
+            "median": 16.09073726014337,
+            "q95": 23.732118348688537,
+            "range": 16.544346566831237,
+            "robust_range": 14.887857239967417
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 15.388760227048458,
+            "max": 20.124901523597085,
+            "q05": 15.662525692596176,
+            "median": 18.233267602118268,
+            "q95": 20.02061205875543,
+            "range": 4.736141296548627,
+            "robust_range": 4.358086366159252
+          }
+        },
+        {
+          "generation": 5,
+          "name": "adult_net_growth_parent",
+          "expression": "juvenile_maturation_rate*R*J/(1 + handling_saturation_scale*R) - consumer_mortality_rate*C",
+          "role": "Current target mapping from observed states to adult consumer rate of change",
+          "train_range": [
+            -1.7066514168228322,
+            41.35
+          ],
+          "hidden_range": [
+            0.027794573130408562,
+            1.8609854811890134
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -1.7066514168228322,
+            "max": 41.35,
+            "q05": -1.5958787779019044,
+            "median": 0.3399879135609294,
+            "q95": 4.5782852237817515,
+            "range": 43.05665141682283,
+            "robust_range": 6.174164001683656
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.027794573130408562,
+            "max": 1.8609854811890134,
+            "q05": 0.11719882425728058,
+            "median": 1.0915795040164744,
+            "q95": 1.8263048954076244,
+            "range": 1.8331909080586049,
+            "robust_range": 1.7091060711503439
+          }
+        }
+      ],
+      "inactive_mechanisms": [],
+      "visible_mechanisms": [
+        "consumer_per_capita_growth",
+        "feeding_flux_parent",
+        "resource_per_consumer",
+        "resource_per_consumer",
+        "feeding_saturation_parent",
+        "consumer_pressure",
+        "feeding_flux",
+        "adult_loss",
+        "per_capita_feeding",
+        "juvenile_to_adult_flux_parent",
+        "resource_to_juvenile_ratio",
+        "adult_balance_parent",
+        "maturation_flux_parent",
+        "resource_per_juvenile",
+        "adult_net_growth_parent"
+      ],
+      "extended_mechanisms": []
+    },
+    "inactive_mechanisms": [],
+    "target_variance": {
+      "train": {
+        "n": 4500,
+        "variance": 2.2844563974177547,
+        "range": 28.730017716410007
+      },
+      "hidden": {
+        "n": 500,
+        "variance": 0.16127723436231925,
+        "range": 1.2893215252149872
+      }
+    },
+    "parent_absorption_report": {
+      "status": "ok",
+      "n_points": 512,
+      "fixed_parent_normalized_rmse": 1.5652668289974094,
+      "refit": {
+        "status": "not_run",
+        "reason": "no free parent parameters"
+      },
+      "interpretation": "<1e-3 nearly absorbed; 1e-3..1e-2 weak; >1e-2 visible structure"
+    },
+    "noise": 0.0,
+    "_trace": [
+      {
+        "turn": 1,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "analyze_expression",
+            "id": "call_v0gmGDtrG18xiiOrFZE5Zrwk"
+          }
+        ]
+      },
+      {
+        "tool": "analyze_expression",
+        "input": {
+          "expression": "juvenile_maturation_rate * R / (1 + handling_saturation_scale * R) * exp(-high_resource_inhibition_scale * R) * J - consumer_mortality_rate * C",
+          "target_symbol": "dC_dt"
+        },
+        "result": {
+          "ok": true,
+          "free_symbols": [
+            "C",
+            "J",
+            "R",
+            "consumer_mortality_rate",
+            "handling_saturation_scale",
+            "high_resource_inhibition_scale",
+            "juvenile_maturation_rate"
+          ],
+          "functions_of": {},
+          "target_function_calls": [],
+          "delayed_target_calls": [],
+          "ungoverned_functions": [],
+          "derivatives": [],
+          "max_derivative_order": 0,
+          "integral_kernels": [],
+          "explicitly_solvable_for_target": true,
+          "explicit_solution_preview": [
+            "-C*consumer_mortality_rate + J*R*juvenile_maturation_rate*exp(R*(-high_resource_inhibition_scale))/(R*handling_saturatio"
+          ],
+          "classification_hint": "explicit",
+          "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+        }
+      },
+      {
+        "turn": 2,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "check_substitution",
+            "id": "call_nklJf9L84T2Im92bJNelATJ6"
+          }
+        ]
+      },
+      {
+        "tool": "check_substitution",
+        "input": {
+          "expression": "juvenile_maturation_rate * R / (1 + handling_saturation_scale * R) * exp(-high_resource_inhibition_scale * R) * J - consumer_mortality_rate * C",
+          "target_symbol": "dC_dt",
+          "assignments": {
+            "R": 100,
+            "C": 20,
+            "J": 5,
+            "juvenile_maturation_rate": 0.35,
+            "handling_saturation_scale": 0.03,
+            "high_resource_inhibition_scale": 0.004,
+            "consumer_mortality_rate": 0.12
+          }
+        },
+        "result": {
+          "ok": true,
+          "value_real": 26.926502014059217,
+          "value_imag": 0.0,
+          "is_finite": true,
+          "is_real": true,
+          "verdict": "ok",
+          "residual_free_symbols": []
+        }
+      },
+      {
+        "turn": 3,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "emit_data_gen_spec",
+            "id": "call_LIZIxPAstyUW8ubLTwYrbAog"
+          }
+        ]
+      },
+      {
+        "tool": "emit_data_gen_spec",
+        "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+      },
+      {
+        "turn": 4,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "emit_data_gen_spec",
+            "id": "call_CO4pfE07IrW4XLaDenl4iQUB"
+          }
+        ]
+      },
+      {
+        "tool": "emit_data_gen_spec",
+        "accepted": true
+      }
+    ],
+    "_provider": "openai",
+    "_num_turns": 4,
+    "discipline": "biology",
+    "scenario_text": "Follow a resource population and a consumer population whose interaction can generate repeated rises and falls in abundance. Resource encounters support consumer reproduction, while consumption removes resource individuals and consumers experience mortality in the absence of food. The target is the consumer population's instantaneous rate of change, with both populations evolved jointly from their initial abundances.",
+    "record_id": "m2_population_ecology_20260921_001",
+    "generation": 5,
+    "_n_total": 5000,
+    "mechanism_observation_history": [
+      {
+        "generation": 1,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "asymptotic_change",
+            "parent_relation": "Consumer growth from feeding is linear in resource abundance at fixed consumer abundance: dC_dt/C = conversion_efficiency * encounter_rate * R - consumer_mortality_rate.",
+            "child_relation": "Consumer growth from feeding rises with resource abundance at low R but approaches a finite per-capita maximum at high R because handling/processing limits consumer recruitment.",
+            "affected_inputs": [
+              "R",
+              "C"
+            ],
+            "observable_effect": "When C is held fixed and R varies over low-to-high values along observed trajectories, the parent predicts an unbounded linear increase in per-capita consumer growth with R, whereas the child predicts diminishing returns and a bounded maximum growth rate."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "consumer_per_capita_growth",
+              "expression": "dC_dt / C",
+              "role": "Observed net consumer growth rate per consumer when C>0"
+            },
+            {
+              "name": "feeding_flux_parent",
+              "expression": "encounter_rate * R * C",
+              "role": "Mass-action consumption/recruitment driver in the parent model"
+            },
+            {
+              "name": "resource_per_consumer",
+              "expression": "R",
+              "role": "Resource availability controlling whether feeding remains encounter-limited or becomes processing-limited"
+            }
+          ],
+          "activation_condition": "Observable when resource abundance becomes large enough that encounter-limited feeding is no longer the sole bottleneck, i.e. along trajectories with moderate-to-high R relative to the consumer's implicit processing scale; at low R the child should reduce approximately to the parent.",
+          "train_hidden_contrast": "In training, low and moderate R can look nearly linear; in holdout with higher realized R from the same initial-condition protocol, the child shows compressed peaks in dC_dt/C versus R instead of the parent's continued linear increase.",
+          "continuation_path": "In the limit of negligible handling limitation (saturation scale taken very large, or equivalently over trajectories restricted to low R), the child law converges to the parent mass-action recruitment term.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The current consumer recruitment term assumes every additional resource individual increases consumer birth rate proportionally without bound, omitting processing/handling saturation in consumer reproduction from feeding.",
+          "baseline_assumption": "Encounter and conversion conditions are constant over time and effectively unlimited, so conversion_efficiency * encounter_rate acts as a single linear gain on R in the consumer equation.",
+          "scientific_mechanism": "Finite handling or assimilation capacity per consumer causes a Holling type II style saturation of feeding-derived consumer recruitment.",
+          "affected_symbols": [
+            "R",
+            "C",
+            "encounter_rate",
+            "conversion_efficiency"
+          ],
+          "rationale": "A realistic next refinement is to relax the linear mass-action assumption for feeding-derived consumer recruitment while keeping the same states. The parent target mapping has a single_gain shortcut: at fixed C, the scored quantity dC_dt depends on R through one shared linear coefficient, so its slope with respect to R is constant. Scientifically, this is idealized because consumers cannot convert prey into offspring arbitrarily fast once capture, digestion, or egg production becomes rate-limiting. The child therefore changes the response from linear to saturating, producing an asymptotic change in the mapping from observed states to dC_dt itself, not merely in auxiliary trajectories. Distinguishing condition: vary realized resource abundance R along the jointly evolved trajectories while holding the parameter set fixed and comparing per-capita consumer growth dC_dt/C across low versus high R. Under admissible nonnegative states, the parent predicts the same marginal increase in dC_dt/C for each added unit of R, but the child predicts a smaller marginal increase at high R and a bounded maximum feeding contribution. This contrast is observable only when trajectories visit sufficiently large R; if all observed R remain small, the refinement is weak and effectively collapses back toward the parent. No new state is needed because the omitted mechanism is a different functional form for an already present feeding process rather than a separate latent stock."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "asymptotic_change",
+            "parent_relation": "Consumer growth from feeding is linear in resource abundance at fixed consumer abundance: dC_dt/C = conversion_efficiency * encounter_rate * R - consumer_mortality_rate.",
+            "child_relation": "Consumer growth from feeding rises with resource abundance at low R but approaches a finite per-capita maximum at high R because handling/processing limits consumer recruitment.",
+            "affected_inputs": [
+              "R",
+              "C"
+            ],
+            "observable_effect": "When C is held fixed and R varies over low-to-high values along observed trajectories, the parent predicts an unbounded linear increase in per-capita consumer growth with R, whereas the child predicts diminishing returns and a bounded maximum growth rate."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "consumer_per_capita_growth",
+              "expression": "dC_dt / C",
+              "role": "Observed net consumer growth rate per consumer when C>0"
+            },
+            {
+              "name": "feeding_flux_parent",
+              "expression": "encounter_rate * R * C",
+              "role": "Mass-action consumption/recruitment driver in the parent model"
+            },
+            {
+              "name": "resource_per_consumer",
+              "expression": "R",
+              "role": "Resource availability controlling whether feeding remains encounter-limited or becomes processing-limited"
+            }
+          ],
+          "activation_condition": "Observable when resource abundance becomes large enough that encounter-limited feeding is no longer the sole bottleneck, i.e. along trajectories with moderate-to-high R relative to the consumer's implicit processing scale; at low R the child should reduce approximately to the parent.",
+          "train_hidden_contrast": "In training, low and moderate R can look nearly linear; in holdout with higher realized R from the same initial-condition protocol, the child shows compressed peaks in dC_dt/C versus R instead of the parent's continued linear increase.",
+          "continuation_path": "In the limit of negligible handling limitation (saturation scale taken very large, or equivalently over trajectories restricted to low R), the child law converges to the parent mass-action recruitment term.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "pairwise",
+          "scope_symbols": [
+            "R",
+            "C"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Handling-limited consumer reproduction from feeding",
+          "scientific_mechanism": "Finite handling or assimilation capacity per consumer causes a Holling type II style saturation of feeding-derived consumer recruitment.",
+          "embedding_pattern": "competing_processes",
+          "difficulty_rationale": "The new denominator introduces a competing processing limitation against the existing encounter-driven gain, so the local slope of dC_dt with respect to R changes across state regions rather than remaining a single global linear gain. This cannot be reproduced by only retuning existing coefficients because the parent lacks any finite asymptote in per-capita growth versus R.",
+          "taxonomy_match": "known",
+          "assumption_before": "Feeding-derived consumer recruitment is encounter-limited and proportional to resource abundance across the entire observed range.",
+          "assumption_after": "Feeding-derived consumer recruitment is encounter-limited only at low resource abundance and becomes handling/processing-limited at higher resource abundance.",
+          "before_fragment": "conversion_efficiency * encounter_rate * R * C - consumer_mortality_rate * C",
+          "after_fragment": "conversion_efficiency * encounter_rate * R * C / (1 + handling_saturation_scale * R) - consumer_mortality_rate * C",
+          "parent_reduction": "As handling_saturation_scale -> 0, or when handling_saturation_scale * R << 1 over the observed trajectories, the child expression approaches the parent expression.",
+          "observable_signature": "At fixed C, plotting dC_dt/C against R gives a straight line in the parent but a concave, saturating curve in the child, with the divergence becoming visible once handling_saturation_scale * R is not small.",
+          "shortcut_blocked": "A single refitted parent parameter set can change only the overall slope conversion_efficiency * encounter_rate and offset consumer_mortality_rate, so it still predicts d(dC_dt/C)/dR = conversion_efficiency * encounter_rate everywhere. The child instead predicts a decreasing slope and bounded feeding contribution at high R, which no fixed parent coefficient set can match simultaneously across both low-R and high-R conditions visited under the same trajectory protocol."
+        },
+        "range_suggestions": {
+          "handling_saturation_scale": "positive; small values approach mass-action behavior, larger values activate saturation over the observed resource range"
+        }
+      },
+      {
+        "generation": 2,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_threshold",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "Feeding-derived consumer recruitment increases with resource abundance R through a single Holling type II saturation term, so at fixed C the per-capita consumer growth contribution is a monotone concave function of R with one shared saturation scale.",
+            "child_relation": "Keep encounter-driven recruitment but relax the assumption that handling limitation acts only through resource abundance; introduce consumer-density interference in the same feeding term so that, at fixed R, rising C depresses per-capita recruitment and, at fixed C, the dependence on R saturates differently across consumer crowding levels.",
+            "affected_inputs": [
+              "R",
+              "C"
+            ],
+            "observable_effect": "Across trajectories that reach similar R but different C, the child predicts lower dC_dt at higher C because crowding reduces effective feeding/recruitment; the parent can only scale linearly with C outside mortality and cannot reproduce this C-dependent bending of the recruitment term with one shared parameter set."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "resource_per_consumer",
+              "expression": "R/C",
+              "role": "Resource availability relative to consumer crowding; low values favor interference effects when C>0."
+            },
+            {
+              "name": "feeding_saturation_parent",
+              "expression": "handling_saturation_scale*R",
+              "role": "Parent's existing resource-driven saturation coordinate."
+            },
+            {
+              "name": "consumer_pressure",
+              "expression": "encounter_rate*C/consumer_mortality_rate",
+              "role": "Consumer crowding relative to demographic loss scale; larger values indicate regimes where mutual interference can alter realized recruitment."
+            }
+          ],
+          "activation_condition": "Observable when consumer abundance is large enough that consumer-consumer interference during foraging is not negligible over the same range of R where handling saturation already matters; practically, moderate to high C with positive R and especially periods after consumer peaks in the joint dynamics.",
+          "train_hidden_contrast": "In training, the mechanism appears as weaker-than-linear growth of feeding-derived gains with C during crowded phases; in holdout, the same mechanism extends to stronger suppression of recruitment near larger consumer peaks without changing the low-C limit.",
+          "continuation_path": "Recover the parent law in the limit of vanishing consumer interference strength, or whenever C stays low enough that interference is negligible compared with the baseline handling term.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The current consumer equation assumes each consumer's feeding-derived recruitment is limited only by resource handling saturation, omitting reduction of feeding success caused by consumer crowding or interference.",
+          "baseline_assumption": "Encounter and conversion conditions are constant over time and individuals are equivalent, with no explicit consumer-density effect on per-consumer feeding beyond the multiplicative C factor.",
+          "scientific_mechanism": "Mutual interference among consumers during search, attack, or kleptoparasitic disruption reduces realized feeding/recruitment at high consumer density, yielding a Beddington-DeAngelis/Crowley-Martin-type refinement of the functional response.",
+          "affected_symbols": [
+            "R",
+            "C",
+            "encounter_rate",
+            "conversion_efficiency",
+            "handling_saturation_scale"
+          ],
+          "rationale": "A realistic next refinement is to relax the parent's single-threshold assumption that only resource abundance controls saturation of feeding-derived consumer growth. In the parent, holding R fixed gives dC_dt = C*(const(R)-consumer_mortality_rate), so the feeding contribution is exactly linear in C and all curvature with respect to abundance enters only through R. Varying consumer crowding along the observed joint trajectories therefore cannot change the per-capita feeding gain except through indirect changes in R. A child with consumer interference changes the target mapping itself: at the same observed R but larger C, per-capita recruitment falls because foragers impede one another. This is directly observable under the existing initial conditions because predator-prey cycles naturally generate phases with positive R and differing C, especially around and after consumer peaks. The contrast is not merely in auxiliary trajectories; it changes dC_dt as a function of the supplied states (R,C). A single refit of the parent cannot reproduce both low-C near-linear scaling and high-C suppressed feeding across these conditions, because its only C dependence is the external factor C minus linear mortality, whereas the child adds C inside the feeding nonlinearity. The refinement remains scientifically admissible, preserves nonnegativity, and smoothly reduces to the parent when interference is negligible."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_threshold",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "Feeding-derived consumer recruitment increases with resource abundance R through a single Holling type II saturation term, so at fixed C the per-capita consumer growth contribution is a monotone concave function of R with one shared saturation scale.",
+            "child_relation": "Keep encounter-driven recruitment but relax the assumption that handling limitation acts only through resource abundance; introduce consumer-density interference in the same feeding term so that, at fixed R, rising C depresses per-capita recruitment and, at fixed C, the dependence on R saturates differently across consumer crowding levels.",
+            "affected_inputs": [
+              "R",
+              "C"
+            ],
+            "observable_effect": "Across trajectories that reach similar R but different C, the child predicts lower dC_dt at higher C because crowding reduces effective feeding/recruitment; the parent can only scale linearly with C outside mortality and cannot reproduce this C-dependent bending of the recruitment term with one shared parameter set."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "resource_per_consumer",
+              "expression": "R/C",
+              "role": "Resource availability relative to consumer crowding; low values favor interference effects when C>0."
+            },
+            {
+              "name": "feeding_saturation_parent",
+              "expression": "handling_saturation_scale*R",
+              "role": "Parent's existing resource-driven saturation coordinate."
+            },
+            {
+              "name": "consumer_pressure",
+              "expression": "encounter_rate*C/consumer_mortality_rate",
+              "role": "Consumer crowding relative to demographic loss scale; larger values indicate regimes where mutual interference can alter realized recruitment."
+            }
+          ],
+          "activation_condition": "Observable when consumer abundance is large enough that consumer-consumer interference during foraging is not negligible over the same range of R where handling saturation already matters; practically, moderate to high C with positive R and especially periods after consumer peaks in the joint dynamics.",
+          "train_hidden_contrast": "In training, the mechanism appears as weaker-than-linear growth of feeding-derived gains with C during crowded phases; in holdout, the same mechanism extends to stronger suppression of recruitment near larger consumer peaks without changing the low-C limit.",
+          "continuation_path": "Recover the parent law in the limit of vanishing consumer interference strength, or whenever C stays low enough that interference is negligible compared with the baseline handling term.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "pairwise",
+          "scope_symbols": [
+            "R",
+            "C"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "consumer interference in the feeding functional response",
+          "scientific_mechanism": "Mutual interference among consumers during search, attack, or kleptoparasitic disruption reduces realized feeding/recruitment at high consumer density, yielding a Beddington-DeAngelis/Crowley-Martin-type refinement of the functional response.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "This is structurally harder than a coefficient-only correction because C now enters inside the saturating denominator, creating state-dependent curvature in the target mapping dC_dt(R,C) that cannot be reproduced by globally rescaling encounter, conversion, mortality, or the single resource saturation parameter.",
+          "taxonomy_match": "known",
+          "assumption_before": "Encounter and conversion conditions are constant over time and individuals are equivalent, with no explicit consumer-density effect on per-consumer feeding beyond the multiplicative C factor.",
+          "assumption_after": "Consumer crowding directly reduces realized feeding/recruitment through interference within the same saturating response law.",
+          "before_fragment": "conversion_efficiency * encounter_rate * R * C / (1 + handling_saturation_scale * R) - consumer_mortality_rate * C",
+          "after_fragment": "conversion_efficiency * encounter_rate * R * C / (1 + handling_saturation_scale * R + consumer_interference_scale * C) - consumer_mortality_rate * C",
+          "parent_reduction": "The successor reduces to the parent when consumer_interference_scale -> 0, or approximately whenever consumer_interference_scale * C is negligible relative to 1 + handling_saturation_scale * R.",
+          "observable_signature": "Holding R fixed and positive, the parent gives a feeding contribution exactly proportional to C, whereas the child gives sublinear growth in C because C also enlarges the denominator. Holding C fixed, the child still saturates in R, but the effective recruitment level is lower under higher consumer crowding, so two trajectory segments with similar R and different C can show different dC_dt values beyond the parent's linear mortality offset.",
+          "shortcut_blocked": "A single refit of all parent parameters cannot match both the low-C near-parent regime and the high-C interference-suppressed regime across the same observed R range, because in the parent the feeding term is C multiplied by a function of R only. Retuning encounter_rate, conversion_efficiency, handling_saturation_scale, or consumer_mortality_rate changes gain or the single R-threshold globally, but it cannot create the child’s extra C dependence inside the recruitment nonlinearity."
+        },
+        "range_suggestions": {
+          "consumer_interference_scale": "positive; small values recover negligible interference, larger values make recruitment suppression visible at moderate to high consumer abundance"
+        }
+      },
+      {
+        "generation": 3,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "At fixed consumer abundance C, feeding-derived consumer growth increases with resource abundance R as a single saturating Beddington-DeAngelis curve with one shared saturation scale, so the recruitment-vs-R curvature does not change qualitatively with recent resource history.",
+            "child_relation": "Replace the assumption of instantaneous conversion of consumed resource into new consumers with a delayed maturation pipeline represented by a juvenile consumer state. Then dC_dt depends on recruitment from the juvenile pool rather than directly on current feeding, so the instantaneous adult growth response to current R becomes history-dependent and can lag behind current feeding conditions.",
+            "affected_inputs": [
+              "R",
+              "C"
+            ],
+            "observable_effect": "After a resource pulse or during fast predator-prey oscillations, the parent predicts immediate adult-growth acceleration when R rises, whereas the child predicts strong current feeding with only delayed adult increase; thus two times with similar current (R,C) but different recent trajectories can show different dC_dt."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "feeding_flux",
+              "expression": "conversion_efficiency*encounter_rate*R*C/(1 + handling_saturation_scale*R + consumer_interference_scale*C)",
+              "role": "current production of new consumer biomass/offspring from feeding"
+            },
+            {
+              "name": "adult_loss",
+              "expression": "consumer_mortality_rate*C",
+              "role": "background adult consumer loss rate"
+            },
+            {
+              "name": "per_capita_feeding",
+              "expression": "conversion_efficiency*encounter_rate*R/(1 + handling_saturation_scale*R + consumer_interference_scale*C)",
+              "role": "resource-dependent instantaneous recruitment pressure per consumer"
+            }
+          ],
+          "activation_condition": "Most visible when resource abundance changes on timescales comparable to consumer maturation, such as during repeated predator-prey cycles or transient resource pulses; weak when maturation is effectively instantaneous relative to population change.",
+          "train_hidden_contrast": "In training regions with moderate oscillations, the lag appears as softened and delayed adult-growth peaks relative to feeding flux; in holdout with sharper or larger-amplitude resource swings, the same maturation mechanism produces stronger phase lag and altered peak timing rather than merely a rescaled gain.",
+          "continuation_path": "Recover the parent law in the fast-maturation limit where juvenile residence time tends to zero and juvenile mortality is negligible, so feeding-derived production is converted almost instantaneously into adult consumer growth.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "A genuine maturation delay is not representable with only the current adult consumer and resource states, because dC_dt must depend on stored past feeding through an internal population compartment rather than a memoryless function of current R and C.",
+          "gap_statement": "The model treats all feeding-derived recruitment as instantly appearing in the reproducing/mortality-bearing consumer class, omitting juvenile development time.",
+          "baseline_assumption": "Individuals within each population are equivalent, so there is no stage structure and no delay between resource consumption and addition to the consumer population counted by C.",
+          "scientific_mechanism": "Consumed resources first generate immature consumers that survive and mature into adults after a finite developmental period.",
+          "affected_symbols": [
+            "R",
+            "C",
+            "conversion_efficiency",
+            "consumer_mortality_rate",
+            "encounter_rate",
+            "handling_saturation_scale",
+            "consumer_interference_scale"
+          ],
+          "rationale": "A realistic next refinement is to relax the instantaneous-conversion assumption by introducing juvenile consumers. In the parent, holding C fixed, increasing R immediately raises dC_dt through the same saturating feeding term, so the adult response is a single-phase memoryless function of current states. In the child, current feeding still creates consumers, but they enter a juvenile compartment first; adult dC_dt is then governed by maturation inflow minus adult mortality. This changes the scored target mapping itself, not only an auxiliary trajectory, because the target is dC_dt and it no longer follows current feeding instantaneously. The contrast is observable under the actual ODE protocol from the given initial conditions once trajectories generate varying recent histories: for similar current R and C reached on the rising versus falling side of a cycle, the child can produce different dC_dt due to different juvenile backlog, while a single parent parameter set cannot because its dC_dt is uniquely determined by current R and C. The effect is scientifically admissible when developmental delay is not negligible relative to ecological turnover; if maturation is extremely fast, the refinement collapses back to the parent."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "At fixed consumer abundance C, feeding-derived consumer growth increases with resource abundance R as a single saturating Beddington-DeAngelis curve with one shared saturation scale, so the recruitment-vs-R curvature does not change qualitatively with recent resource history.",
+            "child_relation": "Replace the assumption of instantaneous conversion of consumed resource into new consumers with a delayed maturation pipeline represented by a juvenile consumer state. Then dC_dt depends on recruitment from the juvenile pool rather than directly on current feeding, so the instantaneous adult growth response to current R becomes history-dependent and can lag behind current feeding conditions.",
+            "affected_inputs": [
+              "R",
+              "C"
+            ],
+            "observable_effect": "After a resource pulse or during fast predator-prey oscillations, the parent predicts immediate adult-growth acceleration when R rises, whereas the child predicts strong current feeding with only delayed adult increase; thus two times with similar current (R,C) but different recent trajectories can show different dC_dt."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "feeding_flux",
+              "expression": "conversion_efficiency*encounter_rate*R*C/(1 + handling_saturation_scale*R + consumer_interference_scale*C)",
+              "role": "current production of new consumer biomass/offspring from feeding"
+            },
+            {
+              "name": "adult_loss",
+              "expression": "consumer_mortality_rate*C",
+              "role": "background adult consumer loss rate"
+            },
+            {
+              "name": "per_capita_feeding",
+              "expression": "conversion_efficiency*encounter_rate*R/(1 + handling_saturation_scale*R + consumer_interference_scale*C)",
+              "role": "resource-dependent instantaneous recruitment pressure per consumer"
+            }
+          ],
+          "activation_condition": "Most visible when resource abundance changes on timescales comparable to consumer maturation, such as during repeated predator-prey cycles or transient resource pulses; weak when maturation is effectively instantaneous relative to population change.",
+          "train_hidden_contrast": "In training regions with moderate oscillations, the lag appears as softened and delayed adult-growth peaks relative to feeding flux; in holdout with sharper or larger-amplitude resource swings, the same maturation mechanism produces stronger phase lag and altered peak timing rather than merely a rescaled gain.",
+          "continuation_path": "Recover the parent law in the fast-maturation limit where juvenile residence time tends to zero and juvenile mortality is negligible, so feeding-derived production is converted almost instantaneously into adult consumer growth.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "A genuine maturation delay is not representable with only the current adult consumer and resource states, because dC_dt must depend on stored past feeding through an internal population compartment rather than a memoryless function of current R and C.",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "R",
+            "C",
+            "J"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "juvenile maturation pipeline modulating conversion of feeding into adult recruitment",
+          "scientific_mechanism": "Consumed resources first generate immature consumers that survive and mature into adults after a finite developmental period.",
+          "embedding_pattern": "multiplicative_modulation",
+          "difficulty_rationale": "This is harder than a coefficient-only correction because the scored adult-growth law is no longer a memoryless function of current R and C; stored juvenile abundance modulates how much of past feeding reaches adults now, creating phase-lagged curvature changes that parameter retuning of the parent cannot reproduce with one shared parameter set.",
+          "taxonomy_match": "known",
+          "assumption_before": "Feeding-derived recruitment appears immediately in the adult consumer class with no stage structure.",
+          "assumption_after": "Feeding-derived production enters a juvenile stage, and adult recruitment is modulated by the juvenile pool through finite maturation.",
+          "before_fragment": "conversion_efficiency * encounter_rate * R * C / (1 + handling_saturation_scale * R + consumer_interference_scale * C) - consumer_mortality_rate * C",
+          "after_fragment": "juvenile_maturation_rate * J - consumer_mortality_rate * C",
+          "parent_reduction": "In the fast-maturation, low-juvenile-mortality limit, the juvenile state is quasi-steady and the child reduces to the parent recruitment law.",
+          "observable_signature": "Along trajectories generated from the fixed initial conditions, compare times on rising and falling parts of an oscillation where current R and C are similar. The parent gives the same dC_dt because its target mapping is uniquely determined by current (R,C), while the child can give different dC_dt because J retains recent feeding history; the contrast is strongest when feeding_flux changes on the same scale as 1/juvenile_maturation_rate.",
+          "shortcut_blocked": "Refitting all parent parameters still leaves dC_dt as a single-valued memoryless function of current R and C, so one shared parameter set cannot match cases where similar current (R,C) produce different adult growth due to different juvenile backlog. Matching one phase of the cycle forces mismatches in the opposite phase because the missing state-dependent history cannot be absorbed by gain or saturation retuning."
+        },
+        "range_suggestions": {
+          "J": "positive; typically nonzero when recent feeding has occurred, with initial values on the order of a small-to-moderate fraction of adult abundance if juveniles are present at the observation start",
+          "juvenile_maturation_rate": "positive; small values give long developmental delay, large values recover near-instant maturation",
+          "juvenile_mortality_rate": "nonnegative; negligible values approach efficient maturation, larger values suppress transfer from feeding to adult recruitment"
+        }
+      },
+      {
+        "generation": 4,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "interaction_emergence",
+            "parent_relation": "The adult consumer growth term is linear in juvenile abundance alone, dC_dt = juvenile_maturation_rate * J - consumer_mortality_rate * C, so at fixed C the slope of dC_dt with respect to J is constant and independent of resource conditions.",
+            "child_relation": "Replace constant per-capita juvenile maturation with resource-dependent maturation, so the contribution of J to dC_dt depends jointly on J and R; at fixed C and J, adult gain is reduced under resource scarcity and approaches the parent form when resources are abundant.",
+            "affected_inputs": [
+              "J",
+              "R",
+              "juvenile_maturation_rate"
+            ],
+            "observable_effect": "Across times or trajectories with similar juvenile abundance J but different resource abundance R, the same juvenile pool yields different adult recruitment rates; low-R periods show weaker conversion of J into C than high-R periods."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "juvenile_to_adult_flux_parent",
+              "expression": "juvenile_maturation_rate * J",
+              "role": "Parent adult recruitment flux from the juvenile pool"
+            },
+            {
+              "name": "resource_to_juvenile_ratio",
+              "expression": "R / (1 + handling_saturation_scale * R)",
+              "role": "Proxy for whether current resource availability is low enough to plausibly limit juvenile development after production"
+            },
+            {
+              "name": "adult_balance_parent",
+              "expression": "juvenile_maturation_rate * J - consumer_mortality_rate * C",
+              "role": "Parent net adult growth mapping being refined"
+            }
+          ],
+          "activation_condition": "Observable when resource abundance varies over time enough that juveniles experience both low-resource and moderate/high-resource conditions before maturing; strongest when juvenile maturation is not effectively instantaneous and R can transiently become small relative to its typical initial scale.",
+          "train_hidden_contrast": "In training, ordinary predator-prey cycling already creates windows with similar J but differing R. In holdout trajectories with deeper resource troughs or longer juvenile residence times, the contrast strengthens because resource-poor periods suppress maturation more strongly than the parent allows.",
+          "continuation_path": "Recover the parent law in the limit where maturation is resource-insensitive, equivalently when the resource-limitation effect on maturation vanishes or when R stays uniformly high over the observed interval.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The current model assumes juvenile consumers mature into adults at a constant per-capita rate regardless of present resource conditions, even though juveniles often require continued feeding or favorable energetic conditions to complete development.",
+          "baseline_assumption": "The parent fixes juvenile_maturation_rate as constant in time and independent of system state.",
+          "scientific_mechanism": "Resource-dependent juvenile development: maturation slows under resource scarcity because juveniles lack sufficient food or condition to complete development, and approaches the baseline rate when resources are plentiful.",
+          "affected_symbols": [
+            "R",
+            "J",
+            "juvenile_maturation_rate"
+          ],
+          "rationale": "A realistic next refinement is to relax the constant-maturation assumption rather than adding an unrelated new compartment. The parent target mapping has a single_gain shortcut: once J and C are known, R cannot modify dC_dt except indirectly through past effects on J. Scientifically, that omits a common developmental bottleneck in which juveniles produced earlier may remain unable to mature during current resource shortage. Vary resource abundance R while holding J and C fixed conceptually at matched observed values. Parent prediction gives the same adult gain for both cases because the slope with respect to J is fixed at juvenile_maturation_rate. The child predicts lower adult gain at low R and near-parent gain at high R, creating a direct R-by-J interaction in the scored target mapping. This contrast is admissible under the existing observation protocol because R, J, and C are all supplied states and the system’s own cycles can generate matched J with differing R. A single refit of the parent parameters cannot reproduce this state-dependent slope change across such conditions: changing juvenile_maturation_rate rescales all J equally, whereas the child changes the effective slope only in low-resource regimes. The limitation is that if R never varies appreciably or stays always high, the refinement becomes weakly identifiable and the parent is recovered approximately."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "interaction_emergence",
+            "parent_relation": "The adult consumer growth term is linear in juvenile abundance alone, dC_dt = juvenile_maturation_rate * J - consumer_mortality_rate * C, so at fixed C the slope of dC_dt with respect to J is constant and independent of resource conditions.",
+            "child_relation": "Replace constant per-capita juvenile maturation with resource-dependent maturation, so the contribution of J to dC_dt depends jointly on J and R; at fixed C and J, adult gain is reduced under resource scarcity and approaches the parent form when resources are abundant.",
+            "affected_inputs": [
+              "J",
+              "R",
+              "juvenile_maturation_rate"
+            ],
+            "observable_effect": "Across times or trajectories with similar juvenile abundance J but different resource abundance R, the same juvenile pool yields different adult recruitment rates; low-R periods show weaker conversion of J into C than high-R periods."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "juvenile_to_adult_flux_parent",
+              "expression": "juvenile_maturation_rate * J",
+              "role": "Parent adult recruitment flux from the juvenile pool"
+            },
+            {
+              "name": "resource_to_juvenile_ratio",
+              "expression": "R / (1 + handling_saturation_scale * R)",
+              "role": "Proxy for whether current resource availability is low enough to plausibly limit juvenile development after production"
+            },
+            {
+              "name": "adult_balance_parent",
+              "expression": "juvenile_maturation_rate * J - consumer_mortality_rate * C",
+              "role": "Parent net adult growth mapping being refined"
+            }
+          ],
+          "activation_condition": "Observable when resource abundance varies over time enough that juveniles experience both low-resource and moderate/high-resource conditions before maturing; strongest when juvenile maturation is not effectively instantaneous and R can transiently become small relative to its typical initial scale.",
+          "train_hidden_contrast": "In training, ordinary predator-prey cycling already creates windows with similar J but differing R. In holdout trajectories with deeper resource troughs or longer juvenile residence times, the contrast strengthens because resource-poor periods suppress maturation more strongly than the parent allows.",
+          "continuation_path": "Recover the parent law in the limit where maturation is resource-insensitive, equivalently when the resource-limitation effect on maturation vanishes or when R stays uniformly high over the observed interval.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "R",
+            "J"
+          ],
+          "structural_role": "interaction",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "resource-limited juvenile maturation",
+          "scientific_mechanism": "Resource-dependent juvenile development: maturation slows under resource scarcity because juveniles lack sufficient food or condition to complete development, and approaches the baseline rate when resources are plentiful.",
+          "embedding_pattern": "state_coupling",
+          "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the effective slope of dC_dt with respect to J is now state dependent through R, creating a joint response surface rather than a single global gain.",
+          "taxonomy_match": "known",
+          "assumption_before": "The parent fixes juvenile_maturation_rate as constant in time and independent of system state.",
+          "assumption_after": "Juvenile maturation is modulated by current resource abundance through a saturating resource-dependent factor.",
+          "before_fragment": "juvenile_maturation_rate * J - consumer_mortality_rate * C",
+          "after_fragment": "juvenile_maturation_rate * R / (1 + handling_saturation_scale * R) * J - consumer_mortality_rate * C",
+          "parent_reduction": "The parent is recovered approximately when R / (1 + handling_saturation_scale * R) is effectively constant and near one across the observed regime, so the maturation term behaves like juvenile_maturation_rate * J.",
+          "observable_signature": "At matched observed J and C, dC_dt increases with R because the juvenile-to-adult recruitment flux is juvenile_maturation_rate * R / (1 + handling_saturation_scale * R) * J. The parent predicts no such direct dependence once J and C are fixed. The contrast is visible during cyclic trajectories that revisit similar J at different resource levels, especially in resource troughs versus resource-replete phases.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce this contrast across low- and high-resource conditions because refitting juvenile_maturation_rate only rescales recruitment uniformly for all J, regardless of R. The child changes the J-to-dC_dt slope selectively in low-resource regimes while leaving near-parent behavior at higher R, which is not achievable by one global gain or by refitting the mortality term alone."
+        },
+        "range_suggestions": {}
+      },
+      {
+        "generation": 5,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "Adult consumer growth from juveniles is proportional to J times a single resource-dependent maturation factor R/(1 + handling_saturation_scale*R), so at fixed J the dependence of dC_dt on resource abundance has one fixed saturating curvature and no high-resource decline.",
+            "child_relation": "Relax the assumption that the same saturating factor fully captures juvenile maturation quality; allow maturation success to become unimodal in resource abundance because extreme resource abundance can reduce juvenile-to-adult transition efficiency through crowding, poor condition, or toxic/algal-bloom-like low-quality food. Then at fixed J, dC_dt rises with R at low-intermediate resource levels but bends over more strongly, potentially peaking and declining at very high R.",
+            "affected_inputs": [
+              "R",
+              "J",
+              "juvenile_maturation_rate",
+              "handling_saturation_scale"
+            ],
+            "observable_effect": "Across trajectories with similar J but different high-resource levels, the parent predicts adult production should keep increasing toward a plateau, whereas the child predicts reduced adult production at sufficiently high R after an intermediate optimum."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "maturation_flux_parent",
+              "expression": "juvenile_maturation_rate*R*J/(1 + handling_saturation_scale*R)",
+              "role": "Current juvenile-to-adult production term driving dC_dt"
+            },
+            {
+              "name": "resource_per_juvenile",
+              "expression": "R/(1 + handling_saturation_scale*R)",
+              "role": "Current effective maturation opportunity as a function of resource abundance"
+            },
+            {
+              "name": "adult_net_growth_parent",
+              "expression": "juvenile_maturation_rate*R*J/(1 + handling_saturation_scale*R) - consumer_mortality_rate*C",
+              "role": "Current target mapping from observed states to adult consumer rate of change"
+            }
+          ],
+          "activation_condition": "The refinement is observable only when trajectories enter a very high-resource regime relative to the maturation scale, with nonzero juvenile abundance so maturation contributes materially to dC_dt; at low to moderate R the child should reduce to the parent-like monotone increase.",
+          "train_hidden_contrast": "In training, the mechanism appears as stronger-than-parent flattening of adult recruitment at upper-range resource abundance; in holdout with still higher R it extends to a clear turnover or sharper suppression that the parent's single saturating gain cannot match with one parameter set.",
+          "continuation_path": "In the limit of negligible high-resource inhibition or outside the high-R regime, the maturation law returns to the parent's monotone saturating form.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The current model assumes juvenile maturation quality improves monotonically with resource abundance and never deteriorates at extreme resource levels.",
+          "baseline_assumption": "Resource-dependent juvenile development is represented by a single monotone Holling-type saturation with no adverse high-resource effect.",
+          "scientific_mechanism": "Overabundant resource can become low-quality or physiologically stressful for juveniles, making maturation success unimodal rather than purely saturating.",
+          "affected_symbols": [
+            "R",
+            "J",
+            "juvenile_maturation_rate",
+            "handling_saturation_scale"
+          ],
+          "rationale": "A realistic next refinement is to change the maturation assumption, not add an unrelated new compartment. The parent target mapping is dC_dt(R,C,J)=J*juvenile_maturation_rate*R/(1+handling_saturation_scale*R)-consumer_mortality_rate*C, so when C and J are held fixed its dependence on R is constrained to one monotone saturating shape. Varying resource abundance along observed trajectories while comparing times with similar juvenile abundance gives a concrete test: under the parent, increasing R can only increase the maturation contribution toward a plateau; under the child, sufficiently high R can reduce realized adult recruitment relative to intermediate R. This is a changed target mapping, not merely a different auxiliary trajectory, because R enters the scored equation directly. A single refit of the parent parameters cannot reproduce both intermediate-resource enhancement and high-resource suppression across admissible conditions, since its derivative with respect to R remains nonnegative for all R>=0. The mechanism is scientifically admissible in systems where bloom-like or overcrowded resource conditions reduce nutritional quality or developmental success. Limitation: if the sampled trajectories never reach high R, the refinement will be weakly identifiable and should honestly collapse back toward the parent."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "Adult consumer growth from juveniles is proportional to J times a single resource-dependent maturation factor R/(1 + handling_saturation_scale*R), so at fixed J the dependence of dC_dt on resource abundance has one fixed saturating curvature and no high-resource decline.",
+            "child_relation": "Relax the assumption that the same saturating factor fully captures juvenile maturation quality; allow maturation success to become unimodal in resource abundance because extreme resource abundance can reduce juvenile-to-adult transition efficiency through crowding, poor condition, or toxic/algal-bloom-like low-quality food. Then at fixed J, dC_dt rises with R at low-intermediate resource levels but bends over more strongly, potentially peaking and declining at very high R.",
+            "affected_inputs": [
+              "R",
+              "J",
+              "juvenile_maturation_rate",
+              "handling_saturation_scale"
+            ],
+            "observable_effect": "Across trajectories with similar J but different high-resource levels, the parent predicts adult production should keep increasing toward a plateau, whereas the child predicts reduced adult production at sufficiently high R after an intermediate optimum."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "maturation_flux_parent",
+              "expression": "juvenile_maturation_rate*R*J/(1 + handling_saturation_scale*R)",
+              "role": "Current juvenile-to-adult production term driving dC_dt"
+            },
+            {
+              "name": "resource_per_juvenile",
+              "expression": "R/(1 + handling_saturation_scale*R)",
+              "role": "Current effective maturation opportunity as a function of resource abundance"
+            },
+            {
+              "name": "adult_net_growth_parent",
+              "expression": "juvenile_maturation_rate*R*J/(1 + handling_saturation_scale*R) - consumer_mortality_rate*C",
+              "role": "Current target mapping from observed states to adult consumer rate of change"
+            }
+          ],
+          "activation_condition": "The refinement is observable only when trajectories enter a very high-resource regime relative to the maturation scale, with nonzero juvenile abundance so maturation contributes materially to dC_dt; at low to moderate R the child should reduce to the parent-like monotone increase.",
+          "train_hidden_contrast": "In training, the mechanism appears as stronger-than-parent flattening of adult recruitment at upper-range resource abundance; in holdout with still higher R it extends to a clear turnover or sharper suppression that the parent's single saturating gain cannot match with one parameter set.",
+          "continuation_path": "In the limit of negligible high-resource inhibition or outside the high-R regime, the maturation law returns to the parent's monotone saturating form.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "unary",
+          "scope_symbols": [
+            "R"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Competing facilitation and inhibition of juvenile maturation across the resource gradient",
+          "scientific_mechanism": "Overabundant resource can become low-quality or physiologically stressful for juveniles, making maturation success unimodal rather than purely saturating.",
+          "embedding_pattern": "competing_processes",
+          "difficulty_rationale": "This embedding is structurally harder than a coefficient-only correction because it makes the scored target law the product of a facilitating maturation term and a competing inhibitory process, changing the curvature of dC_dt as a function of observed resource abundance and allowing turnover at high R.",
+          "taxonomy_match": "known",
+          "assumption_before": "Resource-dependent juvenile development is represented by a single monotone Holling-type saturation with no adverse high-resource effect.",
+          "assumption_after": "Juvenile maturation combines the original saturating resource benefit with a competing high-resource inhibition that reduces successful maturation at extreme resource abundance.",
+          "before_fragment": "juvenile_maturation_rate * R / (1 + handling_saturation_scale * R) * J - consumer_mortality_rate * C",
+          "after_fragment": "juvenile_maturation_rate * R / (1 + handling_saturation_scale * R) * exp(-high_resource_inhibition_scale * R) * J - consumer_mortality_rate * C",
+          "parent_reduction": "Setting high_resource_inhibition_scale = 0 recovers the parent exactly.",
+          "observable_signature": "When trajectories reach very high resource abundance relative to the maturation scale and J remains nonzero, the parent target mapping from observed states predicts maturation contribution to dC_dt should continue increasing toward a plateau, while the child mapping predicts stronger bending and possible decline of that contribution at extreme R. This changed target mapping is directly observable in the scored C equation, not only through auxiliary state trajectories.",
+          "shortcut_blocked": "A single refit of the parent parameters cannot reproduce both intermediate-resource enhancement and high-resource suppression across these admissible conditions because the parent maturation contribution juvenile_maturation_rate*R*J/(1 + handling_saturation_scale*R) is monotone nondecreasing in R for J > 0. Retuning gain or saturation scale can shift the plateau level and approach rate but cannot create a decline in the scored mapping from observed R, J, and C to dC_dt."
+        },
+        "range_suggestions": {
+          "high_resource_inhibition_scale": "0 <= high_resource_inhibition_scale <= 1/initial_resource_scale; zero recovers the parent, positive values activate high-resource maturation suppression"
+        }
+      }
+    ],
+    "evolution_provenance": {
+      "dimension_track": null,
+      "mechanism_profile": {
+        "allowed_structural_roles": [
+          "contribution",
+          "interaction",
+          "constraint",
+          "feedback",
+          "transition",
+          "timescale"
+        ],
+        "preferred_scopes": [
+          "unary",
+          "pairwise",
+          "state_coupling",
+          "time_forcing"
+        ],
+        "domain_mechanisms": [
+          {
+            "id": "density_dependence",
+            "description": "density-dependent survival or reproduction",
+            "operations": [
+              "add_term",
+              "change_assumption"
+            ]
+          },
+          {
+            "id": "interspecies_competition",
+            "description": "competition, predation, or mutualistic interaction",
+            "operations": [
+              "add_term"
+            ]
+          },
+          {
+            "id": "seasonal_environment",
+            "description": "seasonal or environmental modulation",
+            "operations": [
+              "change_assumption"
+            ]
+          },
+          {
+            "id": "harvest_or_removal",
+            "description": "harvest, migration, or external removal",
+            "operations": [
+              "add_term"
+            ]
+          }
+        ],
+        "profile_source": "subfield",
+        "ontology_schema_version": "1.0",
+        "taxonomy_schema_version": "1.0"
+      },
+      "baseline_mechanisms": [
+        "Resource population renewal",
+        "Removal of resources through consumer encounters",
+        "Conversion of consumed resources into consumer recruitment",
+        "Background consumer mortality"
+      ],
+      "baseline_assumptions": [
+        "The habitat is spatially well mixed",
+        "Encounter and conversion conditions are constant over time",
+        "Individuals within each population are equivalent",
+        "No alternative resource or consumer species is present"
+      ],
+      "scientific_constraints": [
+        "Resource and consumer abundances must remain nonnegative",
+        "Consumer recruitment from feeding must vanish when either population is absent",
+        "Consumption must have opposite directional effects on resource loss and consumer gain"
+      ],
+      "refinement_agenda": [
+        "Add crowding within the resource population",
+        "Introduce saturation of consumer feeding",
+        "Allow consumer interference",
+        "Add seasonal forcing or a refuge for the resource population"
+      ],
+      "evolution_contracts": [
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "asymptotic_change",
+            "parent_relation": "Consumer growth from feeding is linear in resource abundance at fixed consumer abundance: dC_dt/C = conversion_efficiency * encounter_rate * R - consumer_mortality_rate.",
+            "child_relation": "Consumer growth from feeding rises with resource abundance at low R but approaches a finite per-capita maximum at high R because handling/processing limits consumer recruitment.",
+            "affected_inputs": [
+              "R",
+              "C"
+            ],
+            "observable_effect": "When C is held fixed and R varies over low-to-high values along observed trajectories, the parent predicts an unbounded linear increase in per-capita consumer growth with R, whereas the child predicts diminishing returns and a bounded maximum growth rate."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "consumer_per_capita_growth",
+              "expression": "dC_dt / C",
+              "role": "Observed net consumer growth rate per consumer when C>0"
+            },
+            {
+              "name": "feeding_flux_parent",
+              "expression": "encounter_rate * R * C",
+              "role": "Mass-action consumption/recruitment driver in the parent model"
+            },
+            {
+              "name": "resource_per_consumer",
+              "expression": "R",
+              "role": "Resource availability controlling whether feeding remains encounter-limited or becomes processing-limited"
+            }
+          ],
+          "activation_condition": "Observable when resource abundance becomes large enough that encounter-limited feeding is no longer the sole bottleneck, i.e. along trajectories with moderate-to-high R relative to the consumer's implicit processing scale; at low R the child should reduce approximately to the parent.",
+          "train_hidden_contrast": "In training, low and moderate R can look nearly linear; in holdout with higher realized R from the same initial-condition protocol, the child shows compressed peaks in dC_dt/C versus R instead of the parent's continued linear increase.",
+          "continuation_path": "In the limit of negligible handling limitation (saturation scale taken very large, or equivalently over trajectories restricted to low R), the child law converges to the parent mass-action recruitment term.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "pairwise",
+          "scope_symbols": [
+            "R",
+            "C"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Handling-limited consumer reproduction from feeding",
+          "scientific_mechanism": "Finite handling or assimilation capacity per consumer causes a Holling type II style saturation of feeding-derived consumer recruitment.",
+          "embedding_pattern": "competing_processes",
+          "difficulty_rationale": "The new denominator introduces a competing processing limitation against the existing encounter-driven gain, so the local slope of dC_dt with respect to R changes across state regions rather than remaining a single global linear gain. This cannot be reproduced by only retuning existing coefficients because the parent lacks any finite asymptote in per-capita growth versus R.",
+          "taxonomy_match": "known",
+          "assumption_before": "Feeding-derived consumer recruitment is encounter-limited and proportional to resource abundance across the entire observed range.",
+          "assumption_after": "Feeding-derived consumer recruitment is encounter-limited only at low resource abundance and becomes handling/processing-limited at higher resource abundance.",
+          "before_fragment": "conversion_efficiency * encounter_rate * R * C - consumer_mortality_rate * C",
+          "after_fragment": "conversion_efficiency * encounter_rate * R * C / (1 + handling_saturation_scale * R) - consumer_mortality_rate * C",
+          "parent_reduction": "As handling_saturation_scale -> 0, or when handling_saturation_scale * R << 1 over the observed trajectories, the child expression approaches the parent expression.",
+          "observable_signature": "At fixed C, plotting dC_dt/C against R gives a straight line in the parent but a concave, saturating curve in the child, with the divergence becoming visible once handling_saturation_scale * R is not small.",
+          "shortcut_blocked": "A single refitted parent parameter set can change only the overall slope conversion_efficiency * encounter_rate and offset consumer_mortality_rate, so it still predicts d(dC_dt/C)/dR = conversion_efficiency * encounter_rate everywhere. The child instead predicts a decreasing slope and bounded feeding contribution at high R, which no fixed parent coefficient set can match simultaneously across both low-R and high-R conditions visited under the same trajectory protocol."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_threshold",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "Feeding-derived consumer recruitment increases with resource abundance R through a single Holling type II saturation term, so at fixed C the per-capita consumer growth contribution is a monotone concave function of R with one shared saturation scale.",
+            "child_relation": "Keep encounter-driven recruitment but relax the assumption that handling limitation acts only through resource abundance; introduce consumer-density interference in the same feeding term so that, at fixed R, rising C depresses per-capita recruitment and, at fixed C, the dependence on R saturates differently across consumer crowding levels.",
+            "affected_inputs": [
+              "R",
+              "C"
+            ],
+            "observable_effect": "Across trajectories that reach similar R but different C, the child predicts lower dC_dt at higher C because crowding reduces effective feeding/recruitment; the parent can only scale linearly with C outside mortality and cannot reproduce this C-dependent bending of the recruitment term with one shared parameter set."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "resource_per_consumer",
+              "expression": "R/C",
+              "role": "Resource availability relative to consumer crowding; low values favor interference effects when C>0."
+            },
+            {
+              "name": "feeding_saturation_parent",
+              "expression": "handling_saturation_scale*R",
+              "role": "Parent's existing resource-driven saturation coordinate."
+            },
+            {
+              "name": "consumer_pressure",
+              "expression": "encounter_rate*C/consumer_mortality_rate",
+              "role": "Consumer crowding relative to demographic loss scale; larger values indicate regimes where mutual interference can alter realized recruitment."
+            }
+          ],
+          "activation_condition": "Observable when consumer abundance is large enough that consumer-consumer interference during foraging is not negligible over the same range of R where handling saturation already matters; practically, moderate to high C with positive R and especially periods after consumer peaks in the joint dynamics.",
+          "train_hidden_contrast": "In training, the mechanism appears as weaker-than-linear growth of feeding-derived gains with C during crowded phases; in holdout, the same mechanism extends to stronger suppression of recruitment near larger consumer peaks without changing the low-C limit.",
+          "continuation_path": "Recover the parent law in the limit of vanishing consumer interference strength, or whenever C stays low enough that interference is negligible compared with the baseline handling term.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "pairwise",
+          "scope_symbols": [
+            "R",
+            "C"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "consumer interference in the feeding functional response",
+          "scientific_mechanism": "Mutual interference among consumers during search, attack, or kleptoparasitic disruption reduces realized feeding/recruitment at high consumer density, yielding a Beddington-DeAngelis/Crowley-Martin-type refinement of the functional response.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "This is structurally harder than a coefficient-only correction because C now enters inside the saturating denominator, creating state-dependent curvature in the target mapping dC_dt(R,C) that cannot be reproduced by globally rescaling encounter, conversion, mortality, or the single resource saturation parameter.",
+          "taxonomy_match": "known",
+          "assumption_before": "Encounter and conversion conditions are constant over time and individuals are equivalent, with no explicit consumer-density effect on per-consumer feeding beyond the multiplicative C factor.",
+          "assumption_after": "Consumer crowding directly reduces realized feeding/recruitment through interference within the same saturating response law.",
+          "before_fragment": "conversion_efficiency * encounter_rate * R * C / (1 + handling_saturation_scale * R) - consumer_mortality_rate * C",
+          "after_fragment": "conversion_efficiency * encounter_rate * R * C / (1 + handling_saturation_scale * R + consumer_interference_scale * C) - consumer_mortality_rate * C",
+          "parent_reduction": "The successor reduces to the parent when consumer_interference_scale -> 0, or approximately whenever consumer_interference_scale * C is negligible relative to 1 + handling_saturation_scale * R.",
+          "observable_signature": "Holding R fixed and positive, the parent gives a feeding contribution exactly proportional to C, whereas the child gives sublinear growth in C because C also enlarges the denominator. Holding C fixed, the child still saturates in R, but the effective recruitment level is lower under higher consumer crowding, so two trajectory segments with similar R and different C can show different dC_dt values beyond the parent's linear mortality offset.",
+          "shortcut_blocked": "A single refit of all parent parameters cannot match both the low-C near-parent regime and the high-C interference-suppressed regime across the same observed R range, because in the parent the feeding term is C multiplied by a function of R only. Retuning encounter_rate, conversion_efficiency, handling_saturation_scale, or consumer_mortality_rate changes gain or the single R-threshold globally, but it cannot create the child’s extra C dependence inside the recruitment nonlinearity."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "At fixed consumer abundance C, feeding-derived consumer growth increases with resource abundance R as a single saturating Beddington-DeAngelis curve with one shared saturation scale, so the recruitment-vs-R curvature does not change qualitatively with recent resource history.",
+            "child_relation": "Replace the assumption of instantaneous conversion of consumed resource into new consumers with a delayed maturation pipeline represented by a juvenile consumer state. Then dC_dt depends on recruitment from the juvenile pool rather than directly on current feeding, so the instantaneous adult growth response to current R becomes history-dependent and can lag behind current feeding conditions.",
+            "affected_inputs": [
+              "R",
+              "C"
+            ],
+            "observable_effect": "After a resource pulse or during fast predator-prey oscillations, the parent predicts immediate adult-growth acceleration when R rises, whereas the child predicts strong current feeding with only delayed adult increase; thus two times with similar current (R,C) but different recent trajectories can show different dC_dt."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "feeding_flux",
+              "expression": "conversion_efficiency*encounter_rate*R*C/(1 + handling_saturation_scale*R + consumer_interference_scale*C)",
+              "role": "current production of new consumer biomass/offspring from feeding"
+            },
+            {
+              "name": "adult_loss",
+              "expression": "consumer_mortality_rate*C",
+              "role": "background adult consumer loss rate"
+            },
+            {
+              "name": "per_capita_feeding",
+              "expression": "conversion_efficiency*encounter_rate*R/(1 + handling_saturation_scale*R + consumer_interference_scale*C)",
+              "role": "resource-dependent instantaneous recruitment pressure per consumer"
+            }
+          ],
+          "activation_condition": "Most visible when resource abundance changes on timescales comparable to consumer maturation, such as during repeated predator-prey cycles or transient resource pulses; weak when maturation is effectively instantaneous relative to population change.",
+          "train_hidden_contrast": "In training regions with moderate oscillations, the lag appears as softened and delayed adult-growth peaks relative to feeding flux; in holdout with sharper or larger-amplitude resource swings, the same maturation mechanism produces stronger phase lag and altered peak timing rather than merely a rescaled gain.",
+          "continuation_path": "Recover the parent law in the fast-maturation limit where juvenile residence time tends to zero and juvenile mortality is negligible, so feeding-derived production is converted almost instantaneously into adult consumer growth.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "A genuine maturation delay is not representable with only the current adult consumer and resource states, because dC_dt must depend on stored past feeding through an internal population compartment rather than a memoryless function of current R and C.",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "R",
+            "C",
+            "J"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "juvenile maturation pipeline modulating conversion of feeding into adult recruitment",
+          "scientific_mechanism": "Consumed resources first generate immature consumers that survive and mature into adults after a finite developmental period.",
+          "embedding_pattern": "multiplicative_modulation",
+          "difficulty_rationale": "This is harder than a coefficient-only correction because the scored adult-growth law is no longer a memoryless function of current R and C; stored juvenile abundance modulates how much of past feeding reaches adults now, creating phase-lagged curvature changes that parameter retuning of the parent cannot reproduce with one shared parameter set.",
+          "taxonomy_match": "known",
+          "assumption_before": "Feeding-derived recruitment appears immediately in the adult consumer class with no stage structure.",
+          "assumption_after": "Feeding-derived production enters a juvenile stage, and adult recruitment is modulated by the juvenile pool through finite maturation.",
+          "before_fragment": "conversion_efficiency * encounter_rate * R * C / (1 + handling_saturation_scale * R + consumer_interference_scale * C) - consumer_mortality_rate * C",
+          "after_fragment": "juvenile_maturation_rate * J - consumer_mortality_rate * C",
+          "parent_reduction": "In the fast-maturation, low-juvenile-mortality limit, the juvenile state is quasi-steady and the child reduces to the parent recruitment law.",
+          "observable_signature": "Along trajectories generated from the fixed initial conditions, compare times on rising and falling parts of an oscillation where current R and C are similar. The parent gives the same dC_dt because its target mapping is uniquely determined by current (R,C), while the child can give different dC_dt because J retains recent feeding history; the contrast is strongest when feeding_flux changes on the same scale as 1/juvenile_maturation_rate.",
+          "shortcut_blocked": "Refitting all parent parameters still leaves dC_dt as a single-valued memoryless function of current R and C, so one shared parameter set cannot match cases where similar current (R,C) produce different adult growth due to different juvenile backlog. Matching one phase of the cycle forces mismatches in the opposite phase because the missing state-dependent history cannot be absorbed by gain or saturation retuning."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "interaction_emergence",
+            "parent_relation": "The adult consumer growth term is linear in juvenile abundance alone, dC_dt = juvenile_maturation_rate * J - consumer_mortality_rate * C, so at fixed C the slope of dC_dt with respect to J is constant and independent of resource conditions.",
+            "child_relation": "Replace constant per-capita juvenile maturation with resource-dependent maturation, so the contribution of J to dC_dt depends jointly on J and R; at fixed C and J, adult gain is reduced under resource scarcity and approaches the parent form when resources are abundant.",
+            "affected_inputs": [
+              "J",
+              "R",
+              "juvenile_maturation_rate"
+            ],
+            "observable_effect": "Across times or trajectories with similar juvenile abundance J but different resource abundance R, the same juvenile pool yields different adult recruitment rates; low-R periods show weaker conversion of J into C than high-R periods."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "juvenile_to_adult_flux_parent",
+              "expression": "juvenile_maturation_rate * J",
+              "role": "Parent adult recruitment flux from the juvenile pool"
+            },
+            {
+              "name": "resource_to_juvenile_ratio",
+              "expression": "R / (1 + handling_saturation_scale * R)",
+              "role": "Proxy for whether current resource availability is low enough to plausibly limit juvenile development after production"
+            },
+            {
+              "name": "adult_balance_parent",
+              "expression": "juvenile_maturation_rate * J - consumer_mortality_rate * C",
+              "role": "Parent net adult growth mapping being refined"
+            }
+          ],
+          "activation_condition": "Observable when resource abundance varies over time enough that juveniles experience both low-resource and moderate/high-resource conditions before maturing; strongest when juvenile maturation is not effectively instantaneous and R can transiently become small relative to its typical initial scale.",
+          "train_hidden_contrast": "In training, ordinary predator-prey cycling already creates windows with similar J but differing R. In holdout trajectories with deeper resource troughs or longer juvenile residence times, the contrast strengthens because resource-poor periods suppress maturation more strongly than the parent allows.",
+          "continuation_path": "Recover the parent law in the limit where maturation is resource-insensitive, equivalently when the resource-limitation effect on maturation vanishes or when R stays uniformly high over the observed interval.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "R",
+            "J"
+          ],
+          "structural_role": "interaction",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "resource-limited juvenile maturation",
+          "scientific_mechanism": "Resource-dependent juvenile development: maturation slows under resource scarcity because juveniles lack sufficient food or condition to complete development, and approaches the baseline rate when resources are plentiful.",
+          "embedding_pattern": "state_coupling",
+          "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the effective slope of dC_dt with respect to J is now state dependent through R, creating a joint response surface rather than a single global gain.",
+          "taxonomy_match": "known",
+          "assumption_before": "The parent fixes juvenile_maturation_rate as constant in time and independent of system state.",
+          "assumption_after": "Juvenile maturation is modulated by current resource abundance through a saturating resource-dependent factor.",
+          "before_fragment": "juvenile_maturation_rate * J - consumer_mortality_rate * C",
+          "after_fragment": "juvenile_maturation_rate * R / (1 + handling_saturation_scale * R) * J - consumer_mortality_rate * C",
+          "parent_reduction": "The parent is recovered approximately when R / (1 + handling_saturation_scale * R) is effectively constant and near one across the observed regime, so the maturation term behaves like juvenile_maturation_rate * J.",
+          "observable_signature": "At matched observed J and C, dC_dt increases with R because the juvenile-to-adult recruitment flux is juvenile_maturation_rate * R / (1 + handling_saturation_scale * R) * J. The parent predicts no such direct dependence once J and C are fixed. The contrast is visible during cyclic trajectories that revisit similar J at different resource levels, especially in resource troughs versus resource-replete phases.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce this contrast across low- and high-resource conditions because refitting juvenile_maturation_rate only rescales recruitment uniformly for all J, regardless of R. The child changes the J-to-dC_dt slope selectively in low-resource regimes while leaving near-parent behavior at higher R, which is not achievable by one global gain or by refitting the mortality term alone."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "Adult consumer growth from juveniles is proportional to J times a single resource-dependent maturation factor R/(1 + handling_saturation_scale*R), so at fixed J the dependence of dC_dt on resource abundance has one fixed saturating curvature and no high-resource decline.",
+            "child_relation": "Relax the assumption that the same saturating factor fully captures juvenile maturation quality; allow maturation success to become unimodal in resource abundance because extreme resource abundance can reduce juvenile-to-adult transition efficiency through crowding, poor condition, or toxic/algal-bloom-like low-quality food. Then at fixed J, dC_dt rises with R at low-intermediate resource levels but bends over more strongly, potentially peaking and declining at very high R.",
+            "affected_inputs": [
+              "R",
+              "J",
+              "juvenile_maturation_rate",
+              "handling_saturation_scale"
+            ],
+            "observable_effect": "Across trajectories with similar J but different high-resource levels, the parent predicts adult production should keep increasing toward a plateau, whereas the child predicts reduced adult production at sufficiently high R after an intermediate optimum."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "maturation_flux_parent",
+              "expression": "juvenile_maturation_rate*R*J/(1 + handling_saturation_scale*R)",
+              "role": "Current juvenile-to-adult production term driving dC_dt"
+            },
+            {
+              "name": "resource_per_juvenile",
+              "expression": "R/(1 + handling_saturation_scale*R)",
+              "role": "Current effective maturation opportunity as a function of resource abundance"
+            },
+            {
+              "name": "adult_net_growth_parent",
+              "expression": "juvenile_maturation_rate*R*J/(1 + handling_saturation_scale*R) - consumer_mortality_rate*C",
+              "role": "Current target mapping from observed states to adult consumer rate of change"
+            }
+          ],
+          "activation_condition": "The refinement is observable only when trajectories enter a very high-resource regime relative to the maturation scale, with nonzero juvenile abundance so maturation contributes materially to dC_dt; at low to moderate R the child should reduce to the parent-like monotone increase.",
+          "train_hidden_contrast": "In training, the mechanism appears as stronger-than-parent flattening of adult recruitment at upper-range resource abundance; in holdout with still higher R it extends to a clear turnover or sharper suppression that the parent's single saturating gain cannot match with one parameter set.",
+          "continuation_path": "In the limit of negligible high-resource inhibition or outside the high-R regime, the maturation law returns to the parent's monotone saturating form.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "unary",
+          "scope_symbols": [
+            "R"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Competing facilitation and inhibition of juvenile maturation across the resource gradient",
+          "scientific_mechanism": "Overabundant resource can become low-quality or physiologically stressful for juveniles, making maturation success unimodal rather than purely saturating.",
+          "embedding_pattern": "competing_processes",
+          "difficulty_rationale": "This embedding is structurally harder than a coefficient-only correction because it makes the scored target law the product of a facilitating maturation term and a competing inhibitory process, changing the curvature of dC_dt as a function of observed resource abundance and allowing turnover at high R.",
+          "taxonomy_match": "known",
+          "assumption_before": "Resource-dependent juvenile development is represented by a single monotone Holling-type saturation with no adverse high-resource effect.",
+          "assumption_after": "Juvenile maturation combines the original saturating resource benefit with a competing high-resource inhibition that reduces successful maturation at extreme resource abundance.",
+          "before_fragment": "juvenile_maturation_rate * R / (1 + handling_saturation_scale * R) * J - consumer_mortality_rate * C",
+          "after_fragment": "juvenile_maturation_rate * R / (1 + handling_saturation_scale * R) * exp(-high_resource_inhibition_scale * R) * J - consumer_mortality_rate * C",
+          "parent_reduction": "Setting high_resource_inhibition_scale = 0 recovers the parent exactly.",
+          "observable_signature": "When trajectories reach very high resource abundance relative to the maturation scale and J remains nonzero, the parent target mapping from observed states predicts maturation contribution to dC_dt should continue increasing toward a plateau, while the child mapping predicts stronger bending and possible decline of that contribution at extreme R. This changed target mapping is directly observable in the scored C equation, not only through auxiliary state trajectories.",
+          "shortcut_blocked": "A single refit of the parent parameters cannot reproduce both intermediate-resource enhancement and high-resource suppression across these admissible conditions because the parent maturation contribution juvenile_maturation_rate*R*J/(1 + handling_saturation_scale*R) is monotone nondecreasing in R for J > 0. Retuning gain or saturation scale can shift the plateau level and approach rate but cannot create a decline in the scored mapping from observed R, J, and C to dC_dt."
+        }
+      ]
+    },
+    "finalization": {
+      "mode": "candidate",
+      "accepted_generations": 5,
+      "novelty": {
+        "answer": "NOT_EVALUATED"
+      },
+      "total_points": 5000,
+      "evaluation_status": "not_evaluated"
+    }
+  },
+  "contract": {
+    "features": [
+      "t",
+      "R",
+      "C",
+      "J"
+    ],
+    "target": "dC_dt",
+    "family": "ode",
+    "expression": "juvenile_maturation_rate * R / (1 + handling_saturation_scale * R) * exp(-high_resource_inhibition_scale * R) * J - consumer_mortality_rate * C",
+    "parameters": {
+      "resource_growth_rate": 0.45,
+      "encounter_rate": 0.018,
+      "conversion_efficiency": 0.55,
+      "consumer_mortality_rate": 0.12,
+      "handling_saturation_scale": 0.03,
+      "consumer_interference_scale": 0.025,
+      "juvenile_maturation_rate": 0.35,
+      "juvenile_mortality_rate": 0.08,
+      "high_resource_inhibition_scale": 0.004
+    },
+    "implicit_branch": null
+  }
+}

@@ -1,0 +1,197 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "eta",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        25.0
+      ],
+      "n_points": 400,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "gravity_acceleration",
+      "value": 9.81
+    },
+    {
+      "symbol": "mode_wavenumber",
+      "value": 1.5
+    },
+    {
+      "symbol": "fluid_depth",
+      "value": 1.2
+    },
+    {
+      "symbol": "nonlinear_restoring_coefficient",
+      "value": 2.5
+    },
+    {
+      "symbol": "stiffness_relaxation_time",
+      "value": 0.35
+    }
+  ],
+  "benchmark_output": "deta_dt",
+  "benchmark_target_state": "eta",
+  "observed_variables": [
+    "t",
+    "eta",
+    "u",
+    "q",
+    "stiffness_overshoot_state"
+  ],
+  "rhs_for_integrator": "u/(1 + nonlinear_restoring_coefficient*eta**2*(q + stiffness_overshoot_state**2))",
+  "state_variables": [
+    "eta",
+    "u",
+    "q",
+    "stiffness_overshoot_state"
+  ],
+  "state_rhs": [
+    "u/(1 + nonlinear_restoring_coefficient*eta**2*(q + stiffness_overshoot_state**2))",
+    "-gravity_acceleration*mode_wavenumber*tanh(mode_wavenumber*fluid_depth)*q*eta",
+    "stiffness_overshoot_state",
+    "((1 + nonlinear_restoring_coefficient*eta**2 - q)/stiffness_relaxation_time - stiffness_overshoot_state)/stiffness_relaxation_time"
+  ],
+  "initial_conditions": {
+    "eta": 0.1,
+    "u": 0.0,
+    "q": 1.01,
+    "stiffness_overshoot_state": 0.0
+  },
+  "sanity_expectations": [
+    "The denominator 1 + nonlinear_restoring_coefficient*eta^2*(q + stiffness_overshoot_state^2) should stay > 1 for the chosen positive parameter values, so |deta_dt| should be less than or equal to |u| throughout the trajectory.",
+    "Because stiffness_relaxation_time is comparable to the linear wave period, q should not remain exactly slaved to 1 + nonlinear_restoring_coefficient*eta^2; a visible lag between q and eta^2 is expected over cycles.",
+    "The added overshoot state should depart from zero after the start and contribute only nonnegatively to the scored denominator through stiffness_overshoot_state^2, producing stronger temporary suppression of |deta_dt| than the q-only parent would at similar eta and u.",
+    "In low-amplitude segments near eta≈0, the scored mapping should approach deta_dt≈u; at larger |eta| reached along the same integrated trajectory, |deta_dt/u| should decrease measurably.",
+    "The motion should remain bounded and oscillatory over the sampled window, with phase-curved, history-dependent modulation of deta_dt rather than monotone decay, since no explicit dissipation is present in the inherited system."
+  ],
+  "role_corrections": [
+    "deta_dt: claimed-output/target derivative -> scored RHS for d(eta)/dt within ode_system (overridden by contract/structure: dependent variable is eta, not the derivative symbol)",
+    "t: claimed-input/time axis -> independent variable/time axis (confirmed)",
+    "eta: claimed-dynamic state -> dynamic state and dependent variable target_state (confirmed)",
+    "u: claimed-dynamic state -> dynamic state (confirmed)",
+    "q: claimed-dynamic state -> dynamic state (confirmed)",
+    "stiffness_overshoot_state: claimed-dynamic state -> dynamic state (confirmed)",
+    "gravity_acceleration: claimed-parameter -> parameter (confirmed)",
+    "mode_wavenumber: claimed-parameter -> parameter (confirmed)",
+    "fluid_depth: claimed-parameter -> parameter (confirmed)",
+    "nonlinear_restoring_coefficient: claimed-parameter -> parameter (confirmed)",
+    "stiffness_relaxation_time: claimed-parameter -> parameter (confirmed)"
+  ],
+  "rationale": "The supplied contract is preserved exactly as required: this record is an ODE system in time with target state eta, and the scored quantity is the inherited eta-equation RHS. Parameter values are chosen to keep the motion in a weak-to-moderate nonlinear regime rather than the parent-recovery limit. With eta(0)=0.1 and nonlinear_restoring_coefficient=2.5, the initial dimensionless loading nonlinear_restoring_coefficient*eta^2 is about 0.025, small but not negligible; during bounded oscillation it can grow enough to make the denominator variation visible without pushing the system into extreme saturation. The linear gravity-wave scale sqrt(g*k*tanh(k*h)) from g=9.81, k=1.5, h=1.2 gives an oscillation timescale of order 0.27 s, while stiffness_relaxation_time=0.35 s is comparable rather than asymptotically small, so delayed stiffness adjustment and overshoot-memory effects should be active and observable. The suggested overshoot-state scale is honored implicitly by choosing a relaxation time that makes the natural magnitude band about ±1/stiffness_relaxation_time ≈ ±2.86, while the inherited initial overshoot state remains exactly zero. A 0 to 25 time window with 400 samples captures many oscillation cycles and should expose phase-shifted suppression of deta_dt as q and stiffness_overshoot_state evolve, without changing the inherited ODE or initial conditions. Exact noiseless input-output pairs are to be generated from the integrated system.",
+  "coverage_report": {},
+  "inactive_mechanisms": [],
+  "target_variance": {},
+  "parent_absorption_report": {},
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_w1CMm3NcB0aJ0DsHTi6wlDA6"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "u/(1 + nonlinear_restoring_coefficient*eta**2*(q + stiffness_overshoot_state**2))",
+        "target_symbol": "deta_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "eta",
+          "nonlinear_restoring_coefficient",
+          "q",
+          "stiffness_overshoot_state",
+          "u"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "u/(eta**2*nonlinear_restoring_coefficient*(q + stiffness_overshoot_state**2) + 1)"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_P1s3KrYNuEDQQLaFiuj2jxgN"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "u/(1 + nonlinear_restoring_coefficient*eta**2*(q + stiffness_overshoot_state**2))",
+        "target_symbol": "deta_dt",
+        "assignments": {
+          "eta": 0.1,
+          "u": 0.0,
+          "q": 1.01,
+          "stiffness_overshoot_state": 0.0,
+          "nonlinear_restoring_coefficient": 0.2
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": 0.0,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_Pimrlp4Vz0dnq0LaZKLPVCiT"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_wbyPdWf1F1vC5EPjoP73k9Wq"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 4
+}

@@ -1,0 +1,381 @@
+{
+  "base_id": "m2_cell_biology_and_signaling_20260921_002",
+  "generation": 5,
+  "operation": "change_assumption",
+  "model_family": "ode",
+  "equation_type": "ode_system",
+  "target_symbol": "dC_dt",
+  "expression": "(k_release*stimulus_strength*(1 - H))/(1 + release_inactivation_scale*C) + (k_cicr_release*stimulus_strength*C*(1 - H))/(1 + release_inactivation_scale*C) - (k_extrusion*C)/(1 + pump_saturation_scale*C) - (k_buffer_bind*C*(1 - B))/(1 + buffer_binding_scale*C) + k_buffer_unbind*B",
+  "symbols": [
+    "dC_dt",
+    "t",
+    "C",
+    "H",
+    "B",
+    "stimulus_strength",
+    "k_release",
+    "k_extrusion",
+    "k_sensor_activation",
+    "k_sensor_relaxation",
+    "pump_saturation_scale",
+    "release_inactivation_scale",
+    "k_buffer_bind",
+    "k_buffer_unbind",
+    "buffer_binding_scale",
+    "k_cicr_release",
+    "sensor_activation_scale"
+  ],
+  "symbol_descriptions": [
+    "Time derivative of cytosolic free calcium concentration",
+    "Time",
+    "Cytosolic free calcium concentration",
+    "Fraction of the calcium-sensitive inhibitory sensor in its active state",
+    "Fraction of endogenous calcium buffer sites occupied by calcium",
+    "Constant upstream receptor stimulus strength",
+    "Nonnegative calcium release coefficient",
+    "Low-calcium extrusion coefficient setting the initial slope of pump-mediated clearance",
+    "Nonnegative inhibitory sensor activation rate coefficient",
+    "Nonnegative inhibitory sensor relaxation rate constant",
+    "Inverse calcium scale controlling saturation of the extrusion process",
+    "Inverse calcium scale for direct cytosolic-calcium-dependent inactivation of the release pathway",
+    "Maximum effective calcium binding rate coefficient for reversible endogenous buffering",
+    "Calcium unbinding rate constant returning bound calcium to the cytosol",
+    "Inverse calcium scale controlling saturation of buffer loading with rising free calcium",
+    "Coefficient of fast calcium-induced calcium release that amplifies stimulus-gated release in proportion to cytosolic calcium",
+    "Inverse calcium scale setting the onset of saturating nonlinear inhibitory sensor activation"
+  ],
+  "symbol_properties": [
+    "O",
+    "V",
+    "S",
+    "S",
+    "S",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P"
+  ],
+  "new_symbol_range_suggestions": {
+    "sensor_activation_scale": "positive; chosen so sensor_activation_scale*C is small at resting calcium but can become order one during ordinary pulses, allowing weak low-C activation and stronger curvature at moderate C"
+  },
+  "derivation_notes": "The refinement keeps the calcium balance law for C unchanged and instead re-derives inhibitory-sensor loading with a saturating calcium occupancy factor. Using k_sensor_activation*C/(1 + sensor_activation_scale*C) as the effective activation flux captures omitted multistep or cooperative sensor binding while preserving the parent as a small-saturation-scale limit.",
+  "change_summary": "The parent assumed a single linear calcium sensitivity for inhibitory-sensor activation. The successor replaces that with a saturating calcium-dependent activation coefficient, altering how H builds up across weak versus moderate calcium excursions and thereby changing the delayed feedback seen in C.",
+  "assumption_audit": {
+    "released_assumption": "Sensor activation rate is linear in free calcium concentration with one fixed slope and no intrinsic curvature or threshold-like occupancy effect.",
+    "outcome": "law_refinement",
+    "quantity": "H",
+    "quantity_role": "internal_state",
+    "mechanism": "Cooperative calcium binding or multistep occupancy in the inhibitory sensor, causing nonlinear accumulation of the active inhibitory fraction as calcium rises.",
+    "reference_condition": {
+      "sensor_activation_scale": 0.0
+    },
+    "parent_reduction": "The parent is recovered when sensor_activation_scale = 0, because the refined activation term (k_sensor_activation*C*(1 - H))/(1 + sensor_activation_scale*C) reduces exactly to k_sensor_activation*C*(1 - H)."
+  },
+  "add_term_audit": null,
+  "evolution_contract": {
+    "operation": "change_assumption",
+    "parent_shortcut": "single_threshold",
+    "response_change": {
+      "type": "curvature_change",
+      "parent_relation": "The inhibitory sensor activates with a linear calcium dependence k_sensor_activation*C*(1-H), so at fixed H the suppression pathway strength grows with a single low-calcium slope and no intrinsic activation threshold curvature.",
+      "child_relation": "Replace the linear calcium dependence of sensor activation by a steeper saturating calcium dependence so that inhibition accumulates weakly at very low C and disproportionately faster once C reaches a moderate activation range.",
+      "affected_inputs": [
+        "C",
+        "H",
+        "k_sensor_activation"
+      ],
+      "observable_effect": "Across fixed stimulus_strength with identical initial conditions, low-amplitude calcium elevations produce less inhibition buildup than in the parent, while moderate elevations trigger earlier and stronger delayed suppression, changing pulse width and the onset of oscillation termination."
+    },
+    "diagnostic_groups": [
+      {
+        "name": "release_drive",
+        "expression": "stimulus_strength*(1 - H)/(1 + release_inactivation_scale*C)",
+        "role": "Instantaneous stimulus-gated release drive after direct inhibition"
+      },
+      {
+        "name": "sensor_load",
+        "expression": "C",
+        "role": "Calcium level currently driving inhibitory sensor activation"
+      },
+      {
+        "name": "net_buffer_sink",
+        "expression": "k_buffer_bind*C*(1 - B)/(1 + buffer_binding_scale*C) - k_buffer_unbind*B",
+        "role": "Instantaneous reversible buffering sink strength"
+      }
+    ],
+    "activation_condition": "Observable when C traverses a low-to-moderate range during transients or oscillations, so that sensor activation is neither always near zero nor always fully saturated; especially when stimulus_strength is large enough for CICR to lift C into this regime but clearance and inactivation still terminate excursions.",
+    "train_hidden_contrast": "In training, the same mechanism changes how H accumulates during ordinary calcium pulses; in holdout, the contrast extends to stronger pulses where the steeper activation curvature produces earlier shutdown and altered oscillation envelopes.",
+    "continuation_path": "The parent law is recovered in the limit where the refined sensor-activation nonlinearity reduces to linear dependence on C over the sampled range.",
+    "freedom_change": "none",
+    "promoted_symbol": null,
+    "promotion_reason": "",
+    "scope_kind": "state_coupling",
+    "scope_symbols": [
+      "C",
+      "H"
+    ],
+    "structural_role": "response_law",
+    "domain_mechanism_id": "",
+    "domain_mechanism": "Nonlinear calcium occupancy of the inhibitory sensor",
+    "scientific_mechanism": "Cooperative calcium binding or multistep occupancy in the inhibitory sensor, causing nonlinear accumulation of the active inhibitory fraction as calcium rises.",
+    "embedding_pattern": "state_dependent_coefficient",
+    "difficulty_rationale": "This embedding is harder than a coefficient-only correction because the effective activation coefficient of the inhibitory pathway now depends on the evolving state C, introducing response curvature that a single constant k_sensor_activation cannot reproduce across weak and moderate pulses.",
+    "taxonomy_match": "known",
+    "assumption_before": "Sensor activation rate is linear in free calcium concentration with one fixed slope and no intrinsic curvature or threshold-like occupancy effect.",
+    "assumption_after": "The inhibitory sensor has saturating calcium-dependent occupancy, so its activation coefficient depends on the current calcium level.",
+    "before_fragment": "(k_release*stimulus_strength*(1 - H))/(1 + release_inactivation_scale*C) + (k_cicr_release*stimulus_strength*C*(1 - H))/(1 + release_inactivation_scale*C) - (k_extrusion*C)/(1 + pump_saturation_scale*C) - (k_buffer_bind*C*(1 - B))/(1 + buffer_binding_scale*C) + k_buffer_unbind*B",
+    "after_fragment": "(k_release*stimulus_strength*(1 - H))/(1 + release_inactivation_scale*C) + (k_cicr_release*stimulus_strength*C*(1 - H))/(1 + release_inactivation_scale*C) - (k_extrusion*C)/(1 + pump_saturation_scale*C) - (k_buffer_bind*C*(1 - B))/(1 + buffer_binding_scale*C) + k_buffer_unbind*B",
+    "parent_reduction": "The parent is recovered exactly when sensor_activation_scale = 0, or approximately when sensor_activation_scale*C << 1 throughout the sampled trajectories.",
+    "observable_signature": "Vary stimulus_strength while holding all other parameters and initial conditions fixed. Under weaker stimuli that keep C low, H accumulates less than in the parent; under stronger stimuli that lift C into the moderate activation range, H builds more abruptly and shuts release down earlier. This altered H trajectory feeds back onto the release terms and changes the scored dC_dt mapping across conditions through delayed inhibition, not merely an auxiliary unobserved branch.",
+    "shortcut_blocked": "A single refitted parent parameter set can only rescale the linear activation slope k_sensor_activation in dH_dt. That cannot simultaneously match weak-response underactivation and moderate-response sharper feedback onset across the stated conditions, because the child introduces calcium-dependent curvature in the inhibitory-loading law rather than a uniform gain change."
+  },
+  "dimension_track": null,
+  "mechanism_profile": {
+    "allowed_structural_roles": [
+      "contribution",
+      "modulation",
+      "interaction",
+      "feedback",
+      "timescale",
+      "transport_balance"
+    ],
+    "preferred_scopes": [
+      "unary",
+      "pairwise",
+      "state_coupling",
+      "memory"
+    ],
+    "domain_mechanisms": [
+      {
+        "id": "receptor_saturation",
+        "description": "finite receptor occupancy or saturating signal transduction",
+        "operations": [
+          "add_term",
+          "change_assumption"
+        ]
+      },
+      {
+        "id": "negative_feedback",
+        "description": "feedback repression or adaptive regulation",
+        "operations": [
+          "add_term"
+        ]
+      },
+      {
+        "id": "finite_signal_relaxation",
+        "description": "non-instantaneous intracellular relaxation",
+        "operations": [
+          "change_assumption"
+        ]
+      }
+    ],
+    "profile_source": "subfield",
+    "ontology_schema_version": "1.0",
+    "taxonomy_schema_version": "1.0"
+  },
+  "evolution_plan": {
+    "operation": "change_assumption",
+    "parent_shortcut": "single_threshold",
+    "response_change": {
+      "type": "curvature_change",
+      "parent_relation": "The inhibitory sensor activates with a linear calcium dependence k_sensor_activation*C*(1-H), so at fixed H the suppression pathway strength grows with a single low-calcium slope and no intrinsic activation threshold curvature.",
+      "child_relation": "Replace the linear calcium dependence of sensor activation by a steeper saturating calcium dependence so that inhibition accumulates weakly at very low C and disproportionately faster once C reaches a moderate activation range.",
+      "affected_inputs": [
+        "C",
+        "H",
+        "k_sensor_activation"
+      ],
+      "observable_effect": "Across fixed stimulus_strength with identical initial conditions, low-amplitude calcium elevations produce less inhibition buildup than in the parent, while moderate elevations trigger earlier and stronger delayed suppression, changing pulse width and the onset of oscillation termination."
+    },
+    "diagnostic_groups": [
+      {
+        "name": "release_drive",
+        "expression": "stimulus_strength*(1 - H)/(1 + release_inactivation_scale*C)",
+        "role": "Instantaneous stimulus-gated release drive after direct inhibition"
+      },
+      {
+        "name": "sensor_load",
+        "expression": "C",
+        "role": "Calcium level currently driving inhibitory sensor activation"
+      },
+      {
+        "name": "net_buffer_sink",
+        "expression": "k_buffer_bind*C*(1 - B)/(1 + buffer_binding_scale*C) - k_buffer_unbind*B",
+        "role": "Instantaneous reversible buffering sink strength"
+      }
+    ],
+    "activation_condition": "Observable when C traverses a low-to-moderate range during transients or oscillations, so that sensor activation is neither always near zero nor always fully saturated; especially when stimulus_strength is large enough for CICR to lift C into this regime but clearance and inactivation still terminate excursions.",
+    "train_hidden_contrast": "In training, the same mechanism changes how H accumulates during ordinary calcium pulses; in holdout, the contrast extends to stronger pulses where the steeper activation curvature produces earlier shutdown and altered oscillation envelopes.",
+    "continuation_path": "The parent law is recovered in the limit where the refined sensor-activation nonlinearity reduces to linear dependence on C over the sampled range.",
+    "freedom_change": "none",
+    "promoted_symbol": null,
+    "promotion_reason": "",
+    "gap_statement": "The inhibitory sensor is assumed to respond proportionally to cytosolic calcium at all low-to-moderate concentrations, omitting the common cooperative or saturating occupancy needed to represent a delayed feedback branch with a sharper calcium sensitivity.",
+    "baseline_assumption": "Sensor activation rate is linear in free calcium concentration with one fixed slope and no intrinsic curvature or threshold-like occupancy effect.",
+    "scientific_mechanism": "Cooperative calcium binding or multistep occupancy in the inhibitory sensor, causing nonlinear accumulation of the active inhibitory fraction as calcium rises.",
+    "affected_symbols": [
+      "C",
+      "H",
+      "k_sensor_activation",
+      "k_sensor_relaxation"
+    ],
+    "rationale": "A realistic next refinement is to relax the parent's linear sensor-activation law rather than adding a new process. The parent target mapping from observed states to dC_dt uses H as the only delayed inhibitor, but H itself is generated from a single-slope calcium response. Vary stimulus_strength while holding all other parameters and initial conditions fixed. In the parent, stronger stimuli mainly scale the amplitude and duration of C excursions, and H accumulation follows proportionally because dH_dt has no activation curvature beyond the (1-H) occupancy factor. In a child with cooperative or saturating calcium dependence of sensor activation, small calcium excursions generated under weaker stimulus produce noticeably less H buildup than predicted by the parent, whereas moderate excursions generated under stronger stimulus cross into a steeper activation range and suppress release sooner. This changes the scored mapping indirectly but consequentially through H, because the observed dC_dt at the same C and H trajectory history now comes from a differently curved H evolution that feeds back onto release. The contrast is scientifically admissible when calcium pulses reach the sensor's activation range; if C stays uniformly tiny or uniformly very high, the refinement becomes hard to distinguish. A single refitted parent parameter set cannot generally match both weak-response underactivation and moderate-response sharp feedback onset across those conditions, because changing k_sensor_activation only rescales one linear slope instead of introducing the needed curvature."
+  },
+  "selected_embedding_pattern": {
+    "description": "Make the coefficient of an existing process depend on a declared quantity.",
+    "difficulty_level": 3,
+    "operations": [
+      "add_term",
+      "change_assumption"
+    ],
+    "model_families": [
+      "static",
+      "ode"
+    ],
+    "minimum_active_quantities": 1,
+    "weight": 14,
+    "id": "state_dependent_coefficient"
+  },
+  "ode_system": {
+    "time_symbol": "t",
+    "target_state": "C",
+    "states": [
+      {
+        "symbol": "C",
+        "rhs": "(k_release*stimulus_strength*(1 - H))/(1 + release_inactivation_scale*C) + (k_cicr_release*stimulus_strength*C*(1 - H))/(1 + release_inactivation_scale*C) - (k_extrusion*C)/(1 + pump_saturation_scale*C) - (k_buffer_bind*C*(1 - B))/(1 + buffer_binding_scale*C) + k_buffer_unbind*B",
+        "initial_condition": 0.1,
+        "description": "Cytosolic free calcium concentration"
+      },
+      {
+        "symbol": "H",
+        "rhs": "(k_sensor_activation*C*(1 - H))/(1 + sensor_activation_scale*C) - k_sensor_relaxation*H",
+        "initial_condition": 0.0,
+        "description": "Fraction of the calcium-sensitive inhibitory sensor in its active state"
+      },
+      {
+        "symbol": "B",
+        "rhs": "(k_buffer_bind*C*(1 - B))/(1 + buffer_binding_scale*C) - k_buffer_unbind*B",
+        "initial_condition": 0.0,
+        "description": "Fraction of endogenous calcium buffer sites occupied by calcium"
+      }
+    ]
+  },
+  "scenario_text": "A constant upstream receptor stimulus drives calcium release into the cytosol while pumps remove calcium from the cytosol. A calcium-sensitive inhibitory sensor gradually becomes active and suppresses further release, creating delayed negative feedback. Cytosolic calcium and the inhibitory sensor are evolved together to study transient pulses and sustained oscillations.",
+  "freedom_change": "none",
+  "promoted_symbol": null,
+  "promotion_reason": "",
+  "parent_shortcut": "single_threshold",
+  "response_change": {
+    "type": "curvature_change",
+    "parent_relation": "The inhibitory sensor activates with a linear calcium dependence k_sensor_activation*C*(1-H), so at fixed H the suppression pathway strength grows with a single low-calcium slope and no intrinsic activation threshold curvature.",
+    "child_relation": "Replace the linear calcium dependence of sensor activation by a steeper saturating calcium dependence so that inhibition accumulates weakly at very low C and disproportionately faster once C reaches a moderate activation range.",
+    "affected_inputs": [
+      "C",
+      "H",
+      "k_sensor_activation"
+    ],
+    "observable_effect": "Across fixed stimulus_strength with identical initial conditions, low-amplitude calcium elevations produce less inhibition buildup than in the parent, while moderate elevations trigger earlier and stronger delayed suppression, changing pulse width and the onset of oscillation termination."
+  },
+  "diagnostic_groups": [
+    {
+      "name": "release_drive",
+      "expression": "stimulus_strength*(1 - H)/(1 + release_inactivation_scale*C)",
+      "role": "Instantaneous stimulus-gated release drive after direct inhibition"
+    },
+    {
+      "name": "sensor_load",
+      "expression": "C",
+      "role": "Calcium level currently driving inhibitory sensor activation"
+    },
+    {
+      "name": "net_buffer_sink",
+      "expression": "k_buffer_bind*C*(1 - B)/(1 + buffer_binding_scale*C) - k_buffer_unbind*B",
+      "role": "Instantaneous reversible buffering sink strength"
+    }
+  ],
+  "activation_condition": "Observable when C traverses a low-to-moderate range during transients or oscillations, so that sensor activation is neither always near zero nor always fully saturated; especially when stimulus_strength is large enough for CICR to lift C into this regime but clearance and inactivation still terminate excursions.",
+  "train_hidden_contrast": "In training, the same mechanism changes how H accumulates during ordinary calcium pulses; in holdout, the contrast extends to stronger pulses where the steeper activation curvature produces earlier shutdown and altered oscillation envelopes.",
+  "continuation_path": "The parent law is recovered in the limit where the refined sensor-activation nonlinearity reduces to linear dependence on C over the sampled range.",
+  "dependent_variable": {
+    "symbol": "dC_dt",
+    "description": "Time derivative of cytosolic free calcium concentration"
+  },
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "description": "Time"
+    }
+  ],
+  "state_variables": [
+    {
+      "symbol": "C",
+      "description": "Cytosolic free calcium concentration"
+    },
+    {
+      "symbol": "H",
+      "description": "Fraction of the calcium-sensitive inhibitory sensor in its active state"
+    },
+    {
+      "symbol": "B",
+      "description": "Fraction of endogenous calcium buffer sites occupied by calcium"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "stimulus_strength",
+      "description": "Constant upstream receptor stimulus strength"
+    },
+    {
+      "symbol": "k_release",
+      "description": "Nonnegative calcium release coefficient"
+    },
+    {
+      "symbol": "k_extrusion",
+      "description": "Low-calcium extrusion coefficient setting the initial slope of pump-mediated clearance"
+    },
+    {
+      "symbol": "k_sensor_activation",
+      "description": "Nonnegative inhibitory sensor activation rate coefficient"
+    },
+    {
+      "symbol": "k_sensor_relaxation",
+      "description": "Nonnegative inhibitory sensor relaxation rate constant"
+    },
+    {
+      "symbol": "pump_saturation_scale",
+      "description": "Inverse calcium scale controlling saturation of the extrusion process"
+    },
+    {
+      "symbol": "release_inactivation_scale",
+      "description": "Inverse calcium scale for direct cytosolic-calcium-dependent inactivation of the release pathway"
+    },
+    {
+      "symbol": "k_buffer_bind",
+      "description": "Maximum effective calcium binding rate coefficient for reversible endogenous buffering"
+    },
+    {
+      "symbol": "k_buffer_unbind",
+      "description": "Calcium unbinding rate constant returning bound calcium to the cytosol"
+    },
+    {
+      "symbol": "buffer_binding_scale",
+      "description": "Inverse calcium scale controlling saturation of buffer loading with rising free calcium"
+    },
+    {
+      "symbol": "k_cicr_release",
+      "description": "Coefficient of fast calcium-induced calcium release that amplifies stimulus-gated release in proportion to cytosolic calcium"
+    },
+    {
+      "symbol": "sensor_activation_scale",
+      "description": "Inverse calcium scale setting the onset of saturating nonlinear inhibitory sensor activation"
+    }
+  ]
+}

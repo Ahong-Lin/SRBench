@@ -1,0 +1,236 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "v",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        12.0
+      ],
+      "n_points": 400,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "g",
+      "value": 9.81
+    },
+    {
+      "symbol": "drag_coefficient",
+      "value": 0.2
+    },
+    {
+      "symbol": "mass",
+      "value": 1.0
+    },
+    {
+      "symbol": "wake_relaxation_time",
+      "value": 0.8
+    },
+    {
+      "symbol": "regime_relaxation_time",
+      "value": 1.2
+    },
+    {
+      "symbol": "critical_speed",
+      "value": 8.0
+    },
+    {
+      "symbol": "drag_reduction_fraction",
+      "value": 0.5
+    },
+    {
+      "symbol": "drag_shape_fraction",
+      "value": 0.8
+    },
+    {
+      "symbol": "flow_relaxation_time",
+      "value": 1.5
+    },
+    {
+      "symbol": "entrainment_fraction",
+      "value": 0.35
+    }
+  ],
+  "benchmark_output": "dv_dt",
+  "benchmark_target_state": "v",
+  "observed_variables": [
+    "t",
+    "v",
+    "wake_drag",
+    "regime_occupancy",
+    "local_flow_velocity"
+  ],
+  "rhs_for_integrator": "-g - (wake_drag * regime_occupancy / mass) * (v - local_flow_velocity) * Abs(v - local_flow_velocity) * (1 + drag_shape_fraction * Abs(v - local_flow_velocity) / (critical_speed + Abs(v - local_flow_velocity)))",
+  "state_variables": [
+    "v",
+    "wake_drag",
+    "regime_occupancy",
+    "local_flow_velocity"
+  ],
+  "state_rhs": [
+    "-g - (wake_drag * regime_occupancy / mass) * (v - local_flow_velocity) * Abs(v - local_flow_velocity) * (1 + drag_shape_fraction * Abs(v - local_flow_velocity) / (critical_speed + Abs(v - local_flow_velocity)))",
+    "(drag_coefficient - wake_drag) / wake_relaxation_time",
+    "(1 - drag_reduction_fraction * Abs(v)**2 / (critical_speed**2 + Abs(v)**2) - regime_occupancy) / regime_relaxation_time",
+    "(entrainment_fraction * v - local_flow_velocity) / flow_relaxation_time"
+  ],
+  "initial_conditions": {
+    "v": 0.0,
+    "wake_drag": 0.0,
+    "regime_occupancy": 1.0,
+    "local_flow_velocity": 0.0
+  },
+  "sanity_expectations": [
+    "At t=0, dv/dt = -g exactly because wake_drag(0)=0, regardless of the other parameter values.",
+    "wake_drag should increase monotonically from 0 toward drag_coefficient=0.2 with e-folding time wake_relaxation_time=0.8.",
+    "regime_occupancy should start at 1 and decrease only after |v| becomes appreciable, remaining between roughly 0.5 and 1 for these parameters.",
+    "local_flow_velocity should begin at 0 and follow the sign of v; during sustained downward motion it should become negative with magnitude smaller than |v| because entrainment_fraction=0.35 < 1.",
+    "As local_flow_velocity becomes negative during descent, slip |v-local_flow_velocity| should be smaller than |v|, so drag should be weaker than in the stationary-medium parent at the same instantaneous v, all else equal.",
+    "Because critical_speed=8 is near the reachable fall-speed scale, the drag-shape factor 1 + drag_shape_fraction*|slip|/(critical_speed+|slip|) should transition from near 1 at early low speeds toward noticeably larger values at moderate/high speeds rather than staying constant.",
+    "The trajectory should approach a finite downward terminal-like regime rather than accelerate indefinitely; late-time dv/dt should move toward 0 with at most mild residual transients from state relaxation."
+  ],
+  "role_corrections": [
+    "dv_dt: claimed-output/target derivative -> not the dependent variable itself (confirmed as derivative expression; overridden for dataset role to dependent variable v by ODE-system contract)",
+    "t: claimed-input/time axis -> independent variable (confirmed)",
+    "v: claimed-dynamic state -> dependent variable and state variable (confirmed)",
+    "wake_drag: claimed-dynamic state -> state variable (confirmed)",
+    "regime_occupancy: claimed-dynamic state -> state variable (confirmed)",
+    "local_flow_velocity: claimed-dynamic state -> state variable (confirmed)",
+    "g: claimed-parameter -> parameter (confirmed)",
+    "drag_coefficient: claimed-parameter -> parameter (confirmed)",
+    "mass: claimed-parameter -> parameter (confirmed)",
+    "wake_relaxation_time: claimed-parameter -> parameter (confirmed)",
+    "regime_relaxation_time: claimed-parameter -> parameter (confirmed)",
+    "critical_speed: claimed-parameter -> parameter (confirmed)",
+    "drag_reduction_fraction: claimed-parameter -> parameter (confirmed)",
+    "drag_shape_fraction: claimed-parameter -> parameter (confirmed)",
+    "flow_relaxation_time: claimed-parameter -> parameter (confirmed)",
+    "entrainment_fraction: claimed-parameter -> parameter (confirmed)"
+  ],
+  "rationale": "The supplied ODE-system contract is preserved exactly as required: time is the only sampled axis, v is the target state, and wake_drag, regime_occupancy, and local_flow_velocity remain dynamic states rather than fixed coefficients. Parameter choices are finite and real under direct substitution, and are selected to keep the system away from trivial parent-recovery limits while remaining physically sensible. With g=9.81 and mass=1, drag_coefficient=0.2 gives a baseline quadratic terminal-speed scale sqrt(mg/c) of about 7, so choosing critical_speed=8 places the speed-shape and reduced-drag transition in the reachable trajectory range rather than far outside it. drag_reduction_fraction=0.5 makes the reduced-drag regime visible but not sign-changing; regime_occupancy relaxes from 1 toward a speed-dependent level between about 0.5 and 1. wake_relaxation_time=0.8 and regime_relaxation_time=1.2 are neither instantaneous nor extremely slow relative to the 12 s window, so history dependence from wake buildup and regime adaptation should be observable during the same descent. The added co-flow mechanism is kept active but moderate with entrainment_fraction=0.35 and flow_relaxation_time=1.5, allowing local_flow_velocity to become a noticeable fraction of particle speed without collapsing slip toward zero. drag_shape_fraction=0.8 produces visible non-quadratic drag reshaping near and above the critical-speed band without extreme stiffening. The inherited initial state v=0, wake_drag=0, regime_occupancy=1, local_flow_velocity=0 implies an initially ballistic phase with zero drag contribution; this delays activation of all drag-memory mechanisms at very early times, and that limitation is accepted rather than repaired. A 0-12 s window with 400 points should capture onset, transient curvature changes, and approach toward a finite downward terminal regime while leaving enough temporal resolution for the coupled relaxations.",
+  "coverage_report": {},
+  "inactive_mechanisms": [],
+  "target_variance": {},
+  "parent_absorption_report": {},
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_CArN8adTvXVm4uNnNlEdYTut"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "-g - (wake_drag * regime_occupancy / mass) * (v - local_flow_velocity) * Abs(v - local_flow_velocity) * (1 + drag_shape_fraction * Abs(v - local_flow_velocity) / (critical_speed + Abs(v - local_flow_velocity)))",
+        "target_symbol": "dv_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "critical_speed",
+          "drag_shape_fraction",
+          "g",
+          "local_flow_velocity",
+          "mass",
+          "regime_occupancy",
+          "v",
+          "wake_drag"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "-g - regime_occupancy*wake_drag*(-local_flow_velocity + v)*(drag_shape_fraction*Abs(-local_flow_velocity + v)/(critical_"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_CVkVTnDPndUOifecmykWQcQr"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "-g - (wake_drag * regime_occupancy / mass) * (v - local_flow_velocity) * Abs(v - local_flow_velocity) * (1 + drag_shape_fraction * Abs(v - local_flow_velocity) / (critical_speed + Abs(v - local_flow_velocity)))",
+        "target_symbol": "dv_dt",
+        "assignments": {
+          "g": 9.81,
+          "drag_coefficient": 0.2,
+          "mass": 1.0,
+          "wake_relaxation_time": 0.8,
+          "regime_relaxation_time": 1.2,
+          "critical_speed": 8.0,
+          "drag_reduction_fraction": 0.5,
+          "drag_shape_fraction": 0.8,
+          "flow_relaxation_time": 1.5,
+          "entrainment_fraction": 0.35,
+          "v": -6.0,
+          "wake_drag": 0.1,
+          "regime_occupancy": 0.8,
+          "local_flow_velocity": -2.0
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": -8.188666666666666,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_6IojfvksvXBjo8StLeWhZy4L"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_BCTrUtu0KZ8e0PNTsP4yifEZ"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 4
+}

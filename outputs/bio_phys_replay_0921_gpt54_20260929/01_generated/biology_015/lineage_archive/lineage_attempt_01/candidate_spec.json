@@ -1,0 +1,1782 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "I",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        12.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "removal_rate",
+      "value": 0.6
+    },
+    {
+      "symbol": "progression_relaxation_rate",
+      "value": 0.8
+    },
+    {
+      "symbol": "progression_feedback_scale",
+      "value": 0.25
+    },
+    {
+      "symbol": "infectious_maturation_rate",
+      "value": 1.2
+    }
+  ],
+  "benchmark_output": "dI_dt",
+  "benchmark_target_state": "I",
+  "observed_variables": [
+    "t",
+    "E",
+    "I",
+    "progression_rate",
+    "infectious_maturation"
+  ],
+  "rhs_for_integrator": "progression_rate*E - removal_rate*(1 + (infectious_maturation**2/(1 + infectious_maturation**2))*(1 - E/(E + progression_feedback_scale)))*I",
+  "state_variables": [
+    "E",
+    "I",
+    "progression_rate",
+    "infectious_maturation"
+  ],
+  "state_rhs": [
+    "-progression_rate*E",
+    "progression_rate*E - removal_rate*(1 + (infectious_maturation**2/(1 + infectious_maturation**2))*(1 - E/(E + progression_feedback_scale)))*I",
+    "progression_relaxation_rate*(E/(E + progression_feedback_scale) - progression_rate)",
+    "infectious_maturation_rate*I"
+  ],
+  "initial_conditions": {
+    "E": 0.4,
+    "I": 0.05,
+    "progression_rate": 1.0,
+    "infectious_maturation": 0.0
+  },
+  "sanity_expectations": [
+    "E(t) decreases monotonically from 0.4 because dE/dt = -progression_rate*E with positive progression_rate over the chosen regime.",
+    "infectious_maturation(t) increases monotonically from 0 because d(infectious_maturation)/dt = infectious_maturation_rate*I and I stays nonnegative in the intended regime.",
+    "The maturation-dependent removal multiplier starts near 1 at t=0 because infectious_maturation(0)=0, then increases later as infectious_maturation grows; because it is additionally gated by 1 - E/(E + progression_feedback_scale), the same order-1 infectious_maturation produces weaker extra removal earlier when E is still substantial than later after E has declined.",
+    "I(t) should exhibit a transient rise followed by decline over the chosen window rather than remain flat, with the turnover occurring after some depletion of E and some build-up of infectious_maturation.",
+    "progression_rate(t) should relax away from its initial value 1.0 toward the moving target E/(E + progression_feedback_scale); with progression_feedback_scale comparable to initial E, this relaxation is neither negligible nor instantaneous on t in [0,12]."
+  ],
+  "role_corrections": [
+    "dI_dt: claimed-output/target derivative -> target derivative of state I in inherited ode_system (confirmed context; dependent variable for dataset is I per contract)",
+    "t: claimed-input/time axis -> independent variable/time axis (confirmed)",
+    "E: claimed-dynamic state -> dynamic state variable in ode_system (confirmed)",
+    "I: claimed-dynamic state -> dynamic state variable and dependent_variable/target state (confirmed)",
+    "progression_rate: claimed-dynamic state -> dynamic state variable in ode_system (confirmed; preserve promoted state per contract/freedom metadata)",
+    "removal_rate: claimed-parameter -> fixed parameter (confirmed)",
+    "progression_relaxation_rate: claimed-parameter -> fixed parameter (confirmed)",
+    "progression_feedback_scale: claimed-parameter -> fixed parameter (confirmed)",
+    "infectious_maturation: claimed-dynamic state -> dynamic state variable in ode_system (confirmed)",
+    "infectious_maturation_rate: claimed-parameter -> fixed parameter (confirmed)"
+  ],
+  "rationale": "Preserved the provided typed ODE-system contract exactly as required: target state I, time as the only sampled axis, and the inherited four-state system for (E, I, progression_rate, infectious_maturation). Although the displayed target expression alone is structurally an explicit algebraic formula in state symbols, the record supplies an explicit ODE-system contract and freedom_change is none, so the declared dynamic-state/parameter roles are preserved. The chosen window t in [0,12] with 300 points is long enough to capture the intended transient progression: E decays from its initial 0.4 through the progression term, I can initially accumulate from progression_rate*E and later decline under removal, progression_rate has time to relax observably because progression_relaxation_rate is moderate rather than extreme, and infectious_maturation can rise from 0 to order 1 while I remains nonzero. Parameter choices avoid parent-recovery or deep-saturation limits. progression_feedback_scale = 0.25 is comparable to the initial exposed level E(0)=0.4, so the gate 1 - E/(E + progression_feedback_scale) is initially substantially below 1 but not near 0, then increases as E depletes; this exposes the generation-5 distinguishing condition that at matched I and infectious_maturation along reachable states, later lower-E phases experience stronger maturation-modulated removal than earlier higher-E phases. infectious_maturation_rate = 1.2 allows maturation to build within the observation window without becoming instantly dominant, supporting the generation-4 delayed-onset effect from the squared maturation term and the earlier generation-3 saturation effect. removal_rate = 0.6 keeps infectious loss competitive with inflow so I should show a visible rise/turnover/decline rather than monotone explosive growth or immediate extinction. progression_relaxation_rate = 0.8 is moderate, allowing within-window drift in progression_rate, so generation-1 phase-shift effects remain active rather than collapsing to a constant-rate parent. Weak or superseded effects: the explicit target expression itself does not encode the progression_rate ODE, so that mechanism is visible only through trajectory evolution under the inherited system; also, if I decays too quickly in some regions, late-time saturation effects become weaker, but the selected values are intended to keep nontrivial overlap between nonzero I, order-1 infectious_maturation, and declining E.",
+  "coverage_report": {
+    "groups": [
+      {
+        "generation": 1,
+        "name": "latent_inflow",
+        "expression": "progression_rate*E",
+        "role": "instantaneous flow from exposed to infectious under the parent law",
+        "train_range": [
+          0.001460693648500335,
+          0.4
+        ],
+        "hidden_range": [
+          0.0012105614078344055,
+          0.0014584212038710681
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.001460693648500335,
+          "max": 0.4,
+          "q05": 0.001602171449785664,
+          "median": 0.005804616774200031,
+          "q95": 0.20493058841069722,
+          "range": 0.3985393063514997,
+          "robust_range": 0.20332841696091156
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.0012105614078344055,
+          "max": 0.0014584212038710681,
+          "q05": 0.0012212888322482602,
+          "median": 0.0013251424761876465,
+          "q95": 0.0014441263303843258,
+          "range": 0.0002478597960366626,
+          "robust_range": 0.00022283749813606563
+        }
+      },
+      {
+        "generation": 1,
+        "name": "infectious_loss",
+        "expression": "removal_rate*I",
+        "role": "instantaneous loss from infectiousness",
+        "train_range": [
+          0.001614606318739299,
+          0.11408016130507731
+        ],
+        "hidden_range": [
+          0.0012160265572698096,
+          0.0016106223295844948
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.001614606318739299,
+          "max": 0.11408016130507731,
+          "q05": 0.0018761977892440542,
+          "median": 0.01609212259740381,
+          "q95": 0.11107383649511476,
+          "range": 0.112465554986338,
+          "robust_range": 0.10919763870587071
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.0012160265572698096,
+          "max": 0.0016106223295844948,
+          "q05": 0.0012315252795197355,
+          "median": 0.0013887794702743543,
+          "q95": 0.0015857182796322014,
+          "range": 0.00039459577231468527,
+          "robust_range": 0.00035419300011246585
+        }
+      },
+      {
+        "generation": 1,
+        "name": "net_growth_balance",
+        "expression": "progression_rate*E - removal_rate*I",
+        "role": "current target mapping in the parent model",
+        "train_range": [
+          -0.047028889307406535,
+          0.37
+        ],
+        "hidden_range": [
+          -0.00015220112571342668,
+          -5.465149435404009e-06
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": -0.047028889307406535,
+          "max": 0.37,
+          "q05": -0.045604988358477365,
+          "median": -0.0048619073344011434,
+          "q95": 0.10446351333376387,
+          "range": 0.41702888930740656,
+          "robust_range": 0.15006850169224123
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": -0.00015220112571342668,
+          "max": -5.465149435404009e-06,
+          "q05": -0.00014159194924787572,
+          "median": -6.363699408670797e-05,
+          "q95": -1.023644727147529e-05,
+          "range": 0.00014673597627802267,
+          "robust_range": 0.00013135550197640043
+        }
+      },
+      {
+        "generation": 2,
+        "name": "infectious_turnover_balance",
+        "expression": "progression_rate*E/removal_rate",
+        "role": "instantaneous balance between inflow to and baseline outflow from infectiousness",
+        "train_range": [
+          0.002434489414167225,
+          0.6666666666666667
+        ],
+        "hidden_range": [
+          0.002017602346390676,
+          0.0024307020064517804
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.002434489414167225,
+          "max": 0.6666666666666667,
+          "q05": 0.0026702857496427733,
+          "median": 0.009674361290333385,
+          "q95": 0.3415509806844954,
+          "range": 0.6642321772524995,
+          "robust_range": 0.3388806949348526
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.002017602346390676,
+          "max": 0.0024307020064517804,
+          "q05": 0.0020354813870804337,
+          "median": 0.0022085707936460777,
+          "q95": 0.0024068772173072095,
+          "range": 0.0004130996600611044,
+          "robust_range": 0.00037139583022677584
+        }
+      },
+      {
+        "generation": 2,
+        "name": "infectious_load",
+        "expression": "I",
+        "role": "current infectious occupancy governing removal loss",
+        "train_range": [
+          0.0026910105312321652,
+          0.19013360217512887
+        ],
+        "hidden_range": [
+          0.002026710928783016,
+          0.0026843705493074916
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0026910105312321652,
+          "max": 0.19013360217512887,
+          "q05": 0.003126996315406757,
+          "median": 0.026820204329006354,
+          "q95": 0.18512306082519128,
+          "range": 0.1874425916438967,
+          "robust_range": 0.18199606450978453
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.002026710928783016,
+          "max": 0.0026843705493074916,
+          "q05": 0.0020525421325328927,
+          "median": 0.0023146324504572575,
+          "q95": 0.0026428637993870024,
+          "range": 0.0006576596205244757,
+          "robust_range": 0.0005903216668541097
+        }
+      },
+      {
+        "generation": 2,
+        "name": "cohort_phase",
+        "expression": "t",
+        "role": "follow-up phase at which infectious-stage maturation can alter removal propensity",
+        "train_range": [
+          0.0,
+          10.8
+        ],
+        "hidden_range": [
+          10.809375000000001,
+          12.0
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 10.8,
+          "q05": 0.5400000000000001,
+          "median": 5.4,
+          "q95": 10.26,
+          "range": 10.8,
+          "robust_range": 9.719999999999999
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 10.809375000000001,
+          "max": 12.0,
+          "q05": 10.86890625,
+          "median": 11.404687500000001,
+          "q95": 11.940468749999999,
+          "range": 1.190624999999999,
+          "robust_range": 1.0715624999999989
+        }
+      },
+      {
+        "generation": 3,
+        "name": "ageing_load",
+        "expression": "infectious_maturation",
+        "role": "current infectious-stage ageing burden controlling removal amplification",
+        "train_range": [
+          0.0,
+          0.7663746178761635
+        ],
+        "hidden_range": [
+          0.7664048543714677,
+          0.7697312827351979
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 0.7663746178761635,
+          "q05": 0.07811438015360228,
+          "median": 0.7064747211158233,
+          "q95": 0.7644955363059385,
+          "range": 0.7663746178761635,
+          "robust_range": 0.6863811561523362
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.7664048543714677,
+          "max": 0.7697312827351979,
+          "q05": 0.7665951215518905,
+          "median": 0.7681846966651795,
+          "q95": 0.7695855752349902,
+          "range": 0.003326428363730205,
+          "robust_range": 0.002990453683099692
+        }
+      },
+      {
+        "generation": 3,
+        "name": "baseline_outflow",
+        "expression": "removal_rate*I",
+        "role": "removal scale before ageing amplification",
+        "train_range": [
+          0.001614606318739299,
+          0.11408016130507731
+        ],
+        "hidden_range": [
+          0.0012160265572698096,
+          0.0016106223295844948
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.001614606318739299,
+          "max": 0.11408016130507731,
+          "q05": 0.0018761977892440542,
+          "median": 0.01609212259740381,
+          "q95": 0.11107383649511476,
+          "range": 0.112465554986338,
+          "robust_range": 0.10919763870587071
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.0012160265572698096,
+          "max": 0.0016106223295844948,
+          "q05": 0.0012315252795197355,
+          "median": 0.0013887794702743543,
+          "q95": 0.0015857182796322014,
+          "range": 0.00039459577231468527,
+          "robust_range": 0.00035419300011246585
+        }
+      },
+      {
+        "generation": 3,
+        "name": "ageing_to_baseline_ratio",
+        "expression": "infectious_maturation/(1 + infectious_maturation)",
+        "role": "bounded effective ageing influence under a saturating removal law",
+        "train_range": [
+          0.0,
+          0.4338686766217404
+        ],
+        "hidden_range": [
+          0.43387836739396546,
+          0.4349424628724109
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 0.4338686766217404,
+          "q05": 0.07245133742627875,
+          "median": 0.41399655187836054,
+          "q95": 0.43326578056710424,
+          "range": 0.4338686766217404,
+          "robust_range": 0.3608144431408255
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.43387836739396546,
+          "max": 0.4349424628724109,
+          "q05": 0.43393934022305614,
+          "median": 0.43444822142153317,
+          "q95": 0.43489593606911797,
+          "range": 0.001064095478445437,
+          "robust_range": 0.0009565958460618362
+        }
+      },
+      {
+        "generation": 4,
+        "name": "early_infectious_age",
+        "expression": "infectious_maturation/(1 + infectious_maturation)",
+        "role": "dimensionless coordinate for how far the infectious cohort has progressed away from the newly infectious state",
+        "train_range": [
+          0.0,
+          0.4338686766217404
+        ],
+        "hidden_range": [
+          0.43387836739396546,
+          0.4349424628724109
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 0.4338686766217404,
+          "q05": 0.07245133742627875,
+          "median": 0.41399655187836054,
+          "q95": 0.43326578056710424,
+          "range": 0.4338686766217404,
+          "robust_range": 0.3608144431408255
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.43387836739396546,
+          "max": 0.4349424628724109,
+          "q05": 0.43393934022305614,
+          "median": 0.43444822142153317,
+          "q95": 0.43489593606911797,
+          "range": 0.001064095478445437,
+          "robust_range": 0.0009565958460618362
+        }
+      },
+      {
+        "generation": 4,
+        "name": "removal_load",
+        "expression": "removal_rate*I",
+        "role": "baseline scale of infectious losses before stage-age modulation",
+        "train_range": [
+          0.001614606318739299,
+          0.11408016130507731
+        ],
+        "hidden_range": [
+          0.0012160265572698096,
+          0.0016106223295844948
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.001614606318739299,
+          "max": 0.11408016130507731,
+          "q05": 0.0018761977892440542,
+          "median": 0.01609212259740381,
+          "q95": 0.11107383649511476,
+          "range": 0.112465554986338,
+          "robust_range": 0.10919763870587071
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.0012160265572698096,
+          "max": 0.0016106223295844948,
+          "q05": 0.0012315252795197355,
+          "median": 0.0013887794702743543,
+          "q95": 0.0015857182796322014,
+          "range": 0.00039459577231468527,
+          "robust_range": 0.00035419300011246585
+        }
+      },
+      {
+        "generation": 4,
+        "name": "influx_to_loss_balance",
+        "expression": "progression_rate*E/(removal_rate*I + 1.0e-12)",
+        "role": "whether infectious occupancy is still accumulating or already dominated by removal",
+        "train_range": [
+          0.32187621789471627,
+          13.333333332888891
+        ],
+        "hidden_range": [
+          0.9055016661428053,
+          0.9955057310235231
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.32187621789471627,
+          "max": 13.333333332888891,
+          "q05": 0.3237061020573728,
+          "median": 0.5221267273339497,
+          "q95": 2.0399960394484564,
+          "range": 13.011457114994174,
+          "robust_range": 1.7162899373910836
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.9055016661428053,
+          "max": 0.9955057310235231,
+          "q05": 0.9107084555630467,
+          "median": 0.9541781438792885,
+          "q95": 0.9916882686215046,
+          "range": 0.09000406488071788,
+          "robust_range": 0.08097981305845792
+        }
+      },
+      {
+        "generation": 5,
+        "name": "age_load",
+        "expression": "infectious_maturation**2/(1 + infectious_maturation**2)",
+        "role": "current saturating infectious-stage ageing signal already driving removal",
+        "train_range": [
+          0.0,
+          0.3700112985970314
+        ],
+        "hidden_range": [
+          0.3700296920797052,
+          0.37205109212479437
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 0.3700112985970314,
+          "q05": 0.006068838240408449,
+          "median": 0.33293596919121315,
+          "q95": 0.36886753208866824,
+          "range": 0.3700112985970314,
+          "robust_range": 0.3627986938482598
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.3700296920797052,
+          "max": 0.37205109212479437,
+          "q05": 0.37014542748949225,
+          "median": 0.3711117917843392,
+          "q95": 0.37196263764390813,
+          "range": 0.002021400045089161,
+          "robust_range": 0.0018172101544158825
+        }
+      },
+      {
+        "generation": 5,
+        "name": "remaining_exposed_fraction",
+        "expression": "E/(E + progression_feedback_scale)",
+        "role": "dimensionless indicator that the cohort is still early in follow-up with a substantial latent pool",
+        "train_range": [
+          0.06955826431590155,
+          0.6153846153846154
+        ],
+        "hidden_range": [
+          0.06400151015793773,
+          0.06951087801596884
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.06955826431590155,
+          "max": 0.6153846153846154,
+          "q05": 0.0724098887224435,
+          "median": 0.11972666548524633,
+          "q95": 0.49336385823096784,
+          "range": 0.5458263510687139,
+          "robust_range": 0.4209539695085244
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.06400151015793773,
+          "max": 0.06951087801596884,
+          "q05": 0.06425511062904943,
+          "median": 0.06663616358453488,
+          "q95": 0.06921158293965034,
+          "range": 0.005509367858031106,
+          "robust_range": 0.0049564723106009095
+        }
+      },
+      {
+        "generation": 5,
+        "name": "infectious_loss_flux",
+        "expression": "removal_rate*I",
+        "role": "baseline scale of infectious depletion against which modulation is observed",
+        "train_range": [
+          0.001614606318739299,
+          0.11408016130507731
+        ],
+        "hidden_range": [
+          0.0012160265572698096,
+          0.0016106223295844948
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.001614606318739299,
+          "max": 0.11408016130507731,
+          "q05": 0.0018761977892440542,
+          "median": 0.01609212259740381,
+          "q95": 0.11107383649511476,
+          "range": 0.112465554986338,
+          "robust_range": 0.10919763870587071
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.0012160265572698096,
+          "max": 0.0016106223295844948,
+          "q05": 0.0012315252795197355,
+          "median": 0.0013887794702743543,
+          "q95": 0.0015857182796322014,
+          "range": 0.00039459577231468527,
+          "robust_range": 0.00035419300011246585
+        }
+      }
+    ],
+    "inactive_mechanisms": [],
+    "visible_mechanisms": [
+      "latent_inflow",
+      "infectious_loss",
+      "net_growth_balance",
+      "infectious_turnover_balance",
+      "infectious_load",
+      "cohort_phase",
+      "ageing_load",
+      "baseline_outflow",
+      "ageing_to_baseline_ratio",
+      "early_infectious_age",
+      "removal_load",
+      "influx_to_loss_balance",
+      "age_load",
+      "remaining_exposed_fraction",
+      "infectious_loss_flux"
+    ],
+    "extended_mechanisms": [
+      "latent_inflow",
+      "infectious_loss",
+      "infectious_turnover_balance",
+      "infectious_load",
+      "cohort_phase",
+      "ageing_load",
+      "baseline_outflow",
+      "ageing_to_baseline_ratio",
+      "early_infectious_age",
+      "removal_load",
+      "age_load",
+      "remaining_exposed_fraction",
+      "infectious_loss_flux"
+    ]
+  },
+  "inactive_mechanisms": [],
+  "target_variance": {
+    "train": {
+      "n": 384,
+      "variance": 0.0036197590037460644,
+      "range": 0.42705025722198586
+    },
+    "hidden": {
+      "n": 128,
+      "variance": 6.475059821435882e-09,
+      "range": 0.0002778189121095463
+    }
+  },
+  "parent_absorption_report": {
+    "status": "ok",
+    "n_points": 512,
+    "fixed_parent_normalized_rmse": 0.5654609357704949,
+    "refit": {
+      "status": "not_run",
+      "reason": "no free parent parameters"
+    },
+    "interpretation": "<1e-3 nearly absorbed; 1e-3..1e-2 weak; >1e-2 visible structure"
+  },
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_VE4uoOUAwSYyAU21JEcoFxgD"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "progression_rate*E - removal_rate*(1 + (infectious_maturation**2/(1 + infectious_maturation**2))*(1 - E/(E + progression_feedback_scale)))*I",
+        "target_symbol": "dI_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "E",
+          "I",
+          "infectious_maturation",
+          "progression_feedback_scale",
+          "progression_rate",
+          "removal_rate"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "E*progression_rate - I*removal_rate*(infectious_maturation**2*(1 - E/(E + progression_feedback_scale))/(infectious_matur"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_2ZpLm1CqAR6aAyyaAJ3AmaNs"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "assignments": {
+          "E": 0.4,
+          "I": 0.05,
+          "progression_rate": 1.0,
+          "removal_rate": 0.6,
+          "infectious_maturation": 0.0,
+          "progression_feedback_scale": 0.25
+        },
+        "expression": "progression_rate*E - removal_rate*(1 + (infectious_maturation**2/(1 + infectious_maturation**2))*(1 - E/(E + progression_feedback_scale)))*I",
+        "target_symbol": "dI_dt"
+      },
+      "result": {
+        "ok": true,
+        "value_real": 0.37,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_XXGRHgwsyJYuHdfUtfniJSwk"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_RWlS206A1LGcoNG594zKWKJk"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 4,
+  "discipline": "biology",
+  "scenario_text": "Follow a cohort of newly exposed individuals as they progress through a latent stage into an infectious stage and then leave infectiousness. The exposed and infectious populations are jointly evolved from initial conditions, with no new exposures after cohort initiation in the baseline model. The target is the time derivative of the infectious population, capturing transient accumulation followed by removal. This is a temporal progression problem rather than an instantaneous response.",
+  "record_id": "m2_epidemiology_and_disease_dynamics_20260921_003",
+  "generation": 5,
+  "_n_total": 5000,
+  "mechanism_observation_history": [
+    {
+      "generation": 1,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "phase_shift",
+          "parent_relation": "With constant progression_rate, the inflow term progression_rate*E makes I rise and peak on a single fixed timescale determined only by the exponential decay of E and removal of I.",
+          "child_relation": "Allow progression_rate to relax over time within the cohort, so the exposed-to-infectious transition speed changes during follow-up and the inflow into I is front-loaded or delayed relative to the parent.",
+          "affected_inputs": [
+            "E",
+            "progression_rate",
+            "t"
+          ],
+          "observable_effect": "Across cohorts with the same initial E and I but different latent-stage adaptation histories encoded by the evolving progression tendency, the timing and sharpness of the I(t) peak differ; one shared constant-rate parent cannot match both an early sharp rise and a delayed broader rise over the same observation window."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "latent_inflow",
+            "expression": "progression_rate*E",
+            "role": "instantaneous flow from exposed to infectious under the parent law"
+          },
+          {
+            "name": "infectious_loss",
+            "expression": "removal_rate*I",
+            "role": "instantaneous loss from infectiousness"
+          },
+          {
+            "name": "net_growth_balance",
+            "expression": "progression_rate*E - removal_rate*I",
+            "role": "current target mapping in the parent model"
+          }
+        ],
+        "activation_condition": "Observable when follow-up spans a nontrivial fraction of the latent progression timescale so that within-cohort changes in progression speed alter the timing of transfer from E to I before E is exhausted; weak if progression characteristics are effectively constant over the whole window.",
+        "train_hidden_contrast": "In training, modest within-cohort drift in progression speed changes early-versus-midcourse slope of I(t); in holdout, stronger drift extends this to more obvious peak-time shifts while preserving the same removal process.",
+        "continuation_path": "Recover the parent by taking progression_rate dynamics arbitrarily fast to a constant equilibrium or zero drift so progression_rate is effectively constant during observation.",
+        "freedom_change": "parameter_to_state",
+        "promoted_symbol": "progression_rate",
+        "promotion_reason": "A time-varying latent-to-infectious transition propensity cannot be represented with the existing fixed parameter set because t is the only variable and no current state stores within-cohort adaptation or depletion of faster-progressing latent subgroups.",
+        "gap_statement": "The model assumes a constant per-capita progression rate throughout follow-up, omitting within-cohort evolution of latent-stage progression speed.",
+        "baseline_assumption": "Progression characteristics are constant through time.",
+        "scientific_mechanism": "Cohort-level latent-stage heterogeneity or physiological adaptation can make the effective progression hazard change during follow-up, causing nonstationary transfer from E to I even without any new exposures.",
+        "affected_symbols": [
+          "E",
+          "I",
+          "progression_rate"
+        ],
+        "rationale": "A realistic next refinement is to relax the constant-progression assumption rather than add a new source term, because the cohort remains closed but its latent-stage progression propensity need not stay fixed. Hold initial E and I fixed and compare conditions where the effective progression tendency decays or relaxes over time within the cohort. The parent target mapping dI_dt = progression_rate*E - removal_rate*I has a fixed-environment shortcut: for a given E and I, the slope contribution from E is controlled by one constant gain. The child would instead make that gain evolve, changing when infectious accumulation is concentrated. This changes the scored target mapping itself, not only an auxiliary trajectory, because dI_dt directly depends on progression_rate*E. The contrast is observable when observations cover enough of the latent period for progression-speed drift to matter; if progression is approximately constant over the sampled window, the refinement may be hard to distinguish. A single refitted constant progression_rate in the parent can shift the whole trajectory earlier or later, but cannot simultaneously reproduce both early steep inflow and later suppressed inflow produced by genuine within-cohort progression-rate evolution."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "phase_shift",
+          "parent_relation": "With constant progression_rate, the inflow term progression_rate*E makes I rise and peak on a single fixed timescale determined only by the exponential decay of E and removal of I.",
+          "child_relation": "Allow progression_rate to relax over time within the cohort, so the exposed-to-infectious transition speed changes during follow-up and the inflow into I is front-loaded or delayed relative to the parent.",
+          "affected_inputs": [
+            "E",
+            "progression_rate",
+            "t"
+          ],
+          "observable_effect": "Across cohorts with the same initial E and I but different latent-stage adaptation histories encoded by the evolving progression tendency, the timing and sharpness of the I(t) peak differ; one shared constant-rate parent cannot match both an early sharp rise and a delayed broader rise over the same observation window."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "latent_inflow",
+            "expression": "progression_rate*E",
+            "role": "instantaneous flow from exposed to infectious under the parent law"
+          },
+          {
+            "name": "infectious_loss",
+            "expression": "removal_rate*I",
+            "role": "instantaneous loss from infectiousness"
+          },
+          {
+            "name": "net_growth_balance",
+            "expression": "progression_rate*E - removal_rate*I",
+            "role": "current target mapping in the parent model"
+          }
+        ],
+        "activation_condition": "Observable when follow-up spans a nontrivial fraction of the latent progression timescale so that within-cohort changes in progression speed alter the timing of transfer from E to I before E is exhausted; weak if progression characteristics are effectively constant over the whole window.",
+        "train_hidden_contrast": "In training, modest within-cohort drift in progression speed changes early-versus-midcourse slope of I(t); in holdout, stronger drift extends this to more obvious peak-time shifts while preserving the same removal process.",
+        "continuation_path": "Recover the parent by taking progression_rate dynamics arbitrarily fast to a constant equilibrium or zero drift so progression_rate is effectively constant during observation.",
+        "freedom_change": "parameter_to_state",
+        "promoted_symbol": "progression_rate",
+        "promotion_reason": "A time-varying latent-to-infectious transition propensity cannot be represented with the existing fixed parameter set because t is the only variable and no current state stores within-cohort adaptation or depletion of faster-progressing latent subgroups.",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "E",
+          "progression_rate"
+        ],
+        "structural_role": "timescale",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "state-dependent relaxation of the latent-to-infectious progression propensity",
+        "scientific_mechanism": "Cohort-level latent-stage heterogeneity or physiological adaptation can make the effective progression hazard change during follow-up, causing nonstationary transfer from E to I even without any new exposures.",
+        "embedding_pattern": "state_coupling",
+        "difficulty_rationale": "The refinement is harder than a coefficient correction because the target depends on a promoted internal state whose own dynamics are jointly driven by progression_rate and E, creating history-dependent inflow timing rather than a single constant gain on E.",
+        "taxonomy_match": "known",
+        "assumption_before": "Progression characteristics are constant through time.",
+        "assumption_after": "The effective progression propensity relaxes during follow-up with dynamics modulated by the remaining exposed cohort.",
+        "before_fragment": "progression_rate*E - removal_rate*I",
+        "after_fragment": "progression_rate*E - removal_rate*I",
+        "parent_reduction": "Recover the parent when progression_relaxation_rate -> oo with progression_rate rapidly slaved to a constant value, or when progression_feedback_scale -> oo so E/progression_feedback_scale is negligible and progression_rate remains effectively constant over the observation window.",
+        "observable_signature": "Compared at fixed initial E and I, the child produces a changed early-versus-late mapping from E to dI_dt because progression_rate is no longer one constant gain: when E is initially substantial, progression_rate can remain elevated longer and front-load inflow, whereas as E falls the relaxation target shifts and inflow weakens, moving the I(t) peak earlier or later and changing its sharpness. This is observable only when the observation window covers enough latent-stage evolution for progression_rate dynamics to activate before E is exhausted.",
+        "shortcut_blocked": "A single parent parameter set only supplies one constant progression_rate multiplying E, so after refitting it can uniformly accelerate or decelerate transfer but cannot create the within-trajectory redistribution of inflow required to fit both an early steep rise with later suppression and a delayed broader rise across admissible cohorts. Because the target itself is progression_rate*E - removal_rate*I and progression_rate now has its own E-coupled dynamics, ignoring that mechanism removes the history dependence responsible for the phase shift."
+      },
+      "range_suggestions": {
+        "progression_rate": "0 < progression_rate_initial_condition and typically progression_rate >= 0 throughout; cohort-specific initial values near the parent constant-rate scale",
+        "progression_relaxation_rate": "positive; slow-to-moderate relative to removal_rate to make within-window drift observable",
+        "progression_feedback_scale": "nonnegative; comparable to initial E scale for appreciable state-dependent modulation"
+      }
+    },
+    {
+      "generation": 2,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The parent maps observed states to the target as dI_dt = progression_rate*E - removal_rate*I with one linear removal slope in I, so at fixed E and progression_rate the infectious decline is proportional to I with constant per-capita loss.",
+          "child_relation": "Replace constant infectious removal with a stage-ageing infectious cohort whose effective removal strengthens during follow-up, so the target becomes an early shallow decline or longer plateau followed by steeper late decline at similar I.",
+          "affected_inputs": [
+            "I",
+            "t"
+          ],
+          "observable_effect": "Across trajectories with similar infectious burden I but different follow-up phase t, the later-phase cohort loses infectiousness faster than the earlier-phase cohort; the parent cannot create this time-within-stage curvature using one fixed removal_rate."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "infectious_turnover_balance",
+            "expression": "progression_rate*E/removal_rate",
+            "role": "instantaneous balance between inflow to and baseline outflow from infectiousness"
+          },
+          {
+            "name": "infectious_load",
+            "expression": "I",
+            "role": "current infectious occupancy governing removal loss"
+          },
+          {
+            "name": "cohort_phase",
+            "expression": "t",
+            "role": "follow-up phase at which infectious-stage maturation can alter removal propensity"
+          }
+        ],
+        "activation_condition": "Observable when follow-up spans a nontrivial fraction of the infectious-stage maturation timescale, so some cohort members remain infectious long enough for within-infectious-stage ageing to change their exit hazard; weak if removal is so fast that nearly all infectious individuals leave before maturation matters.",
+        "train_hidden_contrast": "In training the mechanism appears as modest asymmetry around the infectious peak; in holdout with slower removal or longer observation windows the same mechanism extends to a clearer late-time steepening that the parent's single-phase removal cannot match with one shared parameter set.",
+        "continuation_path": "Recover the parent law in the limit where infectious-stage maturation is absent or infinitely fast to its initial value, yielding an effectively constant removal_rate throughout follow-up.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A history-dependent infectious exit propensity requires one internal cohort-phase quantity beyond E and I; existing states do not encode how long current infectious individuals have already spent in the infectious stage, so a new state is needed to represent infectious-stage maturation without external inputs.",
+        "gap_statement": "The model assumes all infectious individuals share one time-invariant per-capita removal hazard, omitting within-infectious-stage maturation of clearance or isolation propensity.",
+        "baseline_assumption": "Removal characteristics are constant through time for the infectious cohort.",
+        "scientific_mechanism": "As infectious individuals progress through symptom development, care seeking, immune control, or isolation readiness, their effective removal hazard can increase with infectious-stage age even in a closed cohort.",
+        "affected_symbols": [
+          "I",
+          "t",
+          "removal_rate"
+        ],
+        "rationale": "Parent response relationship: at fixed E and progression_rate, dI_dt changes with I through a single constant removal slope, so infectious decline has one phase apart from inflow variation. Planned refinement: keep the same exposed-to-infectious inflow but relax the idealization of phase-independent infectious removal by introducing infectious-stage maturation, which changes the target mapping itself because dI_dt at the same observed I can differ by cohort phase. Distinguishing condition: vary observation time within trajectories while holding the initial conditions and all fixed parameters shared across conditions; under admissible regimes where removal is not instantaneous and observation extends past the infectious peak, the child can show a later steeper negative dI_dt than the parent after similar I levels are revisited or approached. A single refitted parent parameter set cannot reproduce both an early broad plateau and a later accelerated decline because its outflow remains proportional to I with one constant coefficient. Limitation: if observations end very early or removal dominates before infectious-stage maturation develops, the change may be weakly identifiable."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The parent maps observed states to the target as dI_dt = progression_rate*E - removal_rate*I with one linear removal slope in I, so at fixed E and progression_rate the infectious decline is proportional to I with constant per-capita loss.",
+          "child_relation": "Replace constant infectious removal with a stage-ageing infectious cohort whose effective removal strengthens during follow-up, so the target becomes an early shallow decline or longer plateau followed by steeper late decline at similar I.",
+          "affected_inputs": [
+            "I",
+            "t"
+          ],
+          "observable_effect": "Across trajectories with similar infectious burden I but different follow-up phase t, the later-phase cohort loses infectiousness faster than the earlier-phase cohort; the parent cannot create this time-within-stage curvature using one fixed removal_rate."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "infectious_turnover_balance",
+            "expression": "progression_rate*E/removal_rate",
+            "role": "instantaneous balance between inflow to and baseline outflow from infectiousness"
+          },
+          {
+            "name": "infectious_load",
+            "expression": "I",
+            "role": "current infectious occupancy governing removal loss"
+          },
+          {
+            "name": "cohort_phase",
+            "expression": "t",
+            "role": "follow-up phase at which infectious-stage maturation can alter removal propensity"
+          }
+        ],
+        "activation_condition": "Observable when follow-up spans a nontrivial fraction of the infectious-stage maturation timescale, so some cohort members remain infectious long enough for within-infectious-stage ageing to change their exit hazard; weak if removal is so fast that nearly all infectious individuals leave before maturation matters.",
+        "train_hidden_contrast": "In training the mechanism appears as modest asymmetry around the infectious peak; in holdout with slower removal or longer observation windows the same mechanism extends to a clearer late-time steepening that the parent's single-phase removal cannot match with one shared parameter set.",
+        "continuation_path": "Recover the parent law in the limit where infectious-stage maturation is absent or infinitely fast to its initial value, yielding an effectively constant removal_rate throughout follow-up.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A history-dependent infectious exit propensity requires one internal cohort-phase quantity beyond E and I; existing states do not encode how long current infectious individuals have already spent in the infectious stage, so a new state is needed to represent infectious-stage maturation without external inputs.",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "I",
+          "infectious_maturation"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "infectious-stage maturation of removal propensity",
+        "scientific_mechanism": "As infectious individuals progress through symptom development, care seeking, immune control, or isolation readiness, their effective removal hazard can increase with infectious-stage age even in a closed cohort.",
+        "embedding_pattern": "multiplicative_modulation",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the removal strength is no longer a fixed number: it is dynamically modulated by an internal maturation state driven by infectious occupancy, creating history-dependent curvature in the target mapping.",
+        "taxonomy_match": "known",
+        "assumption_before": "Removal characteristics are constant through time for the infectious cohort.",
+        "assumption_after": "Removal hazard is amplified by an internal infectious-stage maturation process that builds during follow-up.",
+        "before_fragment": "progression_rate*E - removal_rate*I",
+        "after_fragment": "progression_rate*E - removal_rate*(1 + infectious_maturation)*I",
+        "parent_reduction": "The parent is recovered when infectious_maturation is identically zero, for example under infectious_maturation_rate -> 0 with infectious_maturation(0)=0.",
+        "observable_signature": "Compared at similar I within the same initial-condition contract, early times can show broader accumulation or a shallower post-peak decline, while later times show more negative dI_dt because removal_rate is multiplied by 1 + infectious_maturation. This is observable when the window extends beyond the infectious peak and maturation grows to O(1) before I is exhausted.",
+        "shortcut_blocked": "A single parent parameter set cannot reproduce both early weak removal and later strong removal at similar I because its target mapping has only one removal slope, -removal_rate*I, independent of cohort phase. Retuning removal_rate can shift the whole decline uniformly but cannot generate the within-trajectory curvature caused by the evolving multiplier 1 + infectious_maturation."
+      },
+      "range_suggestions": {
+        "infectious_maturation": "nonnegative; typically starts at 0 and rises to O(1) when infectious-stage ageing is appreciable during follow-up",
+        "infectious_maturation_rate": "positive; slow-to-moderate relative to removal_rate so maturation changes removal within the observation window without instant saturation"
+      }
+    },
+    {
+      "generation": 3,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The infectious derivative depends on exposed inflow minus removal with a removal amplification that grows linearly with accumulated infectious maturation, so at fixed E and I the mapping from infectious_maturation to dI_dt is a single linear decline.",
+          "child_relation": "Keep the same exposed inflow and maturation state but replace the linear removal amplification by a saturating dependence on infectious_maturation, so at fixed E and I the mapping from infectious_maturation to dI_dt bends from an initially steep decline toward a plateau in additional removal effect.",
+          "affected_inputs": [
+            "E",
+            "I",
+            "infectious_maturation",
+            "removal_rate"
+          ],
+          "observable_effect": "Across trajectories with similar E and I but different infectious_maturation accumulation, early infectious ageing causes stronger extra decline in dI_dt than late ageing, producing a sharper approach to the infectious peak and a less over-suppressed tail than the parent's linear-ageing removal."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "latent_inflow",
+            "expression": "progression_rate*E",
+            "role": "instantaneous transfer from exposed to infectious"
+          },
+          {
+            "name": "ageing_load",
+            "expression": "infectious_maturation",
+            "role": "current infectious-stage ageing burden controlling removal amplification"
+          },
+          {
+            "name": "baseline_outflow",
+            "expression": "removal_rate*I",
+            "role": "removal scale before ageing amplification"
+          },
+          {
+            "name": "ageing_to_baseline_ratio",
+            "expression": "infectious_maturation/(1 + infectious_maturation)",
+            "role": "bounded effective ageing influence under a saturating removal law"
+          }
+        ],
+        "activation_condition": "Observable when infectious_maturation rises from near 0 to O(1) during follow-up while I remains appreciable, so removal amplification has time to depart from the linear small-age regime but not remain negligible throughout.",
+        "train_hidden_contrast": "In training, low-to-moderate infectious_maturation can mimic the parent at early times; in extended holdout, larger accumulated infectious_maturation reveals that extra removal influence saturates rather than continuing to strengthen linearly.",
+        "continuation_path": "Recover the parent in the small-maturation regime infectious_maturation << 1, where a saturating factor such as infectious_maturation/(1 + infectious_maturation) is approximately linear in infectious_maturation.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The current model assumes infectious-stage maturation amplifies removal without bound and strictly linearly, which is biologically idealized when care seeking, isolation readiness, or immune-mediated clearance gains cannot keep increasing indefinitely with infectious age.",
+        "baseline_assumption": "The parent assumes a linear, unsaturated effect of infectious_maturation on the infectious removal hazard.",
+        "scientific_mechanism": "Infectious-stage ageing often increases removal propensity rapidly at first but then approaches a ceiling because isolation uptake, symptom-triggered behavior change, or immune control cannot exceed finite effectiveness within a closed cohort.",
+        "affected_symbols": [
+          "I",
+          "infectious_maturation",
+          "removal_rate"
+        ],
+        "rationale": "A realistic next refinement is to relax the linear maturation-to-removal assumption rather than add a new process. The parent target mapping is single-phase in infectious_maturation: holding progression_rate, E, I, and removal_rate fixed, dI_dt decreases with one constant slope as infectious_maturation accumulates. The child would make that slope state dependent, steep initially and flatter later, by using a saturating maturation effect in the I equation. The distinguishing condition is variation over follow-up times within the same cohort, comparing epochs where infectious_maturation is still small versus epochs where it has reached order one, while E, I, and the fixed parameters are observed under the same initial-condition protocol. Under these admissible conditions, the child predicts curvature in the dI_dt versus infectious_maturation relationship: early maturation sharply advances the turnover toward the infectious peak, but later maturation adds progressively less extra removal, leaving a broader late tail than the parent's unbounded linear amplification. A single shared parent parameter set cannot reproduce both features across these conditions because its dependence on infectious_maturation is exactly linear for all times; refitting removal_rate only rescales one constant slope and cannot create the early-steep/late-flat contrast. This change affects the scored target mapping directly, not only an auxiliary trajectory, and remains scientifically conservative because the parent is recovered when maturation stays small throughout observation."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The infectious derivative depends on exposed inflow minus removal with a removal amplification that grows linearly with accumulated infectious maturation, so at fixed E and I the mapping from infectious_maturation to dI_dt is a single linear decline.",
+          "child_relation": "Keep the same exposed inflow and maturation state but replace the linear removal amplification by a saturating dependence on infectious_maturation, so at fixed E and I the mapping from infectious_maturation to dI_dt bends from an initially steep decline toward a plateau in additional removal effect.",
+          "affected_inputs": [
+            "E",
+            "I",
+            "infectious_maturation",
+            "removal_rate"
+          ],
+          "observable_effect": "Across trajectories with similar E and I but different infectious_maturation accumulation, early infectious ageing causes stronger extra decline in dI_dt than late ageing, producing a sharper approach to the infectious peak and a less over-suppressed tail than the parent's linear-ageing removal."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "latent_inflow",
+            "expression": "progression_rate*E",
+            "role": "instantaneous transfer from exposed to infectious"
+          },
+          {
+            "name": "ageing_load",
+            "expression": "infectious_maturation",
+            "role": "current infectious-stage ageing burden controlling removal amplification"
+          },
+          {
+            "name": "baseline_outflow",
+            "expression": "removal_rate*I",
+            "role": "removal scale before ageing amplification"
+          },
+          {
+            "name": "ageing_to_baseline_ratio",
+            "expression": "infectious_maturation/(1 + infectious_maturation)",
+            "role": "bounded effective ageing influence under a saturating removal law"
+          }
+        ],
+        "activation_condition": "Observable when infectious_maturation rises from near 0 to O(1) during follow-up while I remains appreciable, so removal amplification has time to depart from the linear small-age regime but not remain negligible throughout.",
+        "train_hidden_contrast": "In training, low-to-moderate infectious_maturation can mimic the parent at early times; in extended holdout, larger accumulated infectious_maturation reveals that extra removal influence saturates rather than continuing to strengthen linearly.",
+        "continuation_path": "Recover the parent in the small-maturation regime infectious_maturation << 1, where a saturating factor such as infectious_maturation/(1 + infectious_maturation) is approximately linear in infectious_maturation.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "I",
+          "infectious_maturation",
+          "removal_rate"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "saturating infectious-age modulation of removal",
+        "scientific_mechanism": "Infectious-stage ageing often increases removal propensity rapidly at first but then approaches a ceiling because isolation uptake, symptom-triggered behavior change, or immune control cannot exceed finite effectiveness within a closed cohort.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the effective removal multiplier now changes shape across the observed infectious_maturation range, creating curvature in the scored target law rather than a single rescaled slope.",
+        "taxonomy_match": "known",
+        "assumption_before": "The parent assumes a linear, unsaturated effect of infectious_maturation on the infectious removal hazard.",
+        "assumption_after": "The infectious removal amplification increases with infectious_maturation but saturates to reflect finite maximal ageing-related gains in removal propensity.",
+        "before_fragment": "progression_rate*E - removal_rate*(1 + infectious_maturation)*I",
+        "after_fragment": "progression_rate*E - removal_rate*(1 + infectious_maturation/(1 + infectious_maturation))*I",
+        "parent_reduction": "When infectious_maturation << 1, the child law reduces approximately to the parent because infectious_maturation/(1 + infectious_maturation) ≈ infectious_maturation.",
+        "observable_signature": "Within the same cohort follow-up and initial-condition protocol, compare early epochs with small infectious_maturation to later epochs where infectious_maturation reaches O(1) while E and I remain appreciable. The parent predicts a constant-slope linear decrease of dI_dt with infectious_maturation, whereas the child predicts an early steepening of removal followed by diminishing additional effect, yielding a sharper peak approach but a less suppressed late infectious tail.",
+        "shortcut_blocked": "A single shared parent parameter set cannot reproduce this contrast because its dependence of dI_dt on infectious_maturation is exactly linear at all times. Refitting removal_rate can only change one constant slope in the maturation-response curve and cannot create the required early-steep/late-flat curvature across admissible follow-up conditions."
+      },
+      "range_suggestions": {}
+    },
+    {
+      "generation": 4,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The infectious derivative depends on E through a single progression influx term progression_rate*E while removal increases monotonically with infectious_maturation, so after fixing the observed states the target mapping has only one infectious-stage removal phase.",
+          "child_relation": "Keep the same closed-cohort progression influx, but relax the assumption that infectious-stage ageing only strengthens removal; allow an early low-maturation period with weaker effective removal before later maturation-driven acceleration, creating a two-regime dependence of dI_dt on infectious_maturation.",
+          "affected_inputs": [
+            "I",
+            "infectious_maturation",
+            "removal_rate"
+          ],
+          "observable_effect": "At matched I and similar E, early follow-up with low infectious_maturation shows slower decline or a later/higher I peak than the parent predicts, while later follow-up still exhibits accelerated clearance as maturation accumulates."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "early_infectious_age",
+            "expression": "infectious_maturation/(1 + infectious_maturation)",
+            "role": "dimensionless coordinate for how far the infectious cohort has progressed away from the newly infectious state"
+          },
+          {
+            "name": "removal_load",
+            "expression": "removal_rate*I",
+            "role": "baseline scale of infectious losses before stage-age modulation"
+          },
+          {
+            "name": "influx_to_loss_balance",
+            "expression": "progression_rate*E/(removal_rate*I + 1.0e-12)",
+            "role": "whether infectious occupancy is still accumulating or already dominated by removal"
+          }
+        ],
+        "activation_condition": "Most visible when infectious_maturation spans from near 0 to order 1 during observation, with nontrivial I present so that early-stage and later-stage removal can both be sampled along the same cohort trajectory.",
+        "train_hidden_contrast": "In training, the mechanism appears as a flatter initial decline or delayed turnover of I at low infectious_maturation; in holdout, the same cohort later enters the higher-clearance mature regime, extending the curvature contrast across time rather than introducing a different process.",
+        "continuation_path": "Recover the parent law in the limit where any early-stage attenuation of removal vanishes, so removal becomes the same monotone increasing function of infectious_maturation used by the parent.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The current model assumes infectious-stage ageing can only increase removal immediately from infectious onset, omitting an initial newly infectious window in which symptoms, care seeking, isolation readiness, or immune control may not yet be fully active.",
+        "baseline_assumption": "The parent fixes removal amplification as a purely increasing saturating function of infectious_maturation with no early lag or attenuation phase.",
+        "scientific_mechanism": "A newly infectious individual may initially remain less likely to be removed until symptoms intensify or detection/isolation behavior engages, after which removal accelerates with further infectious maturation.",
+        "affected_symbols": [
+          "I",
+          "infectious_maturation",
+          "removal_rate"
+        ],
+        "rationale": "A realistic next refinement is to relax the parent's one-phase infectious removal assumption rather than add a new process. The parent target mapping is dI_dt = progression_rate*E minus I times a removal multiplier that already starts above baseline and increases monotonically with infectious_maturation. Vary time along the observed cohort trajectory while holding the model form and one shared parameter set fixed: when E is still present and infectious_maturation is near zero, the parent enforces relatively strong early removal, which tends to make I turn over too early. A child with an early low-removal infectious subphase would instead permit more transient accumulation and a later or higher peak, yet still allow faster decline once infectious_maturation reaches order-1 values. This is observable under the existing initial conditions because infectious_maturation starts at 0 and grows from I, so the cohort naturally traverses both low- and moderate-maturation regimes if follow-up is long enough. The change affects the scored mapping directly through the removal term in dI_dt, not merely auxiliary trajectories. A single refit of the parent's existing parameters cannot generally reproduce both a weak-removal early phase and a strong-removal later phase across the same trajectory, because increasing or decreasing removal_rate or infectious_maturation_rate shifts the whole monotone profile rather than creating distinct early-versus-late curvature in the target relation."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The infectious derivative depends on E through a single progression influx term progression_rate*E while removal increases monotonically with infectious_maturation, so after fixing the observed states the target mapping has only one infectious-stage removal phase.",
+          "child_relation": "Keep the same closed-cohort progression influx, but relax the assumption that infectious-stage ageing only strengthens removal; allow an early low-maturation period with weaker effective removal before later maturation-driven acceleration, creating a two-regime dependence of dI_dt on infectious_maturation.",
+          "affected_inputs": [
+            "I",
+            "infectious_maturation",
+            "removal_rate"
+          ],
+          "observable_effect": "At matched I and similar E, early follow-up with low infectious_maturation shows slower decline or a later/higher I peak than the parent predicts, while later follow-up still exhibits accelerated clearance as maturation accumulates."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "early_infectious_age",
+            "expression": "infectious_maturation/(1 + infectious_maturation)",
+            "role": "dimensionless coordinate for how far the infectious cohort has progressed away from the newly infectious state"
+          },
+          {
+            "name": "removal_load",
+            "expression": "removal_rate*I",
+            "role": "baseline scale of infectious losses before stage-age modulation"
+          },
+          {
+            "name": "influx_to_loss_balance",
+            "expression": "progression_rate*E/(removal_rate*I + 1.0e-12)",
+            "role": "whether infectious occupancy is still accumulating or already dominated by removal"
+          }
+        ],
+        "activation_condition": "Most visible when infectious_maturation spans from near 0 to order 1 during observation, with nontrivial I present so that early-stage and later-stage removal can both be sampled along the same cohort trajectory.",
+        "train_hidden_contrast": "In training, the mechanism appears as a flatter initial decline or delayed turnover of I at low infectious_maturation; in holdout, the same cohort later enters the higher-clearance mature regime, extending the curvature contrast across time rather than introducing a different process.",
+        "continuation_path": "Recover the parent law in the limit where any early-stage attenuation of removal vanishes, so removal becomes the same monotone increasing function of infectious_maturation used by the parent.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "I",
+          "infectious_maturation",
+          "removal_rate"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "infectious-stage-age-dependent removal with delayed onset",
+        "scientific_mechanism": "A newly infectious individual may initially remain less likely to be removed until symptoms intensify or detection/isolation behavior engages, after which removal accelerates with further infectious maturation.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the removal coefficient now changes curvature with infectious_maturation, weakening low-stage losses while preserving strong mature-stage losses in the same trajectory. A single global retuning of the parent's parameters only rescales or retimes one monotone phase and cannot create the delayed low-slope dependence in the scored dI_dt mapping.",
+        "taxonomy_match": "known",
+        "assumption_before": "The parent fixes removal amplification as a purely increasing saturating function of infectious_maturation with no early lag or attenuation phase.",
+        "assumption_after": "Removal amplification is still monotone and saturating but has a delayed onset, so very low infectious maturation produces weaker-than-parent removal before later acceleration.",
+        "before_fragment": "progression_rate*E - removal_rate*(1 + infectious_maturation/(1 + infectious_maturation))*I",
+        "after_fragment": "progression_rate*E - removal_rate*(1 + infectious_maturation**2/(1 + infectious_maturation**2))*I",
+        "parent_reduction": "When the early-stage attenuation is neglected and the maturation effect is taken to rise immediately with infectious_maturation, the child law reverts to the parent-style single-phase removal amplification.",
+        "observable_signature": "Along the observed cohort trajectory starting from infectious_maturation = 0, the successor gives nearly baseline removal at first because the added maturation effect grows like infectious_maturation**2, so dI_dt stays less negative than in the parent at low infectious_maturation. As infectious_maturation reaches order 1, the removal multiplier rises toward the same mature-stage scale, producing a later crossover to faster decline; this changes the target mapping itself, not only auxiliary state trajectories.",
+        "shortcut_blocked": "Refitting all parent parameters with one shared parameter set cannot simultaneously match both the weak-removal early segment and the strong-removal later segment across the same admissible trajectory. Changing removal_rate shifts the whole loss scale, and changing infectious_maturation_rate only retimes how quickly the same parent monotone profile is traversed; neither creates the successor's flatter low-maturation slope in dI_dt versus infectious_maturation while preserving strong mature-stage amplification."
+      },
+      "range_suggestions": {}
+    },
+    {
+      "generation": 5,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The infectious loss term is a monotone saturating function of infectious_maturation alone, so at fixed E and I the mapping from infectious_maturation to dI_dt has one fixed concavity pattern set only by the Hill-like factor.",
+          "child_relation": "Keep removal increasing with infectious-stage age, but allow the age effect to gate removal more weakly when the remaining exposed pool is still large, so dI_dt depends on the joint state (infectious_maturation, E) rather than infectious_maturation alone.",
+          "affected_inputs": [
+            "infectious_maturation",
+            "E",
+            "I"
+          ],
+          "observable_effect": "Across trajectories with the same infectious_maturation and I but different remaining E, the child permits slower early infectious decline when E is still high and stronger decline later after E is depleted, changing the curvature and timing of the I peak."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "age_load",
+            "expression": "infectious_maturation**2/(1 + infectious_maturation**2)",
+            "role": "current saturating infectious-stage ageing signal already driving removal"
+          },
+          {
+            "name": "remaining_exposed_fraction",
+            "expression": "E/(E + progression_feedback_scale)",
+            "role": "dimensionless indicator that the cohort is still early in follow-up with a substantial latent pool"
+          },
+          {
+            "name": "infectious_loss_flux",
+            "expression": "removal_rate*I",
+            "role": "baseline scale of infectious depletion against which modulation is observed"
+          }
+        ],
+        "activation_condition": "Observable when infectious_maturation has reached order 1 so the existing ageing effect is active, while E still varies appreciably over follow-up relative to progression_feedback_scale; then early-versus-late cohort phase can alter removal at the same I.",
+        "train_hidden_contrast": "In training, the mechanism appears as altered peak timing and asymmetric rise-fall shape of I within the same closed cohort trajectory; in holdout, the same joint dependence extends to trajectories where exposed depletion is slower or faster, yielding different decline onset at matched infectious_maturation.",
+        "continuation_path": "Recover the parent law when the exposed-state modulation strength tends to zero, so removal depends only on infectious_maturation as before.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The current model assumes infectious-stage maturation affects removal identically at all follow-up phases, ignoring that symptom-driven isolation or clinical exit can be delayed while substantial latent-stage burden remains and accelerate once the cohort has largely transitioned.",
+        "baseline_assumption": "The age-dependent removal modifier is a single-phase function of infectious_maturation only and is independent of the remaining exposed pool.",
+        "scientific_mechanism": "Within a closed outbreak cohort, operational and behavioral removal readiness can depend not only on how mature current infections are but also on whether the cohort is still in an early transition phase with many latent individuals versus a later phase when most cases have declared and are more readily detected or resolved.",
+        "affected_symbols": [
+          "E",
+          "I",
+          "infectious_maturation",
+          "removal_rate",
+          "progression_feedback_scale"
+        ],
+        "rationale": "A realistic next refinement is to relax the parent's single-phase removal assumption rather than add a wholly new process. The parent target mapping for dI_dt uses progression_rate*E as inflow and a removal term that is fully determined by I and infectious_maturation; once those are fixed, changing the remaining exposed burden E cannot alter infectious loss except indirectly through future auxiliary dynamics. That is a scientific shortcut because in a closed cohort, the same infectious-stage age may correspond to different operational phases: early while many individuals are still latent, or late after most have progressed. Holding I and infectious_maturation fixed and varying E within admissible nonnegative ranges, the parent predicts identical removal, whereas the child would predict weaker effective age-triggered removal at high E and stronger removal at low E. This changes the scored target mapping itself, not only an auxiliary trajectory, because dI_dt at the observed state now depends jointly on E and infectious_maturation. The contrast is observable when E remains appreciable relative to progression_feedback_scale during the period where infectious_maturation is already non-negligible; then the timing and curvature of the rise-to-fall transition in I differ. A single shared refit of the parent cannot reproduce both early muted decline and later sharper decline at matched infectious_maturation because its removal law has no exposed-dependent degree of response."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The infectious loss term is a monotone saturating function of infectious_maturation alone, so at fixed E and I the mapping from infectious_maturation to dI_dt has one fixed concavity pattern set only by the Hill-like factor.",
+          "child_relation": "Keep removal increasing with infectious-stage age, but allow the age effect to gate removal more weakly when the remaining exposed pool is still large, so dI_dt depends on the joint state (infectious_maturation, E) rather than infectious_maturation alone.",
+          "affected_inputs": [
+            "infectious_maturation",
+            "E",
+            "I"
+          ],
+          "observable_effect": "Across trajectories with the same infectious_maturation and I but different remaining E, the child permits slower early infectious decline when E is still high and stronger decline later after E is depleted, changing the curvature and timing of the I peak."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "age_load",
+            "expression": "infectious_maturation**2/(1 + infectious_maturation**2)",
+            "role": "current saturating infectious-stage ageing signal already driving removal"
+          },
+          {
+            "name": "remaining_exposed_fraction",
+            "expression": "E/(E + progression_feedback_scale)",
+            "role": "dimensionless indicator that the cohort is still early in follow-up with a substantial latent pool"
+          },
+          {
+            "name": "infectious_loss_flux",
+            "expression": "removal_rate*I",
+            "role": "baseline scale of infectious depletion against which modulation is observed"
+          }
+        ],
+        "activation_condition": "Observable when infectious_maturation has reached order 1 so the existing ageing effect is active, while E still varies appreciably over follow-up relative to progression_feedback_scale; then early-versus-late cohort phase can alter removal at the same I.",
+        "train_hidden_contrast": "In training, the mechanism appears as altered peak timing and asymmetric rise-fall shape of I within the same closed cohort trajectory; in holdout, the same joint dependence extends to trajectories where exposed depletion is slower or faster, yielding different decline onset at matched infectious_maturation.",
+        "continuation_path": "Recover the parent law when the exposed-state modulation strength tends to zero, so removal depends only on infectious_maturation as before.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "pairwise",
+        "scope_symbols": [
+          "infectious_maturation",
+          "E"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "phase-dependent saturation of maturation-triggered infectious removal",
+        "scientific_mechanism": "Within a closed outbreak cohort, operational and behavioral removal readiness can depend not only on how mature current infections are but also on whether the cohort is still in an early transition phase with many latent individuals versus a later phase when most cases have declared and are more readily detected or resolved.",
+        "embedding_pattern": "saturating_or_thresholded",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the removal slope with respect to infectious_maturation now changes with E through a bounded nonlinear gate, creating a state-dependent curvature in dI_dt that cannot be reproduced by any single constant removal-rate rescaling.",
+        "taxonomy_match": "known",
+        "assumption_before": "The age-dependent removal modifier is a single-phase function of infectious_maturation only and is independent of the remaining exposed pool.",
+        "assumption_after": "The maturation-dependent removal effect is phase-gated by a finite-capacity function of the remaining exposed pool, weakening removal early and restoring stronger age-dependent removal after exposed depletion.",
+        "before_fragment": "progression_rate*E - removal_rate*(1 + infectious_maturation**2/(1 + infectious_maturation**2))*I",
+        "after_fragment": "progression_rate*E - removal_rate*(1 + (infectious_maturation**2/(1 + infectious_maturation**2))*(1 - E/(E + progression_feedback_scale)))*I",
+        "parent_reduction": "The child recovers the parent when E/(E + progression_feedback_scale) -> 0.",
+        "observable_signature": "At fixed I and infectious_maturation, dI_dt is less negative when E is large and becomes more negative as E declines; this exposed-dependent change is strongest once infectious_maturation is order 1, shifting the peak and post-peak curvature of I within admissible closed-cohort trajectories.",
+        "shortcut_blocked": "A single parent parameter set cannot reproduce this contrast because in the parent, once I and infectious_maturation are fixed, dI_dt is independent of E. Retuning removal_rate or progression-related parameters can shift overall timing, but cannot generate different infectious-loss values at matched I and infectious_maturation across states with different remaining E."
+      },
+      "range_suggestions": {}
+    }
+  ],
+  "evolution_provenance": {
+    "dimension_track": null,
+    "mechanism_profile": {
+      "allowed_structural_roles": [
+        "contribution",
+        "interaction",
+        "constraint",
+        "feedback",
+        "transition",
+        "timescale"
+      ],
+      "preferred_scopes": [
+        "unary",
+        "pairwise",
+        "state_coupling",
+        "time_forcing"
+      ],
+      "domain_mechanisms": [
+        {
+          "id": "density_dependent_transmission",
+          "description": "contact or transmission response changes with prevalence or density",
+          "operations": [
+            "add_term",
+            "change_assumption"
+          ]
+        },
+        {
+          "id": "behavioral_feedback",
+          "description": "risk response changes contact or control behavior",
+          "operations": [
+            "add_term"
+          ]
+        },
+        {
+          "id": "waning_immunity",
+          "description": "finite immunity duration or recovery transition",
+          "operations": [
+            "change_assumption"
+          ]
+        },
+        {
+          "id": "seasonal_forcing",
+          "description": "seasonally modulated exposure or transmission",
+          "operations": [
+            "change_assumption"
+          ]
+        }
+      ],
+      "profile_source": "subfield",
+      "ontology_schema_version": "1.0",
+      "taxonomy_schema_version": "1.0"
+    },
+    "baseline_mechanisms": [
+      "Progression from an exposed latent stage to an infectious stage.",
+      "Removal from the infectious stage through recovery, isolation, or disease-related exit.",
+      "Finite initial cohort of exposed and infectious individuals."
+    ],
+    "baseline_assumptions": [
+      "No new infections enter the cohort after the initial time.",
+      "Progression and removal characteristics are constant through time.",
+      "Individuals occupy one stage at a time.",
+      "There is no demographic turnover, reinfection, or stage-dependent heterogeneity in the baseline model."
+    ],
+    "scientific_constraints": [
+      "E and I must remain nonnegative.",
+      "The tracked cohort size must be nonincreasing without an external source.",
+      "The infectious population cannot exceed the tracked cohort size.",
+      "Progression and removal rates must be nonnegative."
+    ],
+    "refinement_agenda": [
+      "Add ongoing incidence into the exposed stage.",
+      "Use multiple latent or infectious stages to represent duration variation.",
+      "Add isolation or treatment as a separate removal pathway.",
+      "Allow reinfection or demographic entry into the cohort."
+    ],
+    "evolution_contracts": [
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "phase_shift",
+          "parent_relation": "With constant progression_rate, the inflow term progression_rate*E makes I rise and peak on a single fixed timescale determined only by the exponential decay of E and removal of I.",
+          "child_relation": "Allow progression_rate to relax over time within the cohort, so the exposed-to-infectious transition speed changes during follow-up and the inflow into I is front-loaded or delayed relative to the parent.",
+          "affected_inputs": [
+            "E",
+            "progression_rate",
+            "t"
+          ],
+          "observable_effect": "Across cohorts with the same initial E and I but different latent-stage adaptation histories encoded by the evolving progression tendency, the timing and sharpness of the I(t) peak differ; one shared constant-rate parent cannot match both an early sharp rise and a delayed broader rise over the same observation window."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "latent_inflow",
+            "expression": "progression_rate*E",
+            "role": "instantaneous flow from exposed to infectious under the parent law"
+          },
+          {
+            "name": "infectious_loss",
+            "expression": "removal_rate*I",
+            "role": "instantaneous loss from infectiousness"
+          },
+          {
+            "name": "net_growth_balance",
+            "expression": "progression_rate*E - removal_rate*I",
+            "role": "current target mapping in the parent model"
+          }
+        ],
+        "activation_condition": "Observable when follow-up spans a nontrivial fraction of the latent progression timescale so that within-cohort changes in progression speed alter the timing of transfer from E to I before E is exhausted; weak if progression characteristics are effectively constant over the whole window.",
+        "train_hidden_contrast": "In training, modest within-cohort drift in progression speed changes early-versus-midcourse slope of I(t); in holdout, stronger drift extends this to more obvious peak-time shifts while preserving the same removal process.",
+        "continuation_path": "Recover the parent by taking progression_rate dynamics arbitrarily fast to a constant equilibrium or zero drift so progression_rate is effectively constant during observation.",
+        "freedom_change": "parameter_to_state",
+        "promoted_symbol": "progression_rate",
+        "promotion_reason": "A time-varying latent-to-infectious transition propensity cannot be represented with the existing fixed parameter set because t is the only variable and no current state stores within-cohort adaptation or depletion of faster-progressing latent subgroups.",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "E",
+          "progression_rate"
+        ],
+        "structural_role": "timescale",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "state-dependent relaxation of the latent-to-infectious progression propensity",
+        "scientific_mechanism": "Cohort-level latent-stage heterogeneity or physiological adaptation can make the effective progression hazard change during follow-up, causing nonstationary transfer from E to I even without any new exposures.",
+        "embedding_pattern": "state_coupling",
+        "difficulty_rationale": "The refinement is harder than a coefficient correction because the target depends on a promoted internal state whose own dynamics are jointly driven by progression_rate and E, creating history-dependent inflow timing rather than a single constant gain on E.",
+        "taxonomy_match": "known",
+        "assumption_before": "Progression characteristics are constant through time.",
+        "assumption_after": "The effective progression propensity relaxes during follow-up with dynamics modulated by the remaining exposed cohort.",
+        "before_fragment": "progression_rate*E - removal_rate*I",
+        "after_fragment": "progression_rate*E - removal_rate*I",
+        "parent_reduction": "Recover the parent when progression_relaxation_rate -> oo with progression_rate rapidly slaved to a constant value, or when progression_feedback_scale -> oo so E/progression_feedback_scale is negligible and progression_rate remains effectively constant over the observation window.",
+        "observable_signature": "Compared at fixed initial E and I, the child produces a changed early-versus-late mapping from E to dI_dt because progression_rate is no longer one constant gain: when E is initially substantial, progression_rate can remain elevated longer and front-load inflow, whereas as E falls the relaxation target shifts and inflow weakens, moving the I(t) peak earlier or later and changing its sharpness. This is observable only when the observation window covers enough latent-stage evolution for progression_rate dynamics to activate before E is exhausted.",
+        "shortcut_blocked": "A single parent parameter set only supplies one constant progression_rate multiplying E, so after refitting it can uniformly accelerate or decelerate transfer but cannot create the within-trajectory redistribution of inflow required to fit both an early steep rise with later suppression and a delayed broader rise across admissible cohorts. Because the target itself is progression_rate*E - removal_rate*I and progression_rate now has its own E-coupled dynamics, ignoring that mechanism removes the history dependence responsible for the phase shift."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The parent maps observed states to the target as dI_dt = progression_rate*E - removal_rate*I with one linear removal slope in I, so at fixed E and progression_rate the infectious decline is proportional to I with constant per-capita loss.",
+          "child_relation": "Replace constant infectious removal with a stage-ageing infectious cohort whose effective removal strengthens during follow-up, so the target becomes an early shallow decline or longer plateau followed by steeper late decline at similar I.",
+          "affected_inputs": [
+            "I",
+            "t"
+          ],
+          "observable_effect": "Across trajectories with similar infectious burden I but different follow-up phase t, the later-phase cohort loses infectiousness faster than the earlier-phase cohort; the parent cannot create this time-within-stage curvature using one fixed removal_rate."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "infectious_turnover_balance",
+            "expression": "progression_rate*E/removal_rate",
+            "role": "instantaneous balance between inflow to and baseline outflow from infectiousness"
+          },
+          {
+            "name": "infectious_load",
+            "expression": "I",
+            "role": "current infectious occupancy governing removal loss"
+          },
+          {
+            "name": "cohort_phase",
+            "expression": "t",
+            "role": "follow-up phase at which infectious-stage maturation can alter removal propensity"
+          }
+        ],
+        "activation_condition": "Observable when follow-up spans a nontrivial fraction of the infectious-stage maturation timescale, so some cohort members remain infectious long enough for within-infectious-stage ageing to change their exit hazard; weak if removal is so fast that nearly all infectious individuals leave before maturation matters.",
+        "train_hidden_contrast": "In training the mechanism appears as modest asymmetry around the infectious peak; in holdout with slower removal or longer observation windows the same mechanism extends to a clearer late-time steepening that the parent's single-phase removal cannot match with one shared parameter set.",
+        "continuation_path": "Recover the parent law in the limit where infectious-stage maturation is absent or infinitely fast to its initial value, yielding an effectively constant removal_rate throughout follow-up.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A history-dependent infectious exit propensity requires one internal cohort-phase quantity beyond E and I; existing states do not encode how long current infectious individuals have already spent in the infectious stage, so a new state is needed to represent infectious-stage maturation without external inputs.",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "I",
+          "infectious_maturation"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "infectious-stage maturation of removal propensity",
+        "scientific_mechanism": "As infectious individuals progress through symptom development, care seeking, immune control, or isolation readiness, their effective removal hazard can increase with infectious-stage age even in a closed cohort.",
+        "embedding_pattern": "multiplicative_modulation",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the removal strength is no longer a fixed number: it is dynamically modulated by an internal maturation state driven by infectious occupancy, creating history-dependent curvature in the target mapping.",
+        "taxonomy_match": "known",
+        "assumption_before": "Removal characteristics are constant through time for the infectious cohort.",
+        "assumption_after": "Removal hazard is amplified by an internal infectious-stage maturation process that builds during follow-up.",
+        "before_fragment": "progression_rate*E - removal_rate*I",
+        "after_fragment": "progression_rate*E - removal_rate*(1 + infectious_maturation)*I",
+        "parent_reduction": "The parent is recovered when infectious_maturation is identically zero, for example under infectious_maturation_rate -> 0 with infectious_maturation(0)=0.",
+        "observable_signature": "Compared at similar I within the same initial-condition contract, early times can show broader accumulation or a shallower post-peak decline, while later times show more negative dI_dt because removal_rate is multiplied by 1 + infectious_maturation. This is observable when the window extends beyond the infectious peak and maturation grows to O(1) before I is exhausted.",
+        "shortcut_blocked": "A single parent parameter set cannot reproduce both early weak removal and later strong removal at similar I because its target mapping has only one removal slope, -removal_rate*I, independent of cohort phase. Retuning removal_rate can shift the whole decline uniformly but cannot generate the within-trajectory curvature caused by the evolving multiplier 1 + infectious_maturation."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The infectious derivative depends on exposed inflow minus removal with a removal amplification that grows linearly with accumulated infectious maturation, so at fixed E and I the mapping from infectious_maturation to dI_dt is a single linear decline.",
+          "child_relation": "Keep the same exposed inflow and maturation state but replace the linear removal amplification by a saturating dependence on infectious_maturation, so at fixed E and I the mapping from infectious_maturation to dI_dt bends from an initially steep decline toward a plateau in additional removal effect.",
+          "affected_inputs": [
+            "E",
+            "I",
+            "infectious_maturation",
+            "removal_rate"
+          ],
+          "observable_effect": "Across trajectories with similar E and I but different infectious_maturation accumulation, early infectious ageing causes stronger extra decline in dI_dt than late ageing, producing a sharper approach to the infectious peak and a less over-suppressed tail than the parent's linear-ageing removal."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "latent_inflow",
+            "expression": "progression_rate*E",
+            "role": "instantaneous transfer from exposed to infectious"
+          },
+          {
+            "name": "ageing_load",
+            "expression": "infectious_maturation",
+            "role": "current infectious-stage ageing burden controlling removal amplification"
+          },
+          {
+            "name": "baseline_outflow",
+            "expression": "removal_rate*I",
+            "role": "removal scale before ageing amplification"
+          },
+          {
+            "name": "ageing_to_baseline_ratio",
+            "expression": "infectious_maturation/(1 + infectious_maturation)",
+            "role": "bounded effective ageing influence under a saturating removal law"
+          }
+        ],
+        "activation_condition": "Observable when infectious_maturation rises from near 0 to O(1) during follow-up while I remains appreciable, so removal amplification has time to depart from the linear small-age regime but not remain negligible throughout.",
+        "train_hidden_contrast": "In training, low-to-moderate infectious_maturation can mimic the parent at early times; in extended holdout, larger accumulated infectious_maturation reveals that extra removal influence saturates rather than continuing to strengthen linearly.",
+        "continuation_path": "Recover the parent in the small-maturation regime infectious_maturation << 1, where a saturating factor such as infectious_maturation/(1 + infectious_maturation) is approximately linear in infectious_maturation.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "I",
+          "infectious_maturation",
+          "removal_rate"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "saturating infectious-age modulation of removal",
+        "scientific_mechanism": "Infectious-stage ageing often increases removal propensity rapidly at first but then approaches a ceiling because isolation uptake, symptom-triggered behavior change, or immune control cannot exceed finite effectiveness within a closed cohort.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the effective removal multiplier now changes shape across the observed infectious_maturation range, creating curvature in the scored target law rather than a single rescaled slope.",
+        "taxonomy_match": "known",
+        "assumption_before": "The parent assumes a linear, unsaturated effect of infectious_maturation on the infectious removal hazard.",
+        "assumption_after": "The infectious removal amplification increases with infectious_maturation but saturates to reflect finite maximal ageing-related gains in removal propensity.",
+        "before_fragment": "progression_rate*E - removal_rate*(1 + infectious_maturation)*I",
+        "after_fragment": "progression_rate*E - removal_rate*(1 + infectious_maturation/(1 + infectious_maturation))*I",
+        "parent_reduction": "When infectious_maturation << 1, the child law reduces approximately to the parent because infectious_maturation/(1 + infectious_maturation) ≈ infectious_maturation.",
+        "observable_signature": "Within the same cohort follow-up and initial-condition protocol, compare early epochs with small infectious_maturation to later epochs where infectious_maturation reaches O(1) while E and I remain appreciable. The parent predicts a constant-slope linear decrease of dI_dt with infectious_maturation, whereas the child predicts an early steepening of removal followed by diminishing additional effect, yielding a sharper peak approach but a less suppressed late infectious tail.",
+        "shortcut_blocked": "A single shared parent parameter set cannot reproduce this contrast because its dependence of dI_dt on infectious_maturation is exactly linear at all times. Refitting removal_rate can only change one constant slope in the maturation-response curve and cannot create the required early-steep/late-flat curvature across admissible follow-up conditions."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The infectious derivative depends on E through a single progression influx term progression_rate*E while removal increases monotonically with infectious_maturation, so after fixing the observed states the target mapping has only one infectious-stage removal phase.",
+          "child_relation": "Keep the same closed-cohort progression influx, but relax the assumption that infectious-stage ageing only strengthens removal; allow an early low-maturation period with weaker effective removal before later maturation-driven acceleration, creating a two-regime dependence of dI_dt on infectious_maturation.",
+          "affected_inputs": [
+            "I",
+            "infectious_maturation",
+            "removal_rate"
+          ],
+          "observable_effect": "At matched I and similar E, early follow-up with low infectious_maturation shows slower decline or a later/higher I peak than the parent predicts, while later follow-up still exhibits accelerated clearance as maturation accumulates."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "early_infectious_age",
+            "expression": "infectious_maturation/(1 + infectious_maturation)",
+            "role": "dimensionless coordinate for how far the infectious cohort has progressed away from the newly infectious state"
+          },
+          {
+            "name": "removal_load",
+            "expression": "removal_rate*I",
+            "role": "baseline scale of infectious losses before stage-age modulation"
+          },
+          {
+            "name": "influx_to_loss_balance",
+            "expression": "progression_rate*E/(removal_rate*I + 1.0e-12)",
+            "role": "whether infectious occupancy is still accumulating or already dominated by removal"
+          }
+        ],
+        "activation_condition": "Most visible when infectious_maturation spans from near 0 to order 1 during observation, with nontrivial I present so that early-stage and later-stage removal can both be sampled along the same cohort trajectory.",
+        "train_hidden_contrast": "In training, the mechanism appears as a flatter initial decline or delayed turnover of I at low infectious_maturation; in holdout, the same cohort later enters the higher-clearance mature regime, extending the curvature contrast across time rather than introducing a different process.",
+        "continuation_path": "Recover the parent law in the limit where any early-stage attenuation of removal vanishes, so removal becomes the same monotone increasing function of infectious_maturation used by the parent.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "I",
+          "infectious_maturation",
+          "removal_rate"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "infectious-stage-age-dependent removal with delayed onset",
+        "scientific_mechanism": "A newly infectious individual may initially remain less likely to be removed until symptoms intensify or detection/isolation behavior engages, after which removal accelerates with further infectious maturation.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the removal coefficient now changes curvature with infectious_maturation, weakening low-stage losses while preserving strong mature-stage losses in the same trajectory. A single global retuning of the parent's parameters only rescales or retimes one monotone phase and cannot create the delayed low-slope dependence in the scored dI_dt mapping.",
+        "taxonomy_match": "known",
+        "assumption_before": "The parent fixes removal amplification as a purely increasing saturating function of infectious_maturation with no early lag or attenuation phase.",
+        "assumption_after": "Removal amplification is still monotone and saturating but has a delayed onset, so very low infectious maturation produces weaker-than-parent removal before later acceleration.",
+        "before_fragment": "progression_rate*E - removal_rate*(1 + infectious_maturation/(1 + infectious_maturation))*I",
+        "after_fragment": "progression_rate*E - removal_rate*(1 + infectious_maturation**2/(1 + infectious_maturation**2))*I",
+        "parent_reduction": "When the early-stage attenuation is neglected and the maturation effect is taken to rise immediately with infectious_maturation, the child law reverts to the parent-style single-phase removal amplification.",
+        "observable_signature": "Along the observed cohort trajectory starting from infectious_maturation = 0, the successor gives nearly baseline removal at first because the added maturation effect grows like infectious_maturation**2, so dI_dt stays less negative than in the parent at low infectious_maturation. As infectious_maturation reaches order 1, the removal multiplier rises toward the same mature-stage scale, producing a later crossover to faster decline; this changes the target mapping itself, not only auxiliary state trajectories.",
+        "shortcut_blocked": "Refitting all parent parameters with one shared parameter set cannot simultaneously match both the weak-removal early segment and the strong-removal later segment across the same admissible trajectory. Changing removal_rate shifts the whole loss scale, and changing infectious_maturation_rate only retimes how quickly the same parent monotone profile is traversed; neither creates the successor's flatter low-maturation slope in dI_dt versus infectious_maturation while preserving strong mature-stage amplification."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The infectious loss term is a monotone saturating function of infectious_maturation alone, so at fixed E and I the mapping from infectious_maturation to dI_dt has one fixed concavity pattern set only by the Hill-like factor.",
+          "child_relation": "Keep removal increasing with infectious-stage age, but allow the age effect to gate removal more weakly when the remaining exposed pool is still large, so dI_dt depends on the joint state (infectious_maturation, E) rather than infectious_maturation alone.",
+          "affected_inputs": [
+            "infectious_maturation",
+            "E",
+            "I"
+          ],
+          "observable_effect": "Across trajectories with the same infectious_maturation and I but different remaining E, the child permits slower early infectious decline when E is still high and stronger decline later after E is depleted, changing the curvature and timing of the I peak."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "age_load",
+            "expression": "infectious_maturation**2/(1 + infectious_maturation**2)",
+            "role": "current saturating infectious-stage ageing signal already driving removal"
+          },
+          {
+            "name": "remaining_exposed_fraction",
+            "expression": "E/(E + progression_feedback_scale)",
+            "role": "dimensionless indicator that the cohort is still early in follow-up with a substantial latent pool"
+          },
+          {
+            "name": "infectious_loss_flux",
+            "expression": "removal_rate*I",
+            "role": "baseline scale of infectious depletion against which modulation is observed"
+          }
+        ],
+        "activation_condition": "Observable when infectious_maturation has reached order 1 so the existing ageing effect is active, while E still varies appreciably over follow-up relative to progression_feedback_scale; then early-versus-late cohort phase can alter removal at the same I.",
+        "train_hidden_contrast": "In training, the mechanism appears as altered peak timing and asymmetric rise-fall shape of I within the same closed cohort trajectory; in holdout, the same joint dependence extends to trajectories where exposed depletion is slower or faster, yielding different decline onset at matched infectious_maturation.",
+        "continuation_path": "Recover the parent law when the exposed-state modulation strength tends to zero, so removal depends only on infectious_maturation as before.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "pairwise",
+        "scope_symbols": [
+          "infectious_maturation",
+          "E"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "phase-dependent saturation of maturation-triggered infectious removal",
+        "scientific_mechanism": "Within a closed outbreak cohort, operational and behavioral removal readiness can depend not only on how mature current infections are but also on whether the cohort is still in an early transition phase with many latent individuals versus a later phase when most cases have declared and are more readily detected or resolved.",
+        "embedding_pattern": "saturating_or_thresholded",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the removal slope with respect to infectious_maturation now changes with E through a bounded nonlinear gate, creating a state-dependent curvature in dI_dt that cannot be reproduced by any single constant removal-rate rescaling.",
+        "taxonomy_match": "known",
+        "assumption_before": "The age-dependent removal modifier is a single-phase function of infectious_maturation only and is independent of the remaining exposed pool.",
+        "assumption_after": "The maturation-dependent removal effect is phase-gated by a finite-capacity function of the remaining exposed pool, weakening removal early and restoring stronger age-dependent removal after exposed depletion.",
+        "before_fragment": "progression_rate*E - removal_rate*(1 + infectious_maturation**2/(1 + infectious_maturation**2))*I",
+        "after_fragment": "progression_rate*E - removal_rate*(1 + (infectious_maturation**2/(1 + infectious_maturation**2))*(1 - E/(E + progression_feedback_scale)))*I",
+        "parent_reduction": "The child recovers the parent when E/(E + progression_feedback_scale) -> 0.",
+        "observable_signature": "At fixed I and infectious_maturation, dI_dt is less negative when E is large and becomes more negative as E declines; this exposed-dependent change is strongest once infectious_maturation is order 1, shifting the peak and post-peak curvature of I within admissible closed-cohort trajectories.",
+        "shortcut_blocked": "A single parent parameter set cannot reproduce this contrast because in the parent, once I and infectious_maturation are fixed, dI_dt is independent of E. Retuning removal_rate or progression-related parameters can shift overall timing, but cannot generate different infectious-loss values at matched I and infectious_maturation across states with different remaining E."
+      }
+    ]
+  },
+  "finalization": {
+    "mode": "candidate",
+    "accepted_generations": 5,
+    "novelty": {
+      "answer": "NOT_EVALUATED"
+    },
+    "total_points": 5000,
+    "evaluation_status": "not_evaluated"
+  }
+}

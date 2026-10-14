@@ -1,0 +1,315 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "V",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        600.0
+      ],
+      "n_points": 400,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "applied_current",
+      "value": 120.0
+    },
+    {
+      "symbol": "leak_conductance",
+      "value": 10.0
+    },
+    {
+      "symbol": "resting_voltage",
+      "value": -65.0
+    },
+    {
+      "symbol": "adaptation_gain",
+      "value": 4.0
+    },
+    {
+      "symbol": "adaptation_time_constant",
+      "value": 120.0
+    },
+    {
+      "symbol": "leak_rectification_strength",
+      "value": 0.002
+    },
+    {
+      "symbol": "adaptation_saturation_scale",
+      "value": 15.0
+    },
+    {
+      "symbol": "capacitance_recruitment_gain",
+      "value": 0.6
+    },
+    {
+      "symbol": "capacitance_time_constant",
+      "value": 150.0
+    },
+    {
+      "symbol": "capacitance_recruitment_scale",
+      "value": 12.0
+    },
+    {
+      "symbol": "baseline_membrane_capacitance",
+      "value": 1.0
+    },
+    {
+      "symbol": "adaptation_reversal_voltage",
+      "value": -80.0
+    },
+    {
+      "symbol": "adaptation_conductance_saturation_scale",
+      "value": 20.0
+    },
+    {
+      "symbol": "adaptation_availability_time_constant",
+      "value": 250.0
+    },
+    {
+      "symbol": "adaptation_inactivation_gain",
+      "value": 0.5
+    },
+    {
+      "symbol": "adaptation_inactivation_scale",
+      "value": 12.0
+    }
+  ],
+  "benchmark_output": "dV_dt",
+  "benchmark_target_state": "V",
+  "observed_variables": [
+    "t",
+    "V",
+    "A",
+    "membrane_capacitance",
+    "G"
+  ],
+  "rhs_for_integrator": "(applied_current - leak_conductance*(1 + leak_rectification_strength*(V - resting_voltage)**2)*(V - resting_voltage) - G*A*(V - adaptation_reversal_voltage)*adaptation_conductance_saturation_scale/((V - adaptation_reversal_voltage) + adaptation_conductance_saturation_scale))/membrane_capacitance",
+  "state_variables": [
+    "V",
+    "A",
+    "membrane_capacitance",
+    "G"
+  ],
+  "state_rhs": [
+    "(applied_current - leak_conductance*(1 + leak_rectification_strength*(V - resting_voltage)**2)*(V - resting_voltage) - G*A*(V - adaptation_reversal_voltage)*adaptation_conductance_saturation_scale/((V - adaptation_reversal_voltage) + adaptation_conductance_saturation_scale))/membrane_capacitance",
+    "(adaptation_gain*adaptation_saturation_scale*((V - resting_voltage + Abs(V - resting_voltage))/2)/(adaptation_saturation_scale + (V - resting_voltage + Abs(V - resting_voltage))/2) - A)/adaptation_time_constant",
+    "(baseline_membrane_capacitance*(1 + capacitance_recruitment_gain*capacitance_recruitment_scale*((V - resting_voltage + Abs(V - resting_voltage))/2)/(capacitance_recruitment_scale + (V - resting_voltage + Abs(V - resting_voltage))/2)) - membrane_capacitance)/capacitance_time_constant",
+    "((1 - adaptation_inactivation_gain*adaptation_inactivation_scale*((V - resting_voltage + Abs(V - resting_voltage))/2)/(adaptation_inactivation_scale + (V - resting_voltage + Abs(V - resting_voltage))/2)) - G)/adaptation_availability_time_constant"
+  ],
+  "initial_conditions": {
+    "V": -65.0,
+    "A": 0.0,
+    "membrane_capacitance": 1.0,
+    "G": 1.0
+  },
+  "sanity_expectations": [
+    "At t=0, because V starts at resting_voltage and A=0, the leak and adaptation terms vanish so dV/dt initially equals applied_current/membrane_capacitance = 120 in model units; this is an exact check from the inherited initial conditions and chosen parameters.",
+    "During sustained depolarization, membrane_capacitance should rise above its baseline 1.0 toward a depolarization-dependent target, so later voltage changes under the same current step should be slower than the earliest charging phase.",
+    "A should increase from 0 only when V exceeds resting_voltage, then approach a finite depolarization-dependent level rather than growing linearly without bound; stronger depolarization within the trajectory should show diminishing extra recruitment because adaptation_saturation_scale is 15 mV.",
+    "G should start at 1 and decline only after sustained depolarization above rest; with adaptation_inactivation_gain=0.5 it should remain positive and approach a reduced availability rather than collapse to zero.",
+    "The V-to-dV/dt relation should bend downward more strongly at larger depolarization than near rest because leak_rectification_strength is nonzero.",
+    "Compared at similar depolarized V and nonzero A reached later in the same trajectory, the effective adaptation suppression of dV/dt should be weaker than earlier because G has fallen; this is the observable contrast added by the new state and is absent if adaptation_inactivation_gain were zero."
+  ],
+  "role_corrections": [
+    "dV_dt: claimed-output/target derivative -> target derivative for state V (confirmed by contract context; expression gives RHS for V evolution, not standalone dependent variable in final spec)",
+    "t: claimed-input/time axis -> independent variable/time axis (confirmed)",
+    "V: claimed-dynamic state -> dependent_variable/target_state plus dynamic state (confirmed)",
+    "A: claimed-dynamic state -> dynamic state in ode_system (confirmed)",
+    "membrane_capacitance: claimed-dynamic state -> dynamic state in ode_system (confirmed; preserve promoted-state role from prior freedom decision)",
+    "G: claimed-dynamic state -> dynamic state in ode_system (confirmed; preserve added-state role from explicit freedom decision)",
+    "applied_current: claimed-parameter -> parameter (confirmed)",
+    "leak_conductance: claimed-parameter -> parameter (confirmed)",
+    "resting_voltage: claimed-parameter -> parameter (confirmed)",
+    "adaptation_gain: claimed-parameter -> parameter (confirmed)",
+    "adaptation_time_constant: claimed-parameter -> parameter (confirmed)",
+    "leak_rectification_strength: claimed-parameter -> parameter (confirmed)",
+    "adaptation_saturation_scale: claimed-parameter -> parameter (confirmed)",
+    "capacitance_recruitment_gain: claimed-parameter -> parameter (confirmed)",
+    "capacitance_time_constant: claimed-parameter -> parameter (confirmed)",
+    "capacitance_recruitment_scale: claimed-parameter -> parameter (confirmed)",
+    "baseline_membrane_capacitance: claimed-parameter -> parameter (confirmed)",
+    "adaptation_reversal_voltage: claimed-parameter -> parameter (confirmed)",
+    "adaptation_conductance_saturation_scale: claimed-parameter -> parameter (confirmed)",
+    "adaptation_availability_time_constant: claimed-parameter -> parameter (confirmed)",
+    "adaptation_inactivation_gain: claimed-parameter -> parameter (confirmed)",
+    "adaptation_inactivation_scale: claimed-parameter -> parameter (confirmed)"
+  ],
+  "rationale": "Using the provided typed ODE contract, the governing law must be sampled as a four-state system over time only, with V as target_state and A, membrane_capacitance, and G retained as dynamic states. The chosen constant depolarizing drive is strong enough to move V several to a few tens of mV above rest without intentionally pushing everything into an extreme saturation/recovery limit. This exposes the recorded mechanisms in one sustained-step trajectory family: (i) leak rectification is visible because leak_rectification_strength is nonzero but modest, so the passive outward term bends downward progressively with depolarization rather than dominating immediately; (ii) adaptation recruitment saturates on a 15 mV depolarization scale, so moderate depolarization recruits A substantially while stronger depolarization shows diminishing incremental recruitment instead of indefinite linear growth; (iii) dynamic membrane capacitance is history-dependent but not frozen, because baseline_membrane_capacitance=1 and capacitance_recruitment_gain=0.6 with a 150 ms time constant allow later slowing relative to early charging during the same sustained drive; (iv) the added availability state G is preserved as declared by the freedom_change add_state decision and is not collapsed back to a parameter. With adaptation_inactivation_gain=0.5, adaptation_inactivation_scale=12 mV, and adaptation_availability_time_constant=250 ms, prolonged depolarization can reduce adaptation efficacy noticeably but not eliminate it, enabling the intended early-vs-late contrast where similar V and A can correspond to weaker adaptation effect later because G has declined. Time range to 600 ms covers several adaptation/capacitance/availability timescales enough to show onset, transition, and approach toward a later phase while remaining biologically plausible for a subthreshold current step. Weak effects honestly noted: at very early times A and G-mediated modulation are inactive because A(0)=0 and G(0)=1 by inherited initial conditions; near rest the rectification and saturation nonlinearities are mild, approximating the parent locally.",
+  "coverage_report": {},
+  "inactive_mechanisms": [],
+  "target_variance": {},
+  "parent_absorption_report": {},
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_KwgQDoNnzkfCbUUXLdhrGe6A"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "(applied_current - leak_conductance*(1 + leak_rectification_strength*(V - resting_voltage)**2)*(V - resting_voltage) - G*A*(V - adaptation_reversal_voltage)*adaptation_conductance_saturation_scale/((V - adaptation_reversal_voltage) + adaptation_conductance_saturation_scale))/membrane_capacitance",
+        "target_symbol": "dV_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "A",
+          "G",
+          "V",
+          "adaptation_conductance_saturation_scale",
+          "adaptation_reversal_voltage",
+          "applied_current",
+          "leak_conductance",
+          "leak_rectification_strength",
+          "membrane_capacitance",
+          "resting_voltage"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "(-A*G*adaptation_conductance_saturation_scale*(V - adaptation_reversal_voltage)/(V + adaptation_conductance_saturation_s"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_Cx67E6zuhgK9JufOiDWZPVnn"
+        },
+        {
+          "name": "check_substitution",
+          "id": "call_IvleAXLF7UjUtCHCJC9Tq5kn"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "(applied_current - leak_conductance*(1 + leak_rectification_strength*(V - resting_voltage)**2)*(V - resting_voltage) - G*A*(V - adaptation_reversal_voltage)*adaptation_conductance_saturation_scale/((V - adaptation_reversal_voltage) + adaptation_conductance_saturation_scale))/membrane_capacitance",
+        "target_symbol": "dV_dt",
+        "assignments": {
+          "V": -65,
+          "A": 0,
+          "G": 1,
+          "membrane_capacitance": 1,
+          "applied_current": 120,
+          "leak_conductance": 10,
+          "resting_voltage": -65,
+          "adaptation_gain": 4,
+          "adaptation_time_constant": 120,
+          "leak_rectification_strength": 0.002,
+          "adaptation_saturation_scale": 15,
+          "capacitance_recruitment_gain": 0.6,
+          "capacitance_time_constant": 150,
+          "capacitance_recruitment_scale": 12,
+          "baseline_membrane_capacitance": 1,
+          "adaptation_reversal_voltage": -80,
+          "adaptation_conductance_saturation_scale": 20,
+          "adaptation_availability_time_constant": 250,
+          "adaptation_inactivation_gain": 0.5,
+          "adaptation_inactivation_scale": 12
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": 120.0,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "(applied_current - leak_conductance*(1 + leak_rectification_strength*(V - resting_voltage)**2)*(V - resting_voltage) - G*A*(V - adaptation_reversal_voltage)*adaptation_conductance_saturation_scale/((V - adaptation_reversal_voltage) + adaptation_conductance_saturation_scale))/membrane_capacitance",
+        "target_symbol": "dV_dt",
+        "assignments": {
+          "V": -45,
+          "A": 2.2857142857,
+          "G": 0.7222222222,
+          "membrane_capacitance": 1.375,
+          "applied_current": 120,
+          "leak_conductance": 10,
+          "resting_voltage": -65,
+          "adaptation_gain": 4,
+          "adaptation_time_constant": 120,
+          "leak_rectification_strength": 0.002,
+          "adaptation_saturation_scale": 15,
+          "capacitance_recruitment_gain": 0.6,
+          "capacitance_time_constant": 150,
+          "capacitance_recruitment_scale": 12,
+          "baseline_membrane_capacitance": 1,
+          "adaptation_reversal_voltage": -80,
+          "adaptation_conductance_saturation_scale": 20,
+          "adaptation_availability_time_constant": 250,
+          "adaptation_inactivation_gain": 0.5,
+          "adaptation_inactivation_scale": 12
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": -189.82552800678053,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_pikp9pHDHrtijqlMHdy3nCsq"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_vFPvehFCUxk93DnYzGNfiDdK"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 4
+}

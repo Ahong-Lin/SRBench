@@ -1,0 +1,1819 @@
+{
+  "version": 7,
+  "spec": {
+    "equation_type": "ode_system",
+    "integrator": "integrate_system",
+    "dependent_variable": "p",
+    "independent_variables": [
+      {
+        "symbol": "t",
+        "range": [
+          0.0,
+          25.0
+        ],
+        "n_points": 300,
+        "scale": "linear"
+      }
+    ],
+    "parameters": [
+      {
+        "symbol": "colonization_rate",
+        "value": 1.2
+      },
+      {
+        "symbol": "colonization_density_dependence",
+        "value": 0.8
+      },
+      {
+        "symbol": "colonization_saturation_scale",
+        "value": 2.0
+      },
+      {
+        "symbol": "extinction_relaxation_rate",
+        "value": 0.8
+      },
+      {
+        "symbol": "extinction_occupancy_sensitivity",
+        "value": 0.9
+      },
+      {
+        "symbol": "extinction_feedback_half_saturation",
+        "value": 0.3
+      },
+      {
+        "symbol": "colonization_stress_sensitivity",
+        "value": 3.0
+      },
+      {
+        "symbol": "colonization_stress_half_saturation",
+        "value": 5.0
+      }
+    ],
+    "benchmark_output": "dp_dt",
+    "benchmark_target_state": "p",
+    "observed_variables": [
+      "t",
+      "p",
+      "extinction_rate"
+    ],
+    "rhs_for_integrator": "colonization_rate*p*(1 - p)*(1 + colonization_density_dependence*p/(1 + colonization_saturation_scale*p))*exp(-colonization_stress_sensitivity*extinction_rate/(1 + colonization_stress_half_saturation*extinction_rate)) - extinction_rate*p",
+    "state_variables": [
+      "p",
+      "extinction_rate"
+    ],
+    "state_rhs": [
+      "colonization_rate*p*(1 - p)*(1 + colonization_density_dependence*p/(1 + colonization_saturation_scale*p))*exp(-colonization_stress_sensitivity*extinction_rate/(1 + colonization_stress_half_saturation*extinction_rate)) - extinction_rate*p",
+      "extinction_relaxation_rate*(extinction_rate*(1 + extinction_occupancy_sensitivity*p/(extinction_feedback_half_saturation + p)) - extinction_rate)"
+    ],
+    "initial_conditions": {
+      "p": 0.5,
+      "extinction_rate": 0.1
+    },
+    "sanity_expectations": [
+      "At t=0 with the chosen parameters and inherited initial conditions, dp_dt should be positive and finite, so occupancy initially increases from p=0.5 rather than remaining flat.",
+      "The trajectory should remain real and finite for the full sampled interval; no denominator vanishes because 1+colonization_saturation_scale*p > 0 and extinction_feedback_half_saturation + p > 0 for the chosen positive parameters and biologically admissible p.",
+      "Because extinction_rate is a dynamic state, similar interior occupancy values reached at different times can have different dp_dt values if extinction_rate differs; this is the key observable phase-memory signature absent from a fixed-extinction parent.",
+      "Compared with a zero-stress-suppression limit, higher extinction_rate along the trajectory should reduce colonization not only through the additive loss term -extinction_rate*p but also through the multiplicative exponential factor, giving slower rebound during higher-stress phases.",
+      "The occupancy-dependent colonization modifier 1 + colonization_density_dependence*p/(1 + colonization_saturation_scale*p) should change more strongly from low to moderate p than from moderate to high p, reflecting visible saturation rather than a purely linear trend in p.",
+      "The extinction-rate state should initially increase from 0.1 because its RHS is positive at the initial condition, producing a transient rise in stress load that can bend p dynamics after the initial growth phase."
+    ],
+    "role_corrections": [
+      "dp_dt: claimed-output/target derivative -> derivative of dependent variable p (confirmed as scored quantity, but dependent variable is p in the ODE system contract)",
+      "t: claimed-input/time axis -> independent variable/time axis (confirmed)",
+      "p: claimed-dynamic state -> dependent variable and state variable (confirmed)",
+      "extinction_rate: claimed-dynamic state -> state variable, not parameter (confirmed)",
+      "colonization_rate: claimed-parameter -> parameter (confirmed)",
+      "colonization_density_dependence: claimed-parameter -> parameter (confirmed)",
+      "colonization_saturation_scale: claimed-parameter -> parameter (confirmed)",
+      "extinction_relaxation_rate: claimed-parameter -> parameter (confirmed)",
+      "extinction_occupancy_sensitivity: claimed-parameter -> parameter (confirmed)",
+      "extinction_feedback_half_saturation: claimed-parameter -> parameter (confirmed)",
+      "colonization_stress_sensitivity: claimed-parameter -> parameter (confirmed)",
+      "colonization_stress_half_saturation: claimed-parameter -> parameter (confirmed)"
+    ],
+    "rationale": "The provided ODE system contract is preserved exactly as required: time is the sole sampled axis, p is the target state, and extinction_rate remains a dynamic state rather than a fixed parameter. Parameter values are chosen to keep the system finite and biologically admissible while activating the intended contrasts away from parent-recovery limits. colonization_rate=1.2 and the inherited initial state p(0)=0.5, extinction_rate(0)=0.1 give positive initial occupancy growth, so the trajectory can explore interior occupancy where nonlinear colonization curvature is visible. colonization_density_dependence=0.8 makes occupancy-dependent colonization enhancement appreciable, while colonization_saturation_scale=2.0 keeps that effect from collapsing to the linear parent over 0<p<1; the modifier p/(1+2p) changes substantially across the reachable occupancy range but is not fully saturated. extinction_relaxation_rate=0.8 is fast enough to generate visible lag in extinction_rate over the sampled window without making it effectively instantaneous. extinction_occupancy_sensitivity=0.9 with extinction_feedback_half_saturation=0.3 creates a noticeable but bounded occupancy-to-extinction feedback, so matched or similar p values at different times can occur with differing extinction_rate and therefore differing dp_dt. colonization_stress_sensitivity=3.0 and colonization_stress_half_saturation=5.0 use the suggested stress ranges and produce a moderate stress suppression factor exp(-3 e /(1+5 e)) that varies meaningfully over e in the expected subunit range without crushing colonization to near zero everywhere. The 0 to 25 time window with 300 points should capture transient growth, feedback-mediated adjustment of extinction susceptibility, and later approach toward a bounded regime; this is long enough to expose phase dependence while avoiding unnecessary oversampling. Weak/inactive effect note: if the realized trajectory stays confined very near p=1 late in time, the p(1-p) factor naturally suppresses further colonization contrast there; the main distinguishing evidence is therefore expected in early-to-mid interior occupancy segments and in comparisons of similar p values reached under different extinction_rate histories.",
+    "coverage_report": {
+      "groups": [
+        {
+          "generation": 1,
+          "name": "occupancy_contact",
+          "expression": "p*(1 - p)",
+          "role": "Baseline occupied-empty patch encounter opportunity",
+          "train_range": [
+            2.7095016542701908e-11,
+            0.25
+          ],
+          "hidden_range": [
+            4.319933609251481e-12,
+            2.689130578206307e-11
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 2.7095016542701908e-11,
+            "max": 0.25,
+            "q05": 1.6909907176583553e-10,
+            "median": 0.00019172122155359768,
+            "q95": 0.24426069300354522,
+            "range": 0.24999999997290498,
+            "robust_range": 0.24426069283444615
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 4.319933609251481e-12,
+            "max": 2.689130578206307e-11,
+            "q05": 4.927593709955785e-12,
+            "median": 1.678156564309278e-11,
+            "q95": 2.653095184967561e-11,
+            "range": 2.257137217281159e-11,
+            "robust_range": 2.1603358139719825e-11
+          }
+        },
+        {
+          "generation": 1,
+          "name": "low_mid_occupancy",
+          "expression": "p",
+          "role": "Controls whether marginal colonization contribution is being evaluated in sparse versus denser occupancy regimes",
+          "train_range": [
+            2.7095016543436047e-11,
+            0.7521994853131916
+          ],
+          "hidden_range": [
+            4.3199336092701435e-12,
+            2.689130578278621e-11
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 2.7095016543436047e-11,
+            "max": 0.7521994853131916,
+            "q05": 1.6909907179443005e-10,
+            "median": 0.00019175799311748243,
+            "q95": 0.733674912343004,
+            "range": 0.7521994852860966,
+            "robust_range": 0.7336749121739049
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 4.3199336092701435e-12,
+            "max": 2.689130578278621e-11,
+            "q05": 4.927593709980066e-12,
+            "median": 1.67815656433744e-11,
+            "q95": 2.6530951850379498e-11,
+            "range": 2.2571372173516068e-11,
+            "robust_range": 2.160335814039943e-11
+          }
+        },
+        {
+          "generation": 1,
+          "name": "net_parent_growth",
+          "expression": "colonization_rate*p*(1 - p) - extinction_rate*p",
+          "role": "Parent target mapping used as the comparison baseline",
+          "train_range": [
+            -0.12351814255130361,
+            0.25
+          ],
+          "hidden_range": [
+            -2.344846527069923e-11,
+            -3.766861082657324e-12
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -0.12351814255130361,
+            "max": 0.25,
+            "q05": -0.11581281286028522,
+            "median": -7.796418171024051e-06,
+            "q95": 0.12541153886434683,
+            "range": 0.3735181425513036,
+            "robust_range": 0.24122435172463205
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": -2.344846527069923e-11,
+            "max": -3.766861082657324e-12,
+            "q05": -2.3134246737139283e-11,
+            "median": -1.4633055098406832e-11,
+            "q95": -4.296723666634257e-12,
+            "range": 1.9681604188041908e-11,
+            "robust_range": 1.8837523070505025e-11
+          }
+        },
+        {
+          "generation": 2,
+          "name": "occupancy_gap",
+          "expression": "1 - p",
+          "role": "fraction of empty habitat available for colonization",
+          "train_range": [
+            0.24780051468680842,
+            0.999999999972905
+          ],
+          "hidden_range": [
+            0.9999999999731087,
+            0.99999999999568
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.24780051468680842,
+            "max": 0.999999999972905,
+            "q05": 0.2663250876569961,
+            "median": 0.9998082420068826,
+            "q95": 0.9999999998309009,
+            "range": 0.7521994852860966,
+            "robust_range": 0.7336749121739048
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.9999999999731087,
+            "max": 0.99999999999568,
+            "q05": 0.999999999973469,
+            "median": 0.9999999999832185,
+            "q95": 0.9999999999950724,
+            "range": 2.2571278179839283e-11,
+            "robust_range": 2.160338574697107e-11
+          }
+        },
+        {
+          "generation": 2,
+          "name": "net_parent_growth",
+          "expression": "colonization_rate*p*(1 - p)*(1 + colonization_density_dependence*p) - extinction_rate*p",
+          "role": "parent instantaneous occupancy change under fixed extinction",
+          "train_range": [
+            -0.07295061075867593,
+            0.3702822204542305
+          ],
+          "hidden_range": [
+            -2.3448465270005012e-11,
+            -3.766861082639409e-12
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -0.07295061075867593,
+            "max": 0.3702822204542305,
+            "q05": -0.06144964550547724,
+            "median": -4.14219320921257e-07,
+            "q95": 0.26583788766629934,
+            "range": 0.4432328312129064,
+            "robust_range": 0.3272875331717766
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": -2.3448465270005012e-11,
+            "max": -3.766861082639409e-12,
+            "q05": -2.3134246736463547e-11,
+            "median": -1.463305509813648e-11,
+            "q95": -4.296723666610947e-12,
+            "range": 1.9681604187365603e-11,
+            "robust_range": 1.88375230698526e-11
+          }
+        },
+        {
+          "generation": 2,
+          "name": "colonization_flux_parent",
+          "expression": "colonization_rate*p*(1 - p)*(1 + colonization_density_dependence*p)",
+          "role": "parent colonization contribution before subtracting extinction",
+          "train_range": [
+            3.251401985194706e-11,
+            0.42825000656202145
+          ],
+          "hidden_range": [
+            5.183920331119693e-12,
+            3.22695669391699e-11
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 3.251401985194706e-11,
+            "max": 0.42825000656202145,
+            "q05": 2.0291888614645336e-10,
+            "median": 0.0002301007597962944,
+            "q95": 0.42272794229504246,
+            "range": 0.4282500065295074,
+            "robust_range": 0.42272794209212355
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 5.183920331119693e-12,
+            "max": 3.22695669391699e-11,
+            "q05": 5.913112451970252e-12,
+            "median": 2.013787877198169e-11,
+            "q95": 3.1837142220286464e-11,
+            "range": 2.7085646608050207e-11,
+            "robust_range": 2.5924029768316213e-11
+          }
+        },
+        {
+          "generation": 3,
+          "name": "occupancy_open_fraction",
+          "expression": "p*(1 - p)",
+          "role": "baseline availability of occupied sources and empty targets",
+          "train_range": [
+            2.7095016542701908e-11,
+            0.25
+          ],
+          "hidden_range": [
+            4.319933609251481e-12,
+            2.689130578206307e-11
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 2.7095016542701908e-11,
+            "max": 0.25,
+            "q05": 1.6909907176583553e-10,
+            "median": 0.00019172122155359768,
+            "q95": 0.24426069300354522,
+            "range": 0.24999999997290498,
+            "robust_range": 0.24426069283444615
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 4.319933609251481e-12,
+            "max": 2.689130578206307e-11,
+            "q05": 4.927593709955785e-12,
+            "median": 1.678156564309278e-11,
+            "q95": 2.653095184967561e-11,
+            "range": 2.257137217281159e-11,
+            "robust_range": 2.1603358139719825e-11
+          }
+        },
+        {
+          "generation": 3,
+          "name": "extinction_load",
+          "expression": "extinction_rate*p",
+          "role": "instantaneous regional loss pressure from occupied patches",
+          "train_range": [
+            5.614011519816733e-11,
+            0.41704990094579575
+          ],
+          "hidden_range": [
+            8.950781413759102e-12,
+            5.571803220917491e-11
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 5.614011519816733e-11,
+            "max": 0.41704990094579575,
+            "q05": 3.503685392801074e-10,
+            "median": 0.00039718449455091115,
+            "q95": 0.3957367978891731,
+            "range": 0.41704990088965566,
+            "robust_range": 0.3957367975388046
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 8.950781413759102e-12,
+            "max": 5.571803220917491e-11,
+            "q05": 1.0209836118581199e-11,
+            "median": 3.4770933870118164e-11,
+            "q95": 5.497138895675001e-11,
+            "range": 4.676725079541581e-11,
+            "robust_range": 4.476155283816881e-11
+          }
+        },
+        {
+          "generation": 3,
+          "name": "occupancy_level",
+          "expression": "p",
+          "role": "state along which the colonization-efficiency curvature is diagnosed",
+          "train_range": [
+            2.7095016543436047e-11,
+            0.7521994853131916
+          ],
+          "hidden_range": [
+            4.3199336092701435e-12,
+            2.689130578278621e-11
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 2.7095016543436047e-11,
+            "max": 0.7521994853131916,
+            "q05": 1.6909907179443005e-10,
+            "median": 0.00019175799311748243,
+            "q95": 0.733674912343004,
+            "range": 0.7521994852860966,
+            "robust_range": 0.7336749121739049
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 4.3199336092701435e-12,
+            "max": 2.689130578278621e-11,
+            "q05": 4.927593709980066e-12,
+            "median": 1.67815656433744e-11,
+            "q95": 2.6530951850379498e-11,
+            "range": 2.2571372173516068e-11,
+            "robust_range": 2.160335814039943e-11
+          }
+        },
+        {
+          "generation": 4,
+          "name": "colonization_kernel",
+          "expression": "colonization_rate*p*(1 - p)*(1 + colonization_density_dependence*p/(1 + colonization_saturation_scale*p))",
+          "role": "gross occupancy gain from propagule production into empty patches",
+          "train_range": [
+            3.251401985194706e-11,
+            0.3605985108661481
+          ],
+          "hidden_range": [
+            5.183920331119693e-12,
+            3.22695669391699e-11
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 3.251401985194706e-11,
+            "max": 0.3605985108661481,
+            "q05": 2.0291888614645336e-10,
+            "median": 0.00023010074626537587,
+            "q95": 0.35348453771284516,
+            "range": 0.36059851083363403,
+            "robust_range": 0.35348453750992626
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 5.183920331119693e-12,
+            "max": 3.22695669391699e-11,
+            "q05": 5.913112451970252e-12,
+            "median": 2.013787877198169e-11,
+            "q95": 3.1837142220286464e-11,
+            "range": 2.7085646608050207e-11,
+            "robust_range": 2.5924029768316213e-11
+          }
+        },
+        {
+          "generation": 4,
+          "name": "loss_fraction",
+          "expression": "extinction_rate*p",
+          "role": "instantaneous occupancy loss due to local extinction",
+          "train_range": [
+            5.614011519816733e-11,
+            0.41704990094579575
+          ],
+          "hidden_range": [
+            8.950781413759102e-12,
+            5.571803220917491e-11
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 5.614011519816733e-11,
+            "max": 0.41704990094579575,
+            "q05": 3.503685392801074e-10,
+            "median": 0.00039718449455091115,
+            "q95": 0.3957367978891731,
+            "range": 0.41704990088965566,
+            "robust_range": 0.3957367975388046
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 8.950781413759102e-12,
+            "max": 5.571803220917491e-11,
+            "q05": 1.0209836118581199e-11,
+            "median": 3.4770933870118164e-11,
+            "q95": 5.497138895675001e-11,
+            "range": 4.676725079541581e-11,
+            "robust_range": 4.476155283816881e-11
+          }
+        },
+        {
+          "generation": 4,
+          "name": "extinction_feedback_strength",
+          "expression": "extinction_occupancy_sensitivity*p",
+          "role": "parent's linear occupancy dependence in the relaxation target for extinction susceptibility",
+          "train_range": [
+            2.4385514889092443e-11,
+            0.6769795367818724
+          ],
+          "hidden_range": [
+            3.88794024834313e-12,
+            2.420217520450759e-11
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 2.4385514889092443e-11,
+            "max": 0.6769795367818724,
+            "q05": 1.5218916461498705e-10,
+            "median": 0.00017258219380573422,
+            "q95": 0.6603074211087036,
+            "range": 0.6769795367574869,
+            "robust_range": 0.6603074209565144
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 3.88794024834313e-12,
+            "max": 2.420217520450759e-11,
+            "q05": 4.43483433898206e-12,
+            "median": 1.510340907903696e-11,
+            "q95": 2.387785666534155e-11,
+            "range": 2.0314234956164463e-11,
+            "robust_range": 1.944302232635949e-11
+          }
+        },
+        {
+          "generation": 5,
+          "name": "empty_patch_supply",
+          "expression": "p*(1 - p)",
+          "role": "baseline colonization opportunity from occupied-to-empty patch contacts",
+          "train_range": [
+            2.7095016542701908e-11,
+            0.25
+          ],
+          "hidden_range": [
+            4.319933609251481e-12,
+            2.689130578206307e-11
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 2.7095016542701908e-11,
+            "max": 0.25,
+            "q05": 1.6909907176583553e-10,
+            "median": 0.00019172122155359768,
+            "q95": 0.24426069300354522,
+            "range": 0.24999999997290498,
+            "robust_range": 0.24426069283444615
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 4.319933609251481e-12,
+            "max": 2.689130578206307e-11,
+            "q05": 4.927593709955785e-12,
+            "median": 1.678156564309278e-11,
+            "q95": 2.653095184967561e-11,
+            "range": 2.257137217281159e-11,
+            "robust_range": 2.1603358139719825e-11
+          }
+        },
+        {
+          "generation": 5,
+          "name": "colonization_modulation",
+          "expression": "1 + colonization_density_dependence*p/(1 + colonization_saturation_scale*p)",
+          "role": "existing occupancy-dependent facilitation or interference in colonization",
+          "train_range": [
+            1.000000000021676,
+            1.2402810396060997
+          ],
+          "hidden_range": [
+            1.000000000003456,
+            1.000000000021513
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 1.000000000021676,
+            "max": 1.2402810396060997,
+            "q05": 1.0000000001352791,
+            "median": 1.0001533475825477,
+            "q95": 1.2378827369450731,
+            "range": 0.2402810395844237,
+            "robust_range": 0.237882736809794
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 1.000000000003456,
+            "max": 1.000000000021513,
+            "q05": 1.000000000003942,
+            "median": 1.0000000000134253,
+            "q95": 1.0000000000212248,
+            "range": 1.8057111361713396e-11,
+            "robust_range": 1.7282841824339812e-11
+          }
+        },
+        {
+          "generation": 5,
+          "name": "stress_load",
+          "expression": "extinction_rate*p",
+          "role": "current occupancy-weighted loss pressure and ecological stress level",
+          "train_range": [
+            5.614011519816733e-11,
+            0.41704990094579575
+          ],
+          "hidden_range": [
+            8.950781413759102e-12,
+            5.571803220917491e-11
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 5.614011519816733e-11,
+            "max": 0.41704990094579575,
+            "q05": 3.503685392801074e-10,
+            "median": 0.00039718449455091115,
+            "q95": 0.3957367978891731,
+            "range": 0.41704990088965566,
+            "robust_range": 0.3957367975388046
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 8.950781413759102e-12,
+            "max": 5.571803220917491e-11,
+            "q05": 1.0209836118581199e-11,
+            "median": 3.4770933870118164e-11,
+            "q95": 5.497138895675001e-11,
+            "range": 4.676725079541581e-11,
+            "robust_range": 4.476155283816881e-11
+          }
+        }
+      ],
+      "inactive_mechanisms": [],
+      "visible_mechanisms": [
+        "occupancy_contact",
+        "low_mid_occupancy",
+        "net_parent_growth",
+        "occupancy_gap",
+        "net_parent_growth",
+        "colonization_flux_parent",
+        "occupancy_open_fraction",
+        "extinction_load",
+        "occupancy_level",
+        "colonization_kernel",
+        "loss_fraction",
+        "extinction_feedback_strength",
+        "empty_patch_supply",
+        "colonization_modulation",
+        "stress_load"
+      ],
+      "extended_mechanisms": [
+        "occupancy_contact",
+        "low_mid_occupancy",
+        "occupancy_gap",
+        "colonization_flux_parent",
+        "occupancy_open_fraction",
+        "extinction_load",
+        "occupancy_level",
+        "colonization_kernel",
+        "loss_fraction",
+        "extinction_feedback_strength",
+        "empty_patch_supply",
+        "colonization_modulation",
+        "stress_load"
+      ]
+    },
+    "inactive_mechanisms": [],
+    "target_variance": {
+      "train": {
+        "n": 4500,
+        "variance": 0.006517950554946344,
+        "range": 0.4509147283826941
+      },
+      "hidden": {
+        "n": 500,
+        "variance": 1.0389616311552252e-22,
+        "range": 3.109609997287044e-11
+      }
+    },
+    "parent_absorption_report": {
+      "status": "ok",
+      "n_points": 512,
+      "fixed_parent_normalized_rmse": 33845.607167629816,
+      "refit": {
+        "status": "not_run",
+        "reason": "no free parent parameters"
+      },
+      "interpretation": "<1e-3 nearly absorbed; 1e-3..1e-2 weak; >1e-2 visible structure"
+    },
+    "noise": 0.0,
+    "_trace": [
+      {
+        "turn": 1,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "analyze_expression",
+            "id": "call_z6JNj8oaHhIbVbRWGm745N0X"
+          }
+        ]
+      },
+      {
+        "tool": "analyze_expression",
+        "input": {
+          "expression": "colonization_rate*p*(1 - p)*(1 + colonization_density_dependence*p/(1 + colonization_saturation_scale*p))*exp(-colonization_stress_sensitivity*extinction_rate/(1 + colonization_stress_half_saturation*extinction_rate)) - extinction_rate*p",
+          "target_symbol": "dp_dt"
+        },
+        "result": {
+          "ok": true,
+          "free_symbols": [
+            "colonization_density_dependence",
+            "colonization_rate",
+            "colonization_saturation_scale",
+            "colonization_stress_half_saturation",
+            "colonization_stress_sensitivity",
+            "extinction_rate",
+            "p"
+          ],
+          "functions_of": {},
+          "target_function_calls": [],
+          "delayed_target_calls": [],
+          "ungoverned_functions": [],
+          "derivatives": [],
+          "max_derivative_order": 0,
+          "integral_kernels": [],
+          "explicitly_solvable_for_target": true,
+          "explicit_solution_preview": [
+            "colonization_rate*p*(1 - p)*(colonization_density_dependence*p/(colonization_saturation_scale*p + 1) + 1)*exp((-coloniza"
+          ],
+          "classification_hint": "explicit",
+          "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+        }
+      },
+      {
+        "turn": 2,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "check_substitution",
+            "id": "call_vETgZM5C7VFDnFsrGcZfJIwe"
+          },
+          {
+            "name": "check_substitution",
+            "id": "call_2jcDUUjq9kQHlPDg77uVk1lk"
+          }
+        ]
+      },
+      {
+        "tool": "check_substitution",
+        "input": {
+          "expression": "colonization_rate*p*(1 - p)*(1 + colonization_density_dependence*p/(1 + colonization_saturation_scale*p))*exp(-colonization_stress_sensitivity*extinction_rate/(1 + colonization_stress_half_saturation*extinction_rate)) - extinction_rate*p",
+          "target_symbol": "dp_dt",
+          "assignments": {
+            "p": 0.5,
+            "extinction_rate": 0.1,
+            "colonization_rate": 1.2,
+            "colonization_density_dependence": 0.8,
+            "colonization_saturation_scale": 2.0,
+            "colonization_stress_sensitivity": 3.0,
+            "colonization_stress_half_saturation": 5.0
+          }
+        },
+        "result": {
+          "ok": true,
+          "value_real": 0.24474307110807342,
+          "value_imag": 0.0,
+          "is_finite": true,
+          "is_real": true,
+          "verdict": "ok",
+          "residual_free_symbols": []
+        }
+      },
+      {
+        "tool": "check_substitution",
+        "input": {
+          "expression": "extinction_relaxation_rate*(extinction_rate*(1 + extinction_occupancy_sensitivity*p/(extinction_feedback_half_saturation + p)) - extinction_rate)",
+          "target_symbol": "dextinction_rate_dt",
+          "assignments": {
+            "p": 0.5,
+            "extinction_rate": 0.1,
+            "extinction_relaxation_rate": 0.8,
+            "extinction_occupancy_sensitivity": 0.9,
+            "extinction_feedback_half_saturation": 0.3
+          }
+        },
+        "result": {
+          "ok": true,
+          "value_real": 0.045000000000000005,
+          "value_imag": 0.0,
+          "is_finite": true,
+          "is_real": true,
+          "verdict": "ok",
+          "residual_free_symbols": []
+        }
+      },
+      {
+        "turn": 3,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "emit_data_gen_spec",
+            "id": "call_2SIwVd4665QcYVzQvJXzjtkS"
+          }
+        ]
+      },
+      {
+        "tool": "emit_data_gen_spec",
+        "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+      },
+      {
+        "turn": 4,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "emit_data_gen_spec",
+            "id": "call_uTHu8az5yNtyqmn3PCHqn01R"
+          }
+        ]
+      },
+      {
+        "tool": "emit_data_gen_spec",
+        "accepted": true
+      }
+    ],
+    "_provider": "openai",
+    "_num_turns": 4,
+    "discipline": "biology",
+    "scenario_text": "Track the fraction of habitat patches occupied by a focal population across a landscape of otherwise equivalent patches. Occupied patches seed colonization of empty patches, while local population loss turns occupied patches into empty ones. The target is the instantaneous change in regional occupancy along one trajectory.",
+    "record_id": "m2_population_ecology_20260921_003",
+    "generation": 5,
+    "_n_total": 5000,
+    "mechanism_observation_history": [
+      {
+        "generation": 1,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The parent assumes colonization increases linearly with occupied fraction through colonization_rate*p*(1-p), so each additional occupied patch contributes the same marginal colonization pressure at a given p.",
+            "child_relation": "Relax the equal-contribution assumption so colonization efficiency changes with occupancy density, yielding a nonlinear dependence of colonization on p beyond the simple quadratic p*(1-p).",
+            "affected_inputs": [
+              "p",
+              "colonization_rate"
+            ],
+            "observable_effect": "Across occupancy trajectories with the same extinction_rate and colonization setting, the rise of dp_dt with p at low-to-intermediate occupancy becomes either more accelerated or more saturated than the parent predicts, shifting the location and sharpness of the net-growth peak."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "occupancy_contact",
+              "expression": "p*(1 - p)",
+              "role": "Baseline occupied-empty patch encounter opportunity"
+            },
+            {
+              "name": "low_mid_occupancy",
+              "expression": "p",
+              "role": "Controls whether marginal colonization contribution is being evaluated in sparse versus denser occupancy regimes"
+            },
+            {
+              "name": "net_parent_growth",
+              "expression": "colonization_rate*p*(1 - p) - extinction_rate*p",
+              "role": "Parent target mapping used as the comparison baseline"
+            }
+          ],
+          "activation_condition": "Visible when trajectories span a nontrivial interior occupancy range away from both boundaries, especially low-to-intermediate p where departures from linear per-occupied-patch colonization contribution can accumulate before saturation at p near 1 dominates.",
+          "train_hidden_contrast": "In training, the mechanism alters the curvature of dp_dt versus p within observed interior occupancy values; in holdout, the same nonlinear colonization scaling extends that curvature difference to broader occupancy levels without changing the boundary requirements at p=0 and p=1.",
+          "continuation_path": "Recover the parent law in the limit where colonization contribution per occupied patch is exactly linear in occupancy, restoring colonization proportional to p*(1-p).",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The model idealizes colonization as strictly mass-action with equal marginal contribution from every occupied patch, omitting density-dependent departure from linear propagule production or establishment.",
+          "baseline_assumption": "Every occupied patch contributes equally to colonization",
+          "scientific_mechanism": "Density-dependent colonization efficiency, such as facilitation or interference among occupied patches, changes how colonization pressure scales with regional occupancy.",
+          "affected_symbols": [
+            "p",
+            "colonization_rate",
+            "extinction_rate"
+          ],
+          "rationale": "A realistic next refinement is to relax the assumption that colonization pressure is exactly proportional to occupied fraction. The parent response maps p to dp_dt with a fixed quadratic shape: net growth is zero at p=0, declines near p=1 through empty-patch limitation, and has a single peak determined only by colonization_rate and extinction_rate. Holding extinction_rate fixed and comparing trajectories over interior p, the child would change the curvature of the colonization part so the slope of dp_dt with respect to p at low and intermediate occupancy is no longer locked to the parent's mass-action form. This is scientifically admissible when occupancy is neither extremely rare nor nearly complete, so density-dependent dispersal success or establishment can matter while occupancy remains within [0,1]. A single refit of the parent parameters cannot generally reproduce both the parent quadratic curvature and a systematically altered low-versus-mid occupancy rise using the same parameter set, because the parent has only one fixed quadratic colonization shape. The limitation is that if observations stay very near p=0 or very near p=1, the contrast may be weak."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The parent assumes colonization increases linearly with occupied fraction through colonization_rate*p*(1-p), so each additional occupied patch contributes the same marginal colonization pressure at a given p.",
+            "child_relation": "Relax the equal-contribution assumption so colonization efficiency changes with occupancy density, yielding a nonlinear dependence of colonization on p beyond the simple quadratic p*(1-p).",
+            "affected_inputs": [
+              "p",
+              "colonization_rate"
+            ],
+            "observable_effect": "Across occupancy trajectories with the same extinction_rate and colonization setting, the rise of dp_dt with p at low-to-intermediate occupancy becomes either more accelerated or more saturated than the parent predicts, shifting the location and sharpness of the net-growth peak."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "occupancy_contact",
+              "expression": "p*(1 - p)",
+              "role": "Baseline occupied-empty patch encounter opportunity"
+            },
+            {
+              "name": "low_mid_occupancy",
+              "expression": "p",
+              "role": "Controls whether marginal colonization contribution is being evaluated in sparse versus denser occupancy regimes"
+            },
+            {
+              "name": "net_parent_growth",
+              "expression": "colonization_rate*p*(1 - p) - extinction_rate*p",
+              "role": "Parent target mapping used as the comparison baseline"
+            }
+          ],
+          "activation_condition": "Visible when trajectories span a nontrivial interior occupancy range away from both boundaries, especially low-to-intermediate p where departures from linear per-occupied-patch colonization contribution can accumulate before saturation at p near 1 dominates.",
+          "train_hidden_contrast": "In training, the mechanism alters the curvature of dp_dt versus p within observed interior occupancy values; in holdout, the same nonlinear colonization scaling extends that curvature difference to broader occupancy levels without changing the boundary requirements at p=0 and p=1.",
+          "continuation_path": "Recover the parent law in the limit where colonization contribution per occupied patch is exactly linear in occupancy, restoring colonization proportional to p*(1-p).",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "unary",
+          "scope_symbols": [
+            "p",
+            "colonization_rate",
+            "colonization_density_dependence"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "density-dependent modulation of colonization pressure by occupancy",
+          "scientific_mechanism": "Density-dependent colonization efficiency, such as facilitation or interference among occupied patches, changes how colonization pressure scales with regional occupancy.",
+          "embedding_pattern": "multiplicative_modulation",
+          "difficulty_rationale": "This is harder than a coefficient-only correction because the extra occupancy-dependent factor changes the shape of the target mapping over p rather than merely rescaling colonization uniformly. It introduces a distinct low-versus-mid occupancy curvature signature that cannot be matched by changing only the parent's constant rates.",
+          "taxonomy_match": "known",
+          "assumption_before": "Every occupied patch contributes equally to colonization",
+          "assumption_after": "Colonization efficiency is itself occupancy-dependent, so occupied patches do not contribute with equal marginal effect across all regional occupancy levels.",
+          "before_fragment": "colonization_rate*p*(1 - p) - extinction_rate*p",
+          "after_fragment": "colonization_rate*p*(1 - p)*(1 + colonization_density_dependence*p) - extinction_rate*p",
+          "parent_reduction": "Setting colonization_density_dependence = 0 recovers the parent expression exactly.",
+          "observable_signature": "With extinction_rate fixed and trajectories observed over interior p, dp_dt versus p is no longer constrained to the parent's single quadratic colonization shape: positive colonization_density_dependence makes net growth rise more sharply through low-to-mid occupancy and shifts the peak, while negative values soften that rise. This contrast is observable only when p explores a substantial interior range rather than remaining confined near 0 or 1.",
+          "shortcut_blocked": "A single parent parameter set can only generate colonization_rate*p*(1-p), whose curvature in p is fixed up to overall scaling and linear extinction offset. Retuning colonization_rate and extinction_rate cannot reproduce both the child’s modified low-to-mid occupancy curvature and its shifted peak across the same interior occupancy range, because those parameters do not create occupancy-dependent modulation of colonization efficiency."
+        },
+        "range_suggestions": {
+          "colonization_density_dependence": "-1 to 2"
+        }
+      },
+      {
+        "generation": 2,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "phase_shift",
+            "parent_relation": "With constant extinction_rate, the target mapping dp_dt(p) is time-invariant: at a given occupancy p the instantaneous decline term is always the same regardless of recent occupancy history.",
+            "child_relation": "Let extinction susceptibility relax dynamically after occupancy changes, so dp_dt depends on both current p and a lagged extinction state. The same p can then have different dp_dt during post-colonization buildup versus post-decline recovery.",
+            "affected_inputs": [
+              "p",
+              "extinction_rate"
+            ],
+            "observable_effect": "A hysteretic time-pattern appears: after a rapid rise in p, extinction remains temporarily elevated or depressed relative to its long-run level, shifting the net growth curve over time in a way the parent cannot match with one fixed extinction parameter."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "occupancy_gap",
+              "expression": "1 - p",
+              "role": "fraction of empty habitat available for colonization"
+            },
+            {
+              "name": "net_parent_growth",
+              "expression": "colonization_rate*p*(1 - p)*(1 + colonization_density_dependence*p) - extinction_rate*p",
+              "role": "parent instantaneous occupancy change under fixed extinction"
+            },
+            {
+              "name": "colonization_flux_parent",
+              "expression": "colonization_rate*p*(1 - p)*(1 + colonization_density_dependence*p)",
+              "role": "parent colonization contribution before subtracting extinction"
+            }
+          ],
+          "activation_condition": "Observable when occupancy changes on a timescale comparable to habitat deterioration or rescue relaxation, so extinction risk does not instantaneously track current occupancy; strongest for intermediate p where both colonization and extinction are appreciable.",
+          "train_hidden_contrast": "In training, early and late segments with similar p but different recent trajectories can show different dp_dt; in holdout, the same lag effect extends to trajectories with stronger transient departures from equilibrium.",
+          "continuation_path": "Recover the parent law in the fast-relaxation or zero-coupling limit where the dynamic extinction susceptibility collapses to the constant extinction_rate.",
+          "freedom_change": "parameter_to_state",
+          "promoted_symbol": "extinction_rate",
+          "promotion_reason": "A time-lagged extinction susceptibility cannot be represented with only the current occupancy state and fixed parameters, because the mechanism requires memory of recent conditions at the same p.",
+          "gap_statement": "The model assumes local extinction risk is constant in time, ignoring delayed habitat degradation or delayed rescue effects that make extinction susceptibility relax rather than instantaneously equal a fixed value.",
+          "baseline_assumption": "Colonization and extinction rates are constant over time",
+          "scientific_mechanism": "Extinction susceptibility is an internal ecological condition that adjusts gradually, creating memory in patch loss after occupancy changes.",
+          "affected_symbols": [
+            "p",
+            "extinction_rate"
+          ],
+          "rationale": "A realistic next refinement is to relax the assumption of time-constant extinction by turning extinction_rate into a dynamic state that tracks changing regional conditions with lag. In the parent, holding parameters fixed, dp_dt is a single-valued function of p, so two times with the same occupancy must have the same instantaneous change. In the child, varying time along one trajectory while holding the observed occupancy p fixed, different recent occupancy histories can produce different extinction pressure and hence different dp_dt. This is a genuine target-mapping change, not merely an auxiliary-state embellishment, because the scored derivative of p changes at fixed p through the added memory variable. The contrast is admissible when occupancy is not stationary and the relaxation timescale is neither negligible nor infinitely slow relative to occupancy change. If relaxation is effectively instantaneous, the added mechanism collapses back to the parent; if occupancy barely moves, the lag is weak and the effect may be hard to see. A single refit of all parent parameters cannot reproduce such history dependence across conditions with matched p but differing recent trajectories, because the parent has no memory channel."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "phase_shift",
+            "parent_relation": "With constant extinction_rate, the target mapping dp_dt(p) is time-invariant: at a given occupancy p the instantaneous decline term is always the same regardless of recent occupancy history.",
+            "child_relation": "Let extinction susceptibility relax dynamically after occupancy changes, so dp_dt depends on both current p and a lagged extinction state. The same p can then have different dp_dt during post-colonization buildup versus post-decline recovery.",
+            "affected_inputs": [
+              "p",
+              "extinction_rate"
+            ],
+            "observable_effect": "A hysteretic time-pattern appears: after a rapid rise in p, extinction remains temporarily elevated or depressed relative to its long-run level, shifting the net growth curve over time in a way the parent cannot match with one fixed extinction parameter."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "occupancy_gap",
+              "expression": "1 - p",
+              "role": "fraction of empty habitat available for colonization"
+            },
+            {
+              "name": "net_parent_growth",
+              "expression": "colonization_rate*p*(1 - p)*(1 + colonization_density_dependence*p) - extinction_rate*p",
+              "role": "parent instantaneous occupancy change under fixed extinction"
+            },
+            {
+              "name": "colonization_flux_parent",
+              "expression": "colonization_rate*p*(1 - p)*(1 + colonization_density_dependence*p)",
+              "role": "parent colonization contribution before subtracting extinction"
+            }
+          ],
+          "activation_condition": "Observable when occupancy changes on a timescale comparable to habitat deterioration or rescue relaxation, so extinction risk does not instantaneously track current occupancy; strongest for intermediate p where both colonization and extinction are appreciable.",
+          "train_hidden_contrast": "In training, early and late segments with similar p but different recent trajectories can show different dp_dt; in holdout, the same lag effect extends to trajectories with stronger transient departures from equilibrium.",
+          "continuation_path": "Recover the parent law in the fast-relaxation or zero-coupling limit where the dynamic extinction susceptibility collapses to the constant extinction_rate.",
+          "freedom_change": "parameter_to_state",
+          "promoted_symbol": "extinction_rate",
+          "promotion_reason": "A time-lagged extinction susceptibility cannot be represented with only the current occupancy state and fixed parameters, because the mechanism requires memory of recent conditions at the same p.",
+          "scope_kind": "memory",
+          "scope_symbols": [
+            "p",
+            "extinction_rate"
+          ],
+          "structural_role": "feedback",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Delayed adjustment of patch extinction susceptibility",
+          "scientific_mechanism": "Extinction susceptibility is an internal ecological condition that adjusts gradually, creating memory in patch loss after occupancy changes.",
+          "embedding_pattern": "nested_nonlinearity",
+          "difficulty_rationale": "The target derivative is no longer a single-valued static function of p because extinction enters through a dynamically evolving latent state whose own relaxation target depends on p. This blocks coefficient-only correction by introducing trajectory phase dependence rather than a uniform gain or offset.",
+          "taxonomy_match": "known",
+          "assumption_before": "Colonization and extinction rates are constant over time",
+          "assumption_after": "Extinction susceptibility relaxes dynamically toward an occupancy-dependent level instead of remaining fixed.",
+          "before_fragment": "colonization_rate*p*(1 - p)*(1 + colonization_density_dependence*p) - extinction_rate*p",
+          "after_fragment": "colonization_rate*p*(1 - p)*(1 + colonization_density_dependence*p) - extinction_rate*p",
+          "parent_reduction": "Setting extinction_occupancy_sensitivity = 0 and taking extinction_relaxation_rate large yields effectively constant extinction_rate, recovering the parent occupancy law.",
+          "observable_signature": "Along one trajectory, two times with the same observed p can have different dp_dt because extinction_rate lags behind recent occupancy changes; this is most visible after rapid rises or falls in p at intermediate occupancy where both colonization and extinction terms matter.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce matched-p but different-dp_dt observations across post-rise versus post-decline phases, because the parent maps dp_dt from p alone once parameters are fixed and therefore has no memory channel. Refitting all parent parameters only shifts the single curve dp_dt(p); it cannot produce hysteresis across admissible conditions."
+        },
+        "range_suggestions": {
+          "extinction_relaxation_rate": "0.01 to 10",
+          "extinction_occupancy_sensitivity": "-2 to 2",
+          "extinction_rate": "0 to 2"
+        }
+      },
+      {
+        "generation": 3,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "At fixed extinction_rate, dp_dt depends on occupancy through a cubic colonization term colonization_rate*p*(1-p)*(1+colonization_density_dependence*p) minus a linear extinction loss, so colonization efficiency changes only linearly with p inside the occupancy-limited factor.",
+            "child_relation": "Replace the linear density-dependence factor in colonization with a saturating occupancy effect so that increases in occupancy initially strengthen or weaken colonization efficiency but then level off at higher p, changing the curvature of dp_dt versus p while preserving zero colonization at p=0 and p=1.",
+            "affected_inputs": [
+              "p",
+              "colonization_density_dependence"
+            ],
+            "observable_effect": "Across trajectories spanning low to moderate versus high occupancy, the child shows early occupancy-driven change in colonization slope that weakens at high p, whereas the parent enforces one fixed linear trend in colonization efficiency across the whole occupancy range."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "occupancy_open_fraction",
+              "expression": "p*(1 - p)",
+              "role": "baseline availability of occupied sources and empty targets"
+            },
+            {
+              "name": "extinction_load",
+              "expression": "extinction_rate*p",
+              "role": "instantaneous regional loss pressure from occupied patches"
+            },
+            {
+              "name": "occupancy_level",
+              "expression": "p",
+              "role": "state along which the colonization-efficiency curvature is diagnosed"
+            }
+          ],
+          "activation_condition": "The contrast is visible when trajectories visit a broad occupancy range, especially intermediate to high p where occupancy-dependent colonization modulation is appreciable but empty patches remain available; if p stays very near 0 or 1 the difference is weak because colonization is already constrained by p*(1-p).",
+          "train_hidden_contrast": "In training, both models may match low-to-mid occupancy growth, but in held-out segments reaching higher occupancy the child can flatten the occupancy effect on colonization efficiency while the parent must continue the same linear dependence on p inside the colonization factor.",
+          "continuation_path": "Recover the parent by taking the saturation scale to be very large, so the saturating occupancy modifier reduces to the existing approximately linear dependence over the observed range.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The current model assumes that density-dependent modulation of colonization efficiency changes linearly with occupancy over the whole landscape occupancy range, which is often too idealized once source interference or facilitation saturates.",
+          "baseline_assumption": "Every incremental increase in occupancy has the same proportional effect on colonization efficiency after accounting for the existing p*(1-p) occupancy-limitation term.",
+          "scientific_mechanism": "Landscape-scale facilitation or interference among occupied patches typically saturates because additional occupied patches become redundant propagule sources or because crowding effects cannot intensify indefinitely.",
+          "affected_symbols": [
+            "p",
+            "colonization_rate",
+            "colonization_density_dependence"
+          ],
+          "rationale": "A realistic next refinement is to relax the parent's linear occupancy effect within colonization efficiency rather than adding a wholly new process. The parent target mapping has a single-gain shortcut: at fixed extinction_rate, the occupancy-dependent modifier of colonization is forced to vary linearly with p, so one shared parameter set imposes the same trend from low to high occupancy. Scientifically, source facilitation or interference should often saturate because occupied patches become overlapping dispersal sources or because social/Allee-like gains cannot keep increasing proportionally forever. Vary occupancy along the actual trajectory while holding colonization_rate, colonization_density_dependence, and the extinction process fixed. Then compare dp_dt at moderate versus high occupancy. The parent predicts continued linear strengthening or weakening of colonization efficiency with p, whereas the child would show diminishing incremental effect at higher p, i.e. a curvature change in the p-to-dp_dt mapping itself, not merely in an auxiliary state. This is observable whenever trajectories traverse enough of the interior interval away from the boundary zeros imposed by p*(1-p). The refinement respects occupancy bounds and keeps colonization zero at p=0 and p=1. Its limitation is that if observations stay in a narrow low-p band, the parent may approximate the child well because a saturating function is locally linear there."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "At fixed extinction_rate, dp_dt depends on occupancy through a cubic colonization term colonization_rate*p*(1-p)*(1+colonization_density_dependence*p) minus a linear extinction loss, so colonization efficiency changes only linearly with p inside the occupancy-limited factor.",
+            "child_relation": "Replace the linear density-dependence factor in colonization with a saturating occupancy effect so that increases in occupancy initially strengthen or weaken colonization efficiency but then level off at higher p, changing the curvature of dp_dt versus p while preserving zero colonization at p=0 and p=1.",
+            "affected_inputs": [
+              "p",
+              "colonization_density_dependence"
+            ],
+            "observable_effect": "Across trajectories spanning low to moderate versus high occupancy, the child shows early occupancy-driven change in colonization slope that weakens at high p, whereas the parent enforces one fixed linear trend in colonization efficiency across the whole occupancy range."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "occupancy_open_fraction",
+              "expression": "p*(1 - p)",
+              "role": "baseline availability of occupied sources and empty targets"
+            },
+            {
+              "name": "extinction_load",
+              "expression": "extinction_rate*p",
+              "role": "instantaneous regional loss pressure from occupied patches"
+            },
+            {
+              "name": "occupancy_level",
+              "expression": "p",
+              "role": "state along which the colonization-efficiency curvature is diagnosed"
+            }
+          ],
+          "activation_condition": "The contrast is visible when trajectories visit a broad occupancy range, especially intermediate to high p where occupancy-dependent colonization modulation is appreciable but empty patches remain available; if p stays very near 0 or 1 the difference is weak because colonization is already constrained by p*(1-p).",
+          "train_hidden_contrast": "In training, both models may match low-to-mid occupancy growth, but in held-out segments reaching higher occupancy the child can flatten the occupancy effect on colonization efficiency while the parent must continue the same linear dependence on p inside the colonization factor.",
+          "continuation_path": "Recover the parent by taking the saturation scale to be very large, so the saturating occupancy modifier reduces to the existing approximately linear dependence over the observed range.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "unary",
+          "scope_symbols": [
+            "p"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "saturating occupancy dependence of colonization efficiency",
+          "scientific_mechanism": "Landscape-scale facilitation or interference among occupied patches typically saturates because additional occupied patches become redundant propagule sources or because crowding effects cannot intensify indefinitely.",
+          "embedding_pattern": "nested_nonlinearity",
+          "difficulty_rationale": "This is harder than a coefficient-only correction because occupancy first enters the source-target product p*(1-p) and then a combined occupancy-and-saturation quantity is passed through the nested rational modifier p/(1 + colonization_saturation_scale*p), creating a changed target mapping curvature that is not equivalent to a fixed gain rescaling.",
+          "taxonomy_match": "known",
+          "assumption_before": "The occupancy effect inside colonization efficiency is linear across the full admissible occupancy range.",
+          "assumption_after": "The occupancy effect inside colonization efficiency saturates at higher occupancy because additional occupied patches become partially redundant or crowding effects cap further change.",
+          "before_fragment": "colonization_rate*p*(1 - p)*(1 + colonization_density_dependence*p) - extinction_rate*p",
+          "after_fragment": "colonization_rate*p*(1 - p)*(1 + colonization_density_dependence*p/(1 + colonization_saturation_scale*p)) - extinction_rate*p",
+          "parent_reduction": "Setting colonization_saturation_scale = 0 recovers the parent exactly.",
+          "observable_signature": "Holding colonization_rate, colonization_density_dependence, and the extinction-process parameters fixed while a trajectory moves from moderate to high occupancy, the child shows diminishing incremental change in dp_dt from the occupancy-dependent colonization modifier because p/(1 + colonization_saturation_scale*p) bends toward saturation. The parent instead preserves one linear occupancy trend inside colonization efficiency over the same p range. This is a direct change in the scored p-to-dp_dt mapping, not merely in an auxiliary trajectory, and is observable when the trajectory explores interior occupancy values away from the boundary zeros of p*(1-p).",
+          "shortcut_blocked": "A single refitted parent parameter set cannot reproduce both the low-to-mid occupancy behavior and the high-occupancy flattening under the same conditions because the parent's colonization-efficiency modifier is affine in p, while the child's modifier changes slope with p through the nested denominator. Refitting colonization_rate or colonization_density_dependence can match one occupancy band but cannot generate the same broad-range curvature change in the scored dp_dt mapping."
+        },
+        "range_suggestions": {
+          "colonization_saturation_scale": "0 to 20"
+        }
+      },
+      {
+        "generation": 4,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "At fixed extinction_rate, colonization pressure is a single occupancy-dependent factor multiplying p*(1-p), so the target response to p has one smooth saturation shape set entirely by the existing colonization modulation.",
+            "child_relation": "Make extinction susceptibility respond nonlinearly to occupancy rather than proportionally, so dp_dt depends on p both through colonization and through a curved occupancy-to-extinction feedback. This changes the target mapping by bending the net-growth curve differently at low versus high occupancy.",
+            "affected_inputs": [
+              "p",
+              "extinction_rate",
+              "extinction_occupancy_sensitivity"
+            ],
+            "observable_effect": "Across trajectories where p rises from low to moderate values while other parameters are fixed, the child can show weak extinction feedback near low occupancy but a stronger increase in losses at higher occupancy, shifting the location and sharpness of the net-growth peak in dp_dt(p) relative to the parent."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "colonization_kernel",
+              "expression": "colonization_rate*p*(1 - p)*(1 + colonization_density_dependence*p/(1 + colonization_saturation_scale*p))",
+              "role": "gross occupancy gain from propagule production into empty patches"
+            },
+            {
+              "name": "loss_fraction",
+              "expression": "extinction_rate*p",
+              "role": "instantaneous occupancy loss due to local extinction"
+            },
+            {
+              "name": "extinction_feedback_strength",
+              "expression": "extinction_occupancy_sensitivity*p",
+              "role": "parent's linear occupancy dependence in the relaxation target for extinction susceptibility"
+            }
+          ],
+          "activation_condition": "Observable when occupancy spans a broad intermediate-to-high range during the sampled trajectory so that occupancy-dependent extinction feedback has room to curve; if p stays near zero or nearly constant, the distinction is weak.",
+          "train_hidden_contrast": "In training, moderate p variation reveals that extinction feedback is not well captured by one linear occupancy factor; in holdout, the same mechanism extends to higher occupancy where the child predicts stronger curvature in net growth without changing the basic colonization and loss processes.",
+          "continuation_path": "Recover the parent by taking the nonlinear occupancy shaping of extinction feedback to its linear limit.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The model assumes that the long-run extinction susceptibility shifts linearly with occupancy, but ecological stress or crowding effects on local persistence often accelerate or saturate with occupancy rather than changing in strict proportion.",
+          "baseline_assumption": "The occupancy dependence inside the extinction-susceptibility relaxation target is exactly linear in p.",
+          "scientific_mechanism": "Nonlinear occupancy dependence of extinction susceptibility, representing crowding, shared enemies, or resource depletion that become disproportionately important only after occupancy passes moderate levels.",
+          "affected_symbols": [
+            "p",
+            "extinction_rate",
+            "extinction_occupancy_sensitivity",
+            "extinction_relaxation_rate"
+          ],
+          "rationale": "Vary occupancy along the realized time trajectory while holding parameters fixed. In the parent, extinction susceptibility adjusts with a single linear occupancy factor, so after refitting one parameter set the occupancy-to-loss feedback has fixed curvature and cannot independently keep low-p losses mild while making high-p losses rise more sharply. A child that relaxes this linearity changes the scored target mapping dp_dt because net occupancy change now acquires additional occupancy curvature through the loss term itself, not merely through an auxiliary state trajectory. This is scientifically admissible when the observed trajectory visits enough of the interior of 0<p<1 for occupancy-dependent extinction stress to turn on. The contrast is limited if observations remain confined to a narrow p band, where a linear approximation could absorb the effect."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "At fixed extinction_rate, colonization pressure is a single occupancy-dependent factor multiplying p*(1-p), so the target response to p has one smooth saturation shape set entirely by the existing colonization modulation.",
+            "child_relation": "Make extinction susceptibility respond nonlinearly to occupancy rather than proportionally, so dp_dt depends on p both through colonization and through a curved occupancy-to-extinction feedback. This changes the target mapping by bending the net-growth curve differently at low versus high occupancy.",
+            "affected_inputs": [
+              "p",
+              "extinction_rate",
+              "extinction_occupancy_sensitivity"
+            ],
+            "observable_effect": "Across trajectories where p rises from low to moderate values while other parameters are fixed, the child can show weak extinction feedback near low occupancy but a stronger increase in losses at higher occupancy, shifting the location and sharpness of the net-growth peak in dp_dt(p) relative to the parent."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "colonization_kernel",
+              "expression": "colonization_rate*p*(1 - p)*(1 + colonization_density_dependence*p/(1 + colonization_saturation_scale*p))",
+              "role": "gross occupancy gain from propagule production into empty patches"
+            },
+            {
+              "name": "loss_fraction",
+              "expression": "extinction_rate*p",
+              "role": "instantaneous occupancy loss due to local extinction"
+            },
+            {
+              "name": "extinction_feedback_strength",
+              "expression": "extinction_occupancy_sensitivity*p",
+              "role": "parent's linear occupancy dependence in the relaxation target for extinction susceptibility"
+            }
+          ],
+          "activation_condition": "Observable when occupancy spans a broad intermediate-to-high range during the sampled trajectory so that occupancy-dependent extinction feedback has room to curve; if p stays near zero or nearly constant, the distinction is weak.",
+          "train_hidden_contrast": "In training, moderate p variation reveals that extinction feedback is not well captured by one linear occupancy factor; in holdout, the same mechanism extends to higher occupancy where the child predicts stronger curvature in net growth without changing the basic colonization and loss processes.",
+          "continuation_path": "Recover the parent by taking the nonlinear occupancy shaping of extinction feedback to its linear limit.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "p",
+            "extinction_rate"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "saturating occupancy-driven extinction susceptibility",
+          "scientific_mechanism": "Nonlinear occupancy dependence of extinction susceptibility, representing crowding, shared enemies, or resource depletion that become disproportionately important only after occupancy passes moderate levels.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "This embedding is structurally harder than a coefficient-only correction because the loss-side feedback now has its own finite activation scale, allowing low- and high-occupancy curvature in the realized target mapping to differ even with the same colonization law.",
+          "taxonomy_match": "known",
+          "assumption_before": "The occupancy dependence inside the extinction-susceptibility relaxation target is exactly linear in p.",
+          "assumption_after": "The occupancy effect on the extinction-susceptibility relaxation target is saturating in p, with a finite occupancy scale for activation.",
+          "before_fragment": "colonization_rate*p*(1 - p)*(1 + colonization_density_dependence*p/(1 + colonization_saturation_scale*p)) - extinction_rate*p",
+          "after_fragment": "colonization_rate*p*(1 - p)*(1 + colonization_density_dependence*p/(1 + colonization_saturation_scale*p)) - extinction_rate*p",
+          "parent_reduction": "When occupied fractions stay small relative to extinction_feedback_half_saturation over the observed trajectory, the child relaxation target is approximately linear in p and the parent is recovered after rescaling extinction_occupancy_sensitivity.",
+          "observable_signature": "Holding parameters fixed along trajectories from the stated initial conditions, the scored target dp_dt acquires extra downward bending at intermediate occupancy because extinction_rate now relaxes toward a saturating occupancy-dependent target rather than a strictly linear one. The difference is observable only when p traverses enough of the interior range for the saturation scale to matter; if p remains in a narrow low-occupancy band, the child collapses toward the parent.",
+          "shortcut_blocked": "A single refitted parent parameter set cannot reproduce both near-linear low-p extinction feedback and a later stronger but finite-capacity occupancy effect across the same trajectory, because the parent constrains extinction-rate relaxation to one linear occupancy factor. Retuning colonization parameters changes only the gain-side shape, not the loss-side saturation scale that drives the changed dp_dt curvature."
+        },
+        "range_suggestions": {
+          "extinction_feedback_half_saturation": "0 to 1"
+        }
+      },
+      {
+        "generation": 5,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "interaction_emergence",
+            "parent_relation": "The colonization contribution to dp_dt is a product of p(1-p) and a facilitation/interference factor that depends only on p, so the effect of occupancy on target growth is independent of the current extinction susceptibility state except for the separate linear subtraction -extinction_rate*p.",
+            "child_relation": "Let colonization efficiency itself be modulated by the current extinction susceptibility state, so the occupancy effect on dp_dt changes with both p and extinction_rate. This creates a state-dependent interaction in which the same occupancy can yield different colonization gains under different ecological stress histories.",
+            "affected_inputs": [
+              "p",
+              "extinction_rate"
+            ],
+            "observable_effect": "At fixed p in the intermediate occupancy range, trajectories with elevated extinction_rate show reduced net growth not only through larger losses but also through weaker colonization recovery, producing slower rebound and stronger asymmetry between expansion and decline phases."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "empty_patch_supply",
+              "expression": "p*(1 - p)",
+              "role": "baseline colonization opportunity from occupied-to-empty patch contacts"
+            },
+            {
+              "name": "colonization_modulation",
+              "expression": "1 + colonization_density_dependence*p/(1 + colonization_saturation_scale*p)",
+              "role": "existing occupancy-dependent facilitation or interference in colonization"
+            },
+            {
+              "name": "stress_load",
+              "expression": "extinction_rate*p",
+              "role": "current occupancy-weighted loss pressure and ecological stress level"
+            }
+          ],
+          "activation_condition": "Most visible when 0<p<1, especially at intermediate occupancy where colonization is active, and when extinction_rate varies appreciably along the observed trajectory because the existing relaxation dynamics have been displaced from low-stress equilibrium.",
+          "train_hidden_contrast": "In training, the mechanism appears as altered rebound slope after episodes that raise extinction_rate; in holdout, the same interaction extends to stronger history dependence where equal p values have different dp_dt because extinction_rate differs.",
+          "continuation_path": "Recover the parent law when the stress effect on colonization is set to zero, so colonization depends only on p and extinction acts only through the existing subtraction term.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The current model assumes that extinction susceptibility affects occupancy change only by removing occupied patches and does not also impair propagule production or establishment from surviving occupied patches.",
+          "baseline_assumption": "Colonization efficiency is independent of the current extinction susceptibility state.",
+          "scientific_mechanism": "Landscape-wide stressors that elevate local extinction risk often simultaneously reduce fecundity, disperser availability, or establishment success, coupling extinction susceptibility to colonization effectiveness.",
+          "affected_symbols": [
+            "p",
+            "extinction_rate",
+            "colonization_rate",
+            "colonization_density_dependence",
+            "colonization_saturation_scale"
+          ],
+          "rationale": "A realistic next refinement is to relax the assumption that stressed metapopulations lose patches faster but colonize just as effectively. In the parent, if p is held fixed, changing extinction_rate changes dp_dt only through the linear loss term -extinction_rate*p; the colonization branch has the same slope and curvature regardless of stress history. In the child, extinction_rate would also modulate colonization, so the mapping from observed states to dp_dt acquires a genuine p-by-extinction_rate interaction. Observable condition: compare times along one trajectory where p is similar but extinction_rate differs because of the existing lagged extinction dynamics; hold colonization parameters fixed. Parent prediction: the colonization contribution is identical at those matched p values. Child prediction: higher extinction_rate depresses colonization gain, so net growth is lower than a pure additive loss change would imply, especially during recovery from high-stress periods. This is admissible without new states because extinction_rate already exists and varies dynamically. The contrast targets the scored mapping directly, not only the auxiliary extinction_rate trajectory. A single parent parameter set cannot reproduce this across such matched-p but differing-extinction_rate conditions, because its colonization term has no dependence on extinction_rate at all; refitting can only change the common p-only curve, not make it shift with stress."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "interaction_emergence",
+            "parent_relation": "The colonization contribution to dp_dt is a product of p(1-p) and a facilitation/interference factor that depends only on p, so the effect of occupancy on target growth is independent of the current extinction susceptibility state except for the separate linear subtraction -extinction_rate*p.",
+            "child_relation": "Let colonization efficiency itself be modulated by the current extinction susceptibility state, so the occupancy effect on dp_dt changes with both p and extinction_rate. This creates a state-dependent interaction in which the same occupancy can yield different colonization gains under different ecological stress histories.",
+            "affected_inputs": [
+              "p",
+              "extinction_rate"
+            ],
+            "observable_effect": "At fixed p in the intermediate occupancy range, trajectories with elevated extinction_rate show reduced net growth not only through larger losses but also through weaker colonization recovery, producing slower rebound and stronger asymmetry between expansion and decline phases."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "empty_patch_supply",
+              "expression": "p*(1 - p)",
+              "role": "baseline colonization opportunity from occupied-to-empty patch contacts"
+            },
+            {
+              "name": "colonization_modulation",
+              "expression": "1 + colonization_density_dependence*p/(1 + colonization_saturation_scale*p)",
+              "role": "existing occupancy-dependent facilitation or interference in colonization"
+            },
+            {
+              "name": "stress_load",
+              "expression": "extinction_rate*p",
+              "role": "current occupancy-weighted loss pressure and ecological stress level"
+            }
+          ],
+          "activation_condition": "Most visible when 0<p<1, especially at intermediate occupancy where colonization is active, and when extinction_rate varies appreciably along the observed trajectory because the existing relaxation dynamics have been displaced from low-stress equilibrium.",
+          "train_hidden_contrast": "In training, the mechanism appears as altered rebound slope after episodes that raise extinction_rate; in holdout, the same interaction extends to stronger history dependence where equal p values have different dp_dt because extinction_rate differs.",
+          "continuation_path": "Recover the parent law when the stress effect on colonization is set to zero, so colonization depends only on p and extinction acts only through the existing subtraction term.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "pairwise",
+          "scope_symbols": [
+            "p",
+            "extinction_rate"
+          ],
+          "structural_role": "interaction",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "stress-linked suppression of colonization",
+          "scientific_mechanism": "Landscape-wide stressors that elevate local extinction risk often simultaneously reduce fecundity, disperser availability, or establishment success, coupling extinction susceptibility to colonization effectiveness.",
+          "embedding_pattern": "nested_nonlinearity",
+          "difficulty_rationale": "This is structurally harder than a coefficient-only correction because extinction_rate first enters a saturating stress load and then passes through a nonlinear exponential attenuation that multiplies the existing p-dependent colonization branch, so the colonization curve itself shifts with stress rather than merely being uniformly rescaled once for all conditions.",
+          "taxonomy_match": "known",
+          "assumption_before": "Colonization efficiency is independent of the current extinction susceptibility state.",
+          "assumption_after": "Current extinction susceptibility nonlinearly suppresses colonization efficiency through a bounded stress-response factor.",
+          "before_fragment": "colonization_rate*p*(1 - p)*(1 + colonization_density_dependence*p/(1 + colonization_saturation_scale*p)) - extinction_rate*p",
+          "after_fragment": "colonization_rate*p*(1 - p)*(1 + colonization_density_dependence*p/(1 + colonization_saturation_scale*p))*exp(-colonization_stress_sensitivity*extinction_rate/(1 + colonization_stress_half_saturation*extinction_rate)) - extinction_rate*p",
+          "parent_reduction": "Set colonization_stress_sensitivity = 0 to recover the parent exactly because exp(0) = 1.",
+          "observable_signature": "Compare times along one trajectory where p is similar and intermediate but extinction_rate differs due to its lagged dynamics. The parent predicts the same colonization contribution at those matched p values, with only the additive loss term changing; the child predicts an extra depression of the colonization branch at higher extinction_rate, yielding slower rebound and lower dp_dt than additive loss alone.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce this matched-p contrast because its colonization term is strictly a function of p and fixed parameters. Refitting colonization_rate, colonization_density_dependence, or colonization_saturation_scale only changes one shared p-only curve, so it cannot make colonization at the same p differ across conditions with different extinction_rate."
+        },
+        "range_suggestions": {
+          "colonization_stress_sensitivity": "0 to 10",
+          "colonization_stress_half_saturation": "0 to 100"
+        }
+      }
+    ],
+    "evolution_provenance": {
+      "dimension_track": null,
+      "mechanism_profile": {
+        "allowed_structural_roles": [
+          "contribution",
+          "interaction",
+          "constraint",
+          "feedback",
+          "transition",
+          "timescale"
+        ],
+        "preferred_scopes": [
+          "unary",
+          "pairwise",
+          "state_coupling",
+          "time_forcing"
+        ],
+        "domain_mechanisms": [
+          {
+            "id": "density_dependence",
+            "description": "density-dependent survival or reproduction",
+            "operations": [
+              "add_term",
+              "change_assumption"
+            ]
+          },
+          {
+            "id": "interspecies_competition",
+            "description": "competition, predation, or mutualistic interaction",
+            "operations": [
+              "add_term"
+            ]
+          },
+          {
+            "id": "seasonal_environment",
+            "description": "seasonal or environmental modulation",
+            "operations": [
+              "change_assumption"
+            ]
+          },
+          {
+            "id": "harvest_or_removal",
+            "description": "harvest, migration, or external removal",
+            "operations": [
+              "add_term"
+            ]
+          }
+        ],
+        "profile_source": "subfield",
+        "ontology_schema_version": "1.0",
+        "taxonomy_schema_version": "1.0"
+      },
+      "baseline_mechanisms": [
+        "Dispersal-driven colonization from occupied to empty patches",
+        "Local extinction of occupied populations"
+      ],
+      "baseline_assumptions": [
+        "All habitat patches have equal quality and area",
+        "Every occupied patch contributes equally to colonization",
+        "Dispersal mixes propagules across the landscape",
+        "Colonization and extinction rates are constant over time"
+      ],
+      "scientific_constraints": [
+        "Occupancy must remain within the closed interval from zero to one",
+        "Colonization must vanish when occupancy is zero or when all patches are occupied",
+        "Local extinction must act only on occupied patches"
+      ],
+      "refinement_agenda": [
+        "Distinguish source and sink patch classes",
+        "Add distance-limited dispersal among patches",
+        "Allow rescue of declining local populations by immigrants",
+        "Introduce temporally varying habitat destruction and restoration"
+      ],
+      "evolution_contracts": [
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The parent assumes colonization increases linearly with occupied fraction through colonization_rate*p*(1-p), so each additional occupied patch contributes the same marginal colonization pressure at a given p.",
+            "child_relation": "Relax the equal-contribution assumption so colonization efficiency changes with occupancy density, yielding a nonlinear dependence of colonization on p beyond the simple quadratic p*(1-p).",
+            "affected_inputs": [
+              "p",
+              "colonization_rate"
+            ],
+            "observable_effect": "Across occupancy trajectories with the same extinction_rate and colonization setting, the rise of dp_dt with p at low-to-intermediate occupancy becomes either more accelerated or more saturated than the parent predicts, shifting the location and sharpness of the net-growth peak."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "occupancy_contact",
+              "expression": "p*(1 - p)",
+              "role": "Baseline occupied-empty patch encounter opportunity"
+            },
+            {
+              "name": "low_mid_occupancy",
+              "expression": "p",
+              "role": "Controls whether marginal colonization contribution is being evaluated in sparse versus denser occupancy regimes"
+            },
+            {
+              "name": "net_parent_growth",
+              "expression": "colonization_rate*p*(1 - p) - extinction_rate*p",
+              "role": "Parent target mapping used as the comparison baseline"
+            }
+          ],
+          "activation_condition": "Visible when trajectories span a nontrivial interior occupancy range away from both boundaries, especially low-to-intermediate p where departures from linear per-occupied-patch colonization contribution can accumulate before saturation at p near 1 dominates.",
+          "train_hidden_contrast": "In training, the mechanism alters the curvature of dp_dt versus p within observed interior occupancy values; in holdout, the same nonlinear colonization scaling extends that curvature difference to broader occupancy levels without changing the boundary requirements at p=0 and p=1.",
+          "continuation_path": "Recover the parent law in the limit where colonization contribution per occupied patch is exactly linear in occupancy, restoring colonization proportional to p*(1-p).",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "unary",
+          "scope_symbols": [
+            "p",
+            "colonization_rate",
+            "colonization_density_dependence"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "density-dependent modulation of colonization pressure by occupancy",
+          "scientific_mechanism": "Density-dependent colonization efficiency, such as facilitation or interference among occupied patches, changes how colonization pressure scales with regional occupancy.",
+          "embedding_pattern": "multiplicative_modulation",
+          "difficulty_rationale": "This is harder than a coefficient-only correction because the extra occupancy-dependent factor changes the shape of the target mapping over p rather than merely rescaling colonization uniformly. It introduces a distinct low-versus-mid occupancy curvature signature that cannot be matched by changing only the parent's constant rates.",
+          "taxonomy_match": "known",
+          "assumption_before": "Every occupied patch contributes equally to colonization",
+          "assumption_after": "Colonization efficiency is itself occupancy-dependent, so occupied patches do not contribute with equal marginal effect across all regional occupancy levels.",
+          "before_fragment": "colonization_rate*p*(1 - p) - extinction_rate*p",
+          "after_fragment": "colonization_rate*p*(1 - p)*(1 + colonization_density_dependence*p) - extinction_rate*p",
+          "parent_reduction": "Setting colonization_density_dependence = 0 recovers the parent expression exactly.",
+          "observable_signature": "With extinction_rate fixed and trajectories observed over interior p, dp_dt versus p is no longer constrained to the parent's single quadratic colonization shape: positive colonization_density_dependence makes net growth rise more sharply through low-to-mid occupancy and shifts the peak, while negative values soften that rise. This contrast is observable only when p explores a substantial interior range rather than remaining confined near 0 or 1.",
+          "shortcut_blocked": "A single parent parameter set can only generate colonization_rate*p*(1-p), whose curvature in p is fixed up to overall scaling and linear extinction offset. Retuning colonization_rate and extinction_rate cannot reproduce both the child’s modified low-to-mid occupancy curvature and its shifted peak across the same interior occupancy range, because those parameters do not create occupancy-dependent modulation of colonization efficiency."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "phase_shift",
+            "parent_relation": "With constant extinction_rate, the target mapping dp_dt(p) is time-invariant: at a given occupancy p the instantaneous decline term is always the same regardless of recent occupancy history.",
+            "child_relation": "Let extinction susceptibility relax dynamically after occupancy changes, so dp_dt depends on both current p and a lagged extinction state. The same p can then have different dp_dt during post-colonization buildup versus post-decline recovery.",
+            "affected_inputs": [
+              "p",
+              "extinction_rate"
+            ],
+            "observable_effect": "A hysteretic time-pattern appears: after a rapid rise in p, extinction remains temporarily elevated or depressed relative to its long-run level, shifting the net growth curve over time in a way the parent cannot match with one fixed extinction parameter."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "occupancy_gap",
+              "expression": "1 - p",
+              "role": "fraction of empty habitat available for colonization"
+            },
+            {
+              "name": "net_parent_growth",
+              "expression": "colonization_rate*p*(1 - p)*(1 + colonization_density_dependence*p) - extinction_rate*p",
+              "role": "parent instantaneous occupancy change under fixed extinction"
+            },
+            {
+              "name": "colonization_flux_parent",
+              "expression": "colonization_rate*p*(1 - p)*(1 + colonization_density_dependence*p)",
+              "role": "parent colonization contribution before subtracting extinction"
+            }
+          ],
+          "activation_condition": "Observable when occupancy changes on a timescale comparable to habitat deterioration or rescue relaxation, so extinction risk does not instantaneously track current occupancy; strongest for intermediate p where both colonization and extinction are appreciable.",
+          "train_hidden_contrast": "In training, early and late segments with similar p but different recent trajectories can show different dp_dt; in holdout, the same lag effect extends to trajectories with stronger transient departures from equilibrium.",
+          "continuation_path": "Recover the parent law in the fast-relaxation or zero-coupling limit where the dynamic extinction susceptibility collapses to the constant extinction_rate.",
+          "freedom_change": "parameter_to_state",
+          "promoted_symbol": "extinction_rate",
+          "promotion_reason": "A time-lagged extinction susceptibility cannot be represented with only the current occupancy state and fixed parameters, because the mechanism requires memory of recent conditions at the same p.",
+          "scope_kind": "memory",
+          "scope_symbols": [
+            "p",
+            "extinction_rate"
+          ],
+          "structural_role": "feedback",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Delayed adjustment of patch extinction susceptibility",
+          "scientific_mechanism": "Extinction susceptibility is an internal ecological condition that adjusts gradually, creating memory in patch loss after occupancy changes.",
+          "embedding_pattern": "nested_nonlinearity",
+          "difficulty_rationale": "The target derivative is no longer a single-valued static function of p because extinction enters through a dynamically evolving latent state whose own relaxation target depends on p. This blocks coefficient-only correction by introducing trajectory phase dependence rather than a uniform gain or offset.",
+          "taxonomy_match": "known",
+          "assumption_before": "Colonization and extinction rates are constant over time",
+          "assumption_after": "Extinction susceptibility relaxes dynamically toward an occupancy-dependent level instead of remaining fixed.",
+          "before_fragment": "colonization_rate*p*(1 - p)*(1 + colonization_density_dependence*p) - extinction_rate*p",
+          "after_fragment": "colonization_rate*p*(1 - p)*(1 + colonization_density_dependence*p) - extinction_rate*p",
+          "parent_reduction": "Setting extinction_occupancy_sensitivity = 0 and taking extinction_relaxation_rate large yields effectively constant extinction_rate, recovering the parent occupancy law.",
+          "observable_signature": "Along one trajectory, two times with the same observed p can have different dp_dt because extinction_rate lags behind recent occupancy changes; this is most visible after rapid rises or falls in p at intermediate occupancy where both colonization and extinction terms matter.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce matched-p but different-dp_dt observations across post-rise versus post-decline phases, because the parent maps dp_dt from p alone once parameters are fixed and therefore has no memory channel. Refitting all parent parameters only shifts the single curve dp_dt(p); it cannot produce hysteresis across admissible conditions."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "At fixed extinction_rate, dp_dt depends on occupancy through a cubic colonization term colonization_rate*p*(1-p)*(1+colonization_density_dependence*p) minus a linear extinction loss, so colonization efficiency changes only linearly with p inside the occupancy-limited factor.",
+            "child_relation": "Replace the linear density-dependence factor in colonization with a saturating occupancy effect so that increases in occupancy initially strengthen or weaken colonization efficiency but then level off at higher p, changing the curvature of dp_dt versus p while preserving zero colonization at p=0 and p=1.",
+            "affected_inputs": [
+              "p",
+              "colonization_density_dependence"
+            ],
+            "observable_effect": "Across trajectories spanning low to moderate versus high occupancy, the child shows early occupancy-driven change in colonization slope that weakens at high p, whereas the parent enforces one fixed linear trend in colonization efficiency across the whole occupancy range."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "occupancy_open_fraction",
+              "expression": "p*(1 - p)",
+              "role": "baseline availability of occupied sources and empty targets"
+            },
+            {
+              "name": "extinction_load",
+              "expression": "extinction_rate*p",
+              "role": "instantaneous regional loss pressure from occupied patches"
+            },
+            {
+              "name": "occupancy_level",
+              "expression": "p",
+              "role": "state along which the colonization-efficiency curvature is diagnosed"
+            }
+          ],
+          "activation_condition": "The contrast is visible when trajectories visit a broad occupancy range, especially intermediate to high p where occupancy-dependent colonization modulation is appreciable but empty patches remain available; if p stays very near 0 or 1 the difference is weak because colonization is already constrained by p*(1-p).",
+          "train_hidden_contrast": "In training, both models may match low-to-mid occupancy growth, but in held-out segments reaching higher occupancy the child can flatten the occupancy effect on colonization efficiency while the parent must continue the same linear dependence on p inside the colonization factor.",
+          "continuation_path": "Recover the parent by taking the saturation scale to be very large, so the saturating occupancy modifier reduces to the existing approximately linear dependence over the observed range.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "unary",
+          "scope_symbols": [
+            "p"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "saturating occupancy dependence of colonization efficiency",
+          "scientific_mechanism": "Landscape-scale facilitation or interference among occupied patches typically saturates because additional occupied patches become redundant propagule sources or because crowding effects cannot intensify indefinitely.",
+          "embedding_pattern": "nested_nonlinearity",
+          "difficulty_rationale": "This is harder than a coefficient-only correction because occupancy first enters the source-target product p*(1-p) and then a combined occupancy-and-saturation quantity is passed through the nested rational modifier p/(1 + colonization_saturation_scale*p), creating a changed target mapping curvature that is not equivalent to a fixed gain rescaling.",
+          "taxonomy_match": "known",
+          "assumption_before": "The occupancy effect inside colonization efficiency is linear across the full admissible occupancy range.",
+          "assumption_after": "The occupancy effect inside colonization efficiency saturates at higher occupancy because additional occupied patches become partially redundant or crowding effects cap further change.",
+          "before_fragment": "colonization_rate*p*(1 - p)*(1 + colonization_density_dependence*p) - extinction_rate*p",
+          "after_fragment": "colonization_rate*p*(1 - p)*(1 + colonization_density_dependence*p/(1 + colonization_saturation_scale*p)) - extinction_rate*p",
+          "parent_reduction": "Setting colonization_saturation_scale = 0 recovers the parent exactly.",
+          "observable_signature": "Holding colonization_rate, colonization_density_dependence, and the extinction-process parameters fixed while a trajectory moves from moderate to high occupancy, the child shows diminishing incremental change in dp_dt from the occupancy-dependent colonization modifier because p/(1 + colonization_saturation_scale*p) bends toward saturation. The parent instead preserves one linear occupancy trend inside colonization efficiency over the same p range. This is a direct change in the scored p-to-dp_dt mapping, not merely in an auxiliary trajectory, and is observable when the trajectory explores interior occupancy values away from the boundary zeros of p*(1-p).",
+          "shortcut_blocked": "A single refitted parent parameter set cannot reproduce both the low-to-mid occupancy behavior and the high-occupancy flattening under the same conditions because the parent's colonization-efficiency modifier is affine in p, while the child's modifier changes slope with p through the nested denominator. Refitting colonization_rate or colonization_density_dependence can match one occupancy band but cannot generate the same broad-range curvature change in the scored dp_dt mapping."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "At fixed extinction_rate, colonization pressure is a single occupancy-dependent factor multiplying p*(1-p), so the target response to p has one smooth saturation shape set entirely by the existing colonization modulation.",
+            "child_relation": "Make extinction susceptibility respond nonlinearly to occupancy rather than proportionally, so dp_dt depends on p both through colonization and through a curved occupancy-to-extinction feedback. This changes the target mapping by bending the net-growth curve differently at low versus high occupancy.",
+            "affected_inputs": [
+              "p",
+              "extinction_rate",
+              "extinction_occupancy_sensitivity"
+            ],
+            "observable_effect": "Across trajectories where p rises from low to moderate values while other parameters are fixed, the child can show weak extinction feedback near low occupancy but a stronger increase in losses at higher occupancy, shifting the location and sharpness of the net-growth peak in dp_dt(p) relative to the parent."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "colonization_kernel",
+              "expression": "colonization_rate*p*(1 - p)*(1 + colonization_density_dependence*p/(1 + colonization_saturation_scale*p))",
+              "role": "gross occupancy gain from propagule production into empty patches"
+            },
+            {
+              "name": "loss_fraction",
+              "expression": "extinction_rate*p",
+              "role": "instantaneous occupancy loss due to local extinction"
+            },
+            {
+              "name": "extinction_feedback_strength",
+              "expression": "extinction_occupancy_sensitivity*p",
+              "role": "parent's linear occupancy dependence in the relaxation target for extinction susceptibility"
+            }
+          ],
+          "activation_condition": "Observable when occupancy spans a broad intermediate-to-high range during the sampled trajectory so that occupancy-dependent extinction feedback has room to curve; if p stays near zero or nearly constant, the distinction is weak.",
+          "train_hidden_contrast": "In training, moderate p variation reveals that extinction feedback is not well captured by one linear occupancy factor; in holdout, the same mechanism extends to higher occupancy where the child predicts stronger curvature in net growth without changing the basic colonization and loss processes.",
+          "continuation_path": "Recover the parent by taking the nonlinear occupancy shaping of extinction feedback to its linear limit.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "p",
+            "extinction_rate"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "saturating occupancy-driven extinction susceptibility",
+          "scientific_mechanism": "Nonlinear occupancy dependence of extinction susceptibility, representing crowding, shared enemies, or resource depletion that become disproportionately important only after occupancy passes moderate levels.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "This embedding is structurally harder than a coefficient-only correction because the loss-side feedback now has its own finite activation scale, allowing low- and high-occupancy curvature in the realized target mapping to differ even with the same colonization law.",
+          "taxonomy_match": "known",
+          "assumption_before": "The occupancy dependence inside the extinction-susceptibility relaxation target is exactly linear in p.",
+          "assumption_after": "The occupancy effect on the extinction-susceptibility relaxation target is saturating in p, with a finite occupancy scale for activation.",
+          "before_fragment": "colonization_rate*p*(1 - p)*(1 + colonization_density_dependence*p/(1 + colonization_saturation_scale*p)) - extinction_rate*p",
+          "after_fragment": "colonization_rate*p*(1 - p)*(1 + colonization_density_dependence*p/(1 + colonization_saturation_scale*p)) - extinction_rate*p",
+          "parent_reduction": "When occupied fractions stay small relative to extinction_feedback_half_saturation over the observed trajectory, the child relaxation target is approximately linear in p and the parent is recovered after rescaling extinction_occupancy_sensitivity.",
+          "observable_signature": "Holding parameters fixed along trajectories from the stated initial conditions, the scored target dp_dt acquires extra downward bending at intermediate occupancy because extinction_rate now relaxes toward a saturating occupancy-dependent target rather than a strictly linear one. The difference is observable only when p traverses enough of the interior range for the saturation scale to matter; if p remains in a narrow low-occupancy band, the child collapses toward the parent.",
+          "shortcut_blocked": "A single refitted parent parameter set cannot reproduce both near-linear low-p extinction feedback and a later stronger but finite-capacity occupancy effect across the same trajectory, because the parent constrains extinction-rate relaxation to one linear occupancy factor. Retuning colonization parameters changes only the gain-side shape, not the loss-side saturation scale that drives the changed dp_dt curvature."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "interaction_emergence",
+            "parent_relation": "The colonization contribution to dp_dt is a product of p(1-p) and a facilitation/interference factor that depends only on p, so the effect of occupancy on target growth is independent of the current extinction susceptibility state except for the separate linear subtraction -extinction_rate*p.",
+            "child_relation": "Let colonization efficiency itself be modulated by the current extinction susceptibility state, so the occupancy effect on dp_dt changes with both p and extinction_rate. This creates a state-dependent interaction in which the same occupancy can yield different colonization gains under different ecological stress histories.",
+            "affected_inputs": [
+              "p",
+              "extinction_rate"
+            ],
+            "observable_effect": "At fixed p in the intermediate occupancy range, trajectories with elevated extinction_rate show reduced net growth not only through larger losses but also through weaker colonization recovery, producing slower rebound and stronger asymmetry between expansion and decline phases."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "empty_patch_supply",
+              "expression": "p*(1 - p)",
+              "role": "baseline colonization opportunity from occupied-to-empty patch contacts"
+            },
+            {
+              "name": "colonization_modulation",
+              "expression": "1 + colonization_density_dependence*p/(1 + colonization_saturation_scale*p)",
+              "role": "existing occupancy-dependent facilitation or interference in colonization"
+            },
+            {
+              "name": "stress_load",
+              "expression": "extinction_rate*p",
+              "role": "current occupancy-weighted loss pressure and ecological stress level"
+            }
+          ],
+          "activation_condition": "Most visible when 0<p<1, especially at intermediate occupancy where colonization is active, and when extinction_rate varies appreciably along the observed trajectory because the existing relaxation dynamics have been displaced from low-stress equilibrium.",
+          "train_hidden_contrast": "In training, the mechanism appears as altered rebound slope after episodes that raise extinction_rate; in holdout, the same interaction extends to stronger history dependence where equal p values have different dp_dt because extinction_rate differs.",
+          "continuation_path": "Recover the parent law when the stress effect on colonization is set to zero, so colonization depends only on p and extinction acts only through the existing subtraction term.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "pairwise",
+          "scope_symbols": [
+            "p",
+            "extinction_rate"
+          ],
+          "structural_role": "interaction",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "stress-linked suppression of colonization",
+          "scientific_mechanism": "Landscape-wide stressors that elevate local extinction risk often simultaneously reduce fecundity, disperser availability, or establishment success, coupling extinction susceptibility to colonization effectiveness.",
+          "embedding_pattern": "nested_nonlinearity",
+          "difficulty_rationale": "This is structurally harder than a coefficient-only correction because extinction_rate first enters a saturating stress load and then passes through a nonlinear exponential attenuation that multiplies the existing p-dependent colonization branch, so the colonization curve itself shifts with stress rather than merely being uniformly rescaled once for all conditions.",
+          "taxonomy_match": "known",
+          "assumption_before": "Colonization efficiency is independent of the current extinction susceptibility state.",
+          "assumption_after": "Current extinction susceptibility nonlinearly suppresses colonization efficiency through a bounded stress-response factor.",
+          "before_fragment": "colonization_rate*p*(1 - p)*(1 + colonization_density_dependence*p/(1 + colonization_saturation_scale*p)) - extinction_rate*p",
+          "after_fragment": "colonization_rate*p*(1 - p)*(1 + colonization_density_dependence*p/(1 + colonization_saturation_scale*p))*exp(-colonization_stress_sensitivity*extinction_rate/(1 + colonization_stress_half_saturation*extinction_rate)) - extinction_rate*p",
+          "parent_reduction": "Set colonization_stress_sensitivity = 0 to recover the parent exactly because exp(0) = 1.",
+          "observable_signature": "Compare times along one trajectory where p is similar and intermediate but extinction_rate differs due to its lagged dynamics. The parent predicts the same colonization contribution at those matched p values, with only the additive loss term changing; the child predicts an extra depression of the colonization branch at higher extinction_rate, yielding slower rebound and lower dp_dt than additive loss alone.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce this matched-p contrast because its colonization term is strictly a function of p and fixed parameters. Refitting colonization_rate, colonization_density_dependence, or colonization_saturation_scale only changes one shared p-only curve, so it cannot make colonization at the same p differ across conditions with different extinction_rate."
+        }
+      ]
+    },
+    "finalization": {
+      "mode": "candidate",
+      "accepted_generations": 5,
+      "novelty": {
+        "answer": "NOT_EVALUATED"
+      },
+      "total_points": 5000,
+      "evaluation_status": "not_evaluated"
+    }
+  },
+  "contract": {
+    "features": [
+      "t",
+      "p",
+      "extinction_rate"
+    ],
+    "target": "dp_dt",
+    "family": "ode",
+    "expression": "colonization_rate*p*(1 - p)*(1 + colonization_density_dependence*p/(1 + colonization_saturation_scale*p))*exp(-colonization_stress_sensitivity*extinction_rate/(1 + colonization_stress_half_saturation*extinction_rate)) - extinction_rate*p",
+    "parameters": {
+      "colonization_rate": 1.2,
+      "colonization_density_dependence": 0.8,
+      "colonization_saturation_scale": 2.0,
+      "extinction_relaxation_rate": 0.8,
+      "extinction_occupancy_sensitivity": 0.9,
+      "extinction_feedback_half_saturation": 0.3,
+      "colonization_stress_sensitivity": 3.0,
+      "colonization_stress_half_saturation": 5.0
+    },
+    "implicit_branch": null
+  }
+}

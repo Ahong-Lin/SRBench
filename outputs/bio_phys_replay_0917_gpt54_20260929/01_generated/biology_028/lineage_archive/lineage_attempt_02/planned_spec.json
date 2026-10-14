@@ -1,0 +1,203 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "C",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        30.0
+      ],
+      "n_points": 301,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "progression_rate",
+      "value": 0.22
+    },
+    {
+      "symbol": "clearance_rate",
+      "value": 0.32
+    },
+    {
+      "symbol": "stage_progression_rate",
+      "value": 0.18
+    },
+    {
+      "symbol": "late_half_saturation",
+      "value": 120.0
+    },
+    {
+      "symbol": "inflow_clearance_modulation",
+      "value": 3.0
+    }
+  ],
+  "benchmark_output": "dC_dt",
+  "benchmark_target_state": "C",
+  "observed_variables": [
+    "t",
+    "L",
+    "C",
+    "I_late",
+    "C_latent"
+  ],
+  "rhs_for_integrator": "progression_rate*C_latent - clearance_rate*C*I_late/((late_half_saturation*(1 + inflow_clearance_modulation*progression_rate*C_latent/(late_half_saturation + progression_rate*C_latent)))*(1 + C/late_half_saturation) + I_late)*(late_half_saturation + C)/(late_half_saturation + 2*C)",
+  "state_variables": [
+    "L",
+    "C",
+    "I_late",
+    "C_latent"
+  ],
+  "state_rhs": [
+    "-progression_rate*L",
+    "progression_rate*C_latent - clearance_rate*C*I_late/((late_half_saturation*(1 + inflow_clearance_modulation*progression_rate*C_latent/(late_half_saturation + progression_rate*C_latent)))*(1 + C/late_half_saturation) + I_late)*(late_half_saturation + C)/(late_half_saturation + 2*C)",
+    "stage_progression_rate*C - clearance_rate*I_late",
+    "progression_rate*L - progression_rate*C_latent"
+  ],
+  "initial_conditions": {
+    "L": 500.0,
+    "C": 0.0,
+    "I_late": 0.0,
+    "C_latent": 0.0
+  },
+  "sanity_expectations": [
+    "At t=0, dC/dt = progression_rate*C_latent = 0 exactly because C_latent(0)=0, so C starts flat before rising once latent maturation accumulates.",
+    "L should decrease monotonically from 500, C_latent should first increase from 0 and later decline, and I_late should lag behind C because it is fed by stage_progression_rate*C.",
+    "C(t) should show a delayed rise and a peak within the 0-30 window rather than an immediate peak at t=0 or monotone growth throughout.",
+    "The clearance pressure on C should be weak early when I_late is small and strengthened later after I_late accumulates, producing slower-then-faster turnover than a memoryless direct loss would.",
+    "Because inflow_clearance_modulation > 0, early periods with appreciable progression_rate*C_latent should have less negative dC/dt than the parent-recovery case inflow_clearance_modulation=0 would at similar C and I_late; equivalently, the C peak should be broader or later than in that reference condition.",
+    "The burden modifier (late_half_saturation + C)/(late_half_saturation + 2*C) stays between 1/2 and 1 for nonnegative C, so it moderates but does not reverse the sign of the clearance term."
+  ],
+  "role_corrections": [
+    "dC_dt: claimed-output/target derivative -> target derivative for state C (confirmed within ode_system contract)",
+    "t: claimed-input/time axis -> independent variable/time axis (confirmed)",
+    "L: claimed-dynamic state -> dynamic state (confirmed)",
+    "C: claimed-dynamic state -> dependent/target state and dynamic state (confirmed)",
+    "I_late: claimed-dynamic state -> dynamic state (confirmed)",
+    "C_latent: claimed-dynamic state -> dynamic state (confirmed)",
+    "progression_rate: claimed-parameter -> parameter (confirmed)",
+    "clearance_rate: claimed-parameter -> parameter (confirmed)",
+    "stage_progression_rate: claimed-parameter -> parameter (confirmed)",
+    "late_half_saturation: claimed-parameter -> parameter (confirmed)",
+    "inflow_clearance_modulation: claimed-parameter -> parameter (confirmed)"
+  ],
+  "rationale": "The typed contract is preserved exactly as required: a 4-state ODE system with target state C and time as the only sampled axis. The chosen rates keep latent maturation, entry into C, progression to I_late, and clearance all active on the 0-30 window rather than forcing near-instant equilibration or a nearly frozen trajectory. progression_rate=0.22 gives substantial early depletion of L and delayed buildup of C_latent, exposing the intended stage-structured latent inflow effect: C rises only after C_latent accumulates. stage_progression_rate=0.18 lets I_late lag behind C enough to produce delayed clearance activation rather than immediate strong removal. clearance_rate=0.32 is strong enough to produce turnover within the window once I_late accumulates, but not so strong that C stays negligible. late_half_saturation=120 places the saturation scale in the same order as reachable C and I_late values from the inherited initial condition L(0)=500, so the nonlinear clearance activation and the burden modifier are both visible instead of always being in low-burden linear or deep-saturation limits. inflow_clearance_modulation=3.0 is safely inside the suggested [0,10] range and intentionally away from the parent recovery condition 0, so high early progression_rate*C_latent temporarily raises the effective activation threshold for clearance; this should broaden/delay the C peak relative to the parent while remaining finite and real under representative substitution. Because the initial conditions are fixed by contract, the distinguishing conditions must come from states visited along the single trajectory rather than from changed initialization: early times have high latent inflow pressure progression_rate*C_latent with still-small I_late, whereas later times have reduced inflow and larger I_late. That endogenous transition directly exposes the recorded mechanism that the same qualitative C-I_late region can experience weaker clearance when C_latent-driven inflow is high and stronger clearance after inflow subsides. No noise is added; outputs are exact numerical integrations of the inherited system.",
+  "coverage_report": {},
+  "inactive_mechanisms": [],
+  "target_variance": {},
+  "parent_absorption_report": {},
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_TxfSvAA5ZVTBEWDQO0fP962h"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "progression_rate*C_latent - clearance_rate*C*I_late/((late_half_saturation*(1 + inflow_clearance_modulation*progression_rate*C_latent/(late_half_saturation + progression_rate*C_latent)))*(1 + C/late_half_saturation) + I_late)*(late_half_saturation + C)/(late_half_saturation + 2*C)",
+        "target_symbol": "C"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "C",
+          "C_latent",
+          "I_late",
+          "clearance_rate",
+          "inflow_clearance_modulation",
+          "late_half_saturation",
+          "progression_rate"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "(-2*C_latent**2*I_late*progression_rate**2 - 3*C_latent**2*inflow_clearance_modulation*late_half_saturation*progression_rate**2 - 3*C_latent**2*late_half_saturation*progression_rate**2 + C_latent*I_late*clearance_rate*late_half_saturation*progression_rate - 2*C_latent*I_late*late_half_saturation*progression_rate - 3*C_latent*late_half_saturation**2*progression_rate + I_late*clearance_rate*late_half_saturation**2 - sqrt(4*C_latent**4*I_late**2*progression_rate**4 + 4*C_latent**4*I_late*inflow_clearance_modulation*late_half_saturation*progression_rate**4 + 4*C_latent**4*I_late*late_half_saturation*progression_rate**4 + C_latent**4*inflow_clearance_modulation**2*late_half_saturation**2*progression_rate**4 + 2*C_latent**4*inflow_clearance_modulation*late_half_saturation**2*progression_rate**4 + C_latent**4*late_half_saturation**2*progression_rate**4 + 8*C_latent**3*I_late**2*late_half_saturation*progression_rate**3 - 2*C_latent**3*I_late*clearance_rate*inflow_clearance_modulation*late_half_saturation**2*progression_rate**3 - 2*C_latent**3*I_late*clearance_rate*late_half_saturation**2*progression_rate**3 + 4*C_latent**3*I_late*inflow_clearance_modulation*late_half_saturation**2*progression_rate**3 + 8*C_latent**3*I_late*late_half_saturation**2*progression_rate**3 + 2*C_latent**3*inflow_clearance_modulation*late_half_saturation**3*progression_rate**3 + 2*C_latent**3*late_half_saturation**3*progression_rate**3 + C_latent**2*I_late**2*clearance_rate**2*late_half_saturation**2*progression_rate**2 + 4*C_latent**2*I_late**2*late_half_saturation**2*progression_rate**2 - 2*C_latent**2*I_late*clearance_rate*inflow_clearance_modulation*late_half_saturation**3*progression_rate**2 - 4*C_latent**2*I_late*clearance_rate*late_half_saturation**3*progression_rate**2 + 4*C_latent**2*I_late*late_half_saturation**3*progression_rate**2 + C_latent**2*late_half_saturation**4*progression_rate**2 + 2*C_latent*I_late**2*clearance_rate**2*late_half_saturation**3*progression_rate - 2*C_latent*I_late*clearance_rate*late_half_saturation**4*progression_rate + I_late**2*clearance_rate**2*late_half_saturation**4))/(2*(2*C_latent**2*inflow_clearance_modulation*progression_rate**2 + 2*C_latent**2*progression_rate**2 - C_latent*I_late*clearance_rate*progression_rate + 2*C_latent*late_half_saturation*progression_rate - I_late*clearance_rate*late_half_saturation))",
+          "(-2*C_latent**2*I_late*progression_rate**2 - 3*C_latent**2*inflow_clearance_modulation*late_half_saturation*progression_rate**2 - 3*C_latent**2*late_half_saturation*progression_rate**2 + C_latent*I_late*clearance_rate*late_half_saturation*progression_rate - 2*C_latent*I_late*late_half_saturation*progression_rate - 3*C_latent*late_half_saturation**2*progression_rate + I_late*clearance_rate*late_half_saturation**2 + sqrt(4*C_latent**4*I_late**2*progression_rate**4 + 4*C_latent**4*I_late*inflow_clearance_modulation*late_half_saturation*progression_rate**4 + 4*C_latent**4*I_late*late_half_saturation*progression_rate**4 + C_latent**4*inflow_clearance_modulation**2*late_half_saturation**2*progression_rate**4 + 2*C_latent**4*inflow_clearance_modulation*late_half_saturation**2*progression_rate**4 + C_latent**4*late_half_saturation**2*progression_rate**4 + 8*C_latent**3*I_late**2*late_half_saturation*progression_rate**3 - 2*C_latent**3*I_late*clearance_rate*inflow_clearance_modulation*late_half_saturation**2*progression_rate**3 - 2*C_latent**3*I_late*clearance_rate*late_half_saturation**2*progression_rate**3 + 4*C_latent**3*I_late*inflow_clearance_modulation*late_half_saturation**2*progression_rate**3 + 8*C_latent**3*I_late*late_half_saturation**2*progression_rate**3 + 2*C_latent**3*inflow_clearance_modulation*late_half_saturation**3*progression_rate**3 + 2*C_latent**3*late_half_saturation**3*progression_rate**3 + C_latent**2*I_late**2*clearance_rate**2*late_half_saturation**2*progression_rate**2 + 4*C_latent**2*I_late**2*late_half_saturation**2*progression_rate**2 - 2*C_latent**2*I_late*clearance_rate*inflow_clearance_modulation*late_half_saturation**3*progression_rate**2 - 4*C_latent**2*I_late*clearance_rate*late_half_saturation**3*progression_rate**2 + 4*C_latent**2*I_late*late_half_saturation**3*progression_rate**2 + C_latent**2*late_half_saturation**4*progression_rate**2 + 2*C_latent*I_late**2*clearance_rate**2*late_half_saturation**3*progression_rate - 2*C_latent*I_late*clearance_rate*late_half_saturation**4*progression_rate + I_late**2*clearance_rate**2*late_half_saturation**4))/(2*(2*C_latent**2*inflow_clearance_modulation*progression_rate**2 + 2*C_latent**2*progression_rate**2 - C_latent*I_late*clearance_rate*progression_rate + 2*C_latent*late_half_saturation*progression_rate - I_late*clearance_rate*late_half_saturation))"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_MaTQsxVxMHOTOO7yZDk5mn71"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "progression_rate*C_latent - clearance_rate*C*I_late/((late_half_saturation*(1 + inflow_clearance_modulation*progression_rate*C_latent/(late_half_saturation + progression_rate*C_latent)))*(1 + C/late_half_saturation) + I_late)*(late_half_saturation + C)/(late_half_saturation + 2*C)",
+        "target_symbol": "C",
+        "assignments": {
+          "C": 80,
+          "C_latent": 120,
+          "I_late": 60,
+          "progression_rate": 0.25,
+          "clearance_rate": 0.35,
+          "late_half_saturation": 90,
+          "inflow_clearance_modulation": 3
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": 26.804475524475524,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_n1I7H1xPDv0ii4nfXMfysBM2"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_9qoGtMQwfqO2QypAYYi41AzZ"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 4
+}

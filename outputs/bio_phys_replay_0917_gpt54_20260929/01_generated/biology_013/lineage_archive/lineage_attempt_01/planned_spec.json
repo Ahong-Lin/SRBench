@@ -1,0 +1,223 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "T_c",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        120.0
+      ],
+      "n_points": 301,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "basal_heat_production",
+      "value": 8.0
+    },
+    {
+      "symbol": "environmental_heat_transfer_coefficient",
+      "value": 1.2
+    },
+    {
+      "symbol": "ambient_temperature",
+      "value": 25.0
+    },
+    {
+      "symbol": "thermoregulatory_feedback_gain",
+      "value": 10.0
+    },
+    {
+      "symbol": "core_temperature_set_point",
+      "value": 37.0
+    },
+    {
+      "symbol": "effective_heat_capacity",
+      "value": 60.0
+    },
+    {
+      "symbol": "feedback_recruitment_temperature_scale",
+      "value": 0.5
+    },
+    {
+      "symbol": "heat_capacity_temperature_sensitivity",
+      "value": 0.3
+    },
+    {
+      "symbol": "effector_adjustment_time_constant",
+      "value": 12.0
+    },
+    {
+      "symbol": "effector_kinetic_asymmetry",
+      "value": 0.45
+    }
+  ],
+  "benchmark_output": "dT_c_dt",
+  "benchmark_target_state": "T_c",
+  "observed_variables": [
+    "t",
+    "T_c",
+    "effector_recruitment_state"
+  ],
+  "rhs_for_integrator": "(basal_heat_production - environmental_heat_transfer_coefficient*(T_c - ambient_temperature) - thermoregulatory_feedback_gain*effector_recruitment_state*(feedback_recruitment_temperature_scale*tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)))/(effective_heat_capacity*(1 + heat_capacity_temperature_sensitivity*((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)**2))",
+  "state_variables": [
+    "T_c",
+    "effector_recruitment_state"
+  ],
+  "state_rhs": [
+    "(basal_heat_production - environmental_heat_transfer_coefficient*(T_c - ambient_temperature) - thermoregulatory_feedback_gain*effector_recruitment_state*(feedback_recruitment_temperature_scale*tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)))/(effective_heat_capacity*(1 + heat_capacity_temperature_sensitivity*((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)**2))",
+    "(tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale) - effector_recruitment_state)/(effector_adjustment_time_constant*(1 - effector_kinetic_asymmetry*tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)))"
+  ],
+  "initial_conditions": {
+    "T_c": 37.0,
+    "effector_recruitment_state": 0.0
+  },
+  "sanity_expectations": [
+    "At t=0, dT_c/dt is negative because basal_heat_production < environmental_heat_transfer_coefficient*(T_c-ambient_temperature) and effector_recruitment_state starts at 0; the trajectory initially cools below set point.",
+    "effector_recruitment_state should lag behind tanh((T_c-core_temperature_set_point)/feedback_recruitment_temperature_scale), approaching a negative value only after T_c has already fallen below the set point.",
+    "Because effector_adjustment_time_constant is not tiny, early-time cooling is closer to passive environmental cooling, with stronger corrective feedback appearing later at similar T_c values.",
+    "The heat-capacity denominator remains positive and near order effective_heat_capacity throughout mild excursions; no blow-up or complex values should occur.",
+    "With effector_kinetic_asymmetry=0.45 and the inherited initial condition, the dataset mainly probes the below-set-point branch of asymmetric recruitment timing; a full above-vs-below asymmetry comparison is weak or absent unless the trajectory crosses the set point later.",
+    "If sampled states reach |T_c-core_temperature_set_point| of order 0.5 C, both tanh recruitment curvature and the state-dependent heat-capacity modulation become visibly active rather than collapsing to their linear limits."
+  ],
+  "role_corrections": [
+    "dT_c_dt: claimed-output/target derivative -> derivative of dependent variable T_c (confirmed by contract; solved state is T_c, not an independent sampled variable)",
+    "t: claimed-input/time axis -> independent variable/time axis (confirmed by ODE system contract)",
+    "T_c: claimed-dynamic state -> dependent variable and state variable (confirmed)",
+    "effector_recruitment_state: claimed-dynamic state -> auxiliary state variable (confirmed)",
+    "basal_heat_production: claimed-parameter -> parameter (confirmed)",
+    "environmental_heat_transfer_coefficient: claimed-parameter -> parameter (confirmed)",
+    "ambient_temperature: claimed-parameter -> parameter (confirmed)",
+    "thermoregulatory_feedback_gain: claimed-parameter -> parameter (confirmed)",
+    "core_temperature_set_point: claimed-parameter -> parameter (confirmed)",
+    "effective_heat_capacity: claimed-parameter -> parameter (confirmed)",
+    "feedback_recruitment_temperature_scale: claimed-parameter -> parameter (confirmed)",
+    "heat_capacity_temperature_sensitivity: claimed-parameter -> parameter (confirmed)",
+    "effector_adjustment_time_constant: claimed-parameter -> parameter (confirmed)",
+    "effector_kinetic_asymmetry: claimed-parameter -> parameter (confirmed within suggested -0.9 to 0.9 range)"
+  ],
+  "rationale": "Preserving the supplied validated ODE-system contract, this dataset should be generated by integrating the two-state system over a recovery window long enough to show delayed thermoeffector recruitment and the sign-dependent kinetics encoded by effector_kinetic_asymmetry. The chosen 0–120 min window with 301 points resolves the early lag phase and the later relaxation. Parameter values keep the denominator positive and moderate over mild physiological excursions, avoid immediate parent-limit collapse, and keep the recruitment nonlinearity active around sub-degree temperature errors because feedback_recruitment_temperature_scale=0.5 C makes order-0.5 C deviations relevant. heat_capacity_temperature_sensitivity=0.3 gives visible but not dominating state-dependent thermal storage. effector_adjustment_time_constant=12 min keeps recruitment delay observable relative to core thermal relaxation. effector_kinetic_asymmetry=0.45 stays within the suggested admissible range and creates a real asymmetry in recruitment timing without risking denominator singularity in the effector-state equation, since 1-0.45*tanh(.) remains positive. Because the inherited initial condition is exactly T_c=core_temperature_set_point and effector_recruitment_state=0, the trajectory starts at the set point with zero recruitment signal; thus the sign-dependent kinetic asymmetry is initially inactive and only becomes observable if the net heat balance moves T_c away from set point. The chosen basal heat production and ambient heat loss do that immediately: at t=0 the net flux is slightly cooling, so the system moves below set point, activating the negative-error branch and then delayed recruitment. This means the present dataset exposes delayed feedback and the below-set-point side of the asymmetric kinetics, but not a full cross-sign comparison unless the trajectory later crosses the set point; that limitation is imposed by the inherited initial state and should be documented rather than repaired. No noise is added; outputs are exact numerical integration results.",
+  "coverage_report": {},
+  "inactive_mechanisms": [],
+  "target_variance": {},
+  "parent_absorption_report": {},
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_4a4g9xxPVBGK7urpnzElg1vB"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "(basal_heat_production - environmental_heat_transfer_coefficient*(T_c - ambient_temperature) - thermoregulatory_feedback_gain*effector_recruitment_state*(feedback_recruitment_temperature_scale*tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)))/(effective_heat_capacity*(1 + heat_capacity_temperature_sensitivity*((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)**2))",
+        "target_symbol": "dT_c_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "T_c",
+          "ambient_temperature",
+          "basal_heat_production",
+          "core_temperature_set_point",
+          "effective_heat_capacity",
+          "effector_recruitment_state",
+          "environmental_heat_transfer_coefficient",
+          "feedback_recruitment_temperature_scale",
+          "heat_capacity_temperature_sensitivity",
+          "thermoregulatory_feedback_gain"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "(basal_heat_production - effector_recruitment_state*feedback_recruitment_temperature_scale*thermoregulatory_feedback_gai"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_5rj4NEQAujdbg8oF4BXdolaW"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "(basal_heat_production - environmental_heat_transfer_coefficient*(T_c - ambient_temperature) - thermoregulatory_feedback_gain*effector_recruitment_state*(feedback_recruitment_temperature_scale*tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)))/(effective_heat_capacity*(1 + heat_capacity_temperature_sensitivity*((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)**2))",
+        "target_symbol": "dT_c_dt",
+        "assignments": {
+          "T_c": 37,
+          "effector_recruitment_state": 0,
+          "basal_heat_production": 8,
+          "environmental_heat_transfer_coefficient": 1.2,
+          "ambient_temperature": 25,
+          "thermoregulatory_feedback_gain": 10,
+          "core_temperature_set_point": 37,
+          "effective_heat_capacity": 60,
+          "feedback_recruitment_temperature_scale": 0.5,
+          "heat_capacity_temperature_sensitivity": 0.3
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": -0.10666666666666666,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_LEYBGYV449dJmLcAqityT5eN"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_PvrnPW8UHegv9V7gt4aaG0L4"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 4
+}

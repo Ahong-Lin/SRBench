@@ -1,0 +1,397 @@
+{
+  "base_id": "m2_electromagnetism_20280757_001",
+  "generation": 5,
+  "operation": "change_assumption",
+  "model_family": "ode",
+  "equation_type": "ode_system",
+  "target_symbol": "dV_C_dt",
+  "expression": "I_L / (capacitance * (1 + capacitance_voltage_nonlinearity * (1 + thermal_capacitance_nonlinearity_sensitivity * T_th) * tanh(Abs(V_C) / capacitance_voltage_scale))) - leak_conductance * (1 + thermal_leakage_sensitivity * T_th) * V_C * tanh(Abs(V_C) / leakage_voltage_scale) / (capacitance * (1 + capacitance_voltage_nonlinearity * (1 + thermal_capacitance_nonlinearity_sensitivity * T_th) * tanh(Abs(V_C) / capacitance_voltage_scale)))",
+  "symbols": [
+    "dV_C_dt",
+    "t",
+    "V_C",
+    "I_L",
+    "T_th",
+    "source_voltage",
+    "resistance",
+    "capacitance",
+    "leak_conductance",
+    "leakage_voltage_scale",
+    "capacitance_voltage_nonlinearity",
+    "capacitance_voltage_scale",
+    "parasitic_inductance",
+    "inductive_current_smoothing_scale",
+    "thermal_time_constant",
+    "thermal_heating_gain",
+    "thermal_capacitance_nonlinearity_sensitivity",
+    "thermal_leakage_sensitivity"
+  ],
+  "symbol_descriptions": [
+    "Time derivative of the capacitor voltage during charging",
+    "Time",
+    "Voltage across the capacitor",
+    "Series branch current through the parasitic inductive charging path",
+    "Lumped self-heating state representing capacitor temperature rise above ambient",
+    "Constant voltage supplied by the source",
+    "Electrical resistance limiting the charging current",
+    "Nominal low-bias capacitance of the capacitor",
+    "Baseline small-signal conductance of the capacitor leakage path near ambient",
+    "Voltage scale over which the leakage branch turns on toward its finite-voltage regime",
+    "Dimensionless amplitude of voltage-dependent capacitance variation relative to nominal low-bias capacitance",
+    "Voltage scale over which the capacitance departs from its low-bias value",
+    "Parasitic series inductance of leads and connections",
+    "Current scale setting weak nonlinear smoothing of the inductive current buildup",
+    "Thermal relaxation time constant for the lumped capacitor self-heating state",
+    "Gain converting resistive charging dissipation into capacitor thermal-state drive",
+    "Sensitivity of the capacitance-voltage nonlinearity amplitude to the thermal state",
+    "Sensitivity of leakage conductance increase with thermal state"
+  ],
+  "symbol_properties": [
+    "O",
+    "V",
+    "S",
+    "S",
+    "S",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P"
+  ],
+  "new_symbol_range_suggestions": {
+    "thermal_leakage_sensitivity": "typically nonnegative and small enough that 1 + thermal_leakage_sensitivity*T_th stays positive over the observed transient; choose so leakage changes are noticeable only when self-heating is modest but nonzero"
+  },
+  "derivation_notes": "The fixed-leakage assumption is relaxed by letting dielectric leakage increase with the existing thermal state, representing temperature-activated carrier or defect-assisted conduction in the capacitor dielectric. No new state is needed because the parent already contains the relevant thermal memory variable T_th that can modulate the leakage branch directly.",
+  "change_summary": "The leakage term now carries a multiplicative factor (1 + thermal_leakage_sensitivity * T_th), so self-heating strengthens parallel leakage during charging. This creates a direct V_C-T_th interaction in the target law that was absent when leakage was temperature invariant.",
+  "assumption_audit": {
+    "released_assumption": "The leakage conductance is fixed and independent of the capacitor's thermal state.",
+    "outcome": "law_refinement",
+    "quantity": "leak_conductance",
+    "quantity_role": "fixed_parameter",
+    "mechanism": "Temperature-activated dielectric leakage: warming of the capacitor raises carrier mobility or defect-assisted conduction, increasing parallel leakage during the same charging transient that generated the heat.",
+    "reference_condition": {},
+    "parent_reduction": "The successor reduces to the parent when thermal_leakage_sensitivity = 0, or approximately when T_th remains near zero throughout the observed charging transient."
+  },
+  "add_term_audit": null,
+  "evolution_contract": {
+    "operation": "change_assumption",
+    "parent_shortcut": "fixed_environment",
+    "response_change": {
+      "type": "interaction_emergence",
+      "parent_relation": "The target mapping dV_C_dt(V_C,I_L,T_th) uses a thermally drifting capacitance but a temperature-invariant leakage branch, so at fixed electrical state the leakage contribution remains proportional to V_C*tanh(Abs(V_C)/leakage_voltage_scale) with only the shared capacitance denominator changing.",
+      "child_relation": "Make the leakage branch itself temperature dependent, so dV_C_dt at fixed V_C and I_L depends on the interaction T_th × V_C through a thermally activated leakage conductance. This changes the balance between charging current and self-discharge as heating accumulates.",
+      "affected_inputs": [
+        "V_C",
+        "I_L",
+        "T_th",
+        "leak_conductance"
+      ],
+      "observable_effect": "Across runs with different source_voltage or resistance that generate different self-heating histories, late-transient charging slows more strongly at the same V_C when T_th is larger, producing a temperature-linked sag in dV_C_dt and possibly a lower approach rate to the source voltage than the parent can match with one shared leakage parameter set."
+    },
+    "diagnostic_groups": [
+      {
+        "name": "effective_capacitance_factor",
+        "expression": "1 + capacitance_voltage_nonlinearity * (1 + thermal_capacitance_nonlinearity_sensitivity * T_th) * tanh(Abs(V_C) / capacitance_voltage_scale)",
+        "role": "existing thermally modulated capacitance factor controlling the parent denominator"
+      },
+      {
+        "name": "leak_drive",
+        "expression": "V_C * tanh(Abs(V_C) / leakage_voltage_scale)",
+        "role": "finite-voltage leakage-driving coordinate already present in the target law"
+      },
+      {
+        "name": "heating_drive",
+        "expression": "resistance * I_L**2",
+        "role": "instantaneous dissipation that builds the thermal state and reveals the hidden environment variable"
+      }
+    ],
+    "activation_condition": "Observable when self-heating is non-negligible over the charging window, i.e. thermal_heating_gain*resistance*I_L**2 accumulates enough that T_th departs measurably from zero while V_C is large enough for the leakage branch to be active on the scale leakage_voltage_scale.",
+    "train_hidden_contrast": "Within training, lower- and higher-dissipation trajectories already differ in T_th buildup; in holdout, stronger source_voltage or smaller resistance extends that same mechanism, causing a larger late-time leakage-induced reduction in dV_C_dt at comparable V_C that the parent cannot reproduce with one fixed leakage strength.",
+    "continuation_path": "Recover the parent by taking the thermal sensitivity of leakage to zero, or in regimes where T_th stays near zero throughout the observation window.",
+    "freedom_change": "none",
+    "promoted_symbol": null,
+    "promotion_reason": "",
+    "scope_kind": "state_coupling",
+    "scope_symbols": [
+      "V_C",
+      "T_th"
+    ],
+    "structural_role": "interaction",
+    "domain_mechanism_id": "",
+    "domain_mechanism": "temperature-dependent dielectric leakage in a charging capacitor",
+    "scientific_mechanism": "Temperature-activated dielectric leakage: warming of the capacitor raises carrier mobility or defect-assisted conduction, increasing parallel leakage during the same charging transient that generated the heat.",
+    "embedding_pattern": "state_coupling",
+    "difficulty_rationale": "This is harder than a coefficient-only correction because the leakage subtraction now depends jointly on the instantaneous voltage-dependent leak drive and the history-dependent thermal state, so identical V_C with different prior dissipation produces different target slopes.",
+    "taxonomy_match": "known",
+    "assumption_before": "The leakage conductance is fixed and independent of the capacitor's thermal state.",
+    "assumption_after": "The leakage conductance increases with the existing thermal state through a first-order thermal activation factor.",
+    "before_fragment": "I_L / (capacitance * (1 + capacitance_voltage_nonlinearity * (1 + thermal_capacitance_nonlinearity_sensitivity * T_th) * tanh(Abs(V_C) / capacitance_voltage_scale))) - leak_conductance * V_C * tanh(Abs(V_C) / leakage_voltage_scale) / (capacitance * (1 + capacitance_voltage_nonlinearity * (1 + thermal_capacitance_nonlinearity_sensitivity * T_th) * tanh(Abs(V_C) / capacitance_voltage_scale)))",
+    "after_fragment": "I_L / (capacitance * (1 + capacitance_voltage_nonlinearity * (1 + thermal_capacitance_nonlinearity_sensitivity * T_th) * tanh(Abs(V_C) / capacitance_voltage_scale))) - leak_conductance * (1 + thermal_leakage_sensitivity * T_th) * V_C * tanh(Abs(V_C) / leakage_voltage_scale) / (capacitance * (1 + capacitance_voltage_nonlinearity * (1 + thermal_capacitance_nonlinearity_sensitivity * T_th) * tanh(Abs(V_C) / capacitance_voltage_scale)))",
+    "parent_reduction": "Set thermal_leakage_sensitivity = 0, or remain in the low-heating regime where T_th stays approximately zero.",
+    "observable_signature": "When comparing admissible trajectories that reach similar V_C but accumulate different T_th because source_voltage or resistance changed, the hotter trajectory shows extra late-time reduction in dV_C_dt once V_C is on the order of leakage_voltage_scale. This is a changed target mapping, not merely an auxiliary-state change, because T_th now enters the leakage numerator directly.",
+    "shortcut_blocked": "A single refit of existing parent parameters cannot reproduce both cool and hot late-transient slopes at the same V_C because the parent only lets temperature act through the common capacitance denominator, not through an additional temperature-scaled leakage subtraction. Refitting leak_conductance or capacitance-related parameters globally would force one compromise leakage level rather than the required T_th-dependent increase across conditions."
+  },
+  "dimension_track": null,
+  "mechanism_profile": {
+    "allowed_structural_roles": [
+      "contribution",
+      "response_law",
+      "modulation",
+      "interaction",
+      "constraint",
+      "transition",
+      "feedback",
+      "heterogeneity",
+      "timescale",
+      "transport_balance"
+    ],
+    "preferred_scopes": [
+      "unary",
+      "pairwise",
+      "state_coupling",
+      "time_forcing"
+    ],
+    "domain_mechanisms": [
+      {
+        "id": "nonlinear_constitutive_response",
+        "description": "nonlinear constitutive or response law",
+        "operations": [
+          "add_term",
+          "change_assumption"
+        ]
+      },
+      {
+        "id": "coupled_field_or_force",
+        "description": "coupling to an already declared field, force, or state",
+        "operations": [
+          "add_term"
+        ]
+      },
+      {
+        "id": "finite_relaxation_or_threshold",
+        "description": "finite response time or physical threshold",
+        "operations": [
+          "change_assumption"
+        ]
+      }
+    ],
+    "profile_source": "subject_fallback",
+    "ontology_schema_version": "1.0",
+    "taxonomy_schema_version": "1.0"
+  },
+  "evolution_plan": {
+    "operation": "change_assumption",
+    "parent_shortcut": "fixed_environment",
+    "response_change": {
+      "type": "interaction_emergence",
+      "parent_relation": "The target mapping dV_C_dt(V_C,I_L,T_th) uses a thermally drifting capacitance but a temperature-invariant leakage branch, so at fixed electrical state the leakage contribution remains proportional to V_C*tanh(Abs(V_C)/leakage_voltage_scale) with only the shared capacitance denominator changing.",
+      "child_relation": "Make the leakage branch itself temperature dependent, so dV_C_dt at fixed V_C and I_L depends on the interaction T_th × V_C through a thermally activated leakage conductance. This changes the balance between charging current and self-discharge as heating accumulates.",
+      "affected_inputs": [
+        "V_C",
+        "I_L",
+        "T_th",
+        "leak_conductance"
+      ],
+      "observable_effect": "Across runs with different source_voltage or resistance that generate different self-heating histories, late-transient charging slows more strongly at the same V_C when T_th is larger, producing a temperature-linked sag in dV_C_dt and possibly a lower approach rate to the source voltage than the parent can match with one shared leakage parameter set."
+    },
+    "diagnostic_groups": [
+      {
+        "name": "effective_capacitance_factor",
+        "expression": "1 + capacitance_voltage_nonlinearity * (1 + thermal_capacitance_nonlinearity_sensitivity * T_th) * tanh(Abs(V_C) / capacitance_voltage_scale)",
+        "role": "existing thermally modulated capacitance factor controlling the parent denominator"
+      },
+      {
+        "name": "leak_drive",
+        "expression": "V_C * tanh(Abs(V_C) / leakage_voltage_scale)",
+        "role": "finite-voltage leakage-driving coordinate already present in the target law"
+      },
+      {
+        "name": "heating_drive",
+        "expression": "resistance * I_L**2",
+        "role": "instantaneous dissipation that builds the thermal state and reveals the hidden environment variable"
+      }
+    ],
+    "activation_condition": "Observable when self-heating is non-negligible over the charging window, i.e. thermal_heating_gain*resistance*I_L**2 accumulates enough that T_th departs measurably from zero while V_C is large enough for the leakage branch to be active on the scale leakage_voltage_scale.",
+    "train_hidden_contrast": "Within training, lower- and higher-dissipation trajectories already differ in T_th buildup; in holdout, stronger source_voltage or smaller resistance extends that same mechanism, causing a larger late-time leakage-induced reduction in dV_C_dt at comparable V_C that the parent cannot reproduce with one fixed leakage strength.",
+    "continuation_path": "Recover the parent by taking the thermal sensitivity of leakage to zero, or in regimes where T_th stays near zero throughout the observation window.",
+    "freedom_change": "none",
+    "promoted_symbol": null,
+    "promotion_reason": "",
+    "gap_statement": "The model includes self-heating but assumes the dielectric leakage path is thermally invariant, even though leakage in real capacitors commonly increases with temperature.",
+    "baseline_assumption": "The leakage conductance is fixed and independent of the capacitor's thermal state.",
+    "scientific_mechanism": "Temperature-activated dielectric leakage: warming of the capacitor raises carrier mobility or defect-assisted conduction, increasing parallel leakage during the same charging transient that generated the heat.",
+    "affected_symbols": [
+      "V_C",
+      "I_L",
+      "T_th",
+      "leak_conductance",
+      "thermal_heating_gain",
+      "resistance",
+      "source_voltage",
+      "leakage_voltage_scale"
+    ],
+    "rationale": "A natural next refinement is to relax the parent's fixed-environment treatment of leakage rather than adding a wholly new branch. In the parent, varying source_voltage or resistance changes I_L and therefore T_th, but the target mapping only feels that heating through the capacitance denominator; the leakage numerator itself is unchanged at fixed V_C. In the child, the same thermal state also strengthens leakage, so two trajectories that reach similar V_C but with different prior dissipation histories will have different dV_C_dt because hotter capacitors leak more strongly. Hold capacitance, leak shape scale, and initial conditions fixed; vary source_voltage and/or resistance over admissible monotone-charging conditions so that one case produces modest T_th and another larger T_th. Then compare late transient segments where V_C is already on the order of leakage_voltage_scale and T_th has had time to accumulate. The parent with one shared parameter set can alter capacitance drift through its existing thermal factor, but it cannot create an additional temperature-dependent subtraction in the numerator balance between I_L and leakage. Refitting leak_conductance alone cannot match both low-heating and high-heating cases simultaneously because that would require one leakage level for cool trajectories and a larger leakage level for hot trajectories at the same V_C. The effect is scientifically admissible when self-heating is modest but nonzero; if T_th remains near zero or V_C never reaches the leakage activation scale, this refinement becomes weak and the parent is effectively recovered."
+  },
+  "selected_embedding_pattern": {
+    "description": "Make one process depend jointly on two declared quantities.",
+    "difficulty_level": 4,
+    "operations": [
+      "add_term",
+      "change_assumption"
+    ],
+    "model_families": [
+      "static",
+      "ode"
+    ],
+    "minimum_active_quantities": 2,
+    "weight": 17,
+    "id": "state_coupling"
+  },
+  "ode_system": {
+    "time_symbol": "t",
+    "target_state": "V_C",
+    "states": [
+      {
+        "symbol": "V_C",
+        "rhs": "I_L / (capacitance * (1 + capacitance_voltage_nonlinearity * (1 + thermal_capacitance_nonlinearity_sensitivity * T_th) * tanh(Abs(V_C) / capacitance_voltage_scale))) - leak_conductance * (1 + thermal_leakage_sensitivity * T_th) * V_C * tanh(Abs(V_C) / leakage_voltage_scale) / (capacitance * (1 + capacitance_voltage_nonlinearity * (1 + thermal_capacitance_nonlinearity_sensitivity * T_th) * tanh(Abs(V_C) / capacitance_voltage_scale)))",
+        "initial_condition": 0.0,
+        "description": "Voltage across the capacitor"
+      },
+      {
+        "symbol": "I_L",
+        "rhs": "(source_voltage - V_C - resistance * I_L * tanh(Abs(I_L) / inductive_current_smoothing_scale)) / parasitic_inductance",
+        "initial_condition": 0.0,
+        "description": "Series branch current through the parasitic inductive charging path"
+      },
+      {
+        "symbol": "T_th",
+        "rhs": "-T_th / thermal_time_constant + thermal_heating_gain * resistance * I_L**2",
+        "initial_condition": 0.0,
+        "description": "Lumped self-heating state that relaxes to ambient while being driven by charging dissipation"
+      }
+    ]
+  },
+  "scenario_text": "A resistor and capacitor are connected to a constant voltage source, and the capacitor voltage is recorded after the connection is made. The capacitor voltage evolves through charge accumulation while the resistor limits the charging rate. The baseline model neglects leakage, parasitic inductance, and changes in component values with temperature.",
+  "freedom_change": "none",
+  "promoted_symbol": null,
+  "promotion_reason": "",
+  "parent_shortcut": "fixed_environment",
+  "response_change": {
+    "type": "interaction_emergence",
+    "parent_relation": "The target mapping dV_C_dt(V_C,I_L,T_th) uses a thermally drifting capacitance but a temperature-invariant leakage branch, so at fixed electrical state the leakage contribution remains proportional to V_C*tanh(Abs(V_C)/leakage_voltage_scale) with only the shared capacitance denominator changing.",
+    "child_relation": "Make the leakage branch itself temperature dependent, so dV_C_dt at fixed V_C and I_L depends on the interaction T_th × V_C through a thermally activated leakage conductance. This changes the balance between charging current and self-discharge as heating accumulates.",
+    "affected_inputs": [
+      "V_C",
+      "I_L",
+      "T_th",
+      "leak_conductance"
+    ],
+    "observable_effect": "Across runs with different source_voltage or resistance that generate different self-heating histories, late-transient charging slows more strongly at the same V_C when T_th is larger, producing a temperature-linked sag in dV_C_dt and possibly a lower approach rate to the source voltage than the parent can match with one shared leakage parameter set."
+  },
+  "diagnostic_groups": [
+    {
+      "name": "effective_capacitance_factor",
+      "expression": "1 + capacitance_voltage_nonlinearity * (1 + thermal_capacitance_nonlinearity_sensitivity * T_th) * tanh(Abs(V_C) / capacitance_voltage_scale)",
+      "role": "existing thermally modulated capacitance factor controlling the parent denominator"
+    },
+    {
+      "name": "leak_drive",
+      "expression": "V_C * tanh(Abs(V_C) / leakage_voltage_scale)",
+      "role": "finite-voltage leakage-driving coordinate already present in the target law"
+    },
+    {
+      "name": "heating_drive",
+      "expression": "resistance * I_L**2",
+      "role": "instantaneous dissipation that builds the thermal state and reveals the hidden environment variable"
+    }
+  ],
+  "activation_condition": "Observable when self-heating is non-negligible over the charging window, i.e. thermal_heating_gain*resistance*I_L**2 accumulates enough that T_th departs measurably from zero while V_C is large enough for the leakage branch to be active on the scale leakage_voltage_scale.",
+  "train_hidden_contrast": "Within training, lower- and higher-dissipation trajectories already differ in T_th buildup; in holdout, stronger source_voltage or smaller resistance extends that same mechanism, causing a larger late-time leakage-induced reduction in dV_C_dt at comparable V_C that the parent cannot reproduce with one fixed leakage strength.",
+  "continuation_path": "Recover the parent by taking the thermal sensitivity of leakage to zero, or in regimes where T_th stays near zero throughout the observation window.",
+  "dependent_variable": {
+    "symbol": "dV_C_dt",
+    "description": "Time derivative of the capacitor voltage during charging"
+  },
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "description": "Time"
+    }
+  ],
+  "state_variables": [
+    {
+      "symbol": "V_C",
+      "description": "Voltage across the capacitor"
+    },
+    {
+      "symbol": "I_L",
+      "description": "Series branch current through the parasitic inductive charging path"
+    },
+    {
+      "symbol": "T_th",
+      "description": "Lumped self-heating state representing capacitor temperature rise above ambient"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "source_voltage",
+      "description": "Constant voltage supplied by the source"
+    },
+    {
+      "symbol": "resistance",
+      "description": "Electrical resistance limiting the charging current"
+    },
+    {
+      "symbol": "capacitance",
+      "description": "Nominal low-bias capacitance of the capacitor"
+    },
+    {
+      "symbol": "leak_conductance",
+      "description": "Baseline small-signal conductance of the capacitor leakage path near ambient"
+    },
+    {
+      "symbol": "leakage_voltage_scale",
+      "description": "Voltage scale over which the leakage branch turns on toward its finite-voltage regime"
+    },
+    {
+      "symbol": "capacitance_voltage_nonlinearity",
+      "description": "Dimensionless amplitude of voltage-dependent capacitance variation relative to nominal low-bias capacitance"
+    },
+    {
+      "symbol": "capacitance_voltage_scale",
+      "description": "Voltage scale over which the capacitance departs from its low-bias value"
+    },
+    {
+      "symbol": "parasitic_inductance",
+      "description": "Parasitic series inductance of leads and connections"
+    },
+    {
+      "symbol": "inductive_current_smoothing_scale",
+      "description": "Current scale setting weak nonlinear smoothing of the inductive current buildup"
+    },
+    {
+      "symbol": "thermal_time_constant",
+      "description": "Thermal relaxation time constant for the lumped capacitor self-heating state"
+    },
+    {
+      "symbol": "thermal_heating_gain",
+      "description": "Gain converting resistive charging dissipation into capacitor thermal-state drive"
+    },
+    {
+      "symbol": "thermal_capacitance_nonlinearity_sensitivity",
+      "description": "Sensitivity of the capacitance-voltage nonlinearity amplitude to the thermal state"
+    },
+    {
+      "symbol": "thermal_leakage_sensitivity",
+      "description": "Sensitivity of leakage conductance increase with thermal state"
+    }
+  ]
+}

@@ -1,0 +1,199 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "T_A",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        300.0
+      ],
+      "n_points": 301,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "heat_capacity_A",
+      "value": 100.0
+    },
+    {
+      "symbol": "heat_capacity_B",
+      "value": 120.0
+    },
+    {
+      "symbol": "thermal_conductance",
+      "value": 1.5
+    },
+    {
+      "symbol": "conductance_temp_coeff",
+      "value": 0.001
+    },
+    {
+      "symbol": "contrast_nonlinearity_coeff",
+      "value": 5e-05
+    },
+    {
+      "symbol": "conductance_relaxation_time",
+      "value": 25.0
+    }
+  ],
+  "benchmark_output": "dT_A_dt",
+  "benchmark_target_state": "T_A",
+  "observed_variables": [
+    "t",
+    "T_A",
+    "T_B",
+    "effective_conductance"
+  ],
+  "rhs_for_integrator": "effective_conductance*(T_B - T_A)/(heat_capacity_A*(1 + contrast_nonlinearity_coeff*(1 + conductance_temp_coeff*(T_A + T_B)/2)*(T_B - T_A)**2))",
+  "state_variables": [
+    "T_A",
+    "T_B",
+    "effective_conductance"
+  ],
+  "state_rhs": [
+    "effective_conductance*(T_B - T_A)/(heat_capacity_A*(1 + contrast_nonlinearity_coeff*(1 + conductance_temp_coeff*(T_A + T_B)/2)*(T_B - T_A)**2))",
+    "effective_conductance*(T_A - T_B)/(heat_capacity_B*(1 + contrast_nonlinearity_coeff*(1 + conductance_temp_coeff*(T_A + T_B)/2)*(T_B - T_A)**2))",
+    "(thermal_conductance*(1 + conductance_temp_coeff*(T_A + T_B)/2)*(1 + contrast_nonlinearity_coeff*(T_B - T_A)**2) - effective_conductance)/conductance_relaxation_time"
+  ],
+  "initial_conditions": {
+    "T_A": 400.0,
+    "T_B": 350.0,
+    "effective_conductance": 1.0
+  },
+  "sanity_expectations": [
+    "T_A should decrease monotonically from 400 K and T_B should increase monotonically from 350 K, approaching a common equilibrium temperature because exchange terms are antisymmetric and parameters keep conductance positive.",
+    "The energy proxy heat_capacity_A*T_A + heat_capacity_B*T_B should remain approximately constant along the numerical trajectory.",
+    "effective_conductance should initially increase from 1.0 toward its temperature-dependent quasi-equilibrium value, so the early magnitude of dT_A/dt should strengthen after release before eventually decaying as |T_B-T_A| shrinks.",
+    "Because the denominator contains contrast_nonlinearity_coeff*(1 + conductance_temp_coeff*(T_A+T_B)/2)*(T_B-T_A)^2, the normalized rate dT_A_dt/(T_B-T_A) should become less suppressed as equilibration proceeds and |T_B-T_A| decreases.",
+    "The mean-temperature modulation is active but moderate over the reachable states: the factor 1 + conductance_temp_coeff*(T_A+T_B)/2 should stay positive and vary only modestly across the trajectory, changing curvature rather than causing sign changes or blow-up."
+  ],
+  "role_corrections": [
+    "dT_A_dt: claimed-output/target derivative -> derivative target of dependent variable T_A (confirmed against contract; sampled output comes from the ODE system for T_A)",
+    "t: claimed-input/time axis -> independent variable V (confirmed)",
+    "T_A: claimed-dynamic state -> dynamic state / dependent variable (confirmed)",
+    "T_B: claimed-dynamic state -> dynamic state in coupled system (confirmed)",
+    "effective_conductance: claimed-dynamic state -> dynamic state in coupled system (confirmed; preserved by explicit freedom/contract)",
+    "heat_capacity_A: claimed-parameter -> parameter P (confirmed)",
+    "heat_capacity_B: claimed-parameter -> parameter P (confirmed)",
+    "thermal_conductance: claimed-parameter -> parameter P (confirmed)",
+    "conductance_temp_coeff: claimed-parameter -> parameter P (confirmed)",
+    "contrast_nonlinearity_coeff: claimed-parameter -> parameter P (confirmed)",
+    "conductance_relaxation_time: claimed-parameter -> parameter P (confirmed)"
+  ],
+  "rationale": "The provided typed ODE-system contract is preserved exactly as required. Although the target expression alone is algebraic in the supplied states, the explicit ODE SYSTEM CONTRACT and freedom metadata fix the experimental design: t is the sole sampled axis; T_A, T_B, and effective_conductance are dynamic states; all listed parameter symbols remain fixed parameters. Parameter values are chosen to keep the dynamics physical and visibly nontrivial without driving the system into pathological saturation. With T_A(0)=400 K and T_B(0)=350 K, the mean temperature is 375 K, so 1 + conductance_temp_coeff*(T_A+T_B)/2 ≈ 1.375, giving a noticeable but moderate mean-temperature modulation. The contrast factor at release is contrast_nonlinearity_coeff*(ΔT)^2 = 0.00005*2500 = 0.125, also moderate; thus the denominator in dT_A/dt is about 1.17 initially, so the contrast-saturation effect is active but not dominant and weakens as equilibration proceeds. The quasi-equilibrium conductance target for the effective_conductance state starts near thermal_conductance*(1+0.375)*(1+0.125) ≈ 2.32, while the inherited initial effective_conductance is 1.0, so the relaxation state has a clear transient memory effect rather than starting on its manifold. conductance_relaxation_time = 25 is chosen comparable to, but smaller than, the thermal equilibration time scale implied by heat capacities divided by conductance, making the lag observable early while still allowing substantial adaptation within the time window. The time range 0–300 with 301 points should capture the early conductance-relaxation transient, the mid-course change in normalized rate as contrast decays, and the late approach toward common temperature. This plan exposes the intended generation-5 distinction through reachable states within one trajectory family: as the isolated pair evolves, both contrast and mean temperature change, so the scored target samples a mean-temperature-modulated contrast-saturation law rather than a single global contrast curve. No noise is added.",
+  "coverage_report": {},
+  "inactive_mechanisms": [],
+  "target_variance": {},
+  "parent_absorption_report": {},
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_Fdp8IVyTegQy9KyTIUJRUeDs"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "effective_conductance*(T_B - T_A)/(heat_capacity_A*(1 + contrast_nonlinearity_coeff*(1 + conductance_temp_coeff*(T_A + T_B)/2)*(T_B - T_A)**2))",
+        "target_symbol": "dT_A_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "T_A",
+          "T_B",
+          "conductance_temp_coeff",
+          "contrast_nonlinearity_coeff",
+          "effective_conductance",
+          "heat_capacity_A"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "effective_conductance*(-T_A + T_B)/((heat_capacity_A*(contrast_nonlinearity_coeff*(-T_A + T_B)**2*(conductance_temp_coef"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_GkNcnuOoZxP75JWI6l8Dfwzd"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "effective_conductance*(T_B - T_A)/(heat_capacity_A*(1 + contrast_nonlinearity_coeff*(1 + conductance_temp_coeff*(T_A + T_B)/2)*(T_B - T_A)**2))",
+        "target_symbol": "dT_A_dt",
+        "assignments": {
+          "T_A": 400,
+          "T_B": 350,
+          "effective_conductance": 1.0,
+          "heat_capacity_A": 100,
+          "conductance_temp_coeff": 0.001,
+          "contrast_nonlinearity_coeff": 5e-05
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": -0.42666666666666675,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_7bQuFzVoVVQyYjsJi5ujfKjn"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_gcCQrFOQe41QmlMpmfEyqrcB"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 4
+}

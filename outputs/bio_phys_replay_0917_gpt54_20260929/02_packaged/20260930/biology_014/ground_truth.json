@@ -1,0 +1,1867 @@
+{
+  "version": 7,
+  "spec": {
+    "equation_type": "ode_system",
+    "integrator": "integrate_system",
+    "dependent_variable": "P_a",
+    "independent_variables": [
+      {
+        "symbol": "t",
+        "range": [
+          0.0,
+          40.0
+        ],
+        "n_points": 400,
+        "scale": "linear"
+      }
+    ],
+    "parameters": [
+      {
+        "symbol": "stroke_volume",
+        "value": 70.0
+      },
+      {
+        "symbol": "seconds_per_minute",
+        "value": 60.0
+      },
+      {
+        "symbol": "systemic_vascular_resistance",
+        "value": 1.2
+      },
+      {
+        "symbol": "arterial_compliance",
+        "value": 1.6
+      },
+      {
+        "symbol": "resting_heart_rate",
+        "value": 70.0
+      },
+      {
+        "symbol": "pressure_set_point",
+        "value": 100.0
+      },
+      {
+        "symbol": "baroreflex_pressure_sensitivity",
+        "value": 0.03
+      },
+      {
+        "symbol": "heart_rate_adjustment_time",
+        "value": 3.5
+      },
+      {
+        "symbol": "arterial_stiffening_gain",
+        "value": 3.0
+      },
+      {
+        "symbol": "arterial_stiffening_pressure_scale",
+        "value": 80.0
+      },
+      {
+        "symbol": "baroreflex_saturation_pressure_scale",
+        "value": 25.0
+      },
+      {
+        "symbol": "viscoelastic_relaxation_time",
+        "value": 5.0
+      },
+      {
+        "symbol": "viscoelastic_buffering_gain",
+        "value": 1.0
+      },
+      {
+        "symbol": "viscoelastic_pressure_scale",
+        "value": 15.0
+      },
+      {
+        "symbol": "vascular_resistance_adjustment_time",
+        "value": 8.0
+      },
+      {
+        "symbol": "reflex_resistance_gain",
+        "value": 1.2
+      }
+    ],
+    "benchmark_output": "dP_a_dt",
+    "benchmark_target_state": "P_a",
+    "observed_variables": [
+      "t",
+      "P_a",
+      "H",
+      "P_v",
+      "R_v"
+    ],
+    "rhs_for_integrator": "(stroke_volume*H/(seconds_per_minute*(1 + (H/resting_heart_rate)**2)) - P_a/(systemic_vascular_resistance*(1 + reflex_resistance_gain*R_v/(1 + Abs(R_v)))))/((arterial_compliance/(1 + arterial_stiffening_gain*P_a/(arterial_stiffening_pressure_scale + P_a)))*(1 + viscoelastic_buffering_gain*Abs(P_a - P_v)/(viscoelastic_pressure_scale + Abs(P_a - P_v))))",
+    "state_variables": [
+      "P_a",
+      "H",
+      "P_v",
+      "R_v"
+    ],
+    "state_rhs": [
+      "(stroke_volume*H/(seconds_per_minute*(1 + (H/resting_heart_rate)**2)) - P_a/(systemic_vascular_resistance*(1 + reflex_resistance_gain*R_v/(1 + Abs(R_v)))))/((arterial_compliance/(1 + arterial_stiffening_gain*P_a/(arterial_stiffening_pressure_scale + P_a)))*(1 + viscoelastic_buffering_gain*Abs(P_a - P_v)/(viscoelastic_pressure_scale + Abs(P_a - P_v))))",
+      "(resting_heart_rate*exp(-baroreflex_pressure_sensitivity*(P_a - pressure_set_point)/(1 + Abs(P_a - pressure_set_point)/baroreflex_saturation_pressure_scale)) - H)/heart_rate_adjustment_time",
+      "(P_a - P_v)/viscoelastic_relaxation_time",
+      "(-tanh(baroreflex_pressure_sensitivity*(P_a - pressure_set_point)/(1 + Abs(P_a - pressure_set_point)/baroreflex_saturation_pressure_scale)) - R_v)/vascular_resistance_adjustment_time"
+    ],
+    "initial_conditions": {
+      "P_a": 110.0,
+      "H": 70.0,
+      "P_v": 110.0,
+      "R_v": 0.0
+    },
+    "sanity_expectations": [
+      "At t=0, P_a starts above pressure_set_point, so the H equation should initially drive H downward (bradycardic direction) and the R_v equation should initially drive R_v negative, reducing effective resistance support rather than increasing it.",
+      "Because viscoelastic_relaxation_time is finite and P_v(0)=P_a(0), any later nonzero |P_a-P_v| should emerge only after P_a begins changing; buffering should therefore be weakest exactly at t=0 and stronger during the faster early transient than during late near-equilibrium motion.",
+      "The trajectory should not behave like the parent fixed-resistance model: as R_v departs from 0, the effective runoff term P_a/(systemic_vascular_resistance*(1 + reflex_resistance_gain*R_v/(1 + Abs(R_v)))) should change over time even at similar P_a values.",
+      "Pressure-dependent stiffening should be visible over the reachable pressure range: effective compliance is smaller at higher P_a than at lower P_a, so equal net-flow magnitudes would translate into larger |dP_a_dt| at higher pressure than under a constant-compliance law.",
+      "With heart-rate adjustment faster than vascular-resistance adjustment, H should react earlier than R_v, and any damped recovery should show a phase lag where vasomotor modulation persists after much of the heart-rate change has occurred.",
+      "The system should remain finite and real over representative baseline, lower-pressure, and higher-pressure substitutions with the chosen parameter values, as checked before emission."
+    ],
+    "role_corrections": [
+      "dP_a_dt: claimed-output/target derivative -> derivative of dependent variable P_a (confirmed by ODE system contract; not the dependent variable itself)",
+      "t: claimed-input/time axis -> independent variable/time axis (confirmed)",
+      "P_a: claimed-dynamic state -> dependent variable and dynamic state (confirmed)",
+      "H: claimed-dynamic state -> dynamic state in ode_system, not independent sampled axis (confirmed)",
+      "P_v: claimed-dynamic state -> dynamic state in ode_system, not parameter (confirmed)",
+      "R_v: claimed-dynamic state -> dynamic state in ode_system, not parameter (confirmed; preserve added-state freedom decision)",
+      "stroke_volume: claimed-parameter -> parameter (confirmed)",
+      "seconds_per_minute: claimed-parameter -> parameter (confirmed)",
+      "systemic_vascular_resistance: claimed-parameter -> parameter (confirmed)",
+      "arterial_compliance: claimed-parameter -> parameter (confirmed)",
+      "resting_heart_rate: claimed-parameter -> parameter (confirmed)",
+      "pressure_set_point: claimed-parameter -> parameter (confirmed)",
+      "baroreflex_pressure_sensitivity: claimed-parameter -> parameter (confirmed)",
+      "heart_rate_adjustment_time: claimed-parameter -> parameter (confirmed)",
+      "arterial_stiffening_gain: claimed-parameter -> parameter (confirmed)",
+      "arterial_stiffening_pressure_scale: claimed-parameter -> parameter (confirmed)",
+      "baroreflex_saturation_pressure_scale: claimed-parameter -> parameter (confirmed)",
+      "viscoelastic_relaxation_time: claimed-parameter -> parameter (confirmed)",
+      "viscoelastic_buffering_gain: claimed-parameter -> parameter (confirmed)",
+      "viscoelastic_pressure_scale: claimed-parameter -> parameter (confirmed)",
+      "vascular_resistance_adjustment_time: claimed-parameter -> parameter (confirmed)",
+      "reflex_resistance_gain: claimed-parameter -> parameter (confirmed)"
+    ],
+    "rationale": "The provided typed ODE contract is preserved exactly: P_a is the target state, t is the sole sampled axis, and H, P_v, and R_v remain dynamic states rather than fixed parameters. The chosen parameter set keeps all denominators positive and finite while placing the system away from trivial parent-recovery limits. pressure_set_point=100 with the inherited initial P_a=110 creates an immediate hypertensive error so both reflex branches are active from the stated initial condition without changing it. baroreflex_pressure_sensitivity=0.03 and baroreflex_saturation_pressure_scale=25 make the reflex clearly responsive over roughly 10–30 mmHg deviations but not deep in saturation, so heart-rate and vasomotor feedback remain visibly nonlinear yet not clipped. vascular_resistance_adjustment_time=8 s and heart_rate_adjustment_time=3.5 s create a realistic faster chronotropic branch and slower vasomotor branch, exposing delayed interaction and damping rather than instantaneous collapse to baseline. reflex_resistance_gain=1.2 lies within the suggested 0–3 range and is large enough that R_v materially modulates runoff, but not so large that the effective resistance factor approaches zero for moderate negative R_v. arterial_stiffening_gain=3 and arterial_stiffening_pressure_scale=80 keep pressure-dependent compliance visible across reachable P_a values near roughly 90–130 mmHg. viscoelastic_relaxation_time=5 s, viscoelastic_buffering_gain=1, and viscoelastic_pressure_scale=15 make |P_a-P_v| matter during faster early transients and any damped return, but not dominate the entire trajectory. stroke_volume=70, resting_heart_rate=70, systemic_vascular_resistance=1.2, and arterial_compliance=1.6 are physiologically sensible magnitudes that keep the coupled system responsive. A 0–40 s window with 400 samples is long enough to capture the initial pressure drop, reflex recruitment, viscoelastic lag, and possible damped return toward baseline under one exact trajectory from the inherited initial state. This dataset cannot by itself compare positive versus negative external perturbation protocols, but it can still expose the intended mechanism through within-trajectory phase dependence: matched or similar P_a values later in the trajectory can correspond to different P_v and R_v histories, changing dP_a_dt through the added memory and vasomotor branches.",
+    "coverage_report": {
+      "groups": [
+        {
+          "generation": 1,
+          "name": "cardiac_inflow",
+          "expression": "stroke_volume*H/seconds_per_minute",
+          "role": "cardiac volume inflow to the arterial compartment",
+          "train_range": [
+            81.3012005270005,
+            130.41561789258859
+          ],
+          "hidden_range": [
+            129.53300331384008,
+            129.59177975761514
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 81.3012005270005,
+            "max": 130.41561789258859,
+            "q05": 94.3917029485115,
+            "median": 129.74067820812377,
+            "q95": 130.40169573483828,
+            "range": 49.11441736558808,
+            "robust_range": 36.00999278632679
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 129.53300331384008,
+            "max": 129.59177975761514,
+            "q05": 129.53527653141907,
+            "median": 129.5586395029115,
+            "q95": 129.5880770146748,
+            "range": 0.058776443775059306,
+            "robust_range": 0.05280048325573716
+          }
+        },
+        {
+          "generation": 1,
+          "name": "vascular_outflow",
+          "expression": "P_a/systemic_vascular_resistance",
+          "role": "systemic runoff from the arterial compartment",
+          "train_range": [
+            45.98020550852221,
+            91.66666666666667
+          ],
+          "hidden_range": [
+            50.056736016916254,
+            50.10353594046512
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 45.98020550852221,
+            "max": 91.66666666666667,
+            "q05": 46.08100611660059,
+            "median": 49.28750292846871,
+            "q95": 53.78415260723431,
+            "range": 45.68646115814446,
+            "robust_range": 7.703146490633721
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 50.056736016916254,
+            "max": 50.10353594046512,
+            "q05": 50.05974609853247,
+            "median": 50.08338163949466,
+            "q95": 50.10176510738509,
+            "range": 0.04679992354886764,
+            "robust_range": 0.04201900885261978
+          }
+        },
+        {
+          "generation": 1,
+          "name": "pressure_storage_ratio",
+          "expression": "P_a/arterial_compliance",
+          "role": "scale comparing pressure level to nominal arterial storage capacity",
+          "train_range": [
+            34.48515413139165,
+            68.75
+          ],
+          "hidden_range": [
+            37.54255201268719,
+            37.577651955348834
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 34.48515413139165,
+            "max": 68.75,
+            "q05": 34.56075458745044,
+            "median": 36.965627196351534,
+            "q95": 40.33811445542573,
+            "range": 34.26484586860835,
+            "robust_range": 5.777359867975292
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 37.54255201268719,
+            "max": 37.577651955348834,
+            "q05": 37.54480957389935,
+            "median": 37.562536229620996,
+            "q95": 37.57632383053882,
+            "range": 0.0350999426616454,
+            "robust_range": 0.031514256639468385
+          }
+        },
+        {
+          "generation": 2,
+          "name": "pressure_error",
+          "expression": "P_a - pressure_set_point",
+          "role": "Signed baroreflex stimulus relative to the homeostatic operating point",
+          "train_range": [
+            -44.82375338977335,
+            10.0
+          ],
+          "hidden_range": [
+            -39.931916779700494,
+            -39.87575687144186
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -44.82375338977335,
+            "max": 10.0,
+            "q05": -44.70279266007929,
+            "median": -40.854996485837546,
+            "q95": -35.45901687131883,
+            "range": 54.82375338977335,
+            "robust_range": 9.243775788760459
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": -39.931916779700494,
+            "max": -39.87575687144186,
+            "q05": -39.92830468176103,
+            "median": -39.899942032606404,
+            "q95": -39.877881871137895,
+            "range": 0.05615990825863548,
+            "robust_range": 0.050422810623132364
+          }
+        },
+        {
+          "generation": 2,
+          "name": "stiffened_compliance_factor",
+          "expression": "1 + arterial_stiffening_gain*P_a/(arterial_stiffening_pressure_scale + P_a)",
+          "role": "Existing pressure-dependent amplification of how net flow changes pressure through reduced compliance",
+          "train_range": [
+            2.2245401391264625,
+            2.736842105263158
+          ],
+          "hidden_range": [
+            2.2865475525746484,
+            2.2872342812241993
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 2.2245401391264625,
+            "max": 2.736842105263158,
+            "q05": 2.2261274662005284,
+            "median": 2.275180610567719,
+            "q95": 2.3395712593318274,
+            "range": 0.5123019661366954,
+            "robust_range": 0.11344379313129904
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 2.2865475525746484,
+            "max": 2.2872342812241993,
+            "q05": 2.286591738218499,
+            "median": 2.2869386102902647,
+            "q95": 2.287208306548076,
+            "range": 0.0006867286495508829,
+            "robust_range": 0.0006165683295771274
+          }
+        },
+        {
+          "generation": 2,
+          "name": "cardiac_minus_runoff",
+          "expression": "stroke_volume*H/seconds_per_minute - P_a/systemic_vascular_resistance",
+          "role": "Net volumetric inflow to the arterial compartment before compliance scaling",
+          "train_range": [
+            -10.0,
+            82.10643221968714
+          ],
+          "hidden_range": [
+            79.42946737337496,
+            79.53504374069888
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -10.0,
+            "max": 82.10643221968714,
+            "q05": 40.6075503412772,
+            "median": 80.12569776238597,
+            "q95": 82.06533558827309,
+            "range": 92.10643221968714,
+            "robust_range": 41.45778524699589
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 79.42946737337496,
+            "max": 79.53504374069888,
+            "q05": 79.43351142403397,
+            "median": 79.47525786341683,
+            "q95": 79.52833091614232,
+            "range": 0.10557636732391984,
+            "robust_range": 0.09481949210835694
+          }
+        },
+        {
+          "generation": 3,
+          "name": "net_flow_parent",
+          "expression": "stroke_volume*H/seconds_per_minute - P_a/systemic_vascular_resistance",
+          "role": "Current net arterial inflow-outflow balance driving pressure",
+          "train_range": [
+            -10.0,
+            82.10643221968714
+          ],
+          "hidden_range": [
+            79.42946737337496,
+            79.53504374069888
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -10.0,
+            "max": 82.10643221968714,
+            "q05": 40.6075503412772,
+            "median": 80.12569776238597,
+            "q95": 82.06533558827309,
+            "range": 92.10643221968714,
+            "robust_range": 41.45778524699589
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 79.42946737337496,
+            "max": 79.53504374069888,
+            "q05": 79.43351142403397,
+            "median": 79.47525786341683,
+            "q95": 79.52833091614232,
+            "range": 0.10557636732391984,
+            "robust_range": 0.09481949210835694
+          }
+        },
+        {
+          "generation": 3,
+          "name": "rate_load",
+          "expression": "H/resting_heart_rate",
+          "role": "Dimensionless tachycardic loading relative to baseline filling time",
+          "train_range": [
+            0.995524904412251,
+            1.5969259333786356
+          ],
+          "hidden_range": [
+            1.5861184079245723,
+            1.5868381194810017
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.995524904412251,
+            "max": 1.5969259333786356,
+            "q05": 1.1558167707981,
+            "median": 1.5886613658137605,
+            "q95": 1.5967554579776115,
+            "range": 0.6014010289663846,
+            "robust_range": 0.44093868717951157
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 1.5861184079245723,
+            "max": 1.5868381194810017,
+            "q05": 1.586146243241866,
+            "median": 1.586432320443814,
+            "q95": 1.5867927797715282,
+            "range": 0.0007197115564294698,
+            "robust_range": 0.0006465365296621783
+          }
+        },
+        {
+          "generation": 4,
+          "name": "net_flow_to_pressure",
+          "expression": "stroke_volume*H/(seconds_per_minute*(1 + (H/resting_heart_rate)**2)) - P_a/systemic_vascular_resistance",
+          "role": "Instantaneous cardiac inflow minus vascular outflow driving arterial pressure",
+          "train_range": [
+            -50.833333333333336,
+            -7.667003882869828
+          ],
+          "hidden_range": [
+            -13.26012917079781,
+            -13.220537677769826
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -50.833333333333336,
+            "max": -7.667003882869828,
+            "q05": -13.375230803329561,
+            "median": -12.447328076137325,
+            "q95": -7.875907511296131,
+            "range": 43.16632945046351,
+            "robust_range": 5.49932329203343
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": -13.26012917079781,
+            "max": -13.220537677769826,
+            "q05": -13.2586371007672,
+            "median": -13.243118746886829,
+            "q95": -13.22309360552804,
+            "range": 0.03959149302798437,
+            "robust_range": 0.03554349523915867
+          }
+        },
+        {
+          "generation": 4,
+          "name": "stiffened_inverse_compliance",
+          "expression": "(1 + arterial_stiffening_gain*P_a/(arterial_stiffening_pressure_scale + P_a))/arterial_compliance",
+          "role": "Pressure-to-volume conversion factor already present in the parent",
+          "train_range": [
+            1.390337586954039,
+            1.7105263157894737
+          ],
+          "hidden_range": [
+            1.4290922203591552,
+            1.4295214257651245
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 1.390337586954039,
+            "max": 1.7105263157894737,
+            "q05": 1.39132966637533,
+            "median": 1.4219878816048244,
+            "q95": 1.462232037082392,
+            "range": 0.3201887288354346,
+            "robust_range": 0.07090237070706196
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 1.4290922203591552,
+            "max": 1.4295214257651245,
+            "q05": 1.4291198363865618,
+            "median": 1.4293366314314153,
+            "q95": 1.4295051915925474,
+            "range": 0.0004292054059693573,
+            "robust_range": 0.0003853552059855936
+          }
+        },
+        {
+          "generation": 4,
+          "name": "baroreflex_error",
+          "expression": "P_a - pressure_set_point",
+          "role": "Pressure deviation that sets reflex heart-rate correction and identifies recovery regime",
+          "train_range": [
+            -44.82375338977335,
+            10.0
+          ],
+          "hidden_range": [
+            -39.931916779700494,
+            -39.87575687144186
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -44.82375338977335,
+            "max": 10.0,
+            "q05": -44.70279266007929,
+            "median": -40.854996485837546,
+            "q95": -35.45901687131883,
+            "range": 54.82375338977335,
+            "robust_range": 9.243775788760459
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": -39.931916779700494,
+            "max": -39.87575687144186,
+            "q05": -39.92830468176103,
+            "median": -39.899942032606404,
+            "q95": -39.877881871137895,
+            "range": 0.05615990825863548,
+            "robust_range": 0.050422810623132364
+          }
+        },
+        {
+          "generation": 5,
+          "name": "normalized_baroreflex_drive",
+          "expression": "(P_a - pressure_set_point)/(1 + Abs(P_a - pressure_set_point)/baroreflex_saturation_pressure_scale)",
+          "role": "bounded fast reflex error signal already used in heart-rate control",
+          "train_range": [
+            -16.04889139214421,
+            7.142857142857143
+          ],
+          "hidden_range": [
+            -15.374533342046785,
+            -15.366201025777576
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -16.04889139214421,
+            "max": 7.142857142857143,
+            "q05": -16.033357830460066,
+            "median": -15.509452078109629,
+            "q95": -14.662418097931019,
+            "range": 23.191748535001352,
+            "robust_range": 1.370939732529047
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": -15.374533342046785,
+            "max": -15.366201025777576,
+            "q05": -15.373997857120825,
+            "median": -15.369791090314816,
+            "q95": -15.366516569677113,
+            "range": 0.008332316269209272,
+            "robust_range": 0.007481287443711793
+          }
+        },
+        {
+          "generation": 5,
+          "name": "vascular_runoff",
+          "expression": "P_a/systemic_vascular_resistance",
+          "role": "parent fixed vascular outflow branch",
+          "train_range": [
+            45.98020550852221,
+            91.66666666666667
+          ],
+          "hidden_range": [
+            50.056736016916254,
+            50.10353594046512
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 45.98020550852221,
+            "max": 91.66666666666667,
+            "q05": 46.08100611660059,
+            "median": 49.28750292846871,
+            "q95": 53.78415260723431,
+            "range": 45.68646115814446,
+            "robust_range": 7.703146490633721
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 50.056736016916254,
+            "max": 50.10353594046512,
+            "q05": 50.05974609853247,
+            "median": 50.08338163949466,
+            "q95": 50.10176510738509,
+            "range": 0.04679992354886764,
+            "robust_range": 0.04201900885261978
+          }
+        }
+      ],
+      "inactive_mechanisms": [],
+      "visible_mechanisms": [
+        "cardiac_inflow",
+        "vascular_outflow",
+        "pressure_storage_ratio",
+        "pressure_error",
+        "stiffened_compliance_factor",
+        "cardiac_minus_runoff",
+        "net_flow_parent",
+        "rate_load",
+        "net_flow_to_pressure",
+        "stiffened_inverse_compliance",
+        "baroreflex_error",
+        "normalized_baroreflex_drive",
+        "vascular_runoff"
+      ],
+      "extended_mechanisms": []
+    },
+    "inactive_mechanisms": [],
+    "target_variance": {
+      "train": {
+        "n": 4500,
+        "variance": 44.92997539169036,
+        "range": 87.32951542536122
+      },
+      "hidden": {
+        "n": 500,
+        "variance": 5.134235702230572e-06,
+        "range": 0.007850904359511203
+      }
+    },
+    "parent_absorption_report": {
+      "status": "ok",
+      "n_points": 512,
+      "fixed_parent_normalized_rmse": 350.17006705643,
+      "refit": {
+        "status": "not_run",
+        "reason": "no free parent parameters"
+      },
+      "interpretation": "<1e-3 nearly absorbed; 1e-3..1e-2 weak; >1e-2 visible structure"
+    },
+    "noise": 0.0,
+    "_trace": [
+      {
+        "turn": 1,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "analyze_expression",
+            "id": "call_GWHBbEXLnzJj3cFbj1KKtdIt"
+          }
+        ]
+      },
+      {
+        "tool": "analyze_expression",
+        "input": {
+          "expression": "(stroke_volume*H/(seconds_per_minute*(1 + (H/resting_heart_rate)**2)) - P_a/(systemic_vascular_resistance*(1 + reflex_resistance_gain*R_v/(1 + Abs(R_v)))))/((arterial_compliance/(1 + arterial_stiffening_gain*P_a/(arterial_stiffening_pressure_scale + P_a)))*(1 + viscoelastic_buffering_gain*Abs(P_a - P_v)/(viscoelastic_pressure_scale + Abs(P_a - P_v))))",
+          "target_symbol": "dP_a_dt"
+        },
+        "result": {
+          "ok": true,
+          "free_symbols": [
+            "H",
+            "P_a",
+            "P_v",
+            "R_v",
+            "arterial_compliance",
+            "arterial_stiffening_gain",
+            "arterial_stiffening_pressure_scale",
+            "reflex_resistance_gain",
+            "resting_heart_rate",
+            "seconds_per_minute",
+            "stroke_volume",
+            "systemic_vascular_resistance",
+            "viscoelastic_buffering_gain",
+            "viscoelastic_pressure_scale"
+          ],
+          "functions_of": {},
+          "target_function_calls": [],
+          "delayed_target_calls": [],
+          "ungoverned_functions": [],
+          "derivatives": [],
+          "max_derivative_order": 0,
+          "integral_kernels": [],
+          "explicitly_solvable_for_target": true,
+          "explicit_solution_preview": [
+            "(H*stroke_volume/((seconds_per_minute*((H/resting_heart_rate)**2 + 1))) - P_a/(systemic_vascular_resistance*(R_v*reflex_"
+          ],
+          "classification_hint": "explicit",
+          "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+        }
+      },
+      {
+        "turn": 2,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "check_substitution",
+            "id": "call_TZqv0NVFg1ELZdh6NsQt3GaA"
+          },
+          {
+            "name": "check_substitution",
+            "id": "call_5kBMtU4ucXUC5G1qv73nQCEL"
+          },
+          {
+            "name": "check_substitution",
+            "id": "call_zctQNNINchvTMTkxTSF13Qtb"
+          }
+        ]
+      },
+      {
+        "tool": "check_substitution",
+        "input": {
+          "expression": "(stroke_volume*H/(seconds_per_minute*(1 + (H/resting_heart_rate)**2)) - P_a/(systemic_vascular_resistance*(1 + reflex_resistance_gain*R_v/(1 + Abs(R_v)))))/((arterial_compliance/(1 + arterial_stiffening_gain*P_a/(arterial_stiffening_pressure_scale + P_a)))*(1 + viscoelastic_buffering_gain*Abs(P_a - P_v)/(viscoelastic_pressure_scale + Abs(P_a - P_v))))",
+          "target_symbol": "dP_a_dt",
+          "assignments": {
+            "H": 70,
+            "P_a": 110,
+            "P_v": 110,
+            "R_v": 0,
+            "stroke_volume": 70,
+            "seconds_per_minute": 60,
+            "systemic_vascular_resistance": 1.2,
+            "arterial_compliance": 1.6,
+            "resting_heart_rate": 70,
+            "arterial_stiffening_gain": 3,
+            "arterial_stiffening_pressure_scale": 80,
+            "reflex_resistance_gain": 1.2,
+            "viscoelastic_buffering_gain": 1.0,
+            "viscoelastic_pressure_scale": 15
+          }
+        },
+        "result": {
+          "ok": true,
+          "value_real": -86.95175438596493,
+          "value_imag": 0.0,
+          "is_finite": true,
+          "is_real": true,
+          "verdict": "ok",
+          "residual_free_symbols": []
+        }
+      },
+      {
+        "tool": "check_substitution",
+        "input": {
+          "expression": "(stroke_volume*H/(seconds_per_minute*(1 + (H/resting_heart_rate)**2)) - P_a/(systemic_vascular_resistance*(1 + reflex_resistance_gain*R_v/(1 + Abs(R_v)))))/((arterial_compliance/(1 + arterial_stiffening_gain*P_a/(arterial_stiffening_pressure_scale + P_a)))*(1 + viscoelastic_buffering_gain*Abs(P_a - P_v)/(viscoelastic_pressure_scale + Abs(P_a - P_v))))",
+          "target_symbol": "dP_a_dt",
+          "assignments": {
+            "H": 45,
+            "P_a": 80,
+            "P_v": 95,
+            "R_v": 1.5,
+            "stroke_volume": 70,
+            "seconds_per_minute": 60,
+            "systemic_vascular_resistance": 1.2,
+            "arterial_compliance": 1.6,
+            "resting_heart_rate": 70,
+            "arterial_stiffening_gain": 3,
+            "arterial_stiffening_pressure_scale": 80,
+            "reflex_resistance_gain": 1.2,
+            "viscoelastic_buffering_gain": 1.0,
+            "viscoelastic_pressure_scale": 15
+          }
+        },
+        "result": {
+          "ok": true,
+          "value_real": -1.6788286271327113,
+          "value_imag": 0.0,
+          "is_finite": true,
+          "is_real": true,
+          "verdict": "ok",
+          "residual_free_symbols": []
+        }
+      },
+      {
+        "tool": "check_substitution",
+        "input": {
+          "expression": "(stroke_volume*H/(seconds_per_minute*(1 + (H/resting_heart_rate)**2)) - P_a/(systemic_vascular_resistance*(1 + reflex_resistance_gain*R_v/(1 + Abs(R_v)))))/((arterial_compliance/(1 + arterial_stiffening_gain*P_a/(arterial_stiffening_pressure_scale + P_a)))*(1 + viscoelastic_buffering_gain*Abs(P_a - P_v)/(viscoelastic_pressure_scale + Abs(P_a - P_v))))",
+          "target_symbol": "dP_a_dt",
+          "assignments": {
+            "H": 95,
+            "P_a": 140,
+            "P_v": 120,
+            "R_v": -1.2,
+            "stroke_volume": 70,
+            "seconds_per_minute": 60,
+            "systemic_vascular_resistance": 1.2,
+            "arterial_compliance": 1.6,
+            "resting_heart_rate": 70,
+            "arterial_stiffening_gain": 3,
+            "arterial_stiffening_pressure_scale": 80,
+            "reflex_resistance_gain": 1.2,
+            "viscoelastic_buffering_gain": 1.0,
+            "viscoelastic_pressure_scale": 15
+          }
+        },
+        "result": {
+          "ok": true,
+          "value_real": -345.6249419191701,
+          "value_imag": 0.0,
+          "is_finite": true,
+          "is_real": true,
+          "verdict": "ok",
+          "residual_free_symbols": []
+        }
+      },
+      {
+        "turn": 3,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "emit_data_gen_spec",
+            "id": "call_PBc7QV5PwQJ7E27JzNaqdwX1"
+          }
+        ]
+      },
+      {
+        "tool": "emit_data_gen_spec",
+        "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+      },
+      {
+        "turn": 4,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "emit_data_gen_spec",
+            "id": "call_0dBJoCYK0p167p5nVZTXZHXw"
+          }
+        ]
+      },
+      {
+        "tool": "emit_data_gen_spec",
+        "accepted": true
+      }
+    ],
+    "_provider": "openai",
+    "_num_turns": 4,
+    "discipline": "biology",
+    "scenario_text": "Arterial pressure and heart rate are recorded after a brief pressure perturbation in an otherwise stable subject. The target is the rate of change of arterial pressure generated by the balance between cardiac inflow and vascular outflow, while heart rate is adjusted by pressure-sensitive autonomic feedback. Pressure and heart rate must therefore be evolved together from their initial values. The coupled negative-feedback response may return to baseline through a damped oscillation.",
+    "record_id": "m2_physiology_and_homeostasis_20260917_002",
+    "generation": 5,
+    "_n_total": 5000,
+    "mechanism_observation_history": [
+      {
+        "generation": 1,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The target mapping is linear in arterial pressure for fixed heart rate: dP_a_dt = (stroke_volume*H/seconds_per_minute)/arterial_compliance - P_a/(systemic_vascular_resistance*arterial_compliance), so vascular runoff has one constant slope with respect to P_a.",
+            "child_relation": "Relax constant arterial compliance so effective pressure storage changes with P_a; then the same net inflow-outflow is divided by a pressure-dependent compliance, making the dP_a_dt versus P_a relationship curved rather than a single straight line even when H is held fixed.",
+            "affected_inputs": [
+              "P_a",
+              "H",
+              "arterial_compliance"
+            ],
+            "observable_effect": "Across otherwise identical perturbations that visit lower versus higher pressure ranges, pressure decays faster per mmHg at high P_a than predicted by one shared linear runoff/storage slope, yielding asymmetric return-to-baseline curvature in dP_a_dt versus P_a."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "cardiac_inflow",
+              "expression": "stroke_volume*H/seconds_per_minute",
+              "role": "cardiac volume inflow to the arterial compartment"
+            },
+            {
+              "name": "vascular_outflow",
+              "expression": "P_a/systemic_vascular_resistance",
+              "role": "systemic runoff from the arterial compartment"
+            },
+            {
+              "name": "pressure_storage_ratio",
+              "expression": "P_a/arterial_compliance",
+              "role": "scale comparing pressure level to nominal arterial storage capacity"
+            }
+          ],
+          "activation_condition": "Observable when perturbations move P_a far enough from the set point that arterial wall stiffening over the visited pressure range is not negligible, while remaining within a short-term regime where stroke volume and systemic vascular resistance can still be treated as fixed.",
+          "train_hidden_contrast": "In training, moderate perturbations may already show slight asymmetry between recovery from above versus below baseline; in holdout, larger excursions amplify this same pressure-dependent storage effect rather than introducing a different mechanism.",
+          "continuation_path": "Recover the parent law in the limit of pressure-independent compliance over the sampled range.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The model assumes arterial compliance is constant across the entire sampled pressure excursion, so each added mmHg stores the same volume regardless of pressure.",
+          "baseline_assumption": "Arterial compliance is constant over the sampled pressure range.",
+          "scientific_mechanism": "Pressure-dependent arterial stiffening makes compliance decrease as arterial pressure rises, altering how net inflow translates into pressure change.",
+          "affected_symbols": [
+            "P_a",
+            "H",
+            "arterial_compliance"
+          ],
+          "rationale": "A realistic next refinement is to relax the constant-compliance idealization already present in the pressure equation. In the parent, with H fixed, dP_a_dt changes with P_a through a single linear slope because runoff is proportional to P_a and storage capacity is constant. In the child, the pressure-to-storage map acquires curvature because higher pressure corresponds to a stiffer arterial compartment and therefore a smaller effective compliance. The varied condition is the size of the pressure excursion after the brief perturbation; held fixed are stroke_volume, systemic_vascular_resistance, and the same heart-rate feedback law. The concrete contrast is that high-pressure segments of the trajectory show larger-magnitude pressure decay per unit net flow than low-pressure segments, so one shared parent parameter set cannot match both near-baseline and elevated-pressure dP_a_dt versus P_a behavior if the sampled range is broad enough. This changes the scored target mapping directly, not merely an auxiliary trajectory. The effect is admissible in short baroreflex experiments because arterial stiffening is immediate and mechanical, but it may be weak if perturbations remain very small around the set point; in that small-signal limit the parent is a good approximation."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The target mapping is linear in arterial pressure for fixed heart rate: dP_a_dt = (stroke_volume*H/seconds_per_minute)/arterial_compliance - P_a/(systemic_vascular_resistance*arterial_compliance), so vascular runoff has one constant slope with respect to P_a.",
+            "child_relation": "Relax constant arterial compliance so effective pressure storage changes with P_a; then the same net inflow-outflow is divided by a pressure-dependent compliance, making the dP_a_dt versus P_a relationship curved rather than a single straight line even when H is held fixed.",
+            "affected_inputs": [
+              "P_a",
+              "H",
+              "arterial_compliance"
+            ],
+            "observable_effect": "Across otherwise identical perturbations that visit lower versus higher pressure ranges, pressure decays faster per mmHg at high P_a than predicted by one shared linear runoff/storage slope, yielding asymmetric return-to-baseline curvature in dP_a_dt versus P_a."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "cardiac_inflow",
+              "expression": "stroke_volume*H/seconds_per_minute",
+              "role": "cardiac volume inflow to the arterial compartment"
+            },
+            {
+              "name": "vascular_outflow",
+              "expression": "P_a/systemic_vascular_resistance",
+              "role": "systemic runoff from the arterial compartment"
+            },
+            {
+              "name": "pressure_storage_ratio",
+              "expression": "P_a/arterial_compliance",
+              "role": "scale comparing pressure level to nominal arterial storage capacity"
+            }
+          ],
+          "activation_condition": "Observable when perturbations move P_a far enough from the set point that arterial wall stiffening over the visited pressure range is not negligible, while remaining within a short-term regime where stroke volume and systemic vascular resistance can still be treated as fixed.",
+          "train_hidden_contrast": "In training, moderate perturbations may already show slight asymmetry between recovery from above versus below baseline; in holdout, larger excursions amplify this same pressure-dependent storage effect rather than introducing a different mechanism.",
+          "continuation_path": "Recover the parent law in the limit of pressure-independent compliance over the sampled range.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "unary",
+          "scope_symbols": [
+            "P_a"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "saturating_or_thresholded",
+          "domain_mechanism": "bounded pressure-dependent arterial stiffening",
+          "scientific_mechanism": "Pressure-dependent arterial stiffening makes compliance decrease as arterial pressure rises, altering how net inflow translates into pressure change.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "This is harder than a coefficient-only correction because the pressure equation no longer has one shared linear storage slope: the sensitivity of dP_a_dt to P_a varies across the trajectory through a saturating denominator, changing both local slope and curvature of the scored mapping.",
+          "taxonomy_match": "known",
+          "assumption_before": "Arterial compliance is constant over the sampled pressure range.",
+          "assumption_after": "Effective arterial compliance decreases with pressure through a bounded saturating stiffening law.",
+          "before_fragment": "(stroke_volume*H/seconds_per_minute - P_a/systemic_vascular_resistance)/arterial_compliance",
+          "after_fragment": "(stroke_volume*H/seconds_per_minute - P_a/systemic_vascular_resistance)/(arterial_compliance/(1 + arterial_stiffening_gain*P_a/(arterial_stiffening_pressure_scale + P_a)))",
+          "parent_reduction": "Setting arterial_stiffening_gain = 0 recovers the parent expression exactly.",
+          "observable_signature": "With H, stroke_volume, systemic_vascular_resistance, and the heart-rate feedback law otherwise held fixed, dP_a_dt versus P_a is no longer a straight line over the sampled trajectory: elevated-pressure segments show larger-magnitude decay because effective compliance is smaller, while near-baseline segments remain closer to the parent linear law. This direct change appears in the scored target mapping itself, especially when trajectories span both moderate and high P_a relative to arterial_stiffening_pressure_scale.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce both near-baseline and high-pressure decay behavior because refitting arterial_compliance or systemic_vascular_resistance only rescales one constant slope in P_a. The child introduces pressure-dependent curvature in the target mapping, so matching faster decay at high P_a with the parent would necessarily misfit the lower-pressure portion of the same trajectory when the excursion is broad enough."
+        },
+        "range_suggestions": {
+          "arterial_stiffening_gain": "0 to 10",
+          "arterial_stiffening_pressure_scale": "20 to 200 mmHg"
+        }
+      },
+      {
+        "generation": 2,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The pressure-to-heart-rate baroreflex drive is a single exponential of P_a-pressure_set_point with one fixed sensitivity, so the induced target mapping from (P_a,H) to dP_a_dt changes smoothly with one pressure scale through H alone.",
+            "child_relation": "Replace the single-slope baroreflex sensitivity with a pressure-dependent saturating reflex around the set point, so equal pressure deviations no longer produce proportional changes in autonomic heart-rate drive across the whole range; near-set-point deviations remain sensitive while larger deviations compress the heart-rate response and thus alter the curvature of the mapping from P_a to dP_a_dt.",
+            "affected_inputs": [
+              "P_a",
+              "H",
+              "baroreflex_pressure_sensitivity",
+              "pressure_set_point"
+            ],
+            "observable_effect": "For small versus large pressure perturbations from the same initial range, the child predicts similar local recovery near baseline but weaker additional bradycardic/tachycardic drive at larger |P_a-pressure_set_point|, yielding less extreme pressure deceleration/acceleration than the parent with one shared sensitivity can match across both regimes."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "pressure_error",
+              "expression": "P_a - pressure_set_point",
+              "role": "Signed baroreflex stimulus relative to the homeostatic operating point"
+            },
+            {
+              "name": "stiffened_compliance_factor",
+              "expression": "1 + arterial_stiffening_gain*P_a/(arterial_stiffening_pressure_scale + P_a)",
+              "role": "Existing pressure-dependent amplification of how net flow changes pressure through reduced compliance"
+            },
+            {
+              "name": "cardiac_minus_runoff",
+              "expression": "stroke_volume*H/seconds_per_minute - P_a/systemic_vascular_resistance",
+              "role": "Net volumetric inflow to the arterial compartment before compliance scaling"
+            }
+          ],
+          "activation_condition": "Observable when pressure perturbations span both near-set-point and larger deviations, roughly when |P_a-pressure_set_point| reaches the inverse baroreflex sensitivity scale so the reflex begins to compress while arterial pressure and heart rate stay positive.",
+          "train_hidden_contrast": "In training, moderate perturbations show near-linearized reflex recovery; in holdout, larger perturbations expose that the same reflex cannot keep increasing exponentially and instead saturates, changing the pressure-recovery curvature rather than merely shifting time scale.",
+          "continuation_path": "In the limit where the new saturation scale is very large, the reflex law reduces to the parent's single exponential sensitivity over the sampled range.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The current model assumes one fixed baroreflex pressure sensitivity over all pressure deviations, which is physiologically too idealized because autonomic heart-rate control saturates at large hypo- or hypertensive errors during brief perturbation experiments.",
+          "baseline_assumption": "The reflex is represented near one operating point without recruitment of slower hormonal control.",
+          "scientific_mechanism": "Fast baroreflex efferent saturation/recruitment limits the incremental heart-rate response at larger pressure errors, producing a bounded local gain rather than one constant exponential sensitivity across the full sampled pressure range.",
+          "affected_symbols": [
+            "P_a",
+            "H",
+            "baroreflex_pressure_sensitivity",
+            "pressure_set_point",
+            "heart_rate_adjustment_time"
+          ],
+          "rationale": "A realistic next refinement is to relax the parent's single-gain baroreflex assumption, not to add a new slow state. In the parent, varying P_a while holding fixed stroke_volume, systemic_vascular_resistance, arterial_compliance, and the existing stiffening law changes dP_a_dt through H with one shared pressure sensitivity. After refitting, that still imposes one characteristic curvature of the pressure-to-heart-rate drive across all perturbation amplitudes. In brief pressure-step experiments, however, the fast baroreflex is most sensitive near the operating point and progressively saturates for larger deviations, so the child should change the target mapping itself: at the same observed P_a and H trajectory neighborhood near baseline it can match the parent, but for larger pressure errors it predicts reduced additional autonomic correction, which feeds back into dP_a_dt. This contrast is observable under the current protocol because P_a and H are both evolved and measured from fixed initial conditions after a perturbation; no hidden intervention is required beyond comparing smaller and larger pressure excursions. The change is scientifically admissible for short-term autonomic control and does not require a new state, since the omitted effect is a static nonlinearity in the existing reflex pathway rather than a new dynamical reservoir. A single refit of existing parent parameters cannot fully absorb this across both small and large deviations: increasing baroreflex sensitivity to fit near-set-point recovery overpredicts large-error heart-rate excursions, while decreasing it to fit large-error saturation underpredicts local recovery slope near baseline."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The pressure-to-heart-rate baroreflex drive is a single exponential of P_a-pressure_set_point with one fixed sensitivity, so the induced target mapping from (P_a,H) to dP_a_dt changes smoothly with one pressure scale through H alone.",
+            "child_relation": "Replace the single-slope baroreflex sensitivity with a pressure-dependent saturating reflex around the set point, so equal pressure deviations no longer produce proportional changes in autonomic heart-rate drive across the whole range; near-set-point deviations remain sensitive while larger deviations compress the heart-rate response and thus alter the curvature of the mapping from P_a to dP_a_dt.",
+            "affected_inputs": [
+              "P_a",
+              "H",
+              "baroreflex_pressure_sensitivity",
+              "pressure_set_point"
+            ],
+            "observable_effect": "For small versus large pressure perturbations from the same initial range, the child predicts similar local recovery near baseline but weaker additional bradycardic/tachycardic drive at larger |P_a-pressure_set_point|, yielding less extreme pressure deceleration/acceleration than the parent with one shared sensitivity can match across both regimes."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "pressure_error",
+              "expression": "P_a - pressure_set_point",
+              "role": "Signed baroreflex stimulus relative to the homeostatic operating point"
+            },
+            {
+              "name": "stiffened_compliance_factor",
+              "expression": "1 + arterial_stiffening_gain*P_a/(arterial_stiffening_pressure_scale + P_a)",
+              "role": "Existing pressure-dependent amplification of how net flow changes pressure through reduced compliance"
+            },
+            {
+              "name": "cardiac_minus_runoff",
+              "expression": "stroke_volume*H/seconds_per_minute - P_a/systemic_vascular_resistance",
+              "role": "Net volumetric inflow to the arterial compartment before compliance scaling"
+            }
+          ],
+          "activation_condition": "Observable when pressure perturbations span both near-set-point and larger deviations, roughly when |P_a-pressure_set_point| reaches the inverse baroreflex sensitivity scale so the reflex begins to compress while arterial pressure and heart rate stay positive.",
+          "train_hidden_contrast": "In training, moderate perturbations show near-linearized reflex recovery; in holdout, larger perturbations expose that the same reflex cannot keep increasing exponentially and instead saturates, changing the pressure-recovery curvature rather than merely shifting time scale.",
+          "continuation_path": "In the limit where the new saturation scale is very large, the reflex law reduces to the parent's single exponential sensitivity over the sampled range.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "P_a",
+            "H"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "pressure-dependent saturation of fast baroreflex chronotropic control",
+          "scientific_mechanism": "Fast baroreflex efferent saturation/recruitment limits the incremental heart-rate response at larger pressure errors, producing a bounded local gain rather than one constant exponential sensitivity across the full sampled pressure range.",
+          "embedding_pattern": "state_coupling",
+          "difficulty_rationale": "This is harder than a coefficient-only correction because the reflex gain now depends jointly on the pressure error magnitude and the baseline exponential baroreflex term, changing curvature across perturbation amplitudes rather than just rescaling one time constant or one sensitivity.",
+          "taxonomy_match": "known",
+          "assumption_before": "The reflex is represented with one fixed pressure sensitivity over the full sampled pressure range.",
+          "assumption_after": "The fast baroreflex has pressure-dependent saturating sensitivity, remaining steep near the set point and compressing at larger pressure errors.",
+          "before_fragment": "(stroke_volume*H/seconds_per_minute - P_a/systemic_vascular_resistance)/(arterial_compliance/(1 + arterial_stiffening_gain*P_a/(arterial_stiffening_pressure_scale + P_a)))",
+          "after_fragment": "(stroke_volume*H/seconds_per_minute - P_a/systemic_vascular_resistance)/(arterial_compliance/(1 + arterial_stiffening_gain*P_a/(arterial_stiffening_pressure_scale + P_a)))",
+          "parent_reduction": "When baroreflex_saturation_pressure_scale is very large compared with |P_a-pressure_set_point| throughout the observation window, the modified H equation reduces to the parent's baroreflex law and therefore the target equation follows the parent dynamics.",
+          "observable_signature": "Comparing small and large pressure excursions under the same fixed parameter set, the child preserves near-baseline recovery slope but shows compressed heart-rate excursions and therefore weaker secondary changes in dP_a_dt once |P_a-pressure_set_point| becomes large enough for saturation; the parent cannot match both local and large-error curvature with one shared sensitivity.",
+          "shortcut_blocked": "Refitting all parent parameters still leaves one fixed baroreflex sensitivity in the H law, so any parameter set that matches near-set-point recovery slope will overpredict large-error autonomic drive, while a set tuned to compress large-error responses will flatten the local recovery too much. Because dP_a_dt depends on H through cardiac inflow, this mismatch changes the target mapping itself, not only an auxiliary trajectory."
+        },
+        "range_suggestions": {
+          "baroreflex_saturation_pressure_scale": "5 to 80 mmHg"
+        }
+      },
+      {
+        "generation": 3,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "interaction_emergence",
+            "parent_relation": "The pressure equation maps heart rate to pressure rise with a pressure-only compliance term, so for a given H and P_a the conversion from net inflow to dP_a_dt is independent of recent filling history.",
+            "child_relation": "Make effective cardiac inflow depend on the current heart rate through rate-dependent filling limitation, so the mapping from H to dP_a_dt bends downward at high H and interacts with P_a through the existing outflow and compliance terms.",
+            "affected_inputs": [
+              "H",
+              "P_a",
+              "stroke_volume"
+            ],
+            "observable_effect": "After a perturbation that triggers tachycardia, the child predicts weaker pressure recovery gain and smaller overshoot at high H than at moderate H, even when pressure is similar; the parent keeps a linear H-to-inflow conversion and cannot produce this selective compression."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "net_flow_parent",
+              "expression": "stroke_volume*H/seconds_per_minute - P_a/systemic_vascular_resistance",
+              "role": "Current net arterial inflow-outflow balance driving pressure"
+            },
+            {
+              "name": "rate_load",
+              "expression": "H/resting_heart_rate",
+              "role": "Dimensionless tachycardic loading relative to baseline filling time"
+            },
+            {
+              "name": "pressure_error",
+              "expression": "P_a - pressure_set_point",
+              "role": "Baroreflex activation coordinate that co-varies with tachycardic recovery episodes"
+            }
+          ],
+          "activation_condition": "Observable when baroreflex-driven heart rate rises appreciably above resting level during the transient, so diastolic filling time shortens; weak near baseline or purely bradycardic responses.",
+          "train_hidden_contrast": "In ordinary training perturbations with modest pressure errors, mild tachycardia already introduces slight sublinearity of pressure recovery versus H; in stronger holdout perturbations the same mechanism extends to clearer saturation of pressure restoration and reduced pressure overshoot.",
+          "continuation_path": "Recover the parent law in the limit of negligible rate-dependent filling effect, so effective stroke volume becomes constant over the sampled H range.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The model assumes fixed stroke volume during the transient, omitting the well-known shortening of ventricular filling time at elevated heart rate that reduces beat volume over short timescales.",
+          "baseline_assumption": "Stroke volume is fixed during the short experiment.",
+          "scientific_mechanism": "Rate-dependent reduction of effective stroke volume from limited diastolic filling during tachycardia.",
+          "affected_symbols": [
+            "H",
+            "P_a",
+            "stroke_volume"
+          ],
+          "rationale": "A realistic next refinement is to relax the fixed-stroke-volume assumption rather than add a wholly new control branch. In the parent, varying H while holding P_a and all parameters fixed changes dP_a_dt with one constant inflow slope, stroke_volume/seconds_per_minute, modulated only by the pressure-dependent compliance denominator. That means any two transients reaching the same P_a but different elevated H values differ in dP_a_dt by a strictly linear amount. Physiologically, however, when H rises enough above resting, diastolic filling time falls and effective beat volume drops, so additional tachycardia yields diminishing pressure support. This changes the scored target mapping itself, not only an auxiliary trajectory, because dP_a_dt as a function of observed H and P_a acquires downward curvature in H. The contrast is observable under the actual protocol after a brief pressure perturbation if the baroreflex recruits substantial tachycardia; it is limited when H stays near resting so the parent may remain an adequate approximation there. A single refit of existing parent parameters cannot reproduce both low-H near-linear gain and high-H compressed gain across these conditions, because changing fixed stroke_volume only rescales all H values uniformly and changing vascular or compliance parameters alters pressure dependence rather than selective tachycardic flattening."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "interaction_emergence",
+            "parent_relation": "The pressure equation maps heart rate to pressure rise with a pressure-only compliance term, so for a given H and P_a the conversion from net inflow to dP_a_dt is independent of recent filling history.",
+            "child_relation": "Make effective cardiac inflow depend on the current heart rate through rate-dependent filling limitation, so the mapping from H to dP_a_dt bends downward at high H and interacts with P_a through the existing outflow and compliance terms.",
+            "affected_inputs": [
+              "H",
+              "P_a",
+              "stroke_volume"
+            ],
+            "observable_effect": "After a perturbation that triggers tachycardia, the child predicts weaker pressure recovery gain and smaller overshoot at high H than at moderate H, even when pressure is similar; the parent keeps a linear H-to-inflow conversion and cannot produce this selective compression."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "net_flow_parent",
+              "expression": "stroke_volume*H/seconds_per_minute - P_a/systemic_vascular_resistance",
+              "role": "Current net arterial inflow-outflow balance driving pressure"
+            },
+            {
+              "name": "rate_load",
+              "expression": "H/resting_heart_rate",
+              "role": "Dimensionless tachycardic loading relative to baseline filling time"
+            },
+            {
+              "name": "pressure_error",
+              "expression": "P_a - pressure_set_point",
+              "role": "Baroreflex activation coordinate that co-varies with tachycardic recovery episodes"
+            }
+          ],
+          "activation_condition": "Observable when baroreflex-driven heart rate rises appreciably above resting level during the transient, so diastolic filling time shortens; weak near baseline or purely bradycardic responses.",
+          "train_hidden_contrast": "In ordinary training perturbations with modest pressure errors, mild tachycardia already introduces slight sublinearity of pressure recovery versus H; in stronger holdout perturbations the same mechanism extends to clearer saturation of pressure restoration and reduced pressure overshoot.",
+          "continuation_path": "Recover the parent law in the limit of negligible rate-dependent filling effect, so effective stroke volume becomes constant over the sampled H range.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "pairwise",
+          "scope_symbols": [
+            "H",
+            "P_a"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Rate-dependent ventricular filling limitation during tachycardia",
+          "scientific_mechanism": "Rate-dependent reduction of effective stroke volume from limited diastolic filling during tachycardia.",
+          "embedding_pattern": "nested_nonlinearity",
+          "difficulty_rationale": "This is harder than a coefficient-only correction because H is first normalized by resting_heart_rate and then passed through a nonlinear filling factor before multiplying the inflow term, creating a state-dependent slope change in the scored target mapping rather than a uniform rescaling.",
+          "taxonomy_match": "known",
+          "assumption_before": "Stroke volume is fixed during the short experiment.",
+          "assumption_after": "Effective stroke volume decreases nonlinearly with heart rate because shortened diastolic filling at tachycardia limits beat volume.",
+          "before_fragment": "(stroke_volume*H/seconds_per_minute - P_a/systemic_vascular_resistance)/(arterial_compliance/(1 + arterial_stiffening_gain*P_a/(arterial_stiffening_pressure_scale + P_a)))",
+          "after_fragment": "(stroke_volume*H/(seconds_per_minute*(1 + (H/resting_heart_rate)**2)) - P_a/systemic_vascular_resistance)/(arterial_compliance/(1 + arterial_stiffening_gain*P_a/(arterial_stiffening_pressure_scale + P_a)))",
+          "parent_reduction": "The child approaches the parent when H/resting_heart_rate remains small over the observed trajectory, so the filling factor 1/(1 + (H/resting_heart_rate)**2) stays near 1.",
+          "observable_signature": "Holding P_a fixed, the parent gives a linear increase of dP_a_dt with H, while the child shows low-H near-linearity but high-H compression from the nested factor H/(1 + (H/resting_heart_rate)**2). Along transients that reach similar pressures but different tachycardic levels, the child therefore predicts weaker pressure restoration and smaller overshoot at the higher H.",
+          "shortcut_blocked": "A single parent parameter refit cannot match both regimes because changing stroke_volume rescales the H effect uniformly at all heart rates, and changing systemic_vascular_resistance or compliance only shifts pressure dependence. The child's selective flattening at elevated H changes the target mapping from observed H and P_a to dP_a_dt itself, so one shared parent parameter set cannot reproduce near-baseline gain together with high-H compression across these conditions."
+        },
+        "range_suggestions": {}
+      },
+      {
+        "generation": 4,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "interaction_emergence",
+            "parent_relation": "The target mapping uses a pressure-dependent compliance only: for a given net inflow term and pressure, dP_a_dt is determined without any dependence on recent pressure-change history.",
+            "child_relation": "Retain pressure-dependent compliance but let effective arterial buffering also depend on the recent rate of pressure change through viscoelastic wall relaxation, so the same P_a and H can produce different dP_a_dt during fast upstrokes versus slower recovery.",
+            "affected_inputs": [
+              "P_a",
+              "H",
+              "arterial_compliance"
+            ],
+            "observable_effect": "After a brief perturbation, early rapid pressure excursions become more damped and phase-lagged than slower near-set-point motion; the pressure trajectory shows asymmetric rise-versus-recovery dynamics that the parent cannot match with one shared compliance law."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "net_flow_to_pressure",
+              "expression": "stroke_volume*H/(seconds_per_minute*(1 + (H/resting_heart_rate)**2)) - P_a/systemic_vascular_resistance",
+              "role": "Instantaneous cardiac inflow minus vascular outflow driving arterial pressure"
+            },
+            {
+              "name": "stiffened_inverse_compliance",
+              "expression": "(1 + arterial_stiffening_gain*P_a/(arterial_stiffening_pressure_scale + P_a))/arterial_compliance",
+              "role": "Pressure-to-volume conversion factor already present in the parent"
+            },
+            {
+              "name": "baroreflex_error",
+              "expression": "P_a - pressure_set_point",
+              "role": "Pressure deviation that sets reflex heart-rate correction and identifies recovery regime"
+            }
+          ],
+          "activation_condition": "Observable when the perturbation creates sufficiently rapid pressure transients on a timescale not much slower than the arterial wall stress-relaxation time, especially during the initial post-perturbation excursion and any damped oscillatory return.",
+          "train_hidden_contrast": "In training, modest perturbations already show slight phase lag and extra damping during the fastest segments; in holdout, larger or sharper transients extend the same dependence on recent pressure-change rate, revealing history-dependent pressure buffering beyond the parent's static compliance curve.",
+          "continuation_path": "Recover the parent by taking the viscoelastic relaxation effect to zero or its relaxation time to vanish so effective compliance becomes an instantaneous function of P_a only.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "A viscoelastic memory effect is history-dependent and cannot be represented by the existing instantaneous states alone without introducing a dynamic wall-strain or delayed-pressure state that stores recent deformation.",
+          "gap_statement": "The model treats arterial compliance as an instantaneous static function of pressure, omitting arterial viscoelastic stress relaxation that makes pressure buffering depend on recent deformation history during fast transients.",
+          "baseline_assumption": "Arterial compliance is determined immediately by the current pressure alone, with no dynamic wall relaxation or hysteresis during the sampled transient.",
+          "scientific_mechanism": "Short-timescale arterial viscoelasticity: vessel walls do not equilibrate elastically instantly, so effective compliance during a rapid pressure rise differs from that during slower recovery at the same mean pressure.",
+          "affected_symbols": [
+            "P_a",
+            "H",
+            "arterial_compliance",
+            "arterial_stiffening_gain",
+            "arterial_stiffening_pressure_scale"
+          ],
+          "rationale": "A realistic next refinement is to relax the parent's instantaneous compliance assumption. The parent already includes pressure-dependent stiffening, but it still maps current net inflow and current pressure directly to dP_a_dt with no memory. Vary the perturbation sharpness or observe different phases of the same transient while holding the parameter set fixed: in the parent, once P_a and H are the same, the target dP_a_dt is the same. In the child, rapid early excursions and slower late recovery can differ because recent arterial deformation changes effective buffering. This is a changed target mapping, not merely an auxiliary trajectory change, because the scored derivative of P_a itself becomes history-dependent through an added state. The contrast is scientifically admissible in brief post-perturbation recordings where pressure changes are fast enough for wall relaxation to matter; if all sampled trajectories are very slow compared with wall equilibration, the effect may be weak. A single refit of the parent's static compliance and stiffening parameters cannot reproduce both extra damping during rapid excursions and near-parent behavior during slower recovery across those conditions, because any static pressure-only compliance law assigns one unique dP_a_dt to each observed (P_a, H) pair."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "interaction_emergence",
+            "parent_relation": "The target mapping uses a pressure-dependent compliance only: for a given net inflow term and pressure, dP_a_dt is determined without any dependence on recent pressure-change history.",
+            "child_relation": "Retain pressure-dependent compliance but let effective arterial buffering also depend on the recent rate of pressure change through viscoelastic wall relaxation, so the same P_a and H can produce different dP_a_dt during fast upstrokes versus slower recovery.",
+            "affected_inputs": [
+              "P_a",
+              "H",
+              "arterial_compliance"
+            ],
+            "observable_effect": "After a brief perturbation, early rapid pressure excursions become more damped and phase-lagged than slower near-set-point motion; the pressure trajectory shows asymmetric rise-versus-recovery dynamics that the parent cannot match with one shared compliance law."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "net_flow_to_pressure",
+              "expression": "stroke_volume*H/(seconds_per_minute*(1 + (H/resting_heart_rate)**2)) - P_a/systemic_vascular_resistance",
+              "role": "Instantaneous cardiac inflow minus vascular outflow driving arterial pressure"
+            },
+            {
+              "name": "stiffened_inverse_compliance",
+              "expression": "(1 + arterial_stiffening_gain*P_a/(arterial_stiffening_pressure_scale + P_a))/arterial_compliance",
+              "role": "Pressure-to-volume conversion factor already present in the parent"
+            },
+            {
+              "name": "baroreflex_error",
+              "expression": "P_a - pressure_set_point",
+              "role": "Pressure deviation that sets reflex heart-rate correction and identifies recovery regime"
+            }
+          ],
+          "activation_condition": "Observable when the perturbation creates sufficiently rapid pressure transients on a timescale not much slower than the arterial wall stress-relaxation time, especially during the initial post-perturbation excursion and any damped oscillatory return.",
+          "train_hidden_contrast": "In training, modest perturbations already show slight phase lag and extra damping during the fastest segments; in holdout, larger or sharper transients extend the same dependence on recent pressure-change rate, revealing history-dependent pressure buffering beyond the parent's static compliance curve.",
+          "continuation_path": "Recover the parent by taking the viscoelastic relaxation effect to zero or its relaxation time to vanish so effective compliance becomes an instantaneous function of P_a only.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "A viscoelastic memory effect is history-dependent and cannot be represented by the existing instantaneous states alone without introducing a dynamic wall-strain or delayed-pressure state that stores recent deformation.",
+          "scope_kind": "memory",
+          "scope_symbols": [
+            "P_a",
+            "P_v",
+            "H"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "arterial wall viscoelastic stress relaxation modulating effective compliance",
+          "scientific_mechanism": "Short-timescale arterial viscoelasticity: vessel walls do not equilibrate elastically instantly, so effective compliance during a rapid pressure rise differs from that during slower recovery at the same mean pressure.",
+          "embedding_pattern": "multiplicative_modulation",
+          "difficulty_rationale": "This embedding is structurally harder than a coefficient-only correction because the target derivative is no longer a unique instantaneous function of P_a and H: a latent relaxing state multiplicatively modulates the existing compliance process, creating phase-dependent damping that cannot be collapsed into one static pressure-only curve.",
+          "taxonomy_match": "known",
+          "assumption_before": "Arterial compliance is determined immediately by the current pressure alone, with no dynamic wall relaxation or hysteresis during the sampled transient.",
+          "assumption_after": "Effective arterial compliance remains pressure-dependent but is further modulated by mismatch between current pressure and a relaxing viscoelastic wall-memory state.",
+          "before_fragment": "(stroke_volume*H/(seconds_per_minute*(1 + (H/resting_heart_rate)**2)) - P_a/systemic_vascular_resistance)/(arterial_compliance/(1 + arterial_stiffening_gain*P_a/(arterial_stiffening_pressure_scale + P_a)))",
+          "after_fragment": "(stroke_volume*H/(seconds_per_minute*(1 + (H/resting_heart_rate)**2)) - P_a/systemic_vascular_resistance)/((arterial_compliance/(1 + arterial_stiffening_gain*P_a/(arterial_stiffening_pressure_scale + P_a)))*(1 + viscoelastic_buffering_gain*Abs(P_a - P_v)/(viscoelastic_pressure_scale + Abs(P_a - P_v))))",
+          "parent_reduction": "The parent is recovered when viscoelastic_buffering_gain = 0 or when viscoelastic_relaxation_time approaches 0 so P_v = P_a along the trajectory.",
+          "observable_signature": "During brief post-perturbation recordings, two segments can have similar P_a and H yet different dP_a_dt because fast early excursions have larger Abs(P_a - P_v) and therefore stronger buffering than slower late recovery. This changes the scored target mapping itself, not just an auxiliary trajectory, by making pressure rise-versus-recovery dynamics asymmetric under one fixed parameter set.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce this contrast across perturbation sharpness or across early-versus-late phases of the same transient because any static pressure-only compliance law assigns one unique dP_a_dt to each observed (P_a, H) pair. Refitting arterial_compliance or stiffening parameters changes that one map globally, but cannot simultaneously match extra damping during rapid excursions and near-parent behavior during slow recovery when P_a and H are similar but viscoelastic memory differs."
+        },
+        "range_suggestions": {
+          "P_v": "70 to 130",
+          "viscoelastic_relaxation_time": "0.5 to 20",
+          "viscoelastic_buffering_gain": "0 to 5",
+          "viscoelastic_pressure_scale": "1 to 50"
+        }
+      },
+      {
+        "generation": 5,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "interaction_emergence",
+            "parent_relation": "The target mapping uses a fixed systemic_vascular_resistance, so for given P_a and H the vascular outflow term P_a/systemic_vascular_resistance is independent of current baroreflex activation and pressure error.",
+            "child_relation": "Make effective vascular resistance depend on the same pressure-error-driven autonomic state that adjusts heart rate, so the pressure-to-dP_a_dt mapping changes jointly with H: during hypotensive excursions resistance rises and during hypertensive excursions it falls or relaxes toward baseline, altering outflow as an interacting reflex branch rather than a fixed environment.",
+            "affected_inputs": [
+              "P_a",
+              "H",
+              "pressure_set_point",
+              "systemic_vascular_resistance"
+            ],
+            "observable_effect": "After equal-magnitude pressure decreases versus increases from baseline, the child predicts asymmetric pressure recovery because vasoconstrictor support during low-pressure phases reduces outflow in addition to tachycardia, whereas the parent can only speed recovery through H and fixed outflow."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "pressure_error",
+              "expression": "P_a - pressure_set_point",
+              "role": "signed baroreflex stimulus"
+            },
+            {
+              "name": "normalized_baroreflex_drive",
+              "expression": "(P_a - pressure_set_point)/(1 + Abs(P_a - pressure_set_point)/baroreflex_saturation_pressure_scale)",
+              "role": "bounded fast reflex error signal already used in heart-rate control"
+            },
+            {
+              "name": "vascular_runoff",
+              "expression": "P_a/systemic_vascular_resistance",
+              "role": "parent fixed vascular outflow branch"
+            }
+          ],
+          "activation_condition": "Most visible for pressure perturbations large enough that autonomic feedback is engaged over several heart-rate adjustment times, especially when |P_a - pressure_set_point| is a non-negligible fraction of baroreflex_saturation_pressure_scale and runoff meaningfully contributes to dP_a_dt.",
+          "train_hidden_contrast": "In training near moderate deviations, the mechanism appears as faster-than-parent recovery from hypotension relative to hypertension at similar |pressure error|; in holdout with larger excursions the same reflex-resistance interaction amplifies that asymmetry as heart-rate sensitivity saturates.",
+          "continuation_path": "Recover the parent by taking the reflex resistance modulation gain to zero, or equivalently making the added vascular-control state relax instantly to its baseline no-effect value.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "A finite-timescale vascular sympathetic branch cannot be represented by refitting the fixed systemic_vascular_resistance alone, because the intended effect is dynamic and history-dependent during the transient; a state is needed to encode delayed vasomotor recruitment/relaxation.",
+          "gap_statement": "The model includes baroreflex control of heart rate but treats systemic vascular resistance as fixed, omitting short-timescale autonomic vasomotor adjustment that changes vascular outflow during the same perturbation.",
+          "baseline_assumption": "Stroke volume and systemic vascular resistance are fixed during the short experiment.",
+          "scientific_mechanism": "Baroreflex-mediated peripheral vasoconstriction/vasodilation with finite recruitment time, producing transient changes in effective systemic resistance alongside heart-rate control.",
+          "affected_symbols": [
+            "P_a",
+            "H",
+            "pressure_set_point",
+            "systemic_vascular_resistance",
+            "heart_rate_adjustment_time",
+            "baroreflex_saturation_pressure_scale"
+          ],
+          "rationale": "A realistic next refinement is to relax the fixed-resistance assumption rather than add an unrelated process. In the parent, varying P_a while holding the parameter set fixed changes dP_a_dt through two channels only: direct runoff P_a/systemic_vascular_resistance and the heart-rate trajectory H. Thus at matched observed P_a and H, the target slope is constrained by one fixed runoff law. In the child, pressure error also drives a vasomotor branch, so the same P_a and similar H can yield different dP_a_dt depending on whether the system is in a hypotensive recovery phase or hypertensive recovery phase and on recent pressure history. This is an actual target-mapping change, not merely an auxiliary trajectory change, because effective outflow entering dP_a_dt changes. The contrast is observable after brief positive versus negative pressure perturbations from the stated initial condition, with all fixed parameters shared: the child allows stronger support of pressure during low-pressure recovery and weaker support during high-pressure recovery, creating asymmetric return dynamics and altered damping. A single parent parameter set may mimic one side by changing systemic_vascular_resistance or baroreflex sensitivity, but cannot reproduce both the sign-dependent asymmetry and the finite recruitment lag across those conditions because its outflow branch is pressure-proportional with one shared constant resistance. The mechanism is admissible on short timescales and can be turned off continuously by zero modulation gain, recovering the parent law."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "interaction_emergence",
+            "parent_relation": "The target mapping uses a fixed systemic_vascular_resistance, so for given P_a and H the vascular outflow term P_a/systemic_vascular_resistance is independent of current baroreflex activation and pressure error.",
+            "child_relation": "Make effective vascular resistance depend on the same pressure-error-driven autonomic state that adjusts heart rate, so the pressure-to-dP_a_dt mapping changes jointly with H: during hypotensive excursions resistance rises and during hypertensive excursions it falls or relaxes toward baseline, altering outflow as an interacting reflex branch rather than a fixed environment.",
+            "affected_inputs": [
+              "P_a",
+              "H",
+              "pressure_set_point",
+              "systemic_vascular_resistance"
+            ],
+            "observable_effect": "After equal-magnitude pressure decreases versus increases from baseline, the child predicts asymmetric pressure recovery because vasoconstrictor support during low-pressure phases reduces outflow in addition to tachycardia, whereas the parent can only speed recovery through H and fixed outflow."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "pressure_error",
+              "expression": "P_a - pressure_set_point",
+              "role": "signed baroreflex stimulus"
+            },
+            {
+              "name": "normalized_baroreflex_drive",
+              "expression": "(P_a - pressure_set_point)/(1 + Abs(P_a - pressure_set_point)/baroreflex_saturation_pressure_scale)",
+              "role": "bounded fast reflex error signal already used in heart-rate control"
+            },
+            {
+              "name": "vascular_runoff",
+              "expression": "P_a/systemic_vascular_resistance",
+              "role": "parent fixed vascular outflow branch"
+            }
+          ],
+          "activation_condition": "Most visible for pressure perturbations large enough that autonomic feedback is engaged over several heart-rate adjustment times, especially when |P_a - pressure_set_point| is a non-negligible fraction of baroreflex_saturation_pressure_scale and runoff meaningfully contributes to dP_a_dt.",
+          "train_hidden_contrast": "In training near moderate deviations, the mechanism appears as faster-than-parent recovery from hypotension relative to hypertension at similar |pressure error|; in holdout with larger excursions the same reflex-resistance interaction amplifies that asymmetry as heart-rate sensitivity saturates.",
+          "continuation_path": "Recover the parent by taking the reflex resistance modulation gain to zero, or equivalently making the added vascular-control state relax instantly to its baseline no-effect value.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "A finite-timescale vascular sympathetic branch cannot be represented by refitting the fixed systemic_vascular_resistance alone, because the intended effect is dynamic and history-dependent during the transient; a state is needed to encode delayed vasomotor recruitment/relaxation.",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "P_a",
+            "H",
+            "R_v"
+          ],
+          "structural_role": "interaction",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "baroreflex vasomotor modulation of vascular runoff",
+          "scientific_mechanism": "Baroreflex-mediated peripheral vasoconstriction/vasodilation with finite recruitment time, producing transient changes in effective systemic resistance alongside heart-rate control.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "This is harder than a coefficient correction because the target equation now depends on a delayed internal control state that is itself generated by a bounded nonlinear reflex law and enters the runoff denominator through a saturating modulation. That creates history-dependent asymmetry in the scored mapping rather than a single shared runoff slope.",
+          "taxonomy_match": "known",
+          "assumption_before": "Systemic vascular resistance is a fixed environment during the transient.",
+          "assumption_after": "Systemic vascular resistance is dynamically modulated by a finite-timescale, saturating baroreflex vasomotor branch driven by pressure error.",
+          "before_fragment": "(stroke_volume*H/(seconds_per_minute*(1 + (H/resting_heart_rate)**2)) - P_a/systemic_vascular_resistance)/((arterial_compliance/(1 + arterial_stiffening_gain*P_a/(arterial_stiffening_pressure_scale + P_a)))*(1 + viscoelastic_buffering_gain*Abs(P_a - P_v)/(viscoelastic_pressure_scale + Abs(P_a - P_v))))",
+          "after_fragment": "(stroke_volume*H/(seconds_per_minute*(1 + (H/resting_heart_rate)**2)) - P_a/(systemic_vascular_resistance*(1 + reflex_resistance_gain*R_v/(1 + Abs(R_v)))))/((arterial_compliance/(1 + arterial_stiffening_gain*P_a/(arterial_stiffening_pressure_scale + P_a)))*(1 + viscoelastic_buffering_gain*Abs(P_a - P_v)/(viscoelastic_pressure_scale + Abs(P_a - P_v))))",
+          "parent_reduction": "Set reflex_resistance_gain = 0, or keep R_v identically zero, to recover the parent runoff law exactly.",
+          "observable_signature": "For trajectories starting from the shared baseline initial condition and subjected to brief positive versus negative pressure perturbations, matched current P_a and similar H can still yield different dP_a_dt because R_v carries delayed baroreflex vasomotor recruitment. The effect is strongest when |P_a - pressure_set_point| is appreciable relative to baroreflex_saturation_pressure_scale: hypotensive recovery shows smaller runoff and faster pressure support, while hypertensive recovery shows larger runoff or weaker support.",
+          "shortcut_blocked": "A single refitted parent parameter set cannot reproduce both the sign-dependent asymmetry and the recruitment lag across positive and negative perturbations, because its outflow branch is always P_a divided by one constant systemic_vascular_resistance. Adjusting baroreflex sensitivity or heart-rate timescale can reshape H, but cannot make runoff at the same P_a depend on recent pressure history or autonomic phase."
+        },
+        "range_suggestions": {
+          "R_v": "-3 to 3",
+          "vascular_resistance_adjustment_time": "1 to 30",
+          "reflex_resistance_gain": "0 to 3"
+        }
+      }
+    ],
+    "evolution_provenance": {
+      "dimension_track": null,
+      "mechanism_profile": {
+        "allowed_structural_roles": [
+          "response_law",
+          "modulation",
+          "constraint",
+          "feedback",
+          "timescale",
+          "transport_balance"
+        ],
+        "preferred_scopes": [
+          "unary",
+          "pairwise",
+          "state_coupling",
+          "memory"
+        ],
+        "domain_mechanisms": [
+          {
+            "id": "homeostatic_feedback",
+            "description": "negative feedback around a physiological set point",
+            "operations": [
+              "add_term"
+            ]
+          },
+          {
+            "id": "finite_reserve_capacity",
+            "description": "finite storage, transport, or organ capacity",
+            "operations": [
+              "add_term",
+              "change_assumption"
+            ]
+          },
+          {
+            "id": "delayed_regulatory_response",
+            "description": "finite regulatory response time",
+            "operations": [
+              "change_assumption"
+            ]
+          }
+        ],
+        "profile_source": "subfield",
+        "ontology_schema_version": "1.0",
+        "taxonomy_schema_version": "1.0"
+      },
+      "baseline_mechanisms": [
+        "Cardiac inflow that increases with heart rate under fixed stroke volume",
+        "Pressure-dependent vascular outflow through the systemic circulation",
+        "Pressure-sensitive autonomic adjustment of heart rate",
+        "Finite heart-rate adjustment time that permits coupled transient behavior"
+      ],
+      "baseline_assumptions": [
+        "Stroke volume and systemic vascular resistance are fixed during the short experiment.",
+        "Venous return is sufficient and does not become an independent limiting state.",
+        "The reflex is represented near one operating point without recruitment of slower hormonal control.",
+        "Arterial compliance is constant over the sampled pressure range."
+      ],
+      "scientific_constraints": [
+        "Arterial pressure and heart rate must remain nonnegative.",
+        "Higher arterial pressure must reduce the autonomic heart-rate drive in the baseline model.",
+        "Pressure accumulation must follow the direction of net vascular inflow.",
+        "The resting operating point must be stable under baseline parameter values."
+      ],
+      "refinement_agenda": [
+        "Allow systemic vascular resistance to become an autonomically controlled dynamic state.",
+        "Add a finite sensory or neural transmission delay.",
+        "Release the fixed-stroke-volume assumption to include contractility and filling effects.",
+        "Include slower blood-volume or hormonal pressure regulation for longer experiments.",
+        "Introduce nonlinear limits on minimum and maximum heart rate."
+      ],
+      "evolution_contracts": [
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The target mapping is linear in arterial pressure for fixed heart rate: dP_a_dt = (stroke_volume*H/seconds_per_minute)/arterial_compliance - P_a/(systemic_vascular_resistance*arterial_compliance), so vascular runoff has one constant slope with respect to P_a.",
+            "child_relation": "Relax constant arterial compliance so effective pressure storage changes with P_a; then the same net inflow-outflow is divided by a pressure-dependent compliance, making the dP_a_dt versus P_a relationship curved rather than a single straight line even when H is held fixed.",
+            "affected_inputs": [
+              "P_a",
+              "H",
+              "arterial_compliance"
+            ],
+            "observable_effect": "Across otherwise identical perturbations that visit lower versus higher pressure ranges, pressure decays faster per mmHg at high P_a than predicted by one shared linear runoff/storage slope, yielding asymmetric return-to-baseline curvature in dP_a_dt versus P_a."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "cardiac_inflow",
+              "expression": "stroke_volume*H/seconds_per_minute",
+              "role": "cardiac volume inflow to the arterial compartment"
+            },
+            {
+              "name": "vascular_outflow",
+              "expression": "P_a/systemic_vascular_resistance",
+              "role": "systemic runoff from the arterial compartment"
+            },
+            {
+              "name": "pressure_storage_ratio",
+              "expression": "P_a/arterial_compliance",
+              "role": "scale comparing pressure level to nominal arterial storage capacity"
+            }
+          ],
+          "activation_condition": "Observable when perturbations move P_a far enough from the set point that arterial wall stiffening over the visited pressure range is not negligible, while remaining within a short-term regime where stroke volume and systemic vascular resistance can still be treated as fixed.",
+          "train_hidden_contrast": "In training, moderate perturbations may already show slight asymmetry between recovery from above versus below baseline; in holdout, larger excursions amplify this same pressure-dependent storage effect rather than introducing a different mechanism.",
+          "continuation_path": "Recover the parent law in the limit of pressure-independent compliance over the sampled range.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "unary",
+          "scope_symbols": [
+            "P_a"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "saturating_or_thresholded",
+          "domain_mechanism": "bounded pressure-dependent arterial stiffening",
+          "scientific_mechanism": "Pressure-dependent arterial stiffening makes compliance decrease as arterial pressure rises, altering how net inflow translates into pressure change.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "This is harder than a coefficient-only correction because the pressure equation no longer has one shared linear storage slope: the sensitivity of dP_a_dt to P_a varies across the trajectory through a saturating denominator, changing both local slope and curvature of the scored mapping.",
+          "taxonomy_match": "known",
+          "assumption_before": "Arterial compliance is constant over the sampled pressure range.",
+          "assumption_after": "Effective arterial compliance decreases with pressure through a bounded saturating stiffening law.",
+          "before_fragment": "(stroke_volume*H/seconds_per_minute - P_a/systemic_vascular_resistance)/arterial_compliance",
+          "after_fragment": "(stroke_volume*H/seconds_per_minute - P_a/systemic_vascular_resistance)/(arterial_compliance/(1 + arterial_stiffening_gain*P_a/(arterial_stiffening_pressure_scale + P_a)))",
+          "parent_reduction": "Setting arterial_stiffening_gain = 0 recovers the parent expression exactly.",
+          "observable_signature": "With H, stroke_volume, systemic_vascular_resistance, and the heart-rate feedback law otherwise held fixed, dP_a_dt versus P_a is no longer a straight line over the sampled trajectory: elevated-pressure segments show larger-magnitude decay because effective compliance is smaller, while near-baseline segments remain closer to the parent linear law. This direct change appears in the scored target mapping itself, especially when trajectories span both moderate and high P_a relative to arterial_stiffening_pressure_scale.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce both near-baseline and high-pressure decay behavior because refitting arterial_compliance or systemic_vascular_resistance only rescales one constant slope in P_a. The child introduces pressure-dependent curvature in the target mapping, so matching faster decay at high P_a with the parent would necessarily misfit the lower-pressure portion of the same trajectory when the excursion is broad enough."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The pressure-to-heart-rate baroreflex drive is a single exponential of P_a-pressure_set_point with one fixed sensitivity, so the induced target mapping from (P_a,H) to dP_a_dt changes smoothly with one pressure scale through H alone.",
+            "child_relation": "Replace the single-slope baroreflex sensitivity with a pressure-dependent saturating reflex around the set point, so equal pressure deviations no longer produce proportional changes in autonomic heart-rate drive across the whole range; near-set-point deviations remain sensitive while larger deviations compress the heart-rate response and thus alter the curvature of the mapping from P_a to dP_a_dt.",
+            "affected_inputs": [
+              "P_a",
+              "H",
+              "baroreflex_pressure_sensitivity",
+              "pressure_set_point"
+            ],
+            "observable_effect": "For small versus large pressure perturbations from the same initial range, the child predicts similar local recovery near baseline but weaker additional bradycardic/tachycardic drive at larger |P_a-pressure_set_point|, yielding less extreme pressure deceleration/acceleration than the parent with one shared sensitivity can match across both regimes."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "pressure_error",
+              "expression": "P_a - pressure_set_point",
+              "role": "Signed baroreflex stimulus relative to the homeostatic operating point"
+            },
+            {
+              "name": "stiffened_compliance_factor",
+              "expression": "1 + arterial_stiffening_gain*P_a/(arterial_stiffening_pressure_scale + P_a)",
+              "role": "Existing pressure-dependent amplification of how net flow changes pressure through reduced compliance"
+            },
+            {
+              "name": "cardiac_minus_runoff",
+              "expression": "stroke_volume*H/seconds_per_minute - P_a/systemic_vascular_resistance",
+              "role": "Net volumetric inflow to the arterial compartment before compliance scaling"
+            }
+          ],
+          "activation_condition": "Observable when pressure perturbations span both near-set-point and larger deviations, roughly when |P_a-pressure_set_point| reaches the inverse baroreflex sensitivity scale so the reflex begins to compress while arterial pressure and heart rate stay positive.",
+          "train_hidden_contrast": "In training, moderate perturbations show near-linearized reflex recovery; in holdout, larger perturbations expose that the same reflex cannot keep increasing exponentially and instead saturates, changing the pressure-recovery curvature rather than merely shifting time scale.",
+          "continuation_path": "In the limit where the new saturation scale is very large, the reflex law reduces to the parent's single exponential sensitivity over the sampled range.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "P_a",
+            "H"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "pressure-dependent saturation of fast baroreflex chronotropic control",
+          "scientific_mechanism": "Fast baroreflex efferent saturation/recruitment limits the incremental heart-rate response at larger pressure errors, producing a bounded local gain rather than one constant exponential sensitivity across the full sampled pressure range.",
+          "embedding_pattern": "state_coupling",
+          "difficulty_rationale": "This is harder than a coefficient-only correction because the reflex gain now depends jointly on the pressure error magnitude and the baseline exponential baroreflex term, changing curvature across perturbation amplitudes rather than just rescaling one time constant or one sensitivity.",
+          "taxonomy_match": "known",
+          "assumption_before": "The reflex is represented with one fixed pressure sensitivity over the full sampled pressure range.",
+          "assumption_after": "The fast baroreflex has pressure-dependent saturating sensitivity, remaining steep near the set point and compressing at larger pressure errors.",
+          "before_fragment": "(stroke_volume*H/seconds_per_minute - P_a/systemic_vascular_resistance)/(arterial_compliance/(1 + arterial_stiffening_gain*P_a/(arterial_stiffening_pressure_scale + P_a)))",
+          "after_fragment": "(stroke_volume*H/seconds_per_minute - P_a/systemic_vascular_resistance)/(arterial_compliance/(1 + arterial_stiffening_gain*P_a/(arterial_stiffening_pressure_scale + P_a)))",
+          "parent_reduction": "When baroreflex_saturation_pressure_scale is very large compared with |P_a-pressure_set_point| throughout the observation window, the modified H equation reduces to the parent's baroreflex law and therefore the target equation follows the parent dynamics.",
+          "observable_signature": "Comparing small and large pressure excursions under the same fixed parameter set, the child preserves near-baseline recovery slope but shows compressed heart-rate excursions and therefore weaker secondary changes in dP_a_dt once |P_a-pressure_set_point| becomes large enough for saturation; the parent cannot match both local and large-error curvature with one shared sensitivity.",
+          "shortcut_blocked": "Refitting all parent parameters still leaves one fixed baroreflex sensitivity in the H law, so any parameter set that matches near-set-point recovery slope will overpredict large-error autonomic drive, while a set tuned to compress large-error responses will flatten the local recovery too much. Because dP_a_dt depends on H through cardiac inflow, this mismatch changes the target mapping itself, not only an auxiliary trajectory."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "interaction_emergence",
+            "parent_relation": "The pressure equation maps heart rate to pressure rise with a pressure-only compliance term, so for a given H and P_a the conversion from net inflow to dP_a_dt is independent of recent filling history.",
+            "child_relation": "Make effective cardiac inflow depend on the current heart rate through rate-dependent filling limitation, so the mapping from H to dP_a_dt bends downward at high H and interacts with P_a through the existing outflow and compliance terms.",
+            "affected_inputs": [
+              "H",
+              "P_a",
+              "stroke_volume"
+            ],
+            "observable_effect": "After a perturbation that triggers tachycardia, the child predicts weaker pressure recovery gain and smaller overshoot at high H than at moderate H, even when pressure is similar; the parent keeps a linear H-to-inflow conversion and cannot produce this selective compression."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "net_flow_parent",
+              "expression": "stroke_volume*H/seconds_per_minute - P_a/systemic_vascular_resistance",
+              "role": "Current net arterial inflow-outflow balance driving pressure"
+            },
+            {
+              "name": "rate_load",
+              "expression": "H/resting_heart_rate",
+              "role": "Dimensionless tachycardic loading relative to baseline filling time"
+            },
+            {
+              "name": "pressure_error",
+              "expression": "P_a - pressure_set_point",
+              "role": "Baroreflex activation coordinate that co-varies with tachycardic recovery episodes"
+            }
+          ],
+          "activation_condition": "Observable when baroreflex-driven heart rate rises appreciably above resting level during the transient, so diastolic filling time shortens; weak near baseline or purely bradycardic responses.",
+          "train_hidden_contrast": "In ordinary training perturbations with modest pressure errors, mild tachycardia already introduces slight sublinearity of pressure recovery versus H; in stronger holdout perturbations the same mechanism extends to clearer saturation of pressure restoration and reduced pressure overshoot.",
+          "continuation_path": "Recover the parent law in the limit of negligible rate-dependent filling effect, so effective stroke volume becomes constant over the sampled H range.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "pairwise",
+          "scope_symbols": [
+            "H",
+            "P_a"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Rate-dependent ventricular filling limitation during tachycardia",
+          "scientific_mechanism": "Rate-dependent reduction of effective stroke volume from limited diastolic filling during tachycardia.",
+          "embedding_pattern": "nested_nonlinearity",
+          "difficulty_rationale": "This is harder than a coefficient-only correction because H is first normalized by resting_heart_rate and then passed through a nonlinear filling factor before multiplying the inflow term, creating a state-dependent slope change in the scored target mapping rather than a uniform rescaling.",
+          "taxonomy_match": "known",
+          "assumption_before": "Stroke volume is fixed during the short experiment.",
+          "assumption_after": "Effective stroke volume decreases nonlinearly with heart rate because shortened diastolic filling at tachycardia limits beat volume.",
+          "before_fragment": "(stroke_volume*H/seconds_per_minute - P_a/systemic_vascular_resistance)/(arterial_compliance/(1 + arterial_stiffening_gain*P_a/(arterial_stiffening_pressure_scale + P_a)))",
+          "after_fragment": "(stroke_volume*H/(seconds_per_minute*(1 + (H/resting_heart_rate)**2)) - P_a/systemic_vascular_resistance)/(arterial_compliance/(1 + arterial_stiffening_gain*P_a/(arterial_stiffening_pressure_scale + P_a)))",
+          "parent_reduction": "The child approaches the parent when H/resting_heart_rate remains small over the observed trajectory, so the filling factor 1/(1 + (H/resting_heart_rate)**2) stays near 1.",
+          "observable_signature": "Holding P_a fixed, the parent gives a linear increase of dP_a_dt with H, while the child shows low-H near-linearity but high-H compression from the nested factor H/(1 + (H/resting_heart_rate)**2). Along transients that reach similar pressures but different tachycardic levels, the child therefore predicts weaker pressure restoration and smaller overshoot at the higher H.",
+          "shortcut_blocked": "A single parent parameter refit cannot match both regimes because changing stroke_volume rescales the H effect uniformly at all heart rates, and changing systemic_vascular_resistance or compliance only shifts pressure dependence. The child's selective flattening at elevated H changes the target mapping from observed H and P_a to dP_a_dt itself, so one shared parent parameter set cannot reproduce near-baseline gain together with high-H compression across these conditions."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "interaction_emergence",
+            "parent_relation": "The target mapping uses a pressure-dependent compliance only: for a given net inflow term and pressure, dP_a_dt is determined without any dependence on recent pressure-change history.",
+            "child_relation": "Retain pressure-dependent compliance but let effective arterial buffering also depend on the recent rate of pressure change through viscoelastic wall relaxation, so the same P_a and H can produce different dP_a_dt during fast upstrokes versus slower recovery.",
+            "affected_inputs": [
+              "P_a",
+              "H",
+              "arterial_compliance"
+            ],
+            "observable_effect": "After a brief perturbation, early rapid pressure excursions become more damped and phase-lagged than slower near-set-point motion; the pressure trajectory shows asymmetric rise-versus-recovery dynamics that the parent cannot match with one shared compliance law."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "net_flow_to_pressure",
+              "expression": "stroke_volume*H/(seconds_per_minute*(1 + (H/resting_heart_rate)**2)) - P_a/systemic_vascular_resistance",
+              "role": "Instantaneous cardiac inflow minus vascular outflow driving arterial pressure"
+            },
+            {
+              "name": "stiffened_inverse_compliance",
+              "expression": "(1 + arterial_stiffening_gain*P_a/(arterial_stiffening_pressure_scale + P_a))/arterial_compliance",
+              "role": "Pressure-to-volume conversion factor already present in the parent"
+            },
+            {
+              "name": "baroreflex_error",
+              "expression": "P_a - pressure_set_point",
+              "role": "Pressure deviation that sets reflex heart-rate correction and identifies recovery regime"
+            }
+          ],
+          "activation_condition": "Observable when the perturbation creates sufficiently rapid pressure transients on a timescale not much slower than the arterial wall stress-relaxation time, especially during the initial post-perturbation excursion and any damped oscillatory return.",
+          "train_hidden_contrast": "In training, modest perturbations already show slight phase lag and extra damping during the fastest segments; in holdout, larger or sharper transients extend the same dependence on recent pressure-change rate, revealing history-dependent pressure buffering beyond the parent's static compliance curve.",
+          "continuation_path": "Recover the parent by taking the viscoelastic relaxation effect to zero or its relaxation time to vanish so effective compliance becomes an instantaneous function of P_a only.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "A viscoelastic memory effect is history-dependent and cannot be represented by the existing instantaneous states alone without introducing a dynamic wall-strain or delayed-pressure state that stores recent deformation.",
+          "scope_kind": "memory",
+          "scope_symbols": [
+            "P_a",
+            "P_v",
+            "H"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "arterial wall viscoelastic stress relaxation modulating effective compliance",
+          "scientific_mechanism": "Short-timescale arterial viscoelasticity: vessel walls do not equilibrate elastically instantly, so effective compliance during a rapid pressure rise differs from that during slower recovery at the same mean pressure.",
+          "embedding_pattern": "multiplicative_modulation",
+          "difficulty_rationale": "This embedding is structurally harder than a coefficient-only correction because the target derivative is no longer a unique instantaneous function of P_a and H: a latent relaxing state multiplicatively modulates the existing compliance process, creating phase-dependent damping that cannot be collapsed into one static pressure-only curve.",
+          "taxonomy_match": "known",
+          "assumption_before": "Arterial compliance is determined immediately by the current pressure alone, with no dynamic wall relaxation or hysteresis during the sampled transient.",
+          "assumption_after": "Effective arterial compliance remains pressure-dependent but is further modulated by mismatch between current pressure and a relaxing viscoelastic wall-memory state.",
+          "before_fragment": "(stroke_volume*H/(seconds_per_minute*(1 + (H/resting_heart_rate)**2)) - P_a/systemic_vascular_resistance)/(arterial_compliance/(1 + arterial_stiffening_gain*P_a/(arterial_stiffening_pressure_scale + P_a)))",
+          "after_fragment": "(stroke_volume*H/(seconds_per_minute*(1 + (H/resting_heart_rate)**2)) - P_a/systemic_vascular_resistance)/((arterial_compliance/(1 + arterial_stiffening_gain*P_a/(arterial_stiffening_pressure_scale + P_a)))*(1 + viscoelastic_buffering_gain*Abs(P_a - P_v)/(viscoelastic_pressure_scale + Abs(P_a - P_v))))",
+          "parent_reduction": "The parent is recovered when viscoelastic_buffering_gain = 0 or when viscoelastic_relaxation_time approaches 0 so P_v = P_a along the trajectory.",
+          "observable_signature": "During brief post-perturbation recordings, two segments can have similar P_a and H yet different dP_a_dt because fast early excursions have larger Abs(P_a - P_v) and therefore stronger buffering than slower late recovery. This changes the scored target mapping itself, not just an auxiliary trajectory, by making pressure rise-versus-recovery dynamics asymmetric under one fixed parameter set.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce this contrast across perturbation sharpness or across early-versus-late phases of the same transient because any static pressure-only compliance law assigns one unique dP_a_dt to each observed (P_a, H) pair. Refitting arterial_compliance or stiffening parameters changes that one map globally, but cannot simultaneously match extra damping during rapid excursions and near-parent behavior during slow recovery when P_a and H are similar but viscoelastic memory differs."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "interaction_emergence",
+            "parent_relation": "The target mapping uses a fixed systemic_vascular_resistance, so for given P_a and H the vascular outflow term P_a/systemic_vascular_resistance is independent of current baroreflex activation and pressure error.",
+            "child_relation": "Make effective vascular resistance depend on the same pressure-error-driven autonomic state that adjusts heart rate, so the pressure-to-dP_a_dt mapping changes jointly with H: during hypotensive excursions resistance rises and during hypertensive excursions it falls or relaxes toward baseline, altering outflow as an interacting reflex branch rather than a fixed environment.",
+            "affected_inputs": [
+              "P_a",
+              "H",
+              "pressure_set_point",
+              "systemic_vascular_resistance"
+            ],
+            "observable_effect": "After equal-magnitude pressure decreases versus increases from baseline, the child predicts asymmetric pressure recovery because vasoconstrictor support during low-pressure phases reduces outflow in addition to tachycardia, whereas the parent can only speed recovery through H and fixed outflow."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "pressure_error",
+              "expression": "P_a - pressure_set_point",
+              "role": "signed baroreflex stimulus"
+            },
+            {
+              "name": "normalized_baroreflex_drive",
+              "expression": "(P_a - pressure_set_point)/(1 + Abs(P_a - pressure_set_point)/baroreflex_saturation_pressure_scale)",
+              "role": "bounded fast reflex error signal already used in heart-rate control"
+            },
+            {
+              "name": "vascular_runoff",
+              "expression": "P_a/systemic_vascular_resistance",
+              "role": "parent fixed vascular outflow branch"
+            }
+          ],
+          "activation_condition": "Most visible for pressure perturbations large enough that autonomic feedback is engaged over several heart-rate adjustment times, especially when |P_a - pressure_set_point| is a non-negligible fraction of baroreflex_saturation_pressure_scale and runoff meaningfully contributes to dP_a_dt.",
+          "train_hidden_contrast": "In training near moderate deviations, the mechanism appears as faster-than-parent recovery from hypotension relative to hypertension at similar |pressure error|; in holdout with larger excursions the same reflex-resistance interaction amplifies that asymmetry as heart-rate sensitivity saturates.",
+          "continuation_path": "Recover the parent by taking the reflex resistance modulation gain to zero, or equivalently making the added vascular-control state relax instantly to its baseline no-effect value.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "A finite-timescale vascular sympathetic branch cannot be represented by refitting the fixed systemic_vascular_resistance alone, because the intended effect is dynamic and history-dependent during the transient; a state is needed to encode delayed vasomotor recruitment/relaxation.",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "P_a",
+            "H",
+            "R_v"
+          ],
+          "structural_role": "interaction",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "baroreflex vasomotor modulation of vascular runoff",
+          "scientific_mechanism": "Baroreflex-mediated peripheral vasoconstriction/vasodilation with finite recruitment time, producing transient changes in effective systemic resistance alongside heart-rate control.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "This is harder than a coefficient correction because the target equation now depends on a delayed internal control state that is itself generated by a bounded nonlinear reflex law and enters the runoff denominator through a saturating modulation. That creates history-dependent asymmetry in the scored mapping rather than a single shared runoff slope.",
+          "taxonomy_match": "known",
+          "assumption_before": "Systemic vascular resistance is a fixed environment during the transient.",
+          "assumption_after": "Systemic vascular resistance is dynamically modulated by a finite-timescale, saturating baroreflex vasomotor branch driven by pressure error.",
+          "before_fragment": "(stroke_volume*H/(seconds_per_minute*(1 + (H/resting_heart_rate)**2)) - P_a/systemic_vascular_resistance)/((arterial_compliance/(1 + arterial_stiffening_gain*P_a/(arterial_stiffening_pressure_scale + P_a)))*(1 + viscoelastic_buffering_gain*Abs(P_a - P_v)/(viscoelastic_pressure_scale + Abs(P_a - P_v))))",
+          "after_fragment": "(stroke_volume*H/(seconds_per_minute*(1 + (H/resting_heart_rate)**2)) - P_a/(systemic_vascular_resistance*(1 + reflex_resistance_gain*R_v/(1 + Abs(R_v)))))/((arterial_compliance/(1 + arterial_stiffening_gain*P_a/(arterial_stiffening_pressure_scale + P_a)))*(1 + viscoelastic_buffering_gain*Abs(P_a - P_v)/(viscoelastic_pressure_scale + Abs(P_a - P_v))))",
+          "parent_reduction": "Set reflex_resistance_gain = 0, or keep R_v identically zero, to recover the parent runoff law exactly.",
+          "observable_signature": "For trajectories starting from the shared baseline initial condition and subjected to brief positive versus negative pressure perturbations, matched current P_a and similar H can still yield different dP_a_dt because R_v carries delayed baroreflex vasomotor recruitment. The effect is strongest when |P_a - pressure_set_point| is appreciable relative to baroreflex_saturation_pressure_scale: hypotensive recovery shows smaller runoff and faster pressure support, while hypertensive recovery shows larger runoff or weaker support.",
+          "shortcut_blocked": "A single refitted parent parameter set cannot reproduce both the sign-dependent asymmetry and the recruitment lag across positive and negative perturbations, because its outflow branch is always P_a divided by one constant systemic_vascular_resistance. Adjusting baroreflex sensitivity or heart-rate timescale can reshape H, but cannot make runoff at the same P_a depend on recent pressure history or autonomic phase."
+        }
+      ]
+    },
+    "finalization": {
+      "mode": "candidate",
+      "accepted_generations": 5,
+      "novelty": {
+        "answer": "NOT_EVALUATED"
+      },
+      "total_points": 5000,
+      "evaluation_status": "not_evaluated"
+    }
+  },
+  "contract": {
+    "features": [
+      "t",
+      "P_a",
+      "H",
+      "P_v",
+      "R_v"
+    ],
+    "target": "dP_a_dt",
+    "family": "ode",
+    "expression": "(stroke_volume*H/(seconds_per_minute*(1 + (H/resting_heart_rate)**2)) - P_a/(systemic_vascular_resistance*(1 + reflex_resistance_gain*R_v/(1 + Abs(R_v)))))/((arterial_compliance/(1 + arterial_stiffening_gain*P_a/(arterial_stiffening_pressure_scale + P_a)))*(1 + viscoelastic_buffering_gain*Abs(P_a - P_v)/(viscoelastic_pressure_scale + Abs(P_a - P_v))))",
+    "parameters": {
+      "stroke_volume": 70.0,
+      "seconds_per_minute": 60.0,
+      "systemic_vascular_resistance": 1.2,
+      "arterial_compliance": 1.6,
+      "resting_heart_rate": 70.0,
+      "pressure_set_point": 100.0,
+      "baroreflex_pressure_sensitivity": 0.03,
+      "heart_rate_adjustment_time": 3.5,
+      "arterial_stiffening_gain": 3.0,
+      "arterial_stiffening_pressure_scale": 80.0,
+      "baroreflex_saturation_pressure_scale": 25.0,
+      "viscoelastic_relaxation_time": 5.0,
+      "viscoelastic_buffering_gain": 1.0,
+      "viscoelastic_pressure_scale": 15.0,
+      "vascular_resistance_adjustment_time": 8.0,
+      "reflex_resistance_gain": 1.2
+    },
+    "implicit_branch": null
+  }
+}

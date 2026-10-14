@@ -1,0 +1,1696 @@
+{
+  "version": 7,
+  "spec": {
+    "equation_type": "ode_system",
+    "integrator": "integrate_system",
+    "dependent_variable": "N_P",
+    "independent_variables": [
+      {
+        "symbol": "t",
+        "range": [
+          0.0,
+          80.0
+        ],
+        "n_points": 400,
+        "scale": "linear"
+      }
+    ],
+    "parameters": [
+      {
+        "symbol": "lambda_P",
+        "value": 0.08
+      },
+      {
+        "symbol": "lambda_D",
+        "value": 0.03
+      },
+      {
+        "symbol": "k_damage_build",
+        "value": 0.00012
+      },
+      {
+        "symbol": "k_damage_relax",
+        "value": 0.18
+      },
+      {
+        "symbol": "alpha_damage",
+        "value": 0.6
+      },
+      {
+        "symbol": "k_damage_adapt",
+        "value": 0.12
+      }
+    ],
+    "benchmark_output": "dN_P_dt",
+    "benchmark_target_state": "N_P",
+    "observed_variables": [
+      "t",
+      "N_P",
+      "N_D",
+      "M_damage",
+      "M_eff_damage"
+    ],
+    "rhs_for_integrator": "-lambda_P * (1 + alpha_damage * (1 + N_D/(1 + N_D)) * M_eff_damage**2/((1 + M_eff_damage**2) * (1 + M_eff_damage**2/(1 + M_eff_damage**2)))) * N_P",
+    "state_variables": [
+      "N_P",
+      "N_D",
+      "M_damage",
+      "M_eff_damage"
+    ],
+    "state_rhs": [
+      "-lambda_P * (1 + alpha_damage * (1 + N_D/(1 + N_D)) * M_eff_damage**2/((1 + M_eff_damage**2) * (1 + M_eff_damage**2/(1 + M_eff_damage**2)))) * N_P",
+      "lambda_P * (1 + alpha_damage * (1 + N_D/(1 + N_D)) * M_eff_damage**2/((1 + M_eff_damage**2) * (1 + M_eff_damage**2/(1 + M_eff_damage**2)))) * N_P - lambda_D * N_D",
+      "k_damage_build * N_D - k_damage_relax * M_damage",
+      "k_damage_adapt * (1 + tanh(M_damage)) * (M_damage - M_eff_damage)"
+    ],
+    "initial_conditions": {
+      "N_P": 100000.0,
+      "N_D": 0.0,
+      "M_damage": 0.0,
+      "M_eff_damage": 0.0
+    },
+    "sanity_expectations": [
+      "At t=0, N_D = M_damage = M_eff_damage = 0, so dN_P/dt starts exactly at -lambda_P*N_P(0) = -8000 before any daughter-mediated modification activates.",
+      "Because lambda_D < lambda_P and N_D(0)=0, N_D should rise from zero at early times before eventually declining; the target derivative magnitude |dN_P/dt| should initially track near-baseline decay and then become more negative as daughter burden and effective damage build.",
+      "M_damage should lag N_D and M_eff_damage should lag M_damage because their equations contain finite relaxation/adaptation rates; therefore equal N_P at different times need not imply equal dN_P/dt.",
+      "The damage modifier is quadratic in small M_eff_damage, so the earliest deviation from baseline should be weak rather than immediate linear bending in M_eff_damage.",
+      "As M_eff_damage reaches moderate values, the hazard enhancement should increase, but the added attenuation factor means the incremental steepening at larger M_eff_damage is softer than in the previous monotone parent generation; late-time curvature should show flattening of the damage effect rather than unchecked approach to a single stronger monotone gain.",
+      "All sampled outputs should remain real and finite for the chosen parameter set over the stated time window."
+    ],
+    "role_corrections": [
+      "dN_P_dt: claimed-output/target derivative -> derived quantity from system RHS (confirmed as scored derivative, not dependent variable)",
+      "t: claimed-input/time axis -> independent variable (confirmed)",
+      "N_P: claimed-dynamic state -> dependent variable/target_state within ode_system (confirmed)",
+      "N_D: claimed-dynamic state -> dynamic state in ode_system (confirmed)",
+      "M_damage: claimed-dynamic state -> dynamic state in ode_system (confirmed)",
+      "M_eff_damage: claimed-dynamic state -> dynamic state in ode_system (confirmed)",
+      "lambda_P: claimed-parameter -> parameter (confirmed)",
+      "lambda_D: claimed-parameter -> parameter (confirmed)",
+      "k_damage_build: claimed-parameter -> parameter (confirmed)",
+      "k_damage_relax: claimed-parameter -> parameter (confirmed)",
+      "alpha_damage: claimed-parameter -> parameter (confirmed)",
+      "k_damage_adapt: claimed-parameter -> parameter (confirmed)"
+    ],
+    "rationale": "The provided ODE system contract is preserved exactly as required. Although the target expression alone is structurally an explicit algebraic formula for dN_P_dt, the record explicitly supplies a validated coupled ODE-system contract and requires using it; with freedom_change = none, the declared dynamic states remain sampled through time and the listed parameters remain fixed. I choose a single time axis t in [0,80] with 400 points to capture: (i) baseline parent depletion on timescale 1/lambda_P ≈ 12.5, (ii) slower daughter buildup because lambda_D < lambda_P, and (iii) finite lag in hazard modification because k_damage_adapt and k_damage_relax are comparable to lambda_P rather than asymptotically fast. The parameter set is chosen to avoid the recovery limits alpha_damage -> 0, negligible daughter residence, or ultrafast adaptation, while also avoiding complete deep saturation. With N_P(0)=1e5 and N_D(0)=0, daughter production initially rises from zero, driving M_damage through k_damage_build*N_D; the small but nonzero k_damage_build keeps M_damage and M_eff_damage in an order-unity-to-few regime over the window rather than exploding, which is important because the distinguishing successor mechanism is a self-passivating high-damage attenuation layered on top of the earlier daughter-conditioned gain. The chosen values therefore expose three visible stages in one trajectory: early near-baseline parent decay when N_D and damage states are tiny; an intermediate acceleration phase as daughter burden and effective damage grow; and a later softened response where further increases in M_eff_damage have reduced marginal effect because the added attenuation factor suppresses the pure monotone gain inherited from the parent generation. Generation-1 and generation-2 mechanisms remain active and visible here: daughter accumulation matters because lambda_D is not overwhelmingly large, and effective damage lags raw damage because k_damage_adapt is finite. Generation-3 threshold-like onset is also visible because the hazard modifier is quadratic in small M_eff_damage. Generation-4 daughter-conditioned efficacy is active whenever N_D becomes appreciable. The current generation-5 effect supersedes the previous purely monotone damage-response assumption but does not erase those earlier dependencies; instead it modifies the late-time curvature after damage reaches moderate levels. Weak/inactive limit cases are intentionally avoided: alpha_damage is not near zero, lambda_D is not so large that daughters stay negligible, and k_damage_adapt is not so large that M_eff_damage instantaneously tracks M_damage.",
+    "coverage_report": {
+      "groups": [
+        {
+          "generation": 1,
+          "name": "daughter_loading",
+          "expression": "N_D/N_P",
+          "role": "Dimensionless accumulated daughter burden relative to remaining parent, indicating when daughter-mediated environmental modification can affect parent loss.",
+          "train_range": [
+            0.0,
+            1333.9345640884178
+          ],
+          "hidden_range": [
+            1336.027274170089,
+            2919.5487375574403
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0,
+            "max": 1333.9345640884178,
+            "q05": 0.3559604401485455,
+            "median": 37.97476512542892,
+            "q95": 937.3598131590137,
+            "range": 1333.9345640884178,
+            "robust_range": 937.0038527188651
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 1336.027274170089,
+            "max": 2919.5487375574403,
+            "q05": 1389.31484868797,
+            "median": 1975.2368618323105,
+            "q95": 2807.7012755510896,
+            "range": 1583.5214633873513,
+            "robust_range": 1418.3864268631196
+          }
+        },
+        {
+          "generation": 1,
+          "name": "chain_activity_ratio",
+          "expression": "lambda_D*N_D/(lambda_P*N_P)",
+          "role": "Compares daughter removal activity to parent disappearance activity; marks regimes with substantial daughter presence and therefore observable departure from fixed-hazard parent decay.",
+          "train_range": [
+            0.0,
+            500.22546153315665
+          ],
+          "hidden_range": [
+            501.0102278137833,
+            1094.8307765840402
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0,
+            "max": 500.22546153315665,
+            "q05": 0.13348516505570457,
+            "median": 14.240536922035842,
+            "q95": 351.5099299346301,
+            "range": 500.22546153315665,
+            "robust_range": 351.3764447695744
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 501.0102278137833,
+            "max": 1094.8307765840402,
+            "q05": 520.9930682579887,
+            "median": 740.7138231871163,
+            "q95": 1052.8879783316584,
+            "range": 593.8205487702569,
+            "robust_range": 531.8949100736696
+          }
+        },
+        {
+          "generation": 2,
+          "name": "damage_load",
+          "expression": "M_damage",
+          "role": "instantaneous accumulated modification level controlling the current hazard in the parent law",
+          "train_range": [
+            0.0,
+            39.55935964985489
+          ],
+          "hidden_range": [
+            9.781879414223598,
+            12.410645648497196
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0,
+            "max": 39.55935964985489,
+            "q05": 4.576226351190964,
+            "median": 25.58832348452498,
+            "q95": 39.35991622683378,
+            "range": 39.55935964985489,
+            "robust_range": 34.78368987564282
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 9.781879414223598,
+            "max": 12.410645648497196,
+            "q05": 9.899231358104824,
+            "median": 11.019719388405463,
+            "q95": 12.264195798201415,
+            "range": 2.6287662342735985,
+            "robust_range": 2.364964440096591
+          }
+        },
+        {
+          "generation": 2,
+          "name": "daughter_drive",
+          "expression": "N_D",
+          "role": "current source strength for further damage buildup",
+          "train_range": [
+            0.0,
+            63802.939114232264
+          ],
+          "hidden_range": [
+            12237.467837272152,
+            15541.165184548978
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0,
+            "max": 63802.939114232264,
+            "q05": 16178.120298833868,
+            "median": 38236.98641188351,
+            "q95": 63407.06901648084,
+            "range": 63802.939114232264,
+            "robust_range": 47228.94871764697
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 12237.467837272152,
+            "max": 15541.165184548978,
+            "q05": 12384.684193957768,
+            "median": 13791.446230105852,
+            "q95": 15356.72976280674,
+            "range": 3303.697347276826,
+            "robust_range": 2972.045568848973
+          }
+        },
+        {
+          "generation": 2,
+          "name": "hazard_source",
+          "expression": "lambda_P*(1 + alpha_damage*tanh(M_damage))",
+          "role": "parent-model effective decay hazard before the proposed refinement",
+          "train_range": [
+            0.08,
+            0.128
+          ],
+          "hidden_range": [
+            0.12799999969391734,
+            0.12799999999840586
+          ],
+          "train_status": "inactive",
+          "hidden_status": "inactive",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.08,
+            "max": 0.128,
+            "q05": 0.12798982764346253,
+            "median": 0.128,
+            "q95": 0.128,
+            "range": 0.048,
+            "robust_range": 1.0172356537468952e-05
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.12799999969391734,
+            "max": 0.12799999999840586,
+            "q05": 0.12799999975794776,
+            "median": 0.12799999997425632,
+            "q95": 0.12799999999786338,
+            "range": 3.0448851773279273e-10,
+            "robust_range": 2.399156151522419e-10
+          }
+        },
+        {
+          "generation": 3,
+          "name": "hazard_factor_current",
+          "expression": "1 + alpha_damage*tanh(M_eff_damage)",
+          "role": "Current effective multiplicative parent hazard law",
+          "train_range": [
+            1.0,
+            1.6
+          ],
+          "hidden_range": [
+            1.5999999997603527,
+            1.5999999999993855
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 1.0,
+            "max": 1.6,
+            "q05": 1.4831235704074017,
+            "median": 1.6,
+            "q95": 1.6,
+            "range": 0.6000000000000001,
+            "robust_range": 0.11687642959259836
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 1.5999999997603527,
+            "max": 1.5999999999993855,
+            "q05": 1.5999999998165026,
+            "median": 1.5999999999856205,
+            "q95": 1.599999999999144,
+            "range": 2.390327935586356e-10,
+            "robust_range": 1.8264145751345495e-10
+          }
+        },
+        {
+          "generation": 3,
+          "name": "damage_state",
+          "expression": "M_eff_damage",
+          "role": "Observed effective environmental damage controlling parent hazard",
+          "train_range": [
+            0.0,
+            38.3037140704526
+          ],
+          "hidden_range": [
+            11.16708700054047,
+            14.150253757283878
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0,
+            "max": 38.3037140704526,
+            "q05": 1.113250316109256,
+            "median": 25.503363527369487,
+            "q95": 38.12661077978899,
+            "range": 38.3037140704526,
+            "robust_range": 37.01336046367973
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 11.16708700054047,
+            "max": 14.150253757283878,
+            "q05": 11.300572571117664,
+            "median": 12.573775889074595,
+            "q95": 13.984510944440617,
+            "range": 2.983166756743408,
+            "robust_range": 2.6839383733229525
+          }
+        },
+        {
+          "generation": 3,
+          "name": "daughter_loading_ratio",
+          "expression": "k_damage_build*N_D/(k_damage_relax + lambda_D)",
+          "role": "Proxy for whether daughter presence can sustain enough damage buildup to reach the hazard-activation regime",
+          "train_range": [
+            0.0,
+            36.45882235098987
+          ],
+          "hidden_range": [
+            6.992838764155516,
+            8.880665819742273
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0,
+            "max": 36.45882235098987,
+            "q05": 9.24464017076221,
+            "median": 21.849706521076296,
+            "q95": 36.23261086656049,
+            "range": 36.45882235098987,
+            "robust_range": 26.987970695798282
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 6.992838764155516,
+            "max": 8.880665819742273,
+            "q05": 7.076962396547296,
+            "median": 7.880826417203345,
+            "q95": 8.77527415017528,
+            "range": 1.8878270555867571,
+            "robust_range": 1.6983117536279835
+          }
+        },
+        {
+          "generation": 4,
+          "name": "damage_level",
+          "expression": "M_eff_damage",
+          "role": "Current effective environmental damage presented to the parent hazard",
+          "train_range": [
+            0.0,
+            38.3037140704526
+          ],
+          "hidden_range": [
+            11.16708700054047,
+            14.150253757283878
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0,
+            "max": 38.3037140704526,
+            "q05": 1.113250316109256,
+            "median": 25.503363527369487,
+            "q95": 38.12661077978899,
+            "range": 38.3037140704526,
+            "robust_range": 37.01336046367973
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 11.16708700054047,
+            "max": 14.150253757283878,
+            "q05": 11.300572571117664,
+            "median": 12.573775889074595,
+            "q95": 13.984510944440617,
+            "range": 2.983166756743408,
+            "robust_range": 2.6839383733229525
+          }
+        },
+        {
+          "generation": 4,
+          "name": "daughter_load",
+          "expression": "N_D",
+          "role": "Instantaneous daughter occupancy that can gate how efficiently damage alters the parent environment",
+          "train_range": [
+            0.0,
+            63802.939114232264
+          ],
+          "hidden_range": [
+            12237.467837272152,
+            15541.165184548978
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0,
+            "max": 63802.939114232264,
+            "q05": 16178.120298833868,
+            "median": 38236.98641188351,
+            "q95": 63407.06901648084,
+            "range": 63802.939114232264,
+            "robust_range": 47228.94871764697
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 12237.467837272152,
+            "max": 15541.165184548978,
+            "q05": 12384.684193957768,
+            "median": 13791.446230105852,
+            "q95": 15356.72976280674,
+            "range": 3303.697347276826,
+            "robust_range": 2972.045568848973
+          }
+        },
+        {
+          "generation": 4,
+          "name": "joint_exposure",
+          "expression": "M_eff_damage*N_D",
+          "role": "Interaction coordinate distinguishing equal damage states reached under different daughter burdens",
+          "train_range": [
+            0.0,
+            2179104.6080487105
+          ],
+          "hidden_range": [
+            136656.86800513393,
+            219911.43104523356
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0,
+            "max": 2179104.6080487105,
+            "q05": 28813.15374605039,
+            "median": 924301.5319402844,
+            "q95": 2157751.055095695,
+            "range": 2179104.6080487105,
+            "robust_range": 2128937.9013496446
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 136656.86800513393,
+            "max": 219911.43104523356,
+            "q05": 139954.0240207256,
+            "median": 173410.56393844757,
+            "q95": 214756.35774563265,
+            "range": 83254.56304009963,
+            "robust_range": 74802.33372490705
+          }
+        },
+        {
+          "generation": 5,
+          "name": "daughter_activation",
+          "expression": "N_D/(1 + N_D)",
+          "role": "Transient daughter occupancy factor that gates how strongly damage affects the parent",
+          "train_range": [
+            0.0,
+            0.9999843269864858
+          ],
+          "hidden_range": [
+            0.9999182904254604,
+            0.9999356589002802
+          ],
+          "train_status": "inactive",
+          "hidden_status": "inactive",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0,
+            "max": 0.9999843269864858,
+            "q05": 0.9999381919416879,
+            "median": 0.9999738479939932,
+            "q95": 0.9999842291365182,
+            "range": 0.9999843269864858,
+            "robust_range": 4.603719483031732e-05
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.9999182904254604,
+            "max": 0.9999356589002802,
+            "q05": 0.9999192616253371,
+            "median": 0.9999274965411749,
+            "q95": 0.9999348862086832,
+            "range": 1.7368474819812185e-05,
+            "robust_range": 1.562458334614103e-05
+          }
+        },
+        {
+          "generation": 5,
+          "name": "hazard_loading",
+          "expression": "(1 + N_D/(1 + N_D))*M_eff_damage**2/(1 + M_eff_damage**2)",
+          "role": "Current monotone loading coordinate whose single-phase form is the shortcut to relax",
+          "train_range": [
+            0.0,
+            1.998619155903608
+          ],
+          "hidden_range": [
+            1.984008526519534,
+            1.9899970869906558
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0,
+            "max": 1.998619155903608,
+            "q05": 1.1068487951517776,
+            "median": 1.996899633023374,
+            "q95": 1.9986063900205768,
+            "range": 1.998619155903608,
+            "robust_range": 0.8917575948687992
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 1.984008526519534,
+            "max": 1.9899970869906558,
+            "q05": 1.98438022795348,
+            "median": 1.9873572272807385,
+            "q95": 1.9897605458332632,
+            "range": 0.00598856047112184,
+            "robust_range": 0.005380317879783325
+          }
+        }
+      ],
+      "inactive_mechanisms": [
+        "hazard_source",
+        "daughter_activation"
+      ],
+      "visible_mechanisms": [
+        "daughter_loading",
+        "chain_activity_ratio",
+        "damage_load",
+        "daughter_drive",
+        "hazard_factor_current",
+        "damage_state",
+        "daughter_loading_ratio",
+        "damage_level",
+        "daughter_load",
+        "joint_exposure",
+        "hazard_loading"
+      ],
+      "extended_mechanisms": [
+        "daughter_loading",
+        "chain_activity_ratio",
+        "daughter_drive",
+        "daughter_loading_ratio",
+        "daughter_load"
+      ]
+    },
+    "inactive_mechanisms": [
+      "hazard_source",
+      "daughter_activation"
+    ],
+    "target_variance": {
+      "train": {
+        "n": 4500,
+        "variance": 5556334.760042901,
+        "range": 8307.7168887972
+      },
+      "hidden": {
+        "n": 500,
+        "variance": 0.07453394267227222,
+        "range": 0.9518265807602415
+      }
+    },
+    "parent_absorption_report": {
+      "status": "ok",
+      "n_points": 512,
+      "fixed_parent_normalized_rmse": 19.945028715091254,
+      "refit": {
+        "status": "not_run",
+        "reason": "no free parent parameters"
+      },
+      "interpretation": "<1e-3 nearly absorbed; 1e-3..1e-2 weak; >1e-2 visible structure"
+    },
+    "noise": 0.0,
+    "_trace": [
+      {
+        "turn": 1,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "analyze_expression",
+            "id": "call_IGNfmPoRGxwWm9NohKUS6WoY"
+          }
+        ]
+      },
+      {
+        "tool": "analyze_expression",
+        "input": {
+          "expression": "-lambda_P * (1 + alpha_damage * (1 + N_D/(1 + N_D)) * M_eff_damage**2/((1 + M_eff_damage**2) * (1 + M_eff_damage**2/(1 + M_eff_damage**2)))) * N_P",
+          "target_symbol": "dN_P_dt"
+        },
+        "result": {
+          "ok": true,
+          "free_symbols": [
+            "M_eff_damage",
+            "N_D",
+            "N_P",
+            "alpha_damage",
+            "lambda_P"
+          ],
+          "functions_of": {},
+          "target_function_calls": [],
+          "delayed_target_calls": [],
+          "ungoverned_functions": [],
+          "derivatives": [],
+          "max_derivative_order": 0,
+          "integral_kernels": [],
+          "explicitly_solvable_for_target": true,
+          "explicit_solution_preview": [
+            "N_P*(-lambda_P)*(M_eff_damage**2*alpha_damage*(N_D/(N_D + 1) + 1)/(((M_eff_damage**2 + 1)*(M_eff_damage**2/(M_eff_damage"
+          ],
+          "classification_hint": "explicit",
+          "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+        }
+      },
+      {
+        "turn": 2,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "check_substitution",
+            "id": "call_ZzsNsAHoU78YSKd94HQRZohG"
+          }
+        ]
+      },
+      {
+        "tool": "check_substitution",
+        "input": {
+          "expression": "-lambda_P * (1 + alpha_damage * (1 + N_D/(1 + N_D)) * M_eff_damage**2/((1 + M_eff_damage**2) * (1 + M_eff_damage**2/(1 + M_eff_damage**2)))) * N_P",
+          "target_symbol": "dN_P_dt",
+          "assignments": {
+            "lambda_P": 0.08,
+            "alpha_damage": 0.6,
+            "N_P": 100000,
+            "N_D": 20000,
+            "M_eff_damage": 1.2
+          }
+        },
+        "result": {
+          "ok": true,
+          "value_real": -11562.797530226582,
+          "value_imag": 0.0,
+          "is_finite": true,
+          "is_real": true,
+          "verdict": "ok",
+          "residual_free_symbols": []
+        }
+      },
+      {
+        "turn": 3,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "emit_data_gen_spec",
+            "id": "call_KxXOQklI8DWSpG7aDnVlWxGg"
+          }
+        ]
+      },
+      {
+        "tool": "emit_data_gen_spec",
+        "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+      },
+      {
+        "turn": 4,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "emit_data_gen_spec",
+            "id": "call_nf5HUGbniGdp72cnGw2nkzW6"
+          }
+        ]
+      },
+      {
+        "tool": "emit_data_gen_spec",
+        "accepted": true
+      }
+    ],
+    "_provider": "openai",
+    "_num_turns": 4,
+    "discipline": "physics",
+    "scenario_text": "A radioactive parent population transforms spontaneously into an unstable daughter population, which subsequently leaves the modeled chain through its own decay channel. The benchmark follows both populations from specified initial abundances and targets the instantaneous rate of change of the parent population. All decay probabilities per unit time are constant over the observation interval. The resulting trajectory tests coupled depletion and production dynamics with exponential time dependence.",
+    "record_id": "m2_nuclear_and_particle_physics_20280757_000",
+    "generation": 5,
+    "_n_total": 5000,
+    "mechanism_observation_history": [
+      {
+        "generation": 1,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The parent loss rate is a pure first-order proportional law dN_P/dt = -lambda_P N_P with time-independent hazard, so at fixed N_P the target is independent of daughter buildup.",
+            "child_relation": "Relax the constant-hazard assumption by allowing the effective parent decay probability to evolve through radiation-damage or self-attenuation effects generated by accumulated daughter content, so the target depends on both N_P and N_D through a daughter-modulated hazard.",
+            "affected_inputs": [
+              "N_P",
+              "N_D",
+              "lambda_P"
+            ],
+            "observable_effect": "Across trajectories with different daughter accumulation histories, the parent depletion departs from a single exponential: the same N_P can correspond to different dN_P/dt once N_D/N_P becomes appreciable, producing altered curvature in ln N_P versus t."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "daughter_loading",
+              "expression": "N_D/N_P",
+              "role": "Dimensionless accumulated daughter burden relative to remaining parent, indicating when daughter-mediated environmental modification can affect parent loss."
+            },
+            {
+              "name": "chain_activity_ratio",
+              "expression": "lambda_D*N_D/(lambda_P*N_P)",
+              "role": "Compares daughter removal activity to parent disappearance activity; marks regimes with substantial daughter presence and therefore observable departure from fixed-hazard parent decay."
+            }
+          ],
+          "activation_condition": "Observable when daughter population becomes non-negligible during the sampled interval, e.g. lambda_D not overwhelmingly larger than lambda_P so that N_D builds up to an appreciable fraction of N_P before the parent is exhausted.",
+          "train_hidden_contrast": "In training, early times with small N_D remain close to the parent law, while later times with accumulated daughter burden show systematic deviation; in holdout, changing the relative timescale ratio extends the same daughter-history dependence rather than introducing a new mechanism.",
+          "continuation_path": "Recover the parent law in the limit of vanishing daughter feedback strength or whenever N_D stays negligible over the observation window.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "A daughter-history effect on the parent requires one additional dynamical environmental variable beyond the supplied states, because N_D alone is fixed by the baseline chain and cannot represent delayed medium modification or damage memory separately from instantaneous daughter count.",
+          "gap_statement": "The current model assumes the parent decay probability per unit time is perfectly constant even as radioactive transformation products accumulate and can modify the local environment experienced by remaining parent nuclei.",
+          "baseline_assumption": "Decay probabilities are time independent and unaffected by population size.",
+          "scientific_mechanism": "Accumulated daughter-related radiation damage or matrix modification changes the effective parent decay hazard over time, creating history-dependent depletion rather than a strictly fixed exponential law.",
+          "affected_symbols": [
+            "N_P",
+            "N_D",
+            "lambda_P",
+            "lambda_D"
+          ],
+          "rationale": "A realistic next refinement is to relax the fixed-environment assumption for the parent hazard. Vary the relative decay timescale through the existing admissible parameter regime, especially cases with lambda_D comparable to or smaller than lambda_P so daughters persist and accumulate; hold the initial conditions fixed as given. In the baseline, one shared lambda_P forces dN_P/dt at any observed N_P to be the same across all such conditions, so the parent trajectory is always single-phase exponential. In the refined model, daughter accumulation changes the effective parent hazard through an additional environmental-memory state driven by chain activity, so the parent's slope at a given N_P depends on prior daughter buildup. This changes the scored target mapping, not only auxiliary trajectories, because dN_P/dt becomes conditional on chain history instead of solely on N_P. The contrast is observable only when daughter loading is appreciable during the sampled interval; if daughters decay away too rapidly, the refinement becomes effectively inactive and the parent law is recovered."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The parent loss rate is a pure first-order proportional law dN_P/dt = -lambda_P N_P with time-independent hazard, so at fixed N_P the target is independent of daughter buildup.",
+            "child_relation": "Relax the constant-hazard assumption by allowing the effective parent decay probability to evolve through radiation-damage or self-attenuation effects generated by accumulated daughter content, so the target depends on both N_P and N_D through a daughter-modulated hazard.",
+            "affected_inputs": [
+              "N_P",
+              "N_D",
+              "lambda_P"
+            ],
+            "observable_effect": "Across trajectories with different daughter accumulation histories, the parent depletion departs from a single exponential: the same N_P can correspond to different dN_P/dt once N_D/N_P becomes appreciable, producing altered curvature in ln N_P versus t."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "daughter_loading",
+              "expression": "N_D/N_P",
+              "role": "Dimensionless accumulated daughter burden relative to remaining parent, indicating when daughter-mediated environmental modification can affect parent loss."
+            },
+            {
+              "name": "chain_activity_ratio",
+              "expression": "lambda_D*N_D/(lambda_P*N_P)",
+              "role": "Compares daughter removal activity to parent disappearance activity; marks regimes with substantial daughter presence and therefore observable departure from fixed-hazard parent decay."
+            }
+          ],
+          "activation_condition": "Observable when daughter population becomes non-negligible during the sampled interval, e.g. lambda_D not overwhelmingly larger than lambda_P so that N_D builds up to an appreciable fraction of N_P before the parent is exhausted.",
+          "train_hidden_contrast": "In training, early times with small N_D remain close to the parent law, while later times with accumulated daughter burden show systematic deviation; in holdout, changing the relative timescale ratio extends the same daughter-history dependence rather than introducing a new mechanism.",
+          "continuation_path": "Recover the parent law in the limit of vanishing daughter feedback strength or whenever N_D stays negligible over the observation window.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "A daughter-history effect on the parent requires one additional dynamical environmental variable beyond the supplied states, because N_D alone is fixed by the baseline chain and cannot represent delayed medium modification or damage memory separately from instantaneous daughter count.",
+          "scope_kind": "memory",
+          "scope_symbols": [
+            "N_P",
+            "N_D",
+            "M_damage"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "daughter-induced environmental-memory modulation of parent decay hazard",
+          "scientific_mechanism": "Accumulated daughter-related radiation damage or matrix modification changes the effective parent decay hazard over time, creating history-dependent depletion rather than a strictly fixed exponential law.",
+          "embedding_pattern": "nested_nonlinearity",
+          "difficulty_rationale": "This is harder than a coefficient correction because the parent hazard is no longer a single constant multiplier: daughter activity first drives a separate memory state, then that state enters a nonlinear saturation map before modulating the target. The same observed N_P can therefore map to different dN_P/dt depending on trajectory history, which no one-parameter exponential refit can capture across admissible daughter-loading regimes.",
+          "taxonomy_match": "known",
+          "assumption_before": "Decay probabilities are time independent and unaffected by population size.",
+          "assumption_after": "The parent hazard is modified by daughter-generated environmental damage memory that accumulates and relaxes dynamically.",
+          "before_fragment": "-lambda_P * N_P",
+          "after_fragment": "-lambda_P * (1 + alpha_damage * tanh(M_damage)) * N_P",
+          "parent_reduction": "The parent law is recovered when alpha_damage -> 0 or when M_damage remains near zero because damage buildup is absent or negligible.",
+          "observable_signature": "The scored parent derivative is no longer determined by N_P alone: as daughter accumulation builds M_damage, the parent loss rate at fixed N_P becomes systematically larger, bending ln N_P versus t away from a straight line. This is observable when lambda_D is not so large that daughters remain negligible, allowing N_D and then M_damage to rise during the sampled interval.",
+          "shortcut_blocked": "Refitting a single constant lambda_P cannot reproduce trajectories where early-time decay is close to exponential but later-time decay accelerates at the same remaining-parent scale as daughter-induced memory accumulates. Across conditions with different lambda_D and thus different daughter histories, one shared parent parameter set preserves a straight-line ln N_P trend, whereas the refined model produces history-dependent curvature tied to daughter loading."
+        },
+        "range_suggestions": {
+          "M_damage": "0 to 10",
+          "k_damage_build": "0 to 10*lambda_P",
+          "k_damage_relax": "0 to 10*lambda_P",
+          "alpha_damage": "0 to 1"
+        }
+      },
+      {
+        "generation": 2,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The parent hazard is lambda_P multiplied by a single saturating gain 1 + alpha_damage*tanh(M_damage), so the sensitivity of dN_P_dt to damage is monotone and saturates with one fixed shape.",
+            "child_relation": "Replace the instantaneous damage response with a delayed or filtered effective damage state so the parent hazard depends on both damage level and adaptation history, changing the time curvature of dN_P_dt during damage buildup and relaxation.",
+            "affected_inputs": [
+              "M_damage",
+              "N_D"
+            ],
+            "observable_effect": "At fixed initial N_P and shared lambda_P, alpha_damage, samples with similar instantaneous M_damage but different recent daughter-driven buildup histories show different parent-loss slopes; the modified model can produce a lagged steepening and delayed recovery of |dN_P_dt| that the single-gain parent cannot."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "damage_load",
+              "expression": "M_damage",
+              "role": "instantaneous accumulated modification level controlling the current hazard in the parent law"
+            },
+            {
+              "name": "daughter_drive",
+              "expression": "N_D",
+              "role": "current source strength for further damage buildup"
+            },
+            {
+              "name": "hazard_source",
+              "expression": "lambda_P*(1 + alpha_damage*tanh(M_damage))",
+              "role": "parent-model effective decay hazard before the proposed refinement"
+            }
+          ],
+          "activation_condition": "Observable when k_damage_build and k_damage_relax are comparable to lambda_P so damage evolves on the same time scale as parent depletion, and daughter abundance rises enough that M_damage traverses the tanh transition region rather than remaining near zero.",
+          "train_hidden_contrast": "In training, early-time buildup already shows mild lag between daughter growth and parent-hazard increase; in holdout with stronger daughter transients or slower relaxation, the same mechanism produces more pronounced delayed curvature and hysteretic-looking slope differences.",
+          "continuation_path": "Recover the parent law when the added adaptation time scale tends to zero so the effective hazard-modifying state tracks M_damage quasi-instantly.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "A true lag between accumulated damage and the hazard felt by parent nuclei cannot be represented by the existing states alone because M_damage already plays the role of the sole instantaneous modifier; an additional state is needed to encode adaptation history distinctly from raw damage buildup.",
+          "gap_statement": "The current model assumes parent nuclei respond instantaneously to the accumulated damage memory, with no separate equilibration of the local hazard-modifying environment.",
+          "baseline_assumption": "The damage-modified parent hazard is an instantaneous static function of M_damage with no response lag or adaptation dynamics.",
+          "scientific_mechanism": "Radiation-induced matrix disorder or microchemical activation can require finite restructuring time before it changes the parent decay environment, so effective hazard modulation lags behind raw daughter-induced damage accumulation.",
+          "affected_symbols": [
+            "N_P",
+            "N_D",
+            "M_damage",
+            "k_damage_build",
+            "k_damage_relax",
+            "alpha_damage",
+            "lambda_P"
+          ],
+          "rationale": "A realistic next refinement is to relax the instantaneous-response assumption already built into the damage factor, rather than inventing a new unrelated process. Vary the daughter-driven damage-history regime by changing conditions that alter how strongly and how long N_D builds M_damage, while holding the initial conditions and the parent baseline decay parameters fixed across runs. In the parent model, once M_damage is known, the target mapping dN_P_dt is fully determined by a single static gain; any two times or trajectories with the same N_P and M_damage must have the same dN_P_dt. In the refined model, the parent loss can differ for the same N_P and M_damage because the effective hazard modifier depends on whether damage has recently been building or relaxing. This yields a concrete curvature contrast in the scored target, not merely in an auxiliary state: delayed steepening of parent depletion after daughter accumulation begins, and delayed return toward baseline after daughter decline. The effect is scientifically admissible when damage evolution is neither too fast to be instantaneous nor too slow to remain negligible over observation times, and when M_damage reaches moderate values where tanh is not effectively linearized to zero everywhere. If the experiment stays in the tiny-damage regime M_damage << 1 or if the new lag is asymptotically fast, the contrast weakens and the parent law is recovered."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The parent hazard is lambda_P multiplied by a single saturating gain 1 + alpha_damage*tanh(M_damage), so the sensitivity of dN_P_dt to damage is monotone and saturates with one fixed shape.",
+            "child_relation": "Replace the instantaneous damage response with a delayed or filtered effective damage state so the parent hazard depends on both damage level and adaptation history, changing the time curvature of dN_P_dt during damage buildup and relaxation.",
+            "affected_inputs": [
+              "M_damage",
+              "N_D"
+            ],
+            "observable_effect": "At fixed initial N_P and shared lambda_P, alpha_damage, samples with similar instantaneous M_damage but different recent daughter-driven buildup histories show different parent-loss slopes; the modified model can produce a lagged steepening and delayed recovery of |dN_P_dt| that the single-gain parent cannot."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "damage_load",
+              "expression": "M_damage",
+              "role": "instantaneous accumulated modification level controlling the current hazard in the parent law"
+            },
+            {
+              "name": "daughter_drive",
+              "expression": "N_D",
+              "role": "current source strength for further damage buildup"
+            },
+            {
+              "name": "hazard_source",
+              "expression": "lambda_P*(1 + alpha_damage*tanh(M_damage))",
+              "role": "parent-model effective decay hazard before the proposed refinement"
+            }
+          ],
+          "activation_condition": "Observable when k_damage_build and k_damage_relax are comparable to lambda_P so damage evolves on the same time scale as parent depletion, and daughter abundance rises enough that M_damage traverses the tanh transition region rather than remaining near zero.",
+          "train_hidden_contrast": "In training, early-time buildup already shows mild lag between daughter growth and parent-hazard increase; in holdout with stronger daughter transients or slower relaxation, the same mechanism produces more pronounced delayed curvature and hysteretic-looking slope differences.",
+          "continuation_path": "Recover the parent law when the added adaptation time scale tends to zero so the effective hazard-modifying state tracks M_damage quasi-instantly.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "A true lag between accumulated damage and the hazard felt by parent nuclei cannot be represented by the existing states alone because M_damage already plays the role of the sole instantaneous modifier; an additional state is needed to encode adaptation history distinctly from raw damage buildup.",
+          "scope_kind": "memory",
+          "scope_symbols": [
+            "M_damage",
+            "M_eff_damage",
+            "N_P"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Delayed equilibration of the hazard-modifying damage environment",
+          "scientific_mechanism": "Radiation-induced matrix disorder or microchemical activation can require finite restructuring time before it changes the parent decay environment, so effective hazard modulation lags behind raw daughter-induced damage accumulation.",
+          "embedding_pattern": "multiplicative_modulation",
+          "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the target depends on an internal filtered modifier with its own time scale, so equal instantaneous M_damage does not imply equal parent loss unless adaptation history is also matched.",
+          "taxonomy_match": "known",
+          "assumption_before": "The damage-modified parent hazard is an instantaneous static function of M_damage with no response lag or adaptation dynamics.",
+          "assumption_after": "The local hazard-modifying environment adapts to accumulated damage over a finite time, and the parent hazard is modulated by that lagged effective damage state.",
+          "before_fragment": "-lambda_P * (1 + alpha_damage * tanh(M_damage)) * N_P",
+          "after_fragment": "-lambda_P * (1 + alpha_damage * tanh(M_eff_damage)) * N_P",
+          "parent_reduction": "Fast-adaptation limit k_damage_adapt -> infinity with M_eff_damage approximately equal to M_damage.",
+          "observable_signature": "Compared at the same N_P and similar instantaneous M_damage, trajectories with rising daughter-driven damage versus relaxing damage can yield different dN_P_dt because M_eff_damage lags M_damage; this appears as delayed steepening of parent depletion after N_D grows and delayed recovery after N_D falls, especially when M_damage reaches the tanh transition scale.",
+          "shortcut_blocked": "Refitting lambda_P, alpha_damage, k_damage_build, and k_damage_relax cannot remove the parent model's structural constraint that dN_P_dt is a single-valued function of N_P and M_damage alone. The child breaks that constraint through adaptation history encoded in M_eff_damage, so one shared parent parameter set cannot reproduce both buildup and relaxation slopes across conditions where the same M_damage is reached with different recent daughter-drive histories."
+        },
+        "range_suggestions": {
+          "M_eff_damage": "0 to 10",
+          "k_damage_adapt": "0 to 10*lambda_P"
+        }
+      },
+      {
+        "generation": 3,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The parent loss rate is a baseline exponential depletion multiplied by a single monotone hazard factor 1 + alpha_damage*tanh(M_eff_damage), so damage changes the rate with one fixed-sign gain that saturates symmetrically.",
+            "child_relation": "Replace the idealized symmetric tanh hazard response with a one-sided, damage-thresholded saturation in the existing effective damage state, so small accumulated effective damage produces little parent-hazard change and the parent responds mainly after M_eff_damage reaches an activation scale.",
+            "affected_inputs": [
+              "M_eff_damage",
+              "alpha_damage"
+            ],
+            "observable_effect": "When daughter buildup is slow or lambda_D is large so M_eff_damage stays low, the parent remains close to baseline longer; when daughter buildup is strong enough to drive M_eff_damage past the activation scale, the parent hazard steepens later and more abruptly. This changes the time curvature of dN_P_dt versus the same observed M_eff_damage history."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "hazard_factor_current",
+              "expression": "1 + alpha_damage*tanh(M_eff_damage)",
+              "role": "Current effective multiplicative parent hazard law"
+            },
+            {
+              "name": "damage_state",
+              "expression": "M_eff_damage",
+              "role": "Observed effective environmental damage controlling parent hazard"
+            },
+            {
+              "name": "daughter_loading_ratio",
+              "expression": "k_damage_build*N_D/(k_damage_relax + lambda_D)",
+              "role": "Proxy for whether daughter presence can sustain enough damage buildup to reach the hazard-activation regime"
+            }
+          ],
+          "activation_condition": "Observable when M_eff_damage traverses from near zero into order-unity values during the sampled time window; especially when damage adaptation is not instantaneous and daughter accumulation is sufficient for a delayed crossover from weak to strong hazard modification.",
+          "train_hidden_contrast": "In training, moderate daughter exposure may only probe the near-baseline weak-response regime; in holdout, stronger or longer-lived daughter loading can push M_eff_damage into the activated regime, revealing delayed curvature change in parent depletion rather than a uniformly rescaled hazard.",
+          "continuation_path": "Recover the parent law in the limit where the thresholded response is linearized around always-activated conditions or where the activation scale tends to zero so the hazard modifier reduces to an effectively single smooth gain of M_eff_damage.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The current model assumes the effective damage state changes the parent hazard immediately with a symmetric, no-threshold tanh gain, whereas many matrix-damage or radiochemical activation effects require a finite activation level before materially altering the parent decay environment.",
+          "baseline_assumption": "The parent assumes hazard modification is a single smooth saturating function of M_eff_damage with no activation threshold or dead-zone at low damage.",
+          "scientific_mechanism": "Damage-assisted alteration of the local decay environment often has an onset threshold: subcritical daughter-induced disorder anneals or remains chemically ineffective, while only sufficiently accumulated effective damage significantly changes the parent hazard.",
+          "affected_symbols": [
+            "M_eff_damage",
+            "alpha_damage",
+            "N_D",
+            "lambda_D",
+            "k_damage_build",
+            "k_damage_relax"
+          ],
+          "rationale": "A realistic next refinement is to relax the no-threshold hazard assumption without adding new states. Vary conditions that already change daughter exposure history—such as the balance of daughter residence and damage buildup, represented by N_D evolution under fixed initial populations and fixed baseline parent parameters. Hold lambda_P, alpha_damage, and the adaptation structure fixed. In the parent, any increase in M_eff_damage immediately changes the hazard with one fixed-sign slope near zero, so early weak damage always causes proportional parent-rate bending. In the refined model, low M_eff_damage would have suppressed influence until an activation scale is approached, after which the parent-rate curvature increases more sharply. This is a changed target mapping, not merely auxiliary motion, because dN_P_dt depends directly on the altered response to the supplied state M_eff_damage. The contrast is observable when the trajectory samples both sub-threshold and activated damage levels; if all experiments remain either far below or far above activation, the refinement would be weakly identifiable and should be interpreted cautiously."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The parent loss rate is a baseline exponential depletion multiplied by a single monotone hazard factor 1 + alpha_damage*tanh(M_eff_damage), so damage changes the rate with one fixed-sign gain that saturates symmetrically.",
+            "child_relation": "Replace the idealized symmetric tanh hazard response with a one-sided, damage-thresholded saturation in the existing effective damage state, so small accumulated effective damage produces little parent-hazard change and the parent responds mainly after M_eff_damage reaches an activation scale.",
+            "affected_inputs": [
+              "M_eff_damage",
+              "alpha_damage"
+            ],
+            "observable_effect": "When daughter buildup is slow or lambda_D is large so M_eff_damage stays low, the parent remains close to baseline longer; when daughter buildup is strong enough to drive M_eff_damage past the activation scale, the parent hazard steepens later and more abruptly. This changes the time curvature of dN_P_dt versus the same observed M_eff_damage history."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "hazard_factor_current",
+              "expression": "1 + alpha_damage*tanh(M_eff_damage)",
+              "role": "Current effective multiplicative parent hazard law"
+            },
+            {
+              "name": "damage_state",
+              "expression": "M_eff_damage",
+              "role": "Observed effective environmental damage controlling parent hazard"
+            },
+            {
+              "name": "daughter_loading_ratio",
+              "expression": "k_damage_build*N_D/(k_damage_relax + lambda_D)",
+              "role": "Proxy for whether daughter presence can sustain enough damage buildup to reach the hazard-activation regime"
+            }
+          ],
+          "activation_condition": "Observable when M_eff_damage traverses from near zero into order-unity values during the sampled time window; especially when damage adaptation is not instantaneous and daughter accumulation is sufficient for a delayed crossover from weak to strong hazard modification.",
+          "train_hidden_contrast": "In training, moderate daughter exposure may only probe the near-baseline weak-response regime; in holdout, stronger or longer-lived daughter loading can push M_eff_damage into the activated regime, revealing delayed curvature change in parent depletion rather than a uniformly rescaled hazard.",
+          "continuation_path": "Recover the parent law in the limit where the thresholded response is linearized around always-activated conditions or where the activation scale tends to zero so the hazard modifier reduces to an effectively single smooth gain of M_eff_damage.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "memory",
+          "scope_symbols": [
+            "M_eff_damage"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "thresholded damage-dependent hazard modification of radioactive parent decay",
+          "scientific_mechanism": "Damage-assisted alteration of the local decay environment often has an onset threshold: subcritical daughter-induced disorder anneals or remains chemically ineffective, while only sufficiently accumulated effective damage significantly changes the parent hazard.",
+          "embedding_pattern": "state_dependent_coefficient",
+          "difficulty_rationale": "This is harder than a coefficient-only correction because the coefficient of parent loss now depends on the evolving state through a zero-slope low-damage regime and a later activated rise, changing the curvature of the direct dN_P_dt mapping rather than merely rescaling its magnitude.",
+          "taxonomy_match": "known",
+          "assumption_before": "The parent assumes hazard modification is a single smooth saturating function of M_eff_damage with no activation threshold or dead-zone at low damage.",
+          "assumption_after": "Low effective damage has weak influence on parent hazard, while sufficiently accumulated effective damage activates a stronger but still saturating hazard increase.",
+          "before_fragment": "-lambda_P * (1 + alpha_damage * tanh(M_eff_damage)) * N_P",
+          "after_fragment": "-lambda_P * (1 + alpha_damage * M_eff_damage**2/(1 + M_eff_damage**2)) * N_P",
+          "parent_reduction": "For trajectories confined to activated moderate-to-large M_eff_damage, M_eff_damage**2/(1 + M_eff_damage**2) behaves like a single saturating gain and the successor approximates the parent's one-factor hazard modulation.",
+          "observable_signature": "Compared at fixed lambda_P and shared alpha_damage across trajectories with different daughter-loading histories, the successor shows much weaker deviation from baseline while M_eff_damage remains small, followed by a later crossover to stronger curvature once M_eff_damage reaches order unity; the parent instead bends immediately with nonzero initial slope for any positive M_eff_damage.",
+          "shortcut_blocked": "A single refit of existing parent parameters cannot simultaneously match both prolonged near-baseline behavior at low M_eff_damage and the later activated steepening across conditions that do and do not cross order-unity damage, because tanh(M_eff_damage) imposes a fixed nonzero small-damage slope. Retuning lambda_P or alpha_damage only rescales the same immediate-response shape and cannot create the delayed onset in the direct dN_P_dt versus supplied M_eff_damage mapping."
+        },
+        "range_suggestions": {}
+      },
+      {
+        "generation": 4,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The parent hazard increases monotonically with effective damage through a fixed saturating factor 1 + alpha_damage*M_eff_damage**2/(1 + M_eff_damage**2), so the same damage level always produces the same fractional acceleration regardless of daughter burden.",
+            "child_relation": "Replace the fixed Hill-like damage response by a daughter-conditioned damage efficacy, so the same M_eff_damage produces different parent-loss sensitivity when N_D is low versus high because daughter occupancy modulates how strongly accumulated damage alters the local decay environment.",
+            "affected_inputs": [
+              "M_eff_damage",
+              "N_D",
+              "alpha_damage"
+            ],
+            "observable_effect": "At matched intermediate M_eff_damage reached along different trajectory segments, the parent depletion slope becomes steeper when daughter burden is simultaneously high, shifting the curvature and timing of accelerated decay relative to the current one-variable damage law."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "damage_level",
+              "expression": "M_eff_damage",
+              "role": "Current effective environmental damage presented to the parent hazard"
+            },
+            {
+              "name": "daughter_load",
+              "expression": "N_D",
+              "role": "Instantaneous daughter occupancy that can gate how efficiently damage alters the parent environment"
+            },
+            {
+              "name": "joint_exposure",
+              "expression": "M_eff_damage*N_D",
+              "role": "Interaction coordinate distinguishing equal damage states reached under different daughter burdens"
+            }
+          ],
+          "activation_condition": "Observable when daughter population builds to non-negligible levels before fully decaying, so trajectories sample regimes with similar M_eff_damage but different N_D; strongest for intermediate times with lambda_D not overwhelmingly larger than the damage buildup/adaptation rates.",
+          "train_hidden_contrast": "Within training, early and mid-time segments can exhibit equal or similar effective damage with different daughter loads; in holdout, the same interaction extends to larger daughter peaks or slower daughter clearance, amplifying the divergence in parent-loss curvature.",
+          "continuation_path": "Recover the parent law when daughter-dependent modulation of damage efficacy vanishes, e.g. the interaction strength tends to zero or daughter load stays in a regime where the modulation factor is effectively constant.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The current target law assumes that accumulated effective damage alone determines the parent hazard modification, ignoring that ongoing daughter occupancy can change how strongly a given damage state perturbs the parent's local decay environment.",
+          "baseline_assumption": "Damage-assisted hazard modification is a fixed function of effective damage only and is independent of the instantaneous daughter population once M_eff_damage is specified.",
+          "scientific_mechanism": "Transient daughter occupancy can catalyze or screen the impact of existing radiation damage through local ionization density, defect charging, or microchemical activation, making damage efficacy state-dependent rather than a universal single-variable gain.",
+          "affected_symbols": [
+            "N_D",
+            "M_eff_damage",
+            "alpha_damage"
+          ],
+          "rationale": "A realistic next refinement is to relax the assumption that the parent's hazard multiplier is determined solely by M_eff_damage. Hold fixed the baseline decay constants and the initial conditions already specified, and compare times or parameter settings where M_eff_damage is similar but N_D differs because daughter production and daughter decay are out of phase with damage adaptation. In the current model, dN_P_dt/N_P is then identical at those matched-damage points; only M_eff_damage matters. In the refined model, the same effective damage can produce a larger or smaller parent-loss rate depending on concurrent daughter burden, yielding changed curvature and timing of the accelerated depletion segment. This is scientifically admissible when daughter occupancy persists long enough to overlap with the buildup and adaptation of damage memory, rather than vanishing instantaneously. The refinement changes the scored mapping itself, not just auxiliary trajectories, because dN_P_dt directly acquires sensitivity to N_D in addition to M_eff_damage. A single refit of the existing one-variable damage gain cannot reproduce paired conditions with the same M_eff_damage but systematically different parent slopes tied to N_D, since the parent law collapses those conditions onto one hazard value by construction. Limitation: if lambda_D is so large that N_D remains negligible whenever damage matters, the interaction would be weak and the parent law is approximately recovered."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The parent hazard increases monotonically with effective damage through a fixed saturating factor 1 + alpha_damage*M_eff_damage**2/(1 + M_eff_damage**2), so the same damage level always produces the same fractional acceleration regardless of daughter burden.",
+            "child_relation": "Replace the fixed Hill-like damage response by a daughter-conditioned damage efficacy, so the same M_eff_damage produces different parent-loss sensitivity when N_D is low versus high because daughter occupancy modulates how strongly accumulated damage alters the local decay environment.",
+            "affected_inputs": [
+              "M_eff_damage",
+              "N_D",
+              "alpha_damage"
+            ],
+            "observable_effect": "At matched intermediate M_eff_damage reached along different trajectory segments, the parent depletion slope becomes steeper when daughter burden is simultaneously high, shifting the curvature and timing of accelerated decay relative to the current one-variable damage law."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "damage_level",
+              "expression": "M_eff_damage",
+              "role": "Current effective environmental damage presented to the parent hazard"
+            },
+            {
+              "name": "daughter_load",
+              "expression": "N_D",
+              "role": "Instantaneous daughter occupancy that can gate how efficiently damage alters the parent environment"
+            },
+            {
+              "name": "joint_exposure",
+              "expression": "M_eff_damage*N_D",
+              "role": "Interaction coordinate distinguishing equal damage states reached under different daughter burdens"
+            }
+          ],
+          "activation_condition": "Observable when daughter population builds to non-negligible levels before fully decaying, so trajectories sample regimes with similar M_eff_damage but different N_D; strongest for intermediate times with lambda_D not overwhelmingly larger than the damage buildup/adaptation rates.",
+          "train_hidden_contrast": "Within training, early and mid-time segments can exhibit equal or similar effective damage with different daughter loads; in holdout, the same interaction extends to larger daughter peaks or slower daughter clearance, amplifying the divergence in parent-loss curvature.",
+          "continuation_path": "Recover the parent law when daughter-dependent modulation of damage efficacy vanishes, e.g. the interaction strength tends to zero or daughter load stays in a regime where the modulation factor is effectively constant.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "M_eff_damage",
+            "N_D",
+            "N_P"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "daughter-conditioned efficacy of damage-assisted parent decay",
+          "scientific_mechanism": "Transient daughter occupancy can catalyze or screen the impact of existing radiation damage through local ionization density, defect charging, or microchemical activation, making damage efficacy state-dependent rather than a universal single-variable gain.",
+          "embedding_pattern": "state_dependent_coefficient",
+          "difficulty_rationale": "This is harder than a coefficient-only correction because the effective gain on damage is no longer constant: it varies along the trajectory with N_D, creating a two-state response surface for the target rather than a single saturating curve in M_eff_damage alone.",
+          "taxonomy_match": "known",
+          "assumption_before": "The parent hazard modifier is a fixed saturating function of M_eff_damage alone.",
+          "assumption_after": "The efficacy of effective damage is itself modulated by instantaneous daughter occupancy, so the same damage state can yield different parent hazards at different N_D.",
+          "before_fragment": "-lambda_P * (1 + alpha_damage * M_eff_damage**2/(1 + M_eff_damage**2)) * N_P",
+          "after_fragment": "-lambda_P * (1 + alpha_damage * (1 + N_D/(1 + N_D)) * M_eff_damage**2/(1 + M_eff_damage**2)) * N_P",
+          "parent_reduction": "The parent law is recovered when daughter-load modulation is negligible, such as N_D/(1 + N_D) -> 0 for low daughter occupancy.",
+          "observable_signature": "For trajectories or trajectory segments with similar M_eff_damage but different N_D, the child predicts distinct dN_P_dt/N_P values, with steeper parent loss at higher daughter load; this changes the slope curvature of depletion during the period when daughter buildup overlaps damage adaptation.",
+          "shortcut_blocked": "A single refit of the parent parameters cannot reproduce this contrast because the parent target mapping assigns one unique hazard value to each M_eff_damage regardless of N_D. When observations contain matched-damage points with systematically different parent slopes tied to daughter burden, no global retuning of lambda_P or alpha_damage can separate those cases without breaking the shared one-variable mapping elsewhere."
+        },
+        "range_suggestions": {}
+      },
+      {
+        "generation": 5,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The parent hazard increases monotonically with effective damage through a single saturating factor alpha_damage*(1 + N_D/(1 + N_D))*M_eff_damage**2/(1 + M_eff_damage**2), so for fixed N_P the mapping from accumulated daughter history to dN_P_dt has one sign and one phase of response.",
+            "child_relation": "Refine the damage-action law so that low-to-moderate effective damage can enhance the parent hazard but sufficiently large effective damage partially self-shields or passivates that enhancement, making the parent hazard a nonmonotone function of M_eff_damage at fixed N_D.",
+            "affected_inputs": [
+              "M_eff_damage",
+              "N_D",
+              "alpha_damage"
+            ],
+            "observable_effect": "Across trajectories with similar early daughter buildup but different later accumulated damage, the parent depletion rate can steepen initially and then flatten relative to the current law; the current single-phase monotone hazard cannot reproduce that turnover with one shared parameter set."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "damage_level",
+              "expression": "M_eff_damage",
+              "role": "Effective hazard-modifying damage amplitude controlling the parent hazard"
+            },
+            {
+              "name": "daughter_activation",
+              "expression": "N_D/(1 + N_D)",
+              "role": "Transient daughter occupancy factor that gates how strongly damage affects the parent"
+            },
+            {
+              "name": "hazard_loading",
+              "expression": "(1 + N_D/(1 + N_D))*M_eff_damage**2/(1 + M_eff_damage**2)",
+              "role": "Current monotone loading coordinate whose single-phase form is the shortcut to relax"
+            }
+          ],
+          "activation_condition": "Observable when M_eff_damage reaches order-one or larger values so that the present saturation is entered and additional damage accumulation can plausibly change curvature; weak or absent when damage remains small and the system stays in the near-quadratic onset regime.",
+          "train_hidden_contrast": "In training, early-to-intermediate times show the same initial hazard growth with daughter buildup, while in longer or more strongly activated segments the refined law produces late-time flattening or partial rollback of damage efficacy instead of persistent monotone saturation.",
+          "continuation_path": "Recover the parent law in the limit that high-damage self-passivation is negligible over the sampled M_eff_damage range, so the refined hazard factor reduces effectively to the present monotone saturating form.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The current model assumes effective damage has a single monotone action on parent hazard once activated, excluding the realistic possibility that heavily damaged local environments become partially passivated or self-shielding and therefore less effective per unit additional damage.",
+          "baseline_assumption": "The damage-induced modification of parent decay hazard is a single-phase monotone saturating function of M_eff_damage for all admissible damage levels.",
+          "scientific_mechanism": "At high daughter-induced disorder, defect clustering, local recombination, or microstructural passivation can reduce the incremental hazard-modifying efficacy of further damage, producing a turnover or softened late-stage response rather than pure monotone saturation.",
+          "affected_symbols": [
+            "M_eff_damage",
+            "N_D",
+            "alpha_damage"
+          ],
+          "rationale": "A realistic next refinement is to relax the single-phase monotone damage-response assumption already built into the parent target mapping. Vary condition by allowing trajectories to explore different attained M_eff_damage levels through the existing daughter-production and memory dynamics, while holding the baseline decay constants and initial conditions fixed. Under the current law, for any shared parameter set, increasing M_eff_damage at fixed N_D can only increase the parent loss magnitude toward one saturation plateau. A refined law with high-damage passivation instead predicts an initial increase in |dN_P_dt| as damage activates, followed by reduced marginal effect or partial decline at larger M_eff_damage. This changes the scored target mapping itself, not merely auxiliary trajectories, because dN_P_dt directly depends on the damage-response shape. The contrast is admissible when daughter buildup is sufficient to push M_eff_damage into the order-one saturation range; if the experiment remains entirely in the low-damage regime, the refinement is effectively hidden and the parent law is recovered as a valid approximation."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The parent hazard increases monotonically with effective damage through a single saturating factor alpha_damage*(1 + N_D/(1 + N_D))*M_eff_damage**2/(1 + M_eff_damage**2), so for fixed N_P the mapping from accumulated daughter history to dN_P_dt has one sign and one phase of response.",
+            "child_relation": "Refine the damage-action law so that low-to-moderate effective damage can enhance the parent hazard but sufficiently large effective damage partially self-shields or passivates that enhancement, making the parent hazard a nonmonotone function of M_eff_damage at fixed N_D.",
+            "affected_inputs": [
+              "M_eff_damage",
+              "N_D",
+              "alpha_damage"
+            ],
+            "observable_effect": "Across trajectories with similar early daughter buildup but different later accumulated damage, the parent depletion rate can steepen initially and then flatten relative to the current law; the current single-phase monotone hazard cannot reproduce that turnover with one shared parameter set."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "damage_level",
+              "expression": "M_eff_damage",
+              "role": "Effective hazard-modifying damage amplitude controlling the parent hazard"
+            },
+            {
+              "name": "daughter_activation",
+              "expression": "N_D/(1 + N_D)",
+              "role": "Transient daughter occupancy factor that gates how strongly damage affects the parent"
+            },
+            {
+              "name": "hazard_loading",
+              "expression": "(1 + N_D/(1 + N_D))*M_eff_damage**2/(1 + M_eff_damage**2)",
+              "role": "Current monotone loading coordinate whose single-phase form is the shortcut to relax"
+            }
+          ],
+          "activation_condition": "Observable when M_eff_damage reaches order-one or larger values so that the present saturation is entered and additional damage accumulation can plausibly change curvature; weak or absent when damage remains small and the system stays in the near-quadratic onset regime.",
+          "train_hidden_contrast": "In training, early-to-intermediate times show the same initial hazard growth with daughter buildup, while in longer or more strongly activated segments the refined law produces late-time flattening or partial rollback of damage efficacy instead of persistent monotone saturation.",
+          "continuation_path": "Recover the parent law in the limit that high-damage self-passivation is negligible over the sampled M_eff_damage range, so the refined hazard factor reduces effectively to the present monotone saturating form.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "M_eff_damage",
+            "N_D",
+            "N_P"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "high-damage passivation of daughter-induced hazard modification",
+          "scientific_mechanism": "At high daughter-induced disorder, defect clustering, local recombination, or microstructural passivation can reduce the incremental hazard-modifying efficacy of further damage, producing a turnover or softened late-stage response rather than pure monotone saturation.",
+          "embedding_pattern": "state_dependent_coefficient",
+          "difficulty_rationale": "This is harder than a coefficient-only correction because the same alpha_damage must now act through a damage-dependent attenuation that changes curvature across the trajectory, creating early agreement with the parent onset but late-time softening at larger M_eff_damage.",
+          "taxonomy_match": "known",
+          "assumption_before": "The damage-induced modification of parent decay hazard is a single-phase monotone saturating function of M_eff_damage for all admissible damage levels.",
+          "assumption_after": "The damage-induced hazard modification is strongest at intermediate effective damage and becomes self-passivated at high effective damage through a state-dependent attenuation.",
+          "before_fragment": "-lambda_P * (1 + alpha_damage * (1 + N_D/(1 + N_D)) * M_eff_damage**2/(1 + M_eff_damage**2)) * N_P",
+          "after_fragment": "-lambda_P * (1 + alpha_damage * (1 + N_D/(1 + N_D)) * M_eff_damage**2/((1 + M_eff_damage**2) * (1 + M_eff_damage**2/(1 + M_eff_damage**2)))) * N_P",
+          "parent_reduction": "When M_eff_damage stays in the low-to-moderate range where M_eff_damage**2/(1 + M_eff_damage**2) is small, the additional attenuation factor 1/(1 + M_eff_damage**2/(1 + M_eff_damage**2)) remains near unity and the parent expression is recovered approximately.",
+          "observable_signature": "Holding baseline decay constants and initial conditions fixed while trajectories differ only in how far existing daughter-memory dynamics push M_eff_damage, the child target mapping matches the parent's initial rise of |dN_P_dt| with damage but shows a later flattening or partial rollback once M_eff_damage becomes order one or larger. This is a direct change in the scored parent derivative, not merely in auxiliary state trajectories, because the M_eff_damage dependence inside dN_P_dt itself changes curvature from single-phase monotone saturation to self-passivating response.",
+          "shortcut_blocked": "Refitting a single shared alpha_damage or lambda_P cannot create both the same early-time damage activation slope and the later reduced efficacy at high M_eff_damage, because the parent law is monotone in M_eff_damage for every parameter set and therefore cannot generate the child's curvature change across low- and high-damage segments under one common fit."
+        },
+        "range_suggestions": {}
+      }
+    ],
+    "evolution_provenance": {
+      "dimension_track": null,
+      "mechanism_profile": {
+        "allowed_structural_roles": [
+          "contribution",
+          "response_law",
+          "interaction",
+          "constraint",
+          "transition"
+        ],
+        "preferred_scopes": [
+          "unary",
+          "pairwise",
+          "multiway",
+          "time_forcing"
+        ],
+        "domain_mechanisms": [
+          {
+            "id": "threshold_channel",
+            "description": "an energetically allowed reaction or decay channel",
+            "operations": [
+              "add_term",
+              "change_assumption"
+            ]
+          },
+          {
+            "id": "screening_or_form_factor",
+            "description": "scale-dependent coupling or finite-size response",
+            "operations": [
+              "change_assumption"
+            ]
+          },
+          {
+            "id": "interference_channel",
+            "description": "interaction between physically distinct amplitudes",
+            "operations": [
+              "add_term"
+            ]
+          }
+        ],
+        "profile_source": "subfield",
+        "ontology_schema_version": "1.0",
+        "taxonomy_schema_version": "1.0"
+      },
+      "baseline_mechanisms": [
+        "Spontaneous parent-nucleus decay with a constant probability per unit time.",
+        "Production of one modeled daughter nucleus per parent decay.",
+        "Independent decay of the unstable daughter out of the modeled chain."
+      ],
+      "baseline_assumptions": [
+        "The sample is closed to production of new parent nuclei.",
+        "Decay probabilities are time independent and unaffected by population size.",
+        "Every parent decay feeds the same daughter species with unit branching fraction.",
+        "Recoil, spatial transport, and detector response are ignored."
+      ],
+      "scientific_constraints": [
+        "Nuclear populations remain nonnegative.",
+        "The parent-loss rate is nonpositive.",
+        "The daughter source rate cannot exceed the parent disappearance rate.",
+        "No decay event creates additional parent nuclei."
+      ],
+      "refinement_agenda": [
+        "Release the unit-branching assumption by adding competing parent decay channels.",
+        "Add a stable granddaughter state to track nuclei leaving the daughter population.",
+        "Allow external irradiation to produce or destroy one of the modeled nuclides.",
+        "Include delayed detection or finite counting efficiency as a separate observation model."
+      ],
+      "evolution_contracts": [
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The parent loss rate is a pure first-order proportional law dN_P/dt = -lambda_P N_P with time-independent hazard, so at fixed N_P the target is independent of daughter buildup.",
+            "child_relation": "Relax the constant-hazard assumption by allowing the effective parent decay probability to evolve through radiation-damage or self-attenuation effects generated by accumulated daughter content, so the target depends on both N_P and N_D through a daughter-modulated hazard.",
+            "affected_inputs": [
+              "N_P",
+              "N_D",
+              "lambda_P"
+            ],
+            "observable_effect": "Across trajectories with different daughter accumulation histories, the parent depletion departs from a single exponential: the same N_P can correspond to different dN_P/dt once N_D/N_P becomes appreciable, producing altered curvature in ln N_P versus t."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "daughter_loading",
+              "expression": "N_D/N_P",
+              "role": "Dimensionless accumulated daughter burden relative to remaining parent, indicating when daughter-mediated environmental modification can affect parent loss."
+            },
+            {
+              "name": "chain_activity_ratio",
+              "expression": "lambda_D*N_D/(lambda_P*N_P)",
+              "role": "Compares daughter removal activity to parent disappearance activity; marks regimes with substantial daughter presence and therefore observable departure from fixed-hazard parent decay."
+            }
+          ],
+          "activation_condition": "Observable when daughter population becomes non-negligible during the sampled interval, e.g. lambda_D not overwhelmingly larger than lambda_P so that N_D builds up to an appreciable fraction of N_P before the parent is exhausted.",
+          "train_hidden_contrast": "In training, early times with small N_D remain close to the parent law, while later times with accumulated daughter burden show systematic deviation; in holdout, changing the relative timescale ratio extends the same daughter-history dependence rather than introducing a new mechanism.",
+          "continuation_path": "Recover the parent law in the limit of vanishing daughter feedback strength or whenever N_D stays negligible over the observation window.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "A daughter-history effect on the parent requires one additional dynamical environmental variable beyond the supplied states, because N_D alone is fixed by the baseline chain and cannot represent delayed medium modification or damage memory separately from instantaneous daughter count.",
+          "scope_kind": "memory",
+          "scope_symbols": [
+            "N_P",
+            "N_D",
+            "M_damage"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "daughter-induced environmental-memory modulation of parent decay hazard",
+          "scientific_mechanism": "Accumulated daughter-related radiation damage or matrix modification changes the effective parent decay hazard over time, creating history-dependent depletion rather than a strictly fixed exponential law.",
+          "embedding_pattern": "nested_nonlinearity",
+          "difficulty_rationale": "This is harder than a coefficient correction because the parent hazard is no longer a single constant multiplier: daughter activity first drives a separate memory state, then that state enters a nonlinear saturation map before modulating the target. The same observed N_P can therefore map to different dN_P/dt depending on trajectory history, which no one-parameter exponential refit can capture across admissible daughter-loading regimes.",
+          "taxonomy_match": "known",
+          "assumption_before": "Decay probabilities are time independent and unaffected by population size.",
+          "assumption_after": "The parent hazard is modified by daughter-generated environmental damage memory that accumulates and relaxes dynamically.",
+          "before_fragment": "-lambda_P * N_P",
+          "after_fragment": "-lambda_P * (1 + alpha_damage * tanh(M_damage)) * N_P",
+          "parent_reduction": "The parent law is recovered when alpha_damage -> 0 or when M_damage remains near zero because damage buildup is absent or negligible.",
+          "observable_signature": "The scored parent derivative is no longer determined by N_P alone: as daughter accumulation builds M_damage, the parent loss rate at fixed N_P becomes systematically larger, bending ln N_P versus t away from a straight line. This is observable when lambda_D is not so large that daughters remain negligible, allowing N_D and then M_damage to rise during the sampled interval.",
+          "shortcut_blocked": "Refitting a single constant lambda_P cannot reproduce trajectories where early-time decay is close to exponential but later-time decay accelerates at the same remaining-parent scale as daughter-induced memory accumulates. Across conditions with different lambda_D and thus different daughter histories, one shared parent parameter set preserves a straight-line ln N_P trend, whereas the refined model produces history-dependent curvature tied to daughter loading."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The parent hazard is lambda_P multiplied by a single saturating gain 1 + alpha_damage*tanh(M_damage), so the sensitivity of dN_P_dt to damage is monotone and saturates with one fixed shape.",
+            "child_relation": "Replace the instantaneous damage response with a delayed or filtered effective damage state so the parent hazard depends on both damage level and adaptation history, changing the time curvature of dN_P_dt during damage buildup and relaxation.",
+            "affected_inputs": [
+              "M_damage",
+              "N_D"
+            ],
+            "observable_effect": "At fixed initial N_P and shared lambda_P, alpha_damage, samples with similar instantaneous M_damage but different recent daughter-driven buildup histories show different parent-loss slopes; the modified model can produce a lagged steepening and delayed recovery of |dN_P_dt| that the single-gain parent cannot."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "damage_load",
+              "expression": "M_damage",
+              "role": "instantaneous accumulated modification level controlling the current hazard in the parent law"
+            },
+            {
+              "name": "daughter_drive",
+              "expression": "N_D",
+              "role": "current source strength for further damage buildup"
+            },
+            {
+              "name": "hazard_source",
+              "expression": "lambda_P*(1 + alpha_damage*tanh(M_damage))",
+              "role": "parent-model effective decay hazard before the proposed refinement"
+            }
+          ],
+          "activation_condition": "Observable when k_damage_build and k_damage_relax are comparable to lambda_P so damage evolves on the same time scale as parent depletion, and daughter abundance rises enough that M_damage traverses the tanh transition region rather than remaining near zero.",
+          "train_hidden_contrast": "In training, early-time buildup already shows mild lag between daughter growth and parent-hazard increase; in holdout with stronger daughter transients or slower relaxation, the same mechanism produces more pronounced delayed curvature and hysteretic-looking slope differences.",
+          "continuation_path": "Recover the parent law when the added adaptation time scale tends to zero so the effective hazard-modifying state tracks M_damage quasi-instantly.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "A true lag between accumulated damage and the hazard felt by parent nuclei cannot be represented by the existing states alone because M_damage already plays the role of the sole instantaneous modifier; an additional state is needed to encode adaptation history distinctly from raw damage buildup.",
+          "scope_kind": "memory",
+          "scope_symbols": [
+            "M_damage",
+            "M_eff_damage",
+            "N_P"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Delayed equilibration of the hazard-modifying damage environment",
+          "scientific_mechanism": "Radiation-induced matrix disorder or microchemical activation can require finite restructuring time before it changes the parent decay environment, so effective hazard modulation lags behind raw daughter-induced damage accumulation.",
+          "embedding_pattern": "multiplicative_modulation",
+          "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the target depends on an internal filtered modifier with its own time scale, so equal instantaneous M_damage does not imply equal parent loss unless adaptation history is also matched.",
+          "taxonomy_match": "known",
+          "assumption_before": "The damage-modified parent hazard is an instantaneous static function of M_damage with no response lag or adaptation dynamics.",
+          "assumption_after": "The local hazard-modifying environment adapts to accumulated damage over a finite time, and the parent hazard is modulated by that lagged effective damage state.",
+          "before_fragment": "-lambda_P * (1 + alpha_damage * tanh(M_damage)) * N_P",
+          "after_fragment": "-lambda_P * (1 + alpha_damage * tanh(M_eff_damage)) * N_P",
+          "parent_reduction": "Fast-adaptation limit k_damage_adapt -> infinity with M_eff_damage approximately equal to M_damage.",
+          "observable_signature": "Compared at the same N_P and similar instantaneous M_damage, trajectories with rising daughter-driven damage versus relaxing damage can yield different dN_P_dt because M_eff_damage lags M_damage; this appears as delayed steepening of parent depletion after N_D grows and delayed recovery after N_D falls, especially when M_damage reaches the tanh transition scale.",
+          "shortcut_blocked": "Refitting lambda_P, alpha_damage, k_damage_build, and k_damage_relax cannot remove the parent model's structural constraint that dN_P_dt is a single-valued function of N_P and M_damage alone. The child breaks that constraint through adaptation history encoded in M_eff_damage, so one shared parent parameter set cannot reproduce both buildup and relaxation slopes across conditions where the same M_damage is reached with different recent daughter-drive histories."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The parent loss rate is a baseline exponential depletion multiplied by a single monotone hazard factor 1 + alpha_damage*tanh(M_eff_damage), so damage changes the rate with one fixed-sign gain that saturates symmetrically.",
+            "child_relation": "Replace the idealized symmetric tanh hazard response with a one-sided, damage-thresholded saturation in the existing effective damage state, so small accumulated effective damage produces little parent-hazard change and the parent responds mainly after M_eff_damage reaches an activation scale.",
+            "affected_inputs": [
+              "M_eff_damage",
+              "alpha_damage"
+            ],
+            "observable_effect": "When daughter buildup is slow or lambda_D is large so M_eff_damage stays low, the parent remains close to baseline longer; when daughter buildup is strong enough to drive M_eff_damage past the activation scale, the parent hazard steepens later and more abruptly. This changes the time curvature of dN_P_dt versus the same observed M_eff_damage history."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "hazard_factor_current",
+              "expression": "1 + alpha_damage*tanh(M_eff_damage)",
+              "role": "Current effective multiplicative parent hazard law"
+            },
+            {
+              "name": "damage_state",
+              "expression": "M_eff_damage",
+              "role": "Observed effective environmental damage controlling parent hazard"
+            },
+            {
+              "name": "daughter_loading_ratio",
+              "expression": "k_damage_build*N_D/(k_damage_relax + lambda_D)",
+              "role": "Proxy for whether daughter presence can sustain enough damage buildup to reach the hazard-activation regime"
+            }
+          ],
+          "activation_condition": "Observable when M_eff_damage traverses from near zero into order-unity values during the sampled time window; especially when damage adaptation is not instantaneous and daughter accumulation is sufficient for a delayed crossover from weak to strong hazard modification.",
+          "train_hidden_contrast": "In training, moderate daughter exposure may only probe the near-baseline weak-response regime; in holdout, stronger or longer-lived daughter loading can push M_eff_damage into the activated regime, revealing delayed curvature change in parent depletion rather than a uniformly rescaled hazard.",
+          "continuation_path": "Recover the parent law in the limit where the thresholded response is linearized around always-activated conditions or where the activation scale tends to zero so the hazard modifier reduces to an effectively single smooth gain of M_eff_damage.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "memory",
+          "scope_symbols": [
+            "M_eff_damage"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "thresholded damage-dependent hazard modification of radioactive parent decay",
+          "scientific_mechanism": "Damage-assisted alteration of the local decay environment often has an onset threshold: subcritical daughter-induced disorder anneals or remains chemically ineffective, while only sufficiently accumulated effective damage significantly changes the parent hazard.",
+          "embedding_pattern": "state_dependent_coefficient",
+          "difficulty_rationale": "This is harder than a coefficient-only correction because the coefficient of parent loss now depends on the evolving state through a zero-slope low-damage regime and a later activated rise, changing the curvature of the direct dN_P_dt mapping rather than merely rescaling its magnitude.",
+          "taxonomy_match": "known",
+          "assumption_before": "The parent assumes hazard modification is a single smooth saturating function of M_eff_damage with no activation threshold or dead-zone at low damage.",
+          "assumption_after": "Low effective damage has weak influence on parent hazard, while sufficiently accumulated effective damage activates a stronger but still saturating hazard increase.",
+          "before_fragment": "-lambda_P * (1 + alpha_damage * tanh(M_eff_damage)) * N_P",
+          "after_fragment": "-lambda_P * (1 + alpha_damage * M_eff_damage**2/(1 + M_eff_damage**2)) * N_P",
+          "parent_reduction": "For trajectories confined to activated moderate-to-large M_eff_damage, M_eff_damage**2/(1 + M_eff_damage**2) behaves like a single saturating gain and the successor approximates the parent's one-factor hazard modulation.",
+          "observable_signature": "Compared at fixed lambda_P and shared alpha_damage across trajectories with different daughter-loading histories, the successor shows much weaker deviation from baseline while M_eff_damage remains small, followed by a later crossover to stronger curvature once M_eff_damage reaches order unity; the parent instead bends immediately with nonzero initial slope for any positive M_eff_damage.",
+          "shortcut_blocked": "A single refit of existing parent parameters cannot simultaneously match both prolonged near-baseline behavior at low M_eff_damage and the later activated steepening across conditions that do and do not cross order-unity damage, because tanh(M_eff_damage) imposes a fixed nonzero small-damage slope. Retuning lambda_P or alpha_damage only rescales the same immediate-response shape and cannot create the delayed onset in the direct dN_P_dt versus supplied M_eff_damage mapping."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The parent hazard increases monotonically with effective damage through a fixed saturating factor 1 + alpha_damage*M_eff_damage**2/(1 + M_eff_damage**2), so the same damage level always produces the same fractional acceleration regardless of daughter burden.",
+            "child_relation": "Replace the fixed Hill-like damage response by a daughter-conditioned damage efficacy, so the same M_eff_damage produces different parent-loss sensitivity when N_D is low versus high because daughter occupancy modulates how strongly accumulated damage alters the local decay environment.",
+            "affected_inputs": [
+              "M_eff_damage",
+              "N_D",
+              "alpha_damage"
+            ],
+            "observable_effect": "At matched intermediate M_eff_damage reached along different trajectory segments, the parent depletion slope becomes steeper when daughter burden is simultaneously high, shifting the curvature and timing of accelerated decay relative to the current one-variable damage law."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "damage_level",
+              "expression": "M_eff_damage",
+              "role": "Current effective environmental damage presented to the parent hazard"
+            },
+            {
+              "name": "daughter_load",
+              "expression": "N_D",
+              "role": "Instantaneous daughter occupancy that can gate how efficiently damage alters the parent environment"
+            },
+            {
+              "name": "joint_exposure",
+              "expression": "M_eff_damage*N_D",
+              "role": "Interaction coordinate distinguishing equal damage states reached under different daughter burdens"
+            }
+          ],
+          "activation_condition": "Observable when daughter population builds to non-negligible levels before fully decaying, so trajectories sample regimes with similar M_eff_damage but different N_D; strongest for intermediate times with lambda_D not overwhelmingly larger than the damage buildup/adaptation rates.",
+          "train_hidden_contrast": "Within training, early and mid-time segments can exhibit equal or similar effective damage with different daughter loads; in holdout, the same interaction extends to larger daughter peaks or slower daughter clearance, amplifying the divergence in parent-loss curvature.",
+          "continuation_path": "Recover the parent law when daughter-dependent modulation of damage efficacy vanishes, e.g. the interaction strength tends to zero or daughter load stays in a regime where the modulation factor is effectively constant.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "M_eff_damage",
+            "N_D",
+            "N_P"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "daughter-conditioned efficacy of damage-assisted parent decay",
+          "scientific_mechanism": "Transient daughter occupancy can catalyze or screen the impact of existing radiation damage through local ionization density, defect charging, or microchemical activation, making damage efficacy state-dependent rather than a universal single-variable gain.",
+          "embedding_pattern": "state_dependent_coefficient",
+          "difficulty_rationale": "This is harder than a coefficient-only correction because the effective gain on damage is no longer constant: it varies along the trajectory with N_D, creating a two-state response surface for the target rather than a single saturating curve in M_eff_damage alone.",
+          "taxonomy_match": "known",
+          "assumption_before": "The parent hazard modifier is a fixed saturating function of M_eff_damage alone.",
+          "assumption_after": "The efficacy of effective damage is itself modulated by instantaneous daughter occupancy, so the same damage state can yield different parent hazards at different N_D.",
+          "before_fragment": "-lambda_P * (1 + alpha_damage * M_eff_damage**2/(1 + M_eff_damage**2)) * N_P",
+          "after_fragment": "-lambda_P * (1 + alpha_damage * (1 + N_D/(1 + N_D)) * M_eff_damage**2/(1 + M_eff_damage**2)) * N_P",
+          "parent_reduction": "The parent law is recovered when daughter-load modulation is negligible, such as N_D/(1 + N_D) -> 0 for low daughter occupancy.",
+          "observable_signature": "For trajectories or trajectory segments with similar M_eff_damage but different N_D, the child predicts distinct dN_P_dt/N_P values, with steeper parent loss at higher daughter load; this changes the slope curvature of depletion during the period when daughter buildup overlaps damage adaptation.",
+          "shortcut_blocked": "A single refit of the parent parameters cannot reproduce this contrast because the parent target mapping assigns one unique hazard value to each M_eff_damage regardless of N_D. When observations contain matched-damage points with systematically different parent slopes tied to daughter burden, no global retuning of lambda_P or alpha_damage can separate those cases without breaking the shared one-variable mapping elsewhere."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_phase",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The parent hazard increases monotonically with effective damage through a single saturating factor alpha_damage*(1 + N_D/(1 + N_D))*M_eff_damage**2/(1 + M_eff_damage**2), so for fixed N_P the mapping from accumulated daughter history to dN_P_dt has one sign and one phase of response.",
+            "child_relation": "Refine the damage-action law so that low-to-moderate effective damage can enhance the parent hazard but sufficiently large effective damage partially self-shields or passivates that enhancement, making the parent hazard a nonmonotone function of M_eff_damage at fixed N_D.",
+            "affected_inputs": [
+              "M_eff_damage",
+              "N_D",
+              "alpha_damage"
+            ],
+            "observable_effect": "Across trajectories with similar early daughter buildup but different later accumulated damage, the parent depletion rate can steepen initially and then flatten relative to the current law; the current single-phase monotone hazard cannot reproduce that turnover with one shared parameter set."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "damage_level",
+              "expression": "M_eff_damage",
+              "role": "Effective hazard-modifying damage amplitude controlling the parent hazard"
+            },
+            {
+              "name": "daughter_activation",
+              "expression": "N_D/(1 + N_D)",
+              "role": "Transient daughter occupancy factor that gates how strongly damage affects the parent"
+            },
+            {
+              "name": "hazard_loading",
+              "expression": "(1 + N_D/(1 + N_D))*M_eff_damage**2/(1 + M_eff_damage**2)",
+              "role": "Current monotone loading coordinate whose single-phase form is the shortcut to relax"
+            }
+          ],
+          "activation_condition": "Observable when M_eff_damage reaches order-one or larger values so that the present saturation is entered and additional damage accumulation can plausibly change curvature; weak or absent when damage remains small and the system stays in the near-quadratic onset regime.",
+          "train_hidden_contrast": "In training, early-to-intermediate times show the same initial hazard growth with daughter buildup, while in longer or more strongly activated segments the refined law produces late-time flattening or partial rollback of damage efficacy instead of persistent monotone saturation.",
+          "continuation_path": "Recover the parent law in the limit that high-damage self-passivation is negligible over the sampled M_eff_damage range, so the refined hazard factor reduces effectively to the present monotone saturating form.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "M_eff_damage",
+            "N_D",
+            "N_P"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "high-damage passivation of daughter-induced hazard modification",
+          "scientific_mechanism": "At high daughter-induced disorder, defect clustering, local recombination, or microstructural passivation can reduce the incremental hazard-modifying efficacy of further damage, producing a turnover or softened late-stage response rather than pure monotone saturation.",
+          "embedding_pattern": "state_dependent_coefficient",
+          "difficulty_rationale": "This is harder than a coefficient-only correction because the same alpha_damage must now act through a damage-dependent attenuation that changes curvature across the trajectory, creating early agreement with the parent onset but late-time softening at larger M_eff_damage.",
+          "taxonomy_match": "known",
+          "assumption_before": "The damage-induced modification of parent decay hazard is a single-phase monotone saturating function of M_eff_damage for all admissible damage levels.",
+          "assumption_after": "The damage-induced hazard modification is strongest at intermediate effective damage and becomes self-passivated at high effective damage through a state-dependent attenuation.",
+          "before_fragment": "-lambda_P * (1 + alpha_damage * (1 + N_D/(1 + N_D)) * M_eff_damage**2/(1 + M_eff_damage**2)) * N_P",
+          "after_fragment": "-lambda_P * (1 + alpha_damage * (1 + N_D/(1 + N_D)) * M_eff_damage**2/((1 + M_eff_damage**2) * (1 + M_eff_damage**2/(1 + M_eff_damage**2)))) * N_P",
+          "parent_reduction": "When M_eff_damage stays in the low-to-moderate range where M_eff_damage**2/(1 + M_eff_damage**2) is small, the additional attenuation factor 1/(1 + M_eff_damage**2/(1 + M_eff_damage**2)) remains near unity and the parent expression is recovered approximately.",
+          "observable_signature": "Holding baseline decay constants and initial conditions fixed while trajectories differ only in how far existing daughter-memory dynamics push M_eff_damage, the child target mapping matches the parent's initial rise of |dN_P_dt| with damage but shows a later flattening or partial rollback once M_eff_damage becomes order one or larger. This is a direct change in the scored parent derivative, not merely in auxiliary state trajectories, because the M_eff_damage dependence inside dN_P_dt itself changes curvature from single-phase monotone saturation to self-passivating response.",
+          "shortcut_blocked": "Refitting a single shared alpha_damage or lambda_P cannot create both the same early-time damage activation slope and the later reduced efficacy at high M_eff_damage, because the parent law is monotone in M_eff_damage for every parameter set and therefore cannot generate the child's curvature change across low- and high-damage segments under one common fit."
+        }
+      ]
+    },
+    "finalization": {
+      "mode": "candidate",
+      "accepted_generations": 5,
+      "novelty": {
+        "answer": "NOT_EVALUATED"
+      },
+      "total_points": 5000,
+      "evaluation_status": "not_evaluated"
+    }
+  },
+  "contract": {
+    "features": [
+      "t",
+      "N_P",
+      "N_D",
+      "M_damage",
+      "M_eff_damage"
+    ],
+    "target": "dN_P_dt",
+    "family": "ode",
+    "expression": "-lambda_P * (1 + alpha_damage * (1 + N_D/(1 + N_D)) * M_eff_damage**2/((1 + M_eff_damage**2) * (1 + M_eff_damage**2/(1 + M_eff_damage**2)))) * N_P",
+    "parameters": {
+      "lambda_P": 0.08,
+      "lambda_D": 0.03,
+      "k_damage_build": 0.00012,
+      "k_damage_relax": 0.18,
+      "alpha_damage": 0.6,
+      "k_damage_adapt": 0.12
+    },
+    "implicit_branch": null
+  }
+}

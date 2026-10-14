@@ -1,0 +1,261 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "C",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        120.0
+      ],
+      "n_points": 400,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "k_cyclin_synthesis",
+      "value": 0.25
+    },
+    {
+      "symbol": "k_cyclin_degradation",
+      "value": 2.5
+    },
+    {
+      "symbol": "K_cyclin_degradation_saturation",
+      "value": 0.7
+    },
+    {
+      "symbol": "k_regulator_activation",
+      "value": 1.8
+    },
+    {
+      "symbol": "K_cyclin_activation",
+      "value": 0.8
+    },
+    {
+      "symbol": "n_cyclin",
+      "value": 4.0
+    },
+    {
+      "symbol": "activation_seed",
+      "value": 0.08
+    },
+    {
+      "symbol": "K_regulator_feedback",
+      "value": 0.35
+    },
+    {
+      "symbol": "n_regulator",
+      "value": 4.0
+    },
+    {
+      "symbol": "k_regulator_relaxation",
+      "value": 0.45
+    },
+    {
+      "symbol": "k_degradation_capacity_maturation",
+      "value": 0.6
+    },
+    {
+      "symbol": "K_degradation_capacity_activation",
+      "value": 0.25
+    }
+  ],
+  "benchmark_output": "dC_dt",
+  "benchmark_target_state": "C",
+  "observed_variables": [
+    "t",
+    "C",
+    "A",
+    "D"
+  ],
+  "rhs_for_integrator": "k_cyclin_synthesis - k_cyclin_degradation*(D**2/(K_degradation_capacity_activation*D + D**2))*(A/(K_degradation_capacity_activation + A))*C/(K_cyclin_degradation_saturation/(1 + D/(K_degradation_capacity_activation + D)) + C)",
+  "state_variables": [
+    "C",
+    "A",
+    "D"
+  ],
+  "state_rhs": [
+    "k_cyclin_synthesis - k_cyclin_degradation*(D**2/(K_degradation_capacity_activation*D + D**2))*(A/(K_degradation_capacity_activation + A))*C/(K_cyclin_degradation_saturation/(1 + D/(K_degradation_capacity_activation + D)) + C)",
+    "k_regulator_activation*(C**n_cyclin/(K_cyclin_activation**n_cyclin + C**n_cyclin))*(activation_seed + (1 - activation_seed)*(A**n_regulator/(K_regulator_feedback**n_regulator + A**n_regulator)))*(1 - A) - k_regulator_relaxation*A",
+    "k_degradation_capacity_maturation*(A/(K_degradation_capacity_activation + A) - D)"
+  ],
+  "initial_conditions": {
+    "C": 0.1,
+    "A": 0.1,
+    "D": 0.1
+  },
+  "sanity_expectations": [
+    "Substitution checks at representative low/intermediate states with the chosen parameter values are finite and real.",
+    "Early in the trajectory, with C=A=D=0.1 initially, dC/dt should be positive because synthesis dominates weak degradation, allowing cyclin accumulation before strong regulator engagement.",
+    "As A rises faster than D, there should be phases where D is similar but A differs; at matched or similar C and D, larger A should make dC/dt more negative because of the extra factor A/(K_degradation_capacity_activation + A).",
+    "When D moves from low toward moderate values around K_degradation_capacity_activation, degradation should strengthen more than a simple linear-in-D gain due to the D**2/(K*D + D**2) factor and the D-dependent reduction of the apparent cyclin saturation scale.",
+    "The sampled window should contain nonflat pulse structure: cyclin should show accumulation followed by sharper decline after regulator/capacity engagement, rather than monotone divergence or immediate extinction."
+  ],
+  "role_corrections": [
+    "dC_dt: claimed-output/target derivative -> target derivative within ODE system (confirmed by contract and expression context)",
+    "t: claimed-input/time axis -> independent variable/time axis (confirmed)",
+    "C: claimed-dynamic state -> dependent variable/target state (confirmed)",
+    "A: claimed-dynamic state -> dynamic state variable, not independent sampled axis (confirmed)",
+    "D: claimed-dynamic state -> dynamic state variable, not independent sampled axis (confirmed)",
+    "k_cyclin_synthesis: claimed-parameter -> parameter (confirmed)",
+    "k_cyclin_degradation: claimed-parameter -> parameter (confirmed)",
+    "K_cyclin_degradation_saturation: claimed-parameter -> parameter (confirmed)",
+    "k_regulator_activation: claimed-parameter -> parameter (confirmed from inherited ODE contract)",
+    "K_cyclin_activation: claimed-parameter -> parameter (confirmed from inherited ODE contract)",
+    "n_cyclin: claimed-parameter -> parameter (confirmed from inherited ODE contract)",
+    "activation_seed: claimed-parameter -> parameter (confirmed from inherited ODE contract)",
+    "K_regulator_feedback: claimed-parameter -> parameter (confirmed from inherited ODE contract)",
+    "n_regulator: claimed-parameter -> parameter (confirmed from inherited ODE contract)",
+    "k_regulator_relaxation: claimed-parameter -> parameter (confirmed from inherited ODE contract)",
+    "k_degradation_capacity_maturation: claimed-parameter -> parameter (confirmed from inherited ODE contract)",
+    "K_degradation_capacity_activation: claimed-parameter -> parameter (confirmed)",
+    "equation_type: upstream ode_system contract -> ode_system (confirmed; typed contract preserved despite target expression alone being explicit in current-state symbols)"
+  ],
+  "rationale": "The supplied typed ODE contract is preserved exactly: the target is the state C within a 3-state autonomous ODE system over time t, with A and D as additional dynamic states and all listed coefficients fixed as parameters. The chosen parameter set is intended to keep the system away from trivial parent-recovery limits while remaining finite and biologically plausible for dimensionless/activity fractions A,D and positive cyclin concentration C. In particular, k_regulator_activation exceeds k_regulator_relaxation enough to permit activation pulses from the nonzero initial state, while k_degradation_capacity_maturation is slower than regulator activation so D can lag A and create phase separation. K_degradation_capacity_activation=0.25 places both the D-engagement factor D/(K+D) and the added A-engagement factor A/(K+A) in an interior regime over ordinary trajectories rather than deep saturation; this exposes the recorded mechanism that matched C,D states can yield different dC/dt depending on A. K_cyclin_degradation_saturation=0.7 is chosen on the order of reachable cyclin levels so the C-dependence of degradation is visibly curved rather than nearly linear or fully saturated. k_cyclin_degradation is large enough relative to synthesis to produce net decline after activation but not so extreme that cyclin is pinned near zero. These settings also leave the generation-3 and generation-4 refinements active: as D varies through low-to-moderate values, the apparent cyclin saturation scale changes and the productive D-effectiveness is nonlinear, so degradation should strengthen disproportionately during later engaged phases. Weak or inactive regime to avoid: if trajectories stayed with A,D << K_degradation_capacity_activation, the extra A and D couplings would be hard to distinguish; if A,D >> K_degradation_capacity_activation throughout, the law would collapse toward a simpler saturated-gain form. The 0 to 120 time window with 400 points is meant to capture several accumulation-destruction cycles and both rising and falling pulse phases without altering inherited initial conditions. Exact noiseless trajectories are to be generated from the full inherited state system; no observation noise is added.",
+  "coverage_report": {},
+  "inactive_mechanisms": [],
+  "target_variance": {},
+  "parent_absorption_report": {},
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_yWVJE111PvEb7Gmi6tq0MYuB"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "k_cyclin_synthesis - k_cyclin_degradation*(D**2/(K_degradation_capacity_activation*D + D**2))*(A/(K_degradation_capacity_activation + A))*C/(K_cyclin_degradation_saturation/(1 + D/(K_degradation_capacity_activation + D)) + C)",
+        "target_symbol": "dC_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "A",
+          "C",
+          "D",
+          "K_cyclin_degradation_saturation",
+          "K_degradation_capacity_activation",
+          "k_cyclin_degradation",
+          "k_cyclin_synthesis"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "-A*C*D**2*k_cyclin_degradation/((A + K_degradation_capacity_activation)*(C + K_cyclin_degradation_saturation/(D/(D + K_d"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_tFn12nnsrzR3nWelRqpPSQkD"
+        },
+        {
+          "name": "check_substitution",
+          "id": "call_pe0dUPXZ56eex4ZJPPZqrtP9"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "k_cyclin_synthesis - k_cyclin_degradation*(D**2/(K_degradation_capacity_activation*D + D**2))*(A/(K_degradation_capacity_activation + A))*C/(K_cyclin_degradation_saturation/(1 + D/(K_degradation_capacity_activation + D)) + C)",
+        "target_symbol": "dC_dt",
+        "assignments": {
+          "A": 0.3,
+          "C": 0.8,
+          "D": 0.4,
+          "k_cyclin_synthesis": 0.25,
+          "k_cyclin_degradation": 2.5,
+          "K_cyclin_degradation_saturation": 0.7,
+          "K_degradation_capacity_activation": 0.25
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": -0.29432054432054433,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "k_cyclin_synthesis - k_cyclin_degradation*(D**2/(K_degradation_capacity_activation*D + D**2))*(A/(K_degradation_capacity_activation + A))*C/(K_cyclin_degradation_saturation/(1 + D/(K_degradation_capacity_activation + D)) + C)",
+        "target_symbol": "dC_dt",
+        "assignments": {
+          "A": 0.1,
+          "C": 0.1,
+          "D": 0.1,
+          "k_cyclin_synthesis": 0.25,
+          "k_cyclin_degradation": 2.5,
+          "K_cyclin_degradation_saturation": 0.7,
+          "K_degradation_capacity_activation": 0.25
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": 0.21833216045038703,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_KCGfX6ytwAypbyF4guRyIwQg"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_gJJEViQCVRsudMBGyBEHy7Tf"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 4
+}

@@ -1,0 +1,384 @@
+{
+  "base_id": "m2_genetics_and_population_genetics_20260917_002",
+  "generation": 5,
+  "operation": "change_assumption",
+  "model_family": "ode",
+  "equation_type": "ode_system",
+  "target_symbol": "dD_dt",
+  "expression": "-recombination_rate*D*(1 + nonlinear_ld_coupling*D**2)/(1 + occupancy_buffer + boundary_compression_strength*D**2 + refractory_occupancy_strength*refractory_occupancy/(1 + refractory_occupancy_halfscale + refractory_occupancy))",
+  "symbols": [
+    "dD_dt",
+    "t",
+    "D",
+    "recombination_rate",
+    "occupancy_buffer",
+    "refractory_occupancy",
+    "recombination_relaxation_rate",
+    "recombination_setpoint",
+    "occupancy_relaxation_rate",
+    "occupancy_sensitivity",
+    "nonlinear_ld_coupling",
+    "boundary_compression_strength",
+    "refractory_occupancy_relaxation_rate",
+    "refractory_occupancy_sensitivity",
+    "refractory_occupancy_strength",
+    "refractory_occupancy_halfscale"
+  ],
+  "symbol_descriptions": [
+    "Instantaneous rate of change of signed two-locus linkage disequilibrium under recombination",
+    "time",
+    "Signed linkage disequilibrium between the two loci",
+    "Effective recombination intensity relaxing toward a long-time setpoint",
+    "Internal occupancy-limitation buffer that rises with LD magnitude and reduces effective recombinant erosion",
+    "Slow refractory occupancy-memory state left by sustained large LD, further suppressing recombinant erosion with saturation",
+    "Rate at which effective recombination intensity relaxes toward its setpoint",
+    "Long-time setpoint of the effective recombination intensity",
+    "Relaxation rate for the occupancy limitation buffer toward its LD-dependent quasi-steady level",
+    "Strength with which LD magnitude builds occupancy limitation",
+    "Strength of the amplitude-dependent nonlinear enhancement of recombinational LD erosion",
+    "Strength of boundary-aware geometric compression of recombinant LD erosion at larger |D|",
+    "Relaxation rate of the slow refractory occupancy-memory state",
+    "Strength with which LD magnitude builds the slow refractory occupancy-memory state",
+    "Maximum effective contribution of refractory occupancy memory to erosion suppression",
+    "Half-saturation scale for the refractory occupancy contribution to suppression"
+  ],
+  "symbol_properties": [
+    "O",
+    "V",
+    "S",
+    "S",
+    "S",
+    "S",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P"
+  ],
+  "new_symbol_range_suggestions": {
+    "refractory_occupancy": "[0, 5]",
+    "refractory_occupancy_relaxation_rate": "[0, 10]",
+    "refractory_occupancy_sensitivity": "[0, 50]",
+    "refractory_occupancy_strength": "[0, 10]",
+    "refractory_occupancy_halfscale": "[0, 10]"
+  },
+  "derivation_notes": "The one-phase occupancy limitation is relaxed by introducing a slower refractory occupancy-memory state that accumulates from D**2 and decays on its own timescale. Its effect on D erosion is saturating, representing finite-capacity crowding or access limitation, and the chosen nonzero initial condition keeps the branch scientifically active without closing it on an invariant zero-effect set.",
+  "change_summary": "The successor adds a slow refractory occupancy memory that continues to suppress recombinational erosion after sustained high-|D| exposure. This changes the target mapping by making dD_dt depend on recent LD history through a saturating hidden state, not only on the current D and fast occupancy buffer.",
+  "assumption_audit": {
+    "released_assumption": "Occupancy limitation is fully captured by one fast linear relaxation variable slaved to current D**2, with no slower refractory or crowding-memory phase.",
+    "outcome": "state_augmentation",
+    "quantity": "refractory_occupancy",
+    "quantity_role": "internal_state",
+    "mechanism": "Sustained excess occupancy of overrepresented haplotypes can leave a slower refractory crowding state that continues to limit effective recombinant reshuffling even after instantaneous LD has already begun to relax, while still preserving decay toward D=0.",
+    "reference_condition": {},
+    "parent_reduction": "The successor reduces to the parent when refractory_occupancy_strength = 0, or when refractory_occupancy_relaxation_rate is infinitely fast together with negligible refractory_occupancy_sensitivity so the added memory contributes no sustained suppression."
+  },
+  "add_term_audit": null,
+  "evolution_contract": {
+    "operation": "change_assumption",
+    "parent_shortcut": "single_phase",
+    "response_change": {
+      "type": "curvature_change",
+      "parent_relation": "For fixed recombination_rate and occupancy_buffer, dD_dt is an odd monotone function of D whose magnitude changes with |D| only through a single rational dependence on D**2, so positive and negative associations with the same |D| decay with the same one-phase shape.",
+      "child_relation": "Retain decay toward zero but relax the assumption that the occupancy limitation responds instantaneously with one linear relaxation mode; introduce a slowly accumulating refractory occupancy memory so the effective erosion at a given current |D| depends on recent prior |D| exposure, changing the local curvature of the D-to-dD_dt mapping during sustained large-|D| episodes versus transient ones.",
+      "affected_inputs": [
+        "D",
+        "occupancy_buffer"
+      ],
+      "observable_effect": "Two trajectories that pass through the same current D can show different |dD_dt| depending on whether they arrived after prolonged high |D| or after a brief excursion; sustained high |D| yields stronger temporary suppression of erosion than the parent can produce from current D alone."
+    },
+    "diagnostic_groups": [
+      {
+        "name": "ld_amplitude",
+        "expression": "Abs(D)",
+        "role": "current disequilibrium magnitude setting the instantaneous parent erosion scale"
+      },
+      {
+        "name": "buffered_decay_scale",
+        "expression": "recombination_rate*(1 + nonlinear_ld_coupling*D**2)/(1 + occupancy_buffer + boundary_compression_strength*D**2)",
+        "role": "current effective linear-in-D decay coefficient implied by the parent mapping"
+      },
+      {
+        "name": "buffer_load_mismatch",
+        "expression": "occupancy_sensitivity*D**2 - occupancy_buffer",
+        "role": "distance of the fast occupancy buffer from its quasi-steady LD-dependent level, indicating whether recent history can matter if an additional slower occupancy phase exists"
+      }
+    ],
+    "activation_condition": "Observable when |D| remains moderately large for times comparable to or longer than the occupancy response timescale, so a slow occupancy-refractory component can separate sustained from transient exposure; weak near D≈0 or under very rapid passage through low |D|.",
+    "train_hidden_contrast": "Within training, trajectories with different recombination_rate relaxation histories can generate the same instantaneous D but different recent high-|D| dwell times; in holdout, the same memory mechanism extends this contrast to longer sustained episodes and larger occupancy buildup.",
+    "continuation_path": "Recover the parent law when the refractory occupancy contribution is absent or relaxes infinitely fast so the additional memory collapses into the existing occupancy_buffer response.",
+    "freedom_change": "add_state",
+    "promoted_symbol": null,
+    "promotion_reason": "A genuine history-dependent occupancy refractory effect cannot be represented by refitting existing algebraic D dependence or the single occupancy_buffer state, because those make dD_dt at a given current state depend only on present D and present buffer, not on an additional slow hidden occupancy phase created by past sustained LD.",
+    "scope_kind": "memory",
+    "scope_symbols": [
+      "D",
+      "occupancy_buffer",
+      "refractory_occupancy"
+    ],
+    "structural_role": "feedback",
+    "domain_mechanism_id": "",
+    "domain_mechanism": "slow refractory occupancy-memory saturation during recombinational LD erosion",
+    "scientific_mechanism": "Sustained excess occupancy of overrepresented haplotypes can leave a slower refractory crowding state that continues to limit effective recombinant reshuffling even after instantaneous LD has already begun to relax, while still preserving decay toward D=0.",
+    "embedding_pattern": "saturating_or_thresholded",
+    "difficulty_rationale": "This embedding is harder than a coefficient-only correction because the target derivative now depends on a hidden state with its own timescale and a saturating denominator contribution, creating path-dependent curvature changes that cannot be reproduced by a single rational function of current D and occupancy_buffer alone.",
+    "taxonomy_match": "known",
+    "assumption_before": "The current model assumes a single-timescale occupancy limitation, so all suppression of recombinational erosion is determined by one buffer that relaxes linearly toward a D**2 target.",
+    "assumption_after": "Occupancy limitation includes a slower refractory crowding-memory phase with finite-capacity saturating influence on recombinational erosion.",
+    "before_fragment": "-recombination_rate*D*(1 + nonlinear_ld_coupling*D**2)/(1 + occupancy_buffer + boundary_compression_strength*D**2)",
+    "after_fragment": "-recombination_rate*D*(1 + nonlinear_ld_coupling*D**2)/(1 + occupancy_buffer + boundary_compression_strength*D**2 + refractory_occupancy_strength*refractory_occupancy/(1 + refractory_occupancy_halfscale + refractory_occupancy))",
+    "parent_reduction": "The successor reduces to the parent when refractory_occupancy_strength = 0, or when refractory_occupancy_relaxation_rate is infinitely fast together with negligible refractory_occupancy_sensitivity so the added memory contributes no sustained suppression.",
+    "observable_signature": "Under sustained moderate-to-large |D|, the child shows a delayed extra flattening of the D-to-dD_dt relation: at the same current D and even similar occupancy_buffer, |dD_dt| is smaller after long high-|D| dwell time than after a short excursion because refractory_occupancy remains elevated and its suppressive effect saturates at a finite capacity.",
+    "shortcut_blocked": "A single parent parameter set cannot reproduce this contrast because in the parent the scored mapping is Markov in the supplied state tuple (D, recombination_rate, occupancy_buffer): once those are fixed, dD_dt is fixed. The child permits different dD_dt values at the same current observed tuple when refractory_occupancy differs due to prior exposure, so neither coefficient retuning nor refitting the existing one-phase buffer can absorb the history-dependent separation across sustained versus transient high-|D| conditions."
+  },
+  "dimension_track": null,
+  "mechanism_profile": {
+    "allowed_structural_roles": [
+      "contribution",
+      "response_law",
+      "modulation",
+      "interaction",
+      "constraint",
+      "transition",
+      "feedback",
+      "heterogeneity",
+      "timescale",
+      "transport_balance"
+    ],
+    "preferred_scopes": [
+      "unary",
+      "pairwise",
+      "state_coupling",
+      "time_forcing"
+    ],
+    "domain_mechanisms": [
+      {
+        "id": "finite_capacity_or_resource",
+        "description": "finite capacity, resource limitation, or saturation",
+        "operations": [
+          "add_term",
+          "change_assumption"
+        ]
+      },
+      {
+        "id": "regulatory_or_ecological_feedback",
+        "description": "regulatory, ecological, or biochemical feedback",
+        "operations": [
+          "add_term"
+        ]
+      },
+      {
+        "id": "environmental_modulation",
+        "description": "observed environmental or condition-dependent modulation",
+        "operations": [
+          "change_assumption"
+        ]
+      }
+    ],
+    "profile_source": "subject_fallback",
+    "ontology_schema_version": "1.0",
+    "taxonomy_schema_version": "1.0"
+  },
+  "evolution_plan": {
+    "operation": "change_assumption",
+    "parent_shortcut": "single_phase",
+    "response_change": {
+      "type": "curvature_change",
+      "parent_relation": "For fixed recombination_rate and occupancy_buffer, dD_dt is an odd monotone function of D whose magnitude changes with |D| only through a single rational dependence on D**2, so positive and negative associations with the same |D| decay with the same one-phase shape.",
+      "child_relation": "Retain decay toward zero but relax the assumption that the occupancy limitation responds instantaneously with one linear relaxation mode; introduce a slowly accumulating refractory occupancy memory so the effective erosion at a given current |D| depends on recent prior |D| exposure, changing the local curvature of the D-to-dD_dt mapping during sustained large-|D| episodes versus transient ones.",
+      "affected_inputs": [
+        "D",
+        "occupancy_buffer"
+      ],
+      "observable_effect": "Two trajectories that pass through the same current D can show different |dD_dt| depending on whether they arrived after prolonged high |D| or after a brief excursion; sustained high |D| yields stronger temporary suppression of erosion than the parent can produce from current D alone."
+    },
+    "diagnostic_groups": [
+      {
+        "name": "ld_amplitude",
+        "expression": "Abs(D)",
+        "role": "current disequilibrium magnitude setting the instantaneous parent erosion scale"
+      },
+      {
+        "name": "buffered_decay_scale",
+        "expression": "recombination_rate*(1 + nonlinear_ld_coupling*D**2)/(1 + occupancy_buffer + boundary_compression_strength*D**2)",
+        "role": "current effective linear-in-D decay coefficient implied by the parent mapping"
+      },
+      {
+        "name": "buffer_load_mismatch",
+        "expression": "occupancy_sensitivity*D**2 - occupancy_buffer",
+        "role": "distance of the fast occupancy buffer from its quasi-steady LD-dependent level, indicating whether recent history can matter if an additional slower occupancy phase exists"
+      }
+    ],
+    "activation_condition": "Observable when |D| remains moderately large for times comparable to or longer than the occupancy response timescale, so a slow occupancy-refractory component can separate sustained from transient exposure; weak near D≈0 or under very rapid passage through low |D|.",
+    "train_hidden_contrast": "Within training, trajectories with different recombination_rate relaxation histories can generate the same instantaneous D but different recent high-|D| dwell times; in holdout, the same memory mechanism extends this contrast to longer sustained episodes and larger occupancy buildup.",
+    "continuation_path": "Recover the parent law when the refractory occupancy contribution is absent or relaxes infinitely fast so the additional memory collapses into the existing occupancy_buffer response.",
+    "freedom_change": "add_state",
+    "promoted_symbol": null,
+    "promotion_reason": "A genuine history-dependent occupancy refractory effect cannot be represented by refitting existing algebraic D dependence or the single occupancy_buffer state, because those make dD_dt at a given current state depend only on present D and present buffer, not on an additional slow hidden occupancy phase created by past sustained LD.",
+    "gap_statement": "The current model assumes a single-timescale occupancy limitation, so all suppression of recombinational erosion is determined by one buffer that relaxes linearly toward a D**2 target.",
+    "baseline_assumption": "Occupancy limitation is fully captured by one fast linear relaxation variable slaved to current D**2, with no slower refractory or crowding-memory phase.",
+    "scientific_mechanism": "Sustained excess occupancy of overrepresented haplotypes can leave a slower refractory crowding state that continues to limit effective recombinant reshuffling even after instantaneous LD has already begun to relax, while still preserving decay toward D=0.",
+    "affected_symbols": [
+      "D",
+      "occupancy_buffer",
+      "occupancy_relaxation_rate",
+      "occupancy_sensitivity"
+    ],
+    "rationale": "A realistic next refinement is to relax the one-phase occupancy assumption rather than add an unrelated process. In the parent, if current D, recombination_rate, and occupancy_buffer are the same, then dD_dt is fixed; any two trajectories intersecting the same state have identical target dynamics. That is a single-phase shortcut. Biologically, finite haplotype occupancy can have a slower refractory component: prolonged strong association can leave persistent crowding or access limitation beyond the fast buffer. Vary the duration of prior large-|D| exposure while holding the current observed D and the fixed parameters comparable; under admissible conditions with sustained moderate-to-large |D|, the child can produce temporarily smaller |dD_dt| after long exposure than after a brief excursion, whereas the parent with one shared parameter set cannot because its target mapping is Markov in the existing state tuple and has no extra memory. This changes the scored target mapping, not merely an auxiliary trajectory, provided the new slow state enters the D equation. The effect should remain weak near D=0 and disappears in the limit of vanishing or infinitely fast refractory occupancy, which cleanly recovers the parent."
+  },
+  "selected_embedding_pattern": {
+    "description": "Use a finite-capacity, saturation, threshold, or regime-transition response.",
+    "difficulty_level": 5,
+    "operations": [
+      "add_term",
+      "change_assumption"
+    ],
+    "model_families": [
+      "static",
+      "ode"
+    ],
+    "minimum_active_quantities": 1,
+    "weight": 17,
+    "id": "saturating_or_thresholded"
+  },
+  "ode_system": {
+    "time_symbol": "t",
+    "target_state": "D",
+    "states": [
+      {
+        "symbol": "D",
+        "rhs": "-recombination_rate*D*(1 + nonlinear_ld_coupling*D**2)/(1 + occupancy_buffer + boundary_compression_strength*D**2 + refractory_occupancy_strength*refractory_occupancy/(1 + refractory_occupancy_halfscale + refractory_occupancy))",
+        "initial_condition": 0.05,
+        "description": "Signed linkage disequilibrium between the two loci"
+      },
+      {
+        "symbol": "recombination_rate",
+        "rhs": "recombination_relaxation_rate*(recombination_setpoint - recombination_rate)",
+        "initial_condition": 0.3,
+        "description": "Effective recombination intensity relaxing toward a long-time setpoint"
+      },
+      {
+        "symbol": "occupancy_buffer",
+        "rhs": "occupancy_relaxation_rate*(occupancy_sensitivity*D**2 - occupancy_buffer)",
+        "initial_condition": 0.01,
+        "description": "Internal occupancy-limitation buffer that rises with LD magnitude and reduces effective recombinant erosion"
+      },
+      {
+        "symbol": "refractory_occupancy",
+        "rhs": "refractory_occupancy_relaxation_rate*(refractory_occupancy_sensitivity*D**2 - refractory_occupancy)",
+        "initial_condition": 0.02,
+        "description": "Slow refractory occupancy-memory state left by sustained large LD, further suppressing recombinant erosion with saturation"
+      }
+    ]
+  },
+  "scenario_text": "Track linkage disequilibrium between two neutral biallelic loci while recombination acts at a fixed intensity. The marginal allele frequencies are held constant, leaving the signed allelic association as the only evolving quantity. A continuous-time approximation is used to describe the erosion of both positive and negative associations toward linkage equilibrium.",
+  "freedom_change": "add_state",
+  "promoted_symbol": null,
+  "promotion_reason": "A genuine history-dependent occupancy refractory effect cannot be represented by refitting existing algebraic D dependence or the single occupancy_buffer state, because those make dD_dt at a given current state depend only on present D and present buffer, not on an additional slow hidden occupancy phase created by past sustained LD.",
+  "parent_shortcut": "single_phase",
+  "response_change": {
+    "type": "curvature_change",
+    "parent_relation": "For fixed recombination_rate and occupancy_buffer, dD_dt is an odd monotone function of D whose magnitude changes with |D| only through a single rational dependence on D**2, so positive and negative associations with the same |D| decay with the same one-phase shape.",
+    "child_relation": "Retain decay toward zero but relax the assumption that the occupancy limitation responds instantaneously with one linear relaxation mode; introduce a slowly accumulating refractory occupancy memory so the effective erosion at a given current |D| depends on recent prior |D| exposure, changing the local curvature of the D-to-dD_dt mapping during sustained large-|D| episodes versus transient ones.",
+    "affected_inputs": [
+      "D",
+      "occupancy_buffer"
+    ],
+    "observable_effect": "Two trajectories that pass through the same current D can show different |dD_dt| depending on whether they arrived after prolonged high |D| or after a brief excursion; sustained high |D| yields stronger temporary suppression of erosion than the parent can produce from current D alone."
+  },
+  "diagnostic_groups": [
+    {
+      "name": "ld_amplitude",
+      "expression": "Abs(D)",
+      "role": "current disequilibrium magnitude setting the instantaneous parent erosion scale"
+    },
+    {
+      "name": "buffered_decay_scale",
+      "expression": "recombination_rate*(1 + nonlinear_ld_coupling*D**2)/(1 + occupancy_buffer + boundary_compression_strength*D**2)",
+      "role": "current effective linear-in-D decay coefficient implied by the parent mapping"
+    },
+    {
+      "name": "buffer_load_mismatch",
+      "expression": "occupancy_sensitivity*D**2 - occupancy_buffer",
+      "role": "distance of the fast occupancy buffer from its quasi-steady LD-dependent level, indicating whether recent history can matter if an additional slower occupancy phase exists"
+    }
+  ],
+  "activation_condition": "Observable when |D| remains moderately large for times comparable to or longer than the occupancy response timescale, so a slow occupancy-refractory component can separate sustained from transient exposure; weak near D≈0 or under very rapid passage through low |D|.",
+  "train_hidden_contrast": "Within training, trajectories with different recombination_rate relaxation histories can generate the same instantaneous D but different recent high-|D| dwell times; in holdout, the same memory mechanism extends this contrast to longer sustained episodes and larger occupancy buildup.",
+  "continuation_path": "Recover the parent law when the refractory occupancy contribution is absent or relaxes infinitely fast so the additional memory collapses into the existing occupancy_buffer response.",
+  "dependent_variable": {
+    "symbol": "dD_dt",
+    "description": "Instantaneous rate of change of signed two-locus linkage disequilibrium under recombination"
+  },
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "description": "time"
+    }
+  ],
+  "state_variables": [
+    {
+      "symbol": "D",
+      "description": "Signed linkage disequilibrium between the two loci"
+    },
+    {
+      "symbol": "recombination_rate",
+      "description": "Effective recombination intensity relaxing toward a long-time setpoint"
+    },
+    {
+      "symbol": "occupancy_buffer",
+      "description": "Internal occupancy-limitation buffer that rises with LD magnitude and reduces effective recombinant erosion"
+    },
+    {
+      "symbol": "refractory_occupancy",
+      "description": "Slow refractory occupancy-memory state left by sustained large LD, further suppressing recombinant erosion with saturation"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "recombination_relaxation_rate",
+      "description": "Rate at which effective recombination intensity relaxes toward its setpoint"
+    },
+    {
+      "symbol": "recombination_setpoint",
+      "description": "Long-time setpoint of the effective recombination intensity"
+    },
+    {
+      "symbol": "occupancy_relaxation_rate",
+      "description": "Relaxation rate for the occupancy limitation buffer toward its LD-dependent quasi-steady level"
+    },
+    {
+      "symbol": "occupancy_sensitivity",
+      "description": "Strength with which LD magnitude builds occupancy limitation"
+    },
+    {
+      "symbol": "nonlinear_ld_coupling",
+      "description": "Strength of the amplitude-dependent nonlinear enhancement of recombinational LD erosion"
+    },
+    {
+      "symbol": "boundary_compression_strength",
+      "description": "Strength of boundary-aware geometric compression of recombinant LD erosion at larger |D|"
+    },
+    {
+      "symbol": "refractory_occupancy_relaxation_rate",
+      "description": "Relaxation rate of the slow refractory occupancy-memory state"
+    },
+    {
+      "symbol": "refractory_occupancy_sensitivity",
+      "description": "Strength with which LD magnitude builds the slow refractory occupancy-memory state"
+    },
+    {
+      "symbol": "refractory_occupancy_strength",
+      "description": "Maximum effective contribution of refractory occupancy memory to erosion suppression"
+    },
+    {
+      "symbol": "refractory_occupancy_halfscale",
+      "description": "Half-saturation scale for the refractory occupancy contribution to suppression"
+    }
+  ]
+}

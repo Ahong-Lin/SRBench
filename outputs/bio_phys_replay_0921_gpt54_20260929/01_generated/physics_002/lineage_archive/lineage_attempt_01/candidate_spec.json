@@ -1,0 +1,1768 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "eta",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        25.0
+      ],
+      "n_points": 400,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "mode_wavenumber",
+      "value": 2.5
+    },
+    {
+      "symbol": "fluid_depth",
+      "value": 0.8
+    },
+    {
+      "symbol": "gravity_relaxation_rate",
+      "value": 0.15
+    },
+    {
+      "symbol": "gravity_reference",
+      "value": 9.81
+    },
+    {
+      "symbol": "compressibility_relaxation_rate",
+      "value": 1.2
+    },
+    {
+      "symbol": "compressibility_coupling",
+      "value": 0.02
+    }
+  ],
+  "benchmark_output": "deta_dt",
+  "benchmark_target_state": "eta",
+  "observed_variables": [
+    "t",
+    "eta",
+    "u",
+    "gravity_acceleration",
+    "compressibility_strain"
+  ],
+  "rhs_for_integrator": "u/((1 + (mode_wavenumber*eta)**2)*(1 + compressibility_strain))",
+  "state_variables": [
+    "eta",
+    "u",
+    "gravity_acceleration",
+    "compressibility_strain"
+  ],
+  "state_rhs": [
+    "u/((1 + (mode_wavenumber*eta)**2)*(1 + compressibility_strain))",
+    "-gravity_acceleration*mode_wavenumber*tanh(mode_wavenumber*(fluid_depth + eta))*(1 + (mode_wavenumber*eta)**2)*eta",
+    "-gravity_relaxation_rate*(gravity_acceleration - gravity_reference)",
+    "-compressibility_relaxation_rate*(compressibility_strain - compressibility_coupling*gravity_acceleration*(fluid_depth + eta))"
+  ],
+  "initial_conditions": {
+    "eta": 0.1,
+    "u": 0.0,
+    "gravity_acceleration": 10.0,
+    "compressibility_strain": 0.01
+  },
+  "sanity_expectations": [
+    "The denominator (1 + (mode_wavenumber*eta)^2)*(1 + compressibility_strain) should remain positive over the sampled trajectory, so deta_dt stays finite and real.",
+    "Because gravity_acceleration relaxes from 10.0 toward 9.81, oscillation timing should drift mildly rather than remain exactly periodic at a single constant frequency.",
+    "compressibility_strain should evolve away from its initial 0.01 toward the moving equilibrium compressibility_coupling*gravity_acceleration*(fluid_depth + eta), so runs along the trajectory with similar eta and u at different times can have measurably different deta_dt through the factor 1/(1 + compressibility_strain).",
+    "Relative to the incompressible parent reduction, positive compressibility_strain tends to suppress |deta_dt| for the same eta and u.",
+    "With initial steepness k*eta≈0.25 and intermediate depth k*h=2, the trajectory should show visible but bounded nonlinear curvature rather than purely linear sinusoidal motion or extreme saturation."
+  ],
+  "role_corrections": [
+    "deta_dt: claimed-output/target derivative -> derived target expression for eta (confirmed as scored derivative, not sampled state)",
+    "t: claimed-input/time axis -> independent variable (confirmed)",
+    "eta: claimed-dynamic state -> dependent variable and state variable (confirmed)",
+    "u: claimed-dynamic state -> state variable, not independent sampling axis (confirmed)",
+    "gravity_acceleration: claimed-dynamic state -> state variable (confirmed under explicit ODE contract/freedom decision)",
+    "compressibility_strain: claimed-dynamic state -> state variable (confirmed under explicit ODE contract/freedom decision)",
+    "mode_wavenumber: claimed-parameter -> parameter (confirmed)",
+    "fluid_depth: claimed-parameter -> parameter (confirmed)",
+    "gravity_relaxation_rate: claimed-parameter -> parameter (confirmed)",
+    "gravity_reference: claimed-parameter -> parameter (confirmed)",
+    "compressibility_relaxation_rate: claimed-parameter -> parameter (confirmed)",
+    "compressibility_coupling: claimed-parameter -> parameter (confirmed)"
+  ],
+  "rationale": "The supplied ODE system contract is preserved exactly as required. Although the scored expression alone is explicit in u, eta, mode_wavenumber, and compressibility_strain, the record includes an explicit typed ODE-system contract and freedom decision adding compressibility_strain as a state; per instruction this contract governs the data plan. A single time axis is therefore sampled, with exact trajectories generated from the inherited 4-state system and the target taken as the eta-state derivative. Parameter choices are set to keep the dynamics bounded, real, and visibly away from both the parent-recovery limit and extreme saturation. mode_wavenumber=2.5 and initial eta=0.1 give initial steepness k*eta≈0.25, so the existing geometric factor 1+(k*eta)^2 is active but not dominant. fluid_depth=0.8 gives k*h=2, an intermediate-depth regime where the inherited tanh(k*(h+eta)) dependence remains appreciable rather than collapsing to either very shallow or deep-water asymptotes. gravity_reference=9.81 with initial gravity_acceleration=10.0 and gravity_relaxation_rate=0.15 makes gravity evolve slowly enough to modulate oscillation timing over the window without eliminating restoring positivity. compressibility_coupling=0.02 with fluid_depth near unity and gravity near 10 gives an equilibrium strain scale of order 0.1–0.2, so the inherited initial strain 0.01 is not negligible but the factor 1+compressibility_strain stays safely positive and near unity; compressibility_relaxation_rate=1.2 lets the strain state respond on a timescale comparable to but not identical with the modal oscillation, exposing memory effects rather than immediate slaving or near-frozen behavior. The chosen time window [0,25] with 400 points should capture several oscillations plus the slower gravity and compressibility relaxation. This setup directly exposes the recorded distinguishing condition that the same u and similar eta reached at different times can correspond to different deta_dt because compressibility_strain evolves as an internal memory state, while gravity modulation also changes trajectory curvature. No observation noise is added.",
+  "coverage_report": {
+    "groups": [
+      {
+        "generation": 1,
+        "name": "linear_frequency_sq",
+        "expression": "gravity_acceleration*mode_wavenumber*tanh(mode_wavenumber*fluid_depth)",
+        "role": "Baseline linear restoring scale",
+        "train_range": [
+          23.658445326010032,
+          24.100689501895424
+        ],
+        "hidden_range": [
+          23.653545485281974,
+          23.658399488135455
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 23.658445326010032,
+          "max": 24.100689501895424,
+          "q05": 23.661325744714183,
+          "median": 23.72748262992185,
+          "q95": 24.029586692629746,
+          "range": 0.4422441758853921,
+          "robust_range": 0.3682609479155623
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 23.653545485281974,
+          "max": 23.658399488135455,
+          "q05": 23.65374771396816,
+          "median": 23.655747395678993,
+          "q95": 23.658111545580226,
+          "range": 0.004854002853480921,
+          "robust_range": 0.00436383161206777
+        }
+      },
+      {
+        "generation": 1,
+        "name": "steepness_proxy",
+        "expression": "mode_wavenumber*eta",
+        "role": "Dimensionless wave-steepness measure controlling departure from linearity",
+        "train_range": [
+          -0.24866805257272806,
+          0.25
+        ],
+        "hidden_range": [
+          -0.24614245774770105,
+          0.2431198670862756
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": -0.24866805257272806,
+          "max": 0.25,
+          "q05": -0.2435154534622017,
+          "median": -0.0023713040834842797,
+          "q95": 0.24059622081216042,
+          "range": 0.49866805257272806,
+          "robust_range": 0.4841116742743621
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": -0.24614245774770105,
+          "max": 0.2431198670862756,
+          "q05": -0.24254482816144,
+          "median": 0.03164147466280252,
+          "q95": 0.24010776938475578,
+          "range": 0.48926232483397664,
+          "robust_range": 0.48265259754619577
+        }
+      },
+      {
+        "generation": 1,
+        "name": "modal_energy_like",
+        "expression": "u**2 + gravity_acceleration*mode_wavenumber*tanh(mode_wavenumber*fluid_depth)*eta**2",
+        "role": "Conservative amplitude indicator for comparing weakly and moderately nonlinear trajectories",
+        "train_range": [
+          0.22388099991470348,
+          0.2796524229882054
+        ],
+        "hidden_range": [
+          0.22371553776543385,
+          0.2781534840990825
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.22388099991470348,
+          "max": 0.2796524229882054,
+          "q05": 0.2270977842475558,
+          "median": 0.25551727649603667,
+          "q95": 0.2779215861955373,
+          "range": 0.05577142307350194,
+          "robust_range": 0.0508238019479815
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.22371553776543385,
+          "max": 0.2781534840990825,
+          "q05": 0.22546680535389846,
+          "median": 0.2565971549379201,
+          "q95": 0.2772746691357377,
+          "range": 0.05443794633364868,
+          "robust_range": 0.051807863781839214
+        }
+      },
+      {
+        "generation": 2,
+        "name": "linear_stiffness",
+        "expression": "gravity_acceleration*mode_wavenumber*tanh(mode_wavenumber*fluid_depth)",
+        "role": "instantaneous linear restoring scale",
+        "train_range": [
+          23.658445326010032,
+          24.100689501895424
+        ],
+        "hidden_range": [
+          23.653545485281974,
+          23.658399488135455
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 23.658445326010032,
+          "max": 24.100689501895424,
+          "q05": 23.661325744714183,
+          "median": 23.72748262992185,
+          "q95": 24.029586692629746,
+          "range": 0.4422441758853921,
+          "robust_range": 0.3682609479155623
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 23.653545485281974,
+          "max": 23.658399488135455,
+          "q05": 23.65374771396816,
+          "median": 23.655747395678993,
+          "q95": 23.658111545580226,
+          "range": 0.004854002853480921,
+          "robust_range": 0.00436383161206777
+        }
+      },
+      {
+        "generation": 2,
+        "name": "nonlinear_stiffness",
+        "expression": "gravity_acceleration*mode_wavenumber*tanh(mode_wavenumber*fluid_depth)*(1 + (mode_wavenumber*eta)**2)",
+        "role": "instantaneous amplitude-corrected restoring scale",
+        "train_range": [
+          23.661409743672113,
+          25.606982595763885
+        ],
+        "hidden_range": [
+          23.655362678434656,
+          25.090414969340234
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 23.661409743672113,
+          "max": 25.606982595763885,
+          "q05": 23.720788805185492,
+          "median": 24.49026614575773,
+          "q95": 25.249225272150206,
+          "range": 1.9455728520917717,
+          "robust_range": 1.5284364669647132
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 23.655362678434656,
+          "max": 25.090414969340234,
+          "q05": 23.663865621919776,
+          "median": 24.34085523900471,
+          "q95": 25.053495291722854,
+          "range": 1.4350522909055776,
+          "robust_range": 1.3896296698030781
+        }
+      },
+      {
+        "generation": 2,
+        "name": "hydrostatic_timescale",
+        "expression": "1/sqrt(gravity_acceleration*mode_wavenumber*tanh(mode_wavenumber*fluid_depth))",
+        "role": "instantaneous modal oscillation timescale",
+        "train_range": [
+          0.2036972970589004,
+          0.20559232544175707
+        ],
+        "hidden_range": [
+          0.20559252460803346,
+          0.20561361860236077
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.2036972970589004,
+          "max": 0.20559232544175707,
+          "q05": 0.20399844167327552,
+          "median": 0.20529301264544442,
+          "q95": 0.20557981113914672,
+          "range": 0.001895028382856656,
+          "robust_range": 0.0015813694658712019
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.20559252460803346,
+          "max": 0.20561361860236077,
+          "q05": 0.20559377573620619,
+          "median": 0.2056040489766242,
+          "q95": 0.205612739649482,
+          "range": 2.1093994327314736e-05,
+          "robust_range": 1.8963913275826805e-05
+        }
+      },
+      {
+        "generation": 3,
+        "name": "steepness",
+        "expression": "mode_wavenumber*eta",
+        "role": "dimensionless modal free-surface slope scale controlling departure from small-slope kinematics",
+        "train_range": [
+          -0.24866805257272806,
+          0.25
+        ],
+        "hidden_range": [
+          -0.24614245774770105,
+          0.2431198670862756
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": -0.24866805257272806,
+          "max": 0.25,
+          "q05": -0.2435154534622017,
+          "median": -0.0023713040834842797,
+          "q95": 0.24059622081216042,
+          "range": 0.49866805257272806,
+          "robust_range": 0.4841116742743621
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": -0.24614245774770105,
+          "max": 0.2431198670862756,
+          "q05": -0.24254482816144,
+          "median": 0.03164147466280252,
+          "q95": 0.24010776938475578,
+          "range": 0.48926232483397664,
+          "robust_range": 0.48265259754619577
+        }
+      },
+      {
+        "generation": 3,
+        "name": "kinematic_pair",
+        "expression": "u/(1 + (mode_wavenumber*eta)**2)",
+        "role": "candidate geometry-reduced displacement-rate scale under finite-slope kinematics",
+        "train_range": [
+          -0.528514760253653,
+          0.5274945613571006
+        ],
+        "hidden_range": [
+          -0.5273605713084948,
+          0.5258033093307731
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": -0.528514760253653,
+          "max": 0.5274945613571006,
+          "q05": -0.519654539652675,
+          "median": -0.022487794343487456,
+          "q95": 0.5172777234145672,
+          "range": 1.0560093216107536,
+          "robust_range": 1.0369322630672424
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": -0.5273605713084948,
+          "max": 0.5258033093307731,
+          "q05": -0.5207119846647683,
+          "median": 0.06869617845828137,
+          "q95": 0.5201096616959713,
+          "range": 1.0531638806392678,
+          "robust_range": 1.0408216463607396
+        }
+      },
+      {
+        "generation": 4,
+        "name": "slope_parameter",
+        "expression": "mode_wavenumber*eta",
+        "role": "dimensionless wave steepness controlling finite-amplitude activation",
+        "train_range": [
+          -0.24866805257272806,
+          0.25
+        ],
+        "hidden_range": [
+          -0.24614245774770105,
+          0.2431198670862756
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": -0.24866805257272806,
+          "max": 0.25,
+          "q05": -0.2435154534622017,
+          "median": -0.0023713040834842797,
+          "q95": 0.24059622081216042,
+          "range": 0.49866805257272806,
+          "robust_range": 0.4841116742743621
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": -0.24614245774770105,
+          "max": 0.2431198670862756,
+          "q05": -0.24254482816144,
+          "median": 0.03164147466280252,
+          "q95": 0.24010776938475578,
+          "range": 0.48926232483397664,
+          "robust_range": 0.48265259754619577
+        }
+      },
+      {
+        "generation": 4,
+        "name": "depth_parameter",
+        "expression": "mode_wavenumber*fluid_depth",
+        "role": "dimensionless depth setting the baseline dispersive regime",
+        "train_range": [
+          2.0,
+          2.0
+        ],
+        "hidden_range": [
+          2.0,
+          2.0
+        ],
+        "train_status": "inactive",
+        "hidden_status": "inactive",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 2.0,
+          "max": 2.0,
+          "q05": 2.0,
+          "median": 2.0,
+          "q95": 2.0,
+          "range": 0.0,
+          "robust_range": 0.0
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 2.0,
+          "max": 2.0,
+          "q05": 2.0,
+          "median": 2.0,
+          "q95": 2.0,
+          "range": 0.0,
+          "robust_range": 0.0
+        }
+      },
+      {
+        "generation": 4,
+        "name": "hydrostatic_scale",
+        "expression": "gravity_acceleration*mode_wavenumber*tanh(mode_wavenumber*fluid_depth)",
+        "role": "parent linear restoring-rate scale",
+        "train_range": [
+          23.658445326010032,
+          24.100689501895424
+        ],
+        "hidden_range": [
+          23.653545485281974,
+          23.658399488135455
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 23.658445326010032,
+          "max": 24.100689501895424,
+          "q05": 23.661325744714183,
+          "median": 23.72748262992185,
+          "q95": 24.029586692629746,
+          "range": 0.4422441758853921,
+          "robust_range": 0.3682609479155623
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 23.653545485281974,
+          "max": 23.658399488135455,
+          "q05": 23.65374771396816,
+          "median": 23.655747395678993,
+          "q95": 23.658111545580226,
+          "range": 0.004854002853480921,
+          "robust_range": 0.00436383161206777
+        }
+      },
+      {
+        "generation": 5,
+        "name": "surface_slope",
+        "expression": "mode_wavenumber*eta",
+        "role": "existing finite-slope kinematic nonlinearity level",
+        "train_range": [
+          -0.24866805257272806,
+          0.25
+        ],
+        "hidden_range": [
+          -0.24614245774770105,
+          0.2431198670862756
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": -0.24866805257272806,
+          "max": 0.25,
+          "q05": -0.2435154534622017,
+          "median": -0.0023713040834842797,
+          "q95": 0.24059622081216042,
+          "range": 0.49866805257272806,
+          "robust_range": 0.4841116742743621
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": -0.24614245774770105,
+          "max": 0.2431198670862756,
+          "q05": -0.24254482816144,
+          "median": 0.03164147466280252,
+          "q95": 0.24010776938475578,
+          "range": 0.48926232483397664,
+          "robust_range": 0.48265259754619577
+        }
+      },
+      {
+        "generation": 5,
+        "name": "hydrostatic_load",
+        "expression": "gravity_acceleration*(fluid_depth + eta)",
+        "role": "instantaneous pressure scale that would activate weak compressibility corrections",
+        "train_range": [
+          6.888916612609964,
+          9.0
+        ],
+        "hidden_range": [
+          6.885830639825793,
+          8.80688721341989
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 6.888916612609964,
+          "max": 9.0,
+          "q05": 6.92746164257843,
+          "median": 7.8681143164989304,
+          "q95": 8.83573729768082,
+          "range": 2.1110833873900363,
+          "robust_range": 1.9082756551023907
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 6.885830639825793,
+          "max": 8.80688721341989,
+          "q05": 6.899961878939982,
+          "median": 7.976027162720461,
+          "q95": 8.79509958665838,
+          "range": 1.9210565735940968,
+          "robust_range": 1.8951377077183968
+        }
+      },
+      {
+        "generation": 5,
+        "name": "depth_ratio",
+        "expression": "mode_wavenumber*(fluid_depth + eta)",
+        "role": "combined amplitude-depth regime controlling how much of the fluid column participates",
+        "train_range": [
+          1.7513319474272722,
+          2.25
+        ],
+        "hidden_range": [
+          1.753857542252299,
+          2.2431198670862758
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 1.7513319474272722,
+          "max": 2.25,
+          "q05": 1.7564845465377983,
+          "median": 1.9976286959165157,
+          "q95": 2.2405962208121606,
+          "range": 0.49866805257272784,
+          "robust_range": 0.4841116742743623
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 1.753857542252299,
+          "max": 2.2431198670862758,
+          "q05": 1.75745517183856,
+          "median": 2.031641474662803,
+          "q95": 2.240107769384756,
+          "range": 0.4892623248339767,
+          "robust_range": 0.48265259754619594
+        }
+      }
+    ],
+    "inactive_mechanisms": [
+      "depth_parameter"
+    ],
+    "visible_mechanisms": [
+      "linear_frequency_sq",
+      "steepness_proxy",
+      "modal_energy_like",
+      "linear_stiffness",
+      "nonlinear_stiffness",
+      "hydrostatic_timescale",
+      "steepness",
+      "kinematic_pair",
+      "slope_parameter",
+      "hydrostatic_scale",
+      "surface_slope",
+      "hydrostatic_load",
+      "depth_ratio"
+    ],
+    "extended_mechanisms": [
+      "linear_frequency_sq",
+      "modal_energy_like",
+      "linear_stiffness",
+      "nonlinear_stiffness",
+      "hydrostatic_timescale",
+      "kinematic_pair",
+      "hydrostatic_scale",
+      "hydrostatic_load"
+    ]
+  },
+  "inactive_mechanisms": [
+    "depth_parameter"
+  ],
+  "target_variance": {
+    "train": {
+      "n": 384,
+      "variance": 0.1020048831681581,
+      "range": 0.9559420676100732
+    },
+    "hidden": {
+      "n": 128,
+      "variance": 0.10286919647482039,
+      "range": 0.9103466197120118
+    }
+  },
+  "parent_absorption_report": {
+    "status": "ok",
+    "n_points": 512,
+    "fixed_parent_normalized_rmse": 0.1568287404917983,
+    "refit": {
+      "status": "not_run",
+      "reason": "no free parent parameters"
+    },
+    "interpretation": "<1e-3 nearly absorbed; 1e-3..1e-2 weak; >1e-2 visible structure"
+  },
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_TIrFdyoEplgJpvc6xCGsFKEM"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "u/((1 + (mode_wavenumber*eta)**2)*(1 + compressibility_strain))",
+        "target_symbol": "deta_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "compressibility_strain",
+          "eta",
+          "mode_wavenumber",
+          "u"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "u/(((compressibility_strain + 1)*((eta*mode_wavenumber)**2 + 1)))"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_G3f0XorDkkcTnGW6cu3pM4UG"
+        },
+        {
+          "name": "check_substitution",
+          "id": "call_Ab5q9RpLLyyLHXOnC7fxaN4N"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "u/((1 + (mode_wavenumber*eta)**2)*(1 + compressibility_strain))",
+        "target_symbol": "deta_dt",
+        "assignments": {
+          "u": 0.2,
+          "eta": 0.1,
+          "mode_wavenumber": 1.5,
+          "compressibility_strain": 0.02
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": 0.19176374706361762,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "u/((1 + (mode_wavenumber*eta)**2)*(1 + compressibility_strain))",
+        "target_symbol": "deta_dt",
+        "assignments": {
+          "u": 0.2,
+          "eta": 0.2,
+          "mode_wavenumber": 3.0,
+          "compressibility_strain": -0.08
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": 0.159846547314578,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_HJbyjEBKUEsjeRSFp5w919ao"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_jieluOgr7X6MKCVP9WaYXm7C"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 4,
+  "discipline": "physics",
+  "scenario_text": "A small-amplitude free-surface disturbance is represented by one spatial mode in a fluid layer of fixed depth. Its surface displacement and associated modal velocity evolve together as fluid inertia exchanges energy with the pressure-restoring response of the displaced surface. The benchmark targets the instantaneous rate of change of surface displacement along a trajectory. Dissipation, wave breaking, and interactions with other modes are absent from the baseline system.",
+  "record_id": "m2_fluid_dynamics_20280761_001",
+  "generation": 5,
+  "_n_total": 5000,
+  "mechanism_observation_history": [
+    {
+      "generation": 1,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The scored target mapping is deta_dt = u, so for observed state u the target is exactly linear and independent of eta; under the parent dynamics u itself evolves with a displacement-independent linear restoring frequency.",
+          "child_relation": "Retain deta_dt = u but relax the linear-wave assumption so the modal restoring dynamics acquire amplitude dependence, causing the eta-u trajectory and therefore the conditional target evolution along observed trajectories to bend differently at larger |eta| than at smaller |eta|.",
+          "affected_inputs": [
+            "eta",
+            "u",
+            "mode_wavenumber",
+            "fluid_depth",
+            "gravity_acceleration"
+          ],
+          "observable_effect": "Holding gravity_acceleration, mode_wavenumber, and fluid_depth fixed, trajectories started with larger admissible initial |eta| develop amplitude-dependent period/frequency relative to smaller-amplitude trajectories; a single linear parent parameter set cannot match both small-amplitude and moderately larger-amplitude phase progression over time."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "linear_frequency_sq",
+            "expression": "gravity_acceleration*mode_wavenumber*tanh(mode_wavenumber*fluid_depth)",
+            "role": "Baseline linear restoring scale"
+          },
+          {
+            "name": "steepness_proxy",
+            "expression": "mode_wavenumber*eta",
+            "role": "Dimensionless wave-steepness measure controlling departure from linearity"
+          },
+          {
+            "name": "modal_energy_like",
+            "expression": "u**2 + gravity_acceleration*mode_wavenumber*tanh(mode_wavenumber*fluid_depth)*eta**2",
+            "role": "Conservative amplitude indicator for comparing weakly and moderately nonlinear trajectories"
+          }
+        ],
+        "activation_condition": "Weak-to-moderate steepness with |mode_wavenumber*eta| no longer asymptotically small but still below overturning and breaking, so a single-mode conservative description remains admissible.",
+        "train_hidden_contrast": "Within training, modest variation in observed |eta| or energy reveals slight amplitude-dependent phase curvature; in holdout, somewhat larger but still non-breaking steepness extends the same conservative trend rather than introducing a different mechanism.",
+        "continuation_path": "Recover the parent law in the small-steepness limit |mode_wavenumber*eta| -> 0, where amplitude-dependent corrections vanish and the linear gravity-wave oscillator is restored.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The current model assumes the pressure-restoring response is exactly linear in displacement for all admissible amplitudes, omitting the first conservative finite-amplitude correction to single-mode free-surface motion.",
+        "baseline_assumption": "Surface displacement and velocity are sufficiently small for linear mode dynamics.",
+        "scientific_mechanism": "Weakly nonlinear free-surface geometry modifies the effective restoring response of the mode without introducing dissipation or mode coupling, producing amplitude-dependent conservative oscillation.",
+        "affected_symbols": [
+          "eta",
+          "u",
+          "mode_wavenumber",
+          "fluid_depth",
+          "gravity_acceleration"
+        ],
+        "rationale": "A realistic next refinement is to relax the small-amplitude linearization, not to add a new dissipative or external process. The parent target mapping shortcut is single_gain in the sense that deta_dt equals the observed velocity state exactly, while the underlying eta-u dynamics use one amplitude-independent restoring scale for every trajectory. The scientifically meaningful change is therefore in the trajectory-conditioned target evolution: vary initial displacement amplitude (equivalently the modal energy level) while holding gravity_acceleration, mode_wavenumber, and fluid_depth fixed. In the parent, all amplitudes oscillate with the same period after one shared parameter fit. In the child, finite but non-breaking steepness causes amplitude-dependent phase/frequency curvature, so larger-amplitude trajectories desynchronize from smaller-amplitude ones over time. This is observable under the given ODE protocol because eta is the scored state and its slope deta_dt=u is evaluated along trajectories generated by the system; the changed eta-u phase evolution changes the target relation over time, not merely an unobserved auxiliary variable. The refinement remains conservative and bounded in the weakly nonlinear regime, and it has a clear continuation path back to the parent as steepness tends to zero. A single refitted linear parent parameter set cannot reproduce both the small-amplitude and moderately larger-amplitude oscillation timing across those conditions, because its frequency is fixed once mode_wavenumber, fluid_depth, and gravity_acceleration are fixed."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The scored target mapping is deta_dt = u, so for observed state u the target is exactly linear and independent of eta; under the parent dynamics u itself evolves with a displacement-independent linear restoring frequency.",
+          "child_relation": "Retain deta_dt = u but relax the linear-wave assumption so the modal restoring dynamics acquire amplitude dependence, causing the eta-u trajectory and therefore the conditional target evolution along observed trajectories to bend differently at larger |eta| than at smaller |eta|.",
+          "affected_inputs": [
+            "eta",
+            "u",
+            "mode_wavenumber",
+            "fluid_depth",
+            "gravity_acceleration"
+          ],
+          "observable_effect": "Holding gravity_acceleration, mode_wavenumber, and fluid_depth fixed, trajectories started with larger admissible initial |eta| develop amplitude-dependent period/frequency relative to smaller-amplitude trajectories; a single linear parent parameter set cannot match both small-amplitude and moderately larger-amplitude phase progression over time."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "linear_frequency_sq",
+            "expression": "gravity_acceleration*mode_wavenumber*tanh(mode_wavenumber*fluid_depth)",
+            "role": "Baseline linear restoring scale"
+          },
+          {
+            "name": "steepness_proxy",
+            "expression": "mode_wavenumber*eta",
+            "role": "Dimensionless wave-steepness measure controlling departure from linearity"
+          },
+          {
+            "name": "modal_energy_like",
+            "expression": "u**2 + gravity_acceleration*mode_wavenumber*tanh(mode_wavenumber*fluid_depth)*eta**2",
+            "role": "Conservative amplitude indicator for comparing weakly and moderately nonlinear trajectories"
+          }
+        ],
+        "activation_condition": "Weak-to-moderate steepness with |mode_wavenumber*eta| no longer asymptotically small but still below overturning and breaking, so a single-mode conservative description remains admissible.",
+        "train_hidden_contrast": "Within training, modest variation in observed |eta| or energy reveals slight amplitude-dependent phase curvature; in holdout, somewhat larger but still non-breaking steepness extends the same conservative trend rather than introducing a different mechanism.",
+        "continuation_path": "Recover the parent law in the small-steepness limit |mode_wavenumber*eta| -> 0, where amplitude-dependent corrections vanish and the linear gravity-wave oscillator is restored.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "eta",
+          "u"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "amplitude-dependent conservative restoring force in a weakly nonlinear free-surface mode",
+        "scientific_mechanism": "Weakly nonlinear free-surface geometry modifies the effective restoring response of the mode without introducing dissipation or mode coupling, producing amplitude-dependent conservative oscillation.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the restoring coefficient now changes along the trajectory through eta, so one shared linear frequency cannot reproduce amplitude-dependent phase drift across different energy levels.",
+        "taxonomy_match": "known",
+        "assumption_before": "Surface displacement and velocity are sufficiently small for linear mode dynamics.",
+        "assumption_after": "Finite but non-breaking steepness is allowed, giving a conservative state-dependent restoring coefficient.",
+        "before_fragment": "u",
+        "after_fragment": "u",
+        "parent_reduction": "In the limit |mode_wavenumber*eta| -> 0, the multiplicative correction in du/dt approaches 1 and the parent system is recovered.",
+        "observable_signature": "The parent target relation deta_dt=u is preserved pointwise, but along trajectories with the same gravity_acceleration, mode_wavenumber, and fluid_depth, larger admissible |eta| produces a different phase progression than smaller |eta| because du/dt contains an eta-dependent coefficient. This changes the time-conditioned target evolution through curvature of the eta-u orbit, observable when comparing weak and moderately nonlinear initial amplitudes under the same fixed parameters.",
+        "shortcut_blocked": "Refitting all existing parent parameters still leaves a linear oscillator with one amplitude-independent frequency for a given gravity_acceleration, mode_wavenumber, and fluid_depth. That single parameter set can shift the common period but cannot simultaneously match the amplitude-dependent dephasing between small- and moderate-amplitude trajectories generated by the child across the stated admissible regime."
+      },
+      "range_suggestions": {}
+    },
+    {
+      "generation": 2,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "With fixed gravity_acceleration, the scored mapping is deta_dt = u and any amplitude dependence in eta(t) arises only through a time-invariant restoring stiffness in du/dt proportional to gravity_acceleration*mode_wavenumber*tanh(mode_wavenumber*fluid_depth)*(1 + (mode_wavenumber*eta)**2).",
+          "child_relation": "Release gravity_acceleration from a fixed parameter to a slowly varying state so the eta-u oscillation evolves in a time-varying effective stiffness; then the target trajectory deta_dt = u acquires envelope and phase-curvature changes through the dynamically changing environment.",
+          "affected_inputs": [
+            "eta",
+            "u",
+            "gravity_acceleration"
+          ],
+          "observable_effect": "Across trajectories with the same initial eta and u but different admissible initial gravity_acceleration states, the timing of zero crossings and peak |deta_dt| changes systematically because the oscillation frequency drifts with the evolving restoring strength; one shared fixed-gravity parent cannot match both early- and late-time curvature patterns across those conditions."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "linear_stiffness",
+            "expression": "gravity_acceleration*mode_wavenumber*tanh(mode_wavenumber*fluid_depth)",
+            "role": "instantaneous linear restoring scale"
+          },
+          {
+            "name": "nonlinear_stiffness",
+            "expression": "gravity_acceleration*mode_wavenumber*tanh(mode_wavenumber*fluid_depth)*(1 + (mode_wavenumber*eta)**2)",
+            "role": "instantaneous amplitude-corrected restoring scale"
+          },
+          {
+            "name": "hydrostatic_timescale",
+            "expression": "1/sqrt(gravity_acceleration*mode_wavenumber*tanh(mode_wavenumber*fluid_depth))",
+            "role": "instantaneous modal oscillation timescale"
+          }
+        ],
+        "activation_condition": "Observable when gravity_acceleration varies on a timescale comparable to or slower than a few modal periods, so the mode remains bounded but experiences measurable frequency/envelope drift over the observation window; negligible if gravity_acceleration is effectively constant.",
+        "train_hidden_contrast": "In training, modest variation of gravity_acceleration produces small but visible period changes; in holdout, the same mechanism extends to larger yet still positive excursions, yielding stronger accumulated phase and peak-velocity contrast in deta_dt without changing the initial eta-u preparation.",
+        "continuation_path": "Recover the parent by taking gravity_acceleration to a constant state, i.e. zero evolution of the promoted parameter or an invariant equilibrium at its initial value.",
+        "freedom_change": "parameter_to_state",
+        "promoted_symbol": "gravity_acceleration",
+        "promotion_reason": "A fixed parameter cannot represent slowly varying effective gravity or vertical acceleration bias along the trajectory; to expose the missing response relationship within the ODE observation protocol, gravity_acceleration must itself evolve as a state.",
+        "gap_statement": "The current model assumes the restoring environment is constant along the trajectory, so all target variation comes from eta and u alone; it omits physically admissible slow modulation of effective gravity that changes the oscillation geometry during observation.",
+        "baseline_assumption": "Fluid depth and background acceleration are fixed.",
+        "scientific_mechanism": "A slowly varying effective gravitational acceleration, representing weak background vertical acceleration or gradual environmental forcing, modulates the hydrostatic restoring strength while preserving single-mode conservative exchange instantaneously.",
+        "affected_symbols": [
+          "eta",
+          "u",
+          "gravity_acceleration"
+        ],
+        "rationale": "A realistic next refinement is to relax the fixed-background-acceleration assumption rather than add dissipation or extra modes, which are excluded. The parent target mapping shortcut is fixed_environment: with one constant gravity_acceleration, the model imposes one time-invariant stiffness-frequency relation for every trajectory. Vary gravity_acceleration along the trajectory while holding mode_wavenumber, fluid_depth, and the initial eta and u protocol fixed. Then the child produces a concrete contrast: the same initial displacement can show different accumulated phase curvature and peak deta_dt over time because u evolves under a changing restoring coefficient. This changes the scored target mapping indirectly but observably, since deta_dt=u and u is no longer generated by a fixed-stiffness oscillator. Under admissible conditions gravity_acceleration must remain positive and vary moderately so the restoring response still points toward eta=0 and trajectories stay bounded. A single refitted constant-gravity parent can mimic at most one effective average frequency, but it cannot reproduce both the early-time and late-time slope/curvature pattern across trajectories where gravity_acceleration drifts differently. Limitation: if the promoted gravity state is nearly constant over the sampled window, the refinement becomes effectively unobservable and collapses back to the parent."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "With fixed gravity_acceleration, the scored mapping is deta_dt = u and any amplitude dependence in eta(t) arises only through a time-invariant restoring stiffness in du/dt proportional to gravity_acceleration*mode_wavenumber*tanh(mode_wavenumber*fluid_depth)*(1 + (mode_wavenumber*eta)**2).",
+          "child_relation": "Release gravity_acceleration from a fixed parameter to a slowly varying state so the eta-u oscillation evolves in a time-varying effective stiffness; then the target trajectory deta_dt = u acquires envelope and phase-curvature changes through the dynamically changing environment.",
+          "affected_inputs": [
+            "eta",
+            "u",
+            "gravity_acceleration"
+          ],
+          "observable_effect": "Across trajectories with the same initial eta and u but different admissible initial gravity_acceleration states, the timing of zero crossings and peak |deta_dt| changes systematically because the oscillation frequency drifts with the evolving restoring strength; one shared fixed-gravity parent cannot match both early- and late-time curvature patterns across those conditions."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "linear_stiffness",
+            "expression": "gravity_acceleration*mode_wavenumber*tanh(mode_wavenumber*fluid_depth)",
+            "role": "instantaneous linear restoring scale"
+          },
+          {
+            "name": "nonlinear_stiffness",
+            "expression": "gravity_acceleration*mode_wavenumber*tanh(mode_wavenumber*fluid_depth)*(1 + (mode_wavenumber*eta)**2)",
+            "role": "instantaneous amplitude-corrected restoring scale"
+          },
+          {
+            "name": "hydrostatic_timescale",
+            "expression": "1/sqrt(gravity_acceleration*mode_wavenumber*tanh(mode_wavenumber*fluid_depth))",
+            "role": "instantaneous modal oscillation timescale"
+          }
+        ],
+        "activation_condition": "Observable when gravity_acceleration varies on a timescale comparable to or slower than a few modal periods, so the mode remains bounded but experiences measurable frequency/envelope drift over the observation window; negligible if gravity_acceleration is effectively constant.",
+        "train_hidden_contrast": "In training, modest variation of gravity_acceleration produces small but visible period changes; in holdout, the same mechanism extends to larger yet still positive excursions, yielding stronger accumulated phase and peak-velocity contrast in deta_dt without changing the initial eta-u preparation.",
+        "continuation_path": "Recover the parent by taking gravity_acceleration to a constant state, i.e. zero evolution of the promoted parameter or an invariant equilibrium at its initial value.",
+        "freedom_change": "parameter_to_state",
+        "promoted_symbol": "gravity_acceleration",
+        "promotion_reason": "A fixed parameter cannot represent slowly varying effective gravity or vertical acceleration bias along the trajectory; to expose the missing response relationship within the ODE observation protocol, gravity_acceleration must itself evolve as a state.",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "eta",
+          "u",
+          "gravity_acceleration"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "slow environmental modulation of hydrostatic restoring strength",
+        "scientific_mechanism": "A slowly varying effective gravitational acceleration, representing weak background vertical acceleration or gradual environmental forcing, modulates the hydrostatic restoring strength while preserving single-mode conservative exchange instantaneously.",
+        "embedding_pattern": "multiplicative_modulation",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the restoring coefficient is no longer a single dataset constant: it evolves along the trajectory and multiplicatively changes the oscillator stiffness, creating accumulated phase-curvature differences that cannot be collapsed into one shared constant-frequency fit.",
+        "taxonomy_match": "known",
+        "assumption_before": "Fluid depth and background acceleration are fixed.",
+        "assumption_after": "Fluid depth remains fixed but effective gravitational acceleration evolves slowly as an internal state.",
+        "before_fragment": "u",
+        "after_fragment": "u",
+        "parent_reduction": "The parent is recovered when gravity_acceleration is constant, equivalently gravity_relaxation_rate = 0 or gravity_acceleration = gravity_reference for all time.",
+        "observable_signature": "Holding mode_wavenumber, fluid_depth, and the initial eta and u protocol fixed, varying the initial gravity_acceleration state changes the later deta_dt waveform through drift in instantaneous stiffness gravity_acceleration*mode_wavenumber*tanh(mode_wavenumber*fluid_depth). The child therefore shows systematic zero-crossing shifts and peak-|deta_dt| curvature changes over time, whereas the parent with one fixed gravity value imposes one time-invariant oscillation geometry.",
+        "shortcut_blocked": "A single refitted parent parameter set can only choose one constant effective gravity and therefore one fixed stiffness-frequency relation over the whole window. It may approximate one average period, but it cannot simultaneously reproduce trajectories whose early-time and late-time deta_dt curvature differ because gravity_acceleration drifts differently within each trajectory; this is a structural mismatch, not just a coefficient mismatch."
+      },
+      "range_suggestions": {
+        "gravity_acceleration": "(0, 2*gravity_reference]",
+        "gravity_relaxation_rate": "[0, sqrt(gravity_reference*mode_wavenumber*tanh(mode_wavenumber*fluid_depth))]",
+        "gravity_reference": "(0, 20]"
+      }
+    },
+    {
+      "generation": 3,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The scored target mapping is deta_dt = u, so for observed trajectories the parent treats the displacement rate as exactly linear in the supplied modal velocity, independent of free-surface steepness except indirectly through the auxiliary evolution of u.",
+          "child_relation": "Retain kinematic coupling but relax the small-slope graph assumption so the vertical surface-displacement rate depends on the local free-surface normal geometry of the single mode, making deta_dt a nonlinear function of both u and eta through steepness.",
+          "affected_inputs": [
+            "u",
+            "eta",
+            "mode_wavenumber"
+          ],
+          "observable_effect": "Holding u fixed while varying |mode_wavenumber*eta|, the child predicts reduced vertical displacement rate relative to u at larger steepness, whereas the parent always gives the same deta_dt = u."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "steepness",
+            "expression": "mode_wavenumber*eta",
+            "role": "dimensionless modal free-surface slope scale controlling departure from small-slope kinematics"
+          },
+          {
+            "name": "kinematic_pair",
+            "expression": "u/(1 + (mode_wavenumber*eta)**2)",
+            "role": "candidate geometry-reduced displacement-rate scale under finite-slope kinematics"
+          }
+        ],
+        "activation_condition": "Observable when the modal steepness |mode_wavenumber*eta| is not negligible but remains within non-breaking single-mode conditions, e.g. moderate O(0.1-1) steepness with finite depth and bounded oscillations.",
+        "train_hidden_contrast": "In training, weakly nonlinear restoring dynamics already create trajectories where eta and u vary jointly; extending to moderate steepness reveals that samples with similar u but different |mode_wavenumber*eta| have different deta_dt, exposing target curvature absent from the parent.",
+        "continuation_path": "Recover the parent law in the small-slope limit |mode_wavenumber*eta| << 1, where the geometric correction tends to 1 and deta_dt -> u.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The target equation keeps the kinematic relation exact only under the small-slope surface-graph approximation, even though the system already includes weakly nonlinear finite-amplitude geometry in the restoring force.",
+        "baseline_assumption": "The parent assumes the modal vertical displacement rate equals the modal velocity amplitude exactly, independent of instantaneous surface steepness.",
+        "scientific_mechanism": "Finite-slope free-surface kinematics: for a single-mode interface represented as a graph, the vertical motion of the surface is reduced relative to the along-mode velocity amplitude by geometric projection when slope is no longer asymptotically small.",
+        "affected_symbols": [
+          "eta",
+          "u",
+          "mode_wavenumber"
+        ],
+        "rationale": "A natural next refinement is to make the scored target itself respond to the same finite-amplitude geometry already admitted in the auxiliary restoring term. Vary the observed state pair (eta,u) along trajectories while holding mode_wavenumber and fluid_depth fixed. In the parent, any two observations with the same u produce identical deta_dt regardless of eta, so the target mapping has a fixed-environment shortcut with respect to steepness. In the child, observations with equal u but different |mode_wavenumber*eta| produce different deta_dt, introducing measurable curvature in the target mapping. This is scientifically admissible in the moderate-steepness, non-breaking regime already suggested by the existing weakly nonlinear correction. The contrast is a true change in the scored mapping, not merely an auxiliary-trajectory modification. A single parent parameter refit cannot reproduce this across conditions because no parameter in deta_dt = u can create dependence on eta once u is supplied to the solver; the parent always predicts unit slope with respect to u and zero dependence on eta."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The scored target mapping is deta_dt = u, so for observed trajectories the parent treats the displacement rate as exactly linear in the supplied modal velocity, independent of free-surface steepness except indirectly through the auxiliary evolution of u.",
+          "child_relation": "Retain kinematic coupling but relax the small-slope graph assumption so the vertical surface-displacement rate depends on the local free-surface normal geometry of the single mode, making deta_dt a nonlinear function of both u and eta through steepness.",
+          "affected_inputs": [
+            "u",
+            "eta",
+            "mode_wavenumber"
+          ],
+          "observable_effect": "Holding u fixed while varying |mode_wavenumber*eta|, the child predicts reduced vertical displacement rate relative to u at larger steepness, whereas the parent always gives the same deta_dt = u."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "steepness",
+            "expression": "mode_wavenumber*eta",
+            "role": "dimensionless modal free-surface slope scale controlling departure from small-slope kinematics"
+          },
+          {
+            "name": "kinematic_pair",
+            "expression": "u/(1 + (mode_wavenumber*eta)**2)",
+            "role": "candidate geometry-reduced displacement-rate scale under finite-slope kinematics"
+          }
+        ],
+        "activation_condition": "Observable when the modal steepness |mode_wavenumber*eta| is not negligible but remains within non-breaking single-mode conditions, e.g. moderate O(0.1-1) steepness with finite depth and bounded oscillations.",
+        "train_hidden_contrast": "In training, weakly nonlinear restoring dynamics already create trajectories where eta and u vary jointly; extending to moderate steepness reveals that samples with similar u but different |mode_wavenumber*eta| have different deta_dt, exposing target curvature absent from the parent.",
+        "continuation_path": "Recover the parent law in the small-slope limit |mode_wavenumber*eta| << 1, where the geometric correction tends to 1 and deta_dt -> u.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "pairwise",
+        "scope_symbols": [
+          "eta",
+          "u",
+          "mode_wavenumber"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "finite-slope kinematic projection of modal surface motion",
+        "scientific_mechanism": "Finite-slope free-surface kinematics: for a single-mode interface represented as a graph, the vertical motion of the surface is reduced relative to the along-mode velocity amplitude by geometric projection when slope is no longer asymptotically small.",
+        "embedding_pattern": "competing_processes",
+        "difficulty_rationale": "This embedding is harder than a coefficient-only correction because the target law acquires state-dependent suppression: the kinematic driving by u competes against a steepness-dependent geometric loss factor that varies across the trajectory, creating curvature in the scored mapping that cannot be mimicked by a single constant gain.",
+        "taxonomy_match": "provisional",
+        "assumption_before": "The parent assumes the modal vertical displacement rate equals the modal velocity amplitude exactly, independent of instantaneous surface steepness.",
+        "assumption_after": "Finite-slope geometry reduces the vertical displacement rate through steepness-dependent projection, even when the same modal velocity amplitude is supplied.",
+        "before_fragment": "u",
+        "after_fragment": "u/(1 + (mode_wavenumber*eta)**2)",
+        "parent_reduction": "In the small-slope limit |mode_wavenumber*eta| << 1, the denominator tends to 1 and the target equation recovers the parent expression u.",
+        "observable_signature": "Compare observations with the same supplied u and fixed mode_wavenumber but different |eta| along trajectories: the parent predicts identical deta_dt, while the child predicts smaller |deta_dt| at larger |mode_wavenumber*eta|. This is visible in moderate-steepness, non-breaking intervals and changes the scored target mapping directly rather than only altering auxiliary state evolution.",
+        "shortcut_blocked": "A single parent parameter set cannot reproduce this contrast because the parent target law is exactly deta_dt = u once u is observed; it has unit slope in u and no eta dependence at all. Refitting parameters in the auxiliary u or gravity_acceleration dynamics cannot create differing deta_dt values for two observations that present the same u but different eta to the scorer."
+      },
+      "range_suggestions": {}
+    },
+    {
+      "generation": 4,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "For supplied states, deta_dt depends on eta and u only through u/(1 + (mode_wavenumber*eta)**2), so at fixed u the eta-dependence is a single geometric saturation set entirely by mode_wavenumber and is independent of fluid_depth.",
+          "child_relation": "Retain geometric kinematic reduction but replace the depth response in the restoring dynamics by its finite-amplitude free-surface form, so the observed deta_dt-versus-time trajectory acquires depth-dependent amplitude curvature through the coupled evolution: larger |eta| samples an amplitude-modified effective depth sensitivity instead of the parent's depth dependence entering only as a constant tanh(mode_wavenumber*fluid_depth).",
+          "affected_inputs": [
+            "eta",
+            "u",
+            "fluid_depth",
+            "mode_wavenumber"
+          ],
+          "observable_effect": "Across experiments varying fluid_depth with the same initial eta and u, the child predicts a different amplitude-dependent change in oscillation timing and turning-point sharpness; in shallower-to-intermediate depth the contrast grows with |mode_wavenumber*eta|, whereas the parent can only rescale frequency by one fixed depth factor."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "slope_parameter",
+            "expression": "mode_wavenumber*eta",
+            "role": "dimensionless wave steepness controlling finite-amplitude activation"
+          },
+          {
+            "name": "depth_parameter",
+            "expression": "mode_wavenumber*fluid_depth",
+            "role": "dimensionless depth setting the baseline dispersive regime"
+          },
+          {
+            "name": "hydrostatic_scale",
+            "expression": "gravity_acceleration*mode_wavenumber*tanh(mode_wavenumber*fluid_depth)",
+            "role": "parent linear restoring-rate scale"
+          }
+        ],
+        "activation_condition": "Observable when |mode_wavenumber*eta| is not asymptotically small and mode_wavenumber*fluid_depth is O(1) or smaller, so finite-amplitude modification of the depth response is comparable to the baseline tanh(mode_wavenumber*fluid_depth) dependence; effect is weak in the deep-water or infinitesimal-amplitude limits.",
+        "train_hidden_contrast": "Within training, moderate variation in eta already bends trajectories away from a single depth-scaled oscillator; in holdout, varying fluid_depth extends the same mechanism by changing how strongly finite amplitude alters the restoring response, especially at intermediate depth.",
+        "continuation_path": "Recover the parent by taking |mode_wavenumber*eta| -> 0, where the finite-amplitude depth correction reduces to the linear tanh(mode_wavenumber*fluid_depth) law.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The model already includes weakly nonlinear surface geometry, but it still assumes the hydrostatic/restoring depth factor is the linear small-amplitude tanh(mode_wavenumber*fluid_depth) expression even when the surface displacement itself is large enough to activate nonlinear kinematics.",
+        "baseline_assumption": "Finite depth affects the restoring response only through the linearized fixed-depth factor tanh(mode_wavenumber*fluid_depth), independent of instantaneous free-surface elevation amplitude.",
+        "scientific_mechanism": "A finite-amplitude free surface changes the effective vertical extent sampled by the mode, so the depth-dependent restoring response is weakly amplitude dependent even without dissipation or mode coupling.",
+        "affected_symbols": [
+          "eta",
+          "u",
+          "fluid_depth",
+          "mode_wavenumber",
+          "gravity_acceleration"
+        ],
+        "rationale": "A realistic next refinement is to relax the parent's linear finite-depth closure rather than adding a new process. The parent target mapping shortcut is a fixed-environment depth law: for given observed eta and u, deta_dt uses only geometric projection, while fluid_depth influences eta only indirectly through a single linear tanh(mode_wavenumber*fluid_depth) factor in du/dt. Vary fluid_depth while holding initial conditions, mode_wavenumber, gravity_reference, and gravity_relaxation_rate fixed. In the parent, one shared parameter set yields the same amplitude dependence of deta_dt across depths up to a depth-specific time rescaling. In the child, finite amplitude couples with depth so trajectories at larger |eta| distort differently between shallow/intermediate and deeper cases, changing curvature of the observed deta_dt history in a way not reducible to one constant depth factor. This is scientifically admissible for inviscid single-mode motion because it preserves conservative restoring exchange and remains bounded when implemented as a smooth finite-amplitude correction. Limitation: if |mode_wavenumber*eta| stays very small over all observations, the contrast collapses to the parent and added complexity would not be observable."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "For supplied states, deta_dt depends on eta and u only through u/(1 + (mode_wavenumber*eta)**2), so at fixed u the eta-dependence is a single geometric saturation set entirely by mode_wavenumber and is independent of fluid_depth.",
+          "child_relation": "Retain geometric kinematic reduction but replace the depth response in the restoring dynamics by its finite-amplitude free-surface form, so the observed deta_dt-versus-time trajectory acquires depth-dependent amplitude curvature through the coupled evolution: larger |eta| samples an amplitude-modified effective depth sensitivity instead of the parent's depth dependence entering only as a constant tanh(mode_wavenumber*fluid_depth).",
+          "affected_inputs": [
+            "eta",
+            "u",
+            "fluid_depth",
+            "mode_wavenumber"
+          ],
+          "observable_effect": "Across experiments varying fluid_depth with the same initial eta and u, the child predicts a different amplitude-dependent change in oscillation timing and turning-point sharpness; in shallower-to-intermediate depth the contrast grows with |mode_wavenumber*eta|, whereas the parent can only rescale frequency by one fixed depth factor."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "slope_parameter",
+            "expression": "mode_wavenumber*eta",
+            "role": "dimensionless wave steepness controlling finite-amplitude activation"
+          },
+          {
+            "name": "depth_parameter",
+            "expression": "mode_wavenumber*fluid_depth",
+            "role": "dimensionless depth setting the baseline dispersive regime"
+          },
+          {
+            "name": "hydrostatic_scale",
+            "expression": "gravity_acceleration*mode_wavenumber*tanh(mode_wavenumber*fluid_depth)",
+            "role": "parent linear restoring-rate scale"
+          }
+        ],
+        "activation_condition": "Observable when |mode_wavenumber*eta| is not asymptotically small and mode_wavenumber*fluid_depth is O(1) or smaller, so finite-amplitude modification of the depth response is comparable to the baseline tanh(mode_wavenumber*fluid_depth) dependence; effect is weak in the deep-water or infinitesimal-amplitude limits.",
+        "train_hidden_contrast": "Within training, moderate variation in eta already bends trajectories away from a single depth-scaled oscillator; in holdout, varying fluid_depth extends the same mechanism by changing how strongly finite amplitude alters the restoring response, especially at intermediate depth.",
+        "continuation_path": "Recover the parent by taking |mode_wavenumber*eta| -> 0, where the finite-amplitude depth correction reduces to the linear tanh(mode_wavenumber*fluid_depth) law.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "eta",
+          "u",
+          "fluid_depth",
+          "mode_wavenumber",
+          "gravity_acceleration"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "finite-amplitude modification of finite-depth restoring response",
+        "scientific_mechanism": "A finite-amplitude free surface changes the effective vertical extent sampled by the mode, so the depth-dependent restoring response is weakly amplitude dependent even without dissipation or mode coupling.",
+        "embedding_pattern": "saturating_or_thresholded",
+        "difficulty_rationale": "The refinement is structurally harder than a coefficient-only correction because the restoring factor now changes with the evolving state eta through a bounded tanh response, creating amplitude-dependent depth curvature along trajectories rather than a single constant depth scaling.",
+        "taxonomy_match": "known",
+        "assumption_before": "Finite depth affects the restoring response only through the linearized fixed-depth factor tanh(mode_wavenumber*fluid_depth), independent of instantaneous free-surface elevation amplitude.",
+        "assumption_after": "Finite amplitude alters the effective sampled depth, so the restoring depth response becomes tanh(mode_wavenumber*(fluid_depth + eta)).",
+        "before_fragment": "u/(1 + (mode_wavenumber*eta)**2)",
+        "after_fragment": "u/(1 + (mode_wavenumber*eta)**2)",
+        "parent_reduction": "For |mode_wavenumber*eta| -> 0, tanh(mode_wavenumber*(fluid_depth + eta)) -> tanh(mode_wavenumber*fluid_depth).",
+        "observable_signature": "The parent target mapping produces deta_dt histories whose depth dependence is inherited only through a fixed restoring multiplier in u, so across fluid_depth values one shared parameter set mainly changes oscillation timescale. The child instead produces amplitude-dependent curvature in deta_dt(t): at intermediate depth, larger |eta| shifts turning-point sharpness and timing differently than in deeper water because the restoring factor saturates as tanh(mode_wavenumber*(fluid_depth + eta)). This changed target mapping is observable from eta and u trajectories actually supplied to the solver, not merely from an unobserved auxiliary branch.",
+        "shortcut_blocked": "Refitting the existing parent parameters cannot absorb this contrast across varying fluid_depth with one shared parameter set, because the parent enforces separability of amplitude and depth in restoring dynamics: eta enters through (1 + (mode_wavenumber*eta)**2)*eta while depth enters only through tanh(mode_wavenumber*fluid_depth). The child breaks that separability by making depth response state dependent through eta inside tanh(...), so no single constant mode_wavenumber or fluid_depth rescaling can reproduce the depth-specific amplitude curvature whenever |mode_wavenumber*eta| is appreciable and mode_wavenumber*fluid_depth is not large."
+      },
+      "range_suggestions": {}
+    },
+    {
+      "generation": 5,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "With supplied states, the scored mapping is deta_dt = u/(1 + (mode_wavenumber*eta)**2), so at fixed u it depends only on the instantaneous slope measure mode_wavenumber*eta and is independent of sub-surface compression effects.",
+          "child_relation": "Relax the incompressibility assumption so finite pressure excursions associated with the mode make the vertical kinematic transfer slightly state dependent through fluid compressibility, causing deta_dt at fixed u and eta to acquire additional even-in-eta curvature through the instantaneous hydrostatic pressure scale tied to gravity_acceleration and depth.",
+          "affected_inputs": [
+            "eta",
+            "u",
+            "gravity_acceleration",
+            "fluid_depth",
+            "mode_wavenumber"
+          ],
+          "observable_effect": "Across trajectories with similar eta and u but different gravity_acceleration histories, the child predicts systematically different deta_dt magnitudes; the parent predicts the same deta_dt because gravity_acceleration affects only auxiliary evolution of u, not the instantaneous target mapping."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "surface_slope",
+            "expression": "mode_wavenumber*eta",
+            "role": "existing finite-slope kinematic nonlinearity level"
+          },
+          {
+            "name": "hydrostatic_load",
+            "expression": "gravity_acceleration*(fluid_depth + eta)",
+            "role": "instantaneous pressure scale that would activate weak compressibility corrections"
+          },
+          {
+            "name": "depth_ratio",
+            "expression": "mode_wavenumber*(fluid_depth + eta)",
+            "role": "combined amplitude-depth regime controlling how much of the fluid column participates"
+          }
+        ],
+        "activation_condition": "Weak but observable when the layer is not extremely shallow and hydrostatic pressure variations are non-negligible over the admissible trajectories, i.e. fluid_depth + eta > 0 and gravity_acceleration varies enough that hydrostatic_load changes across runs while remaining in a weak-compressibility regime.",
+        "train_hidden_contrast": "In training, gravity_acceleration already drifts, but the parent target law ignores it instantaneously. In holdout, larger excursions in gravity_acceleration or deeper layers extend the same mechanism, revealing curvature of deta_dt versus hydrostatic_load at fixed surface_slope.",
+        "continuation_path": "Recover the parent law in the incompressible limit where compressibility corrections vanish, so the kinematic map depends only on mode_wavenumber*eta.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A compressibility effect needs one additional dynamical quantity representing the mode-associated pressure or density perturbation memory; existing states eta, u, and gravity_acceleration do not encode this reversible storage channel explicitly.",
+        "gap_statement": "The current model keeps the fluid strictly incompressible, so the instantaneous map from observed states to deta_dt is insensitive to pressure-induced bulk compression even when gravity_acceleration and effective depth vary.",
+        "baseline_assumption": "The fluid is inviscid and incompressible.",
+        "scientific_mechanism": "Weak reversible compressibility of the fluid column modifies the conversion between modal velocity amplitude and free-surface displacement rate through pressure-dependent volumetric strain, without introducing dissipation or mode coupling.",
+        "affected_symbols": [
+          "eta",
+          "u",
+          "gravity_acceleration",
+          "fluid_depth",
+          "mode_wavenumber"
+        ],
+        "rationale": "A realistic next refinement is to relax incompressibility rather than add an unrelated force. The parent scored mapping has a fixed-environment shortcut: once eta and u are supplied, deta_dt is determined solely by the geometric factor 1/(1 + (mode_wavenumber*eta)^2). Vary gravity_acceleration while holding eta, u, mode_wavenumber, and fluid_depth fixed, and the parent predicts no change in deta_dt. A weakly compressible child can instead make the same instantaneous eta and u produce slightly different deta_dt because the pressure field associated with the displaced free surface and finite depth stores some motion in bulk compression. This changes the target mapping itself, not just the auxiliary trajectory of u. The contrast is scientifically admissible when compressibility is weak enough to preserve bounded, nearly conservative motion, yet pressure variations from gravity_acceleration*(fluid_depth + eta) are not negligible. Limitation: for ordinary liquids this effect may be small, so it should be treated as a benchmark hypothesis only if the admissible parameter range allows detectable variation; otherwise the parent may already be adequate."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "With supplied states, the scored mapping is deta_dt = u/(1 + (mode_wavenumber*eta)**2), so at fixed u it depends only on the instantaneous slope measure mode_wavenumber*eta and is independent of sub-surface compression effects.",
+          "child_relation": "Relax the incompressibility assumption so finite pressure excursions associated with the mode make the vertical kinematic transfer slightly state dependent through fluid compressibility, causing deta_dt at fixed u and eta to acquire additional even-in-eta curvature through the instantaneous hydrostatic pressure scale tied to gravity_acceleration and depth.",
+          "affected_inputs": [
+            "eta",
+            "u",
+            "gravity_acceleration",
+            "fluid_depth",
+            "mode_wavenumber"
+          ],
+          "observable_effect": "Across trajectories with similar eta and u but different gravity_acceleration histories, the child predicts systematically different deta_dt magnitudes; the parent predicts the same deta_dt because gravity_acceleration affects only auxiliary evolution of u, not the instantaneous target mapping."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "surface_slope",
+            "expression": "mode_wavenumber*eta",
+            "role": "existing finite-slope kinematic nonlinearity level"
+          },
+          {
+            "name": "hydrostatic_load",
+            "expression": "gravity_acceleration*(fluid_depth + eta)",
+            "role": "instantaneous pressure scale that would activate weak compressibility corrections"
+          },
+          {
+            "name": "depth_ratio",
+            "expression": "mode_wavenumber*(fluid_depth + eta)",
+            "role": "combined amplitude-depth regime controlling how much of the fluid column participates"
+          }
+        ],
+        "activation_condition": "Weak but observable when the layer is not extremely shallow and hydrostatic pressure variations are non-negligible over the admissible trajectories, i.e. fluid_depth + eta > 0 and gravity_acceleration varies enough that hydrostatic_load changes across runs while remaining in a weak-compressibility regime.",
+        "train_hidden_contrast": "In training, gravity_acceleration already drifts, but the parent target law ignores it instantaneously. In holdout, larger excursions in gravity_acceleration or deeper layers extend the same mechanism, revealing curvature of deta_dt versus hydrostatic_load at fixed surface_slope.",
+        "continuation_path": "Recover the parent law in the incompressible limit where compressibility corrections vanish, so the kinematic map depends only on mode_wavenumber*eta.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A compressibility effect needs one additional dynamical quantity representing the mode-associated pressure or density perturbation memory; existing states eta, u, and gravity_acceleration do not encode this reversible storage channel explicitly.",
+        "scope_kind": "memory",
+        "scope_symbols": [
+          "compressibility_strain",
+          "eta",
+          "u",
+          "gravity_acceleration"
+        ],
+        "structural_role": "timescale",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "weak reversible compressibility of the fluid column",
+        "scientific_mechanism": "Weak reversible compressibility of the fluid column modifies the conversion between modal velocity amplitude and free-surface displacement rate through pressure-dependent volumetric strain, without introducing dissipation or mode coupling.",
+        "embedding_pattern": "multi_timescale",
+        "difficulty_rationale": "This embedding is harder than a coefficient correction because the target mapping now depends on an added internal memory state with its own relaxation timescale, so the same instantaneous eta and u can map to different deta_dt depending on prior hydrostatic loading history.",
+        "taxonomy_match": "known",
+        "assumption_before": "The fluid is inviscid and incompressible.",
+        "assumption_after": "The fluid is weakly compressible, with a reversible bulk-strain memory that modulates kinematic transfer.",
+        "before_fragment": "u/(1 + (mode_wavenumber*eta)**2)",
+        "after_fragment": "u/((1 + (mode_wavenumber*eta)**2)*(1 + compressibility_strain))",
+        "parent_reduction": "The parent is recovered when compressibility_strain -> 0, including the limit compressibility_coupling -> 0 or when compressibility_relaxation_rate is fast enough that the strain remains negligible.",
+        "observable_signature": "At fixed eta and u, deta_dt is no longer unique as a function of surface_slope alone; it varies monotonically with compressibility_strain, which is itself driven by hydrostatic_load. Thus runs with similar eta and u but different gravity_acceleration histories or depths show different target magnitudes, especially when hydrostatic_load changes while mode_wavenumber*eta stays comparable.",
+        "shortcut_blocked": "A single refitted parent parameter set cannot reproduce this contrast because the parent target expression has no dependence on gravity_acceleration, fluid_depth, or any memory variable once eta and u are supplied. Retuning mode_wavenumber only changes one shared slope-dependent curve, whereas the child creates a family of curves indexed by compressibility history, so cross-condition differences at matched eta and u are structurally unavailable to the parent."
+      },
+      "range_suggestions": {
+        "compressibility_strain": "-1/10 to 1/10",
+        "compressibility_relaxation_rate": "1/100 to 100",
+        "compressibility_coupling": "0 to 1"
+      }
+    }
+  ],
+  "evolution_provenance": {
+    "dimension_track": null,
+    "mechanism_profile": {
+      "allowed_structural_roles": [
+        "contribution",
+        "response_law",
+        "modulation",
+        "interaction",
+        "constraint",
+        "transition",
+        "feedback",
+        "heterogeneity",
+        "timescale",
+        "transport_balance"
+      ],
+      "preferred_scopes": [
+        "unary",
+        "pairwise",
+        "state_coupling",
+        "time_forcing"
+      ],
+      "domain_mechanisms": [
+        {
+          "id": "nonlinear_constitutive_response",
+          "description": "nonlinear constitutive or response law",
+          "operations": [
+            "add_term",
+            "change_assumption"
+          ]
+        },
+        {
+          "id": "coupled_field_or_force",
+          "description": "coupling to an already declared field, force, or state",
+          "operations": [
+            "add_term"
+          ]
+        },
+        {
+          "id": "finite_relaxation_or_threshold",
+          "description": "finite response time or physical threshold",
+          "operations": [
+            "change_assumption"
+          ]
+        }
+      ],
+      "profile_source": "subject_fallback",
+      "ontology_schema_version": "1.0",
+      "taxonomy_schema_version": "1.0"
+    },
+    "baseline_mechanisms": [
+      "Fluid inertia of a single free-surface mode",
+      "Pressure restoration caused by vertical displacement",
+      "Kinematic coupling between modal velocity and surface displacement"
+    ],
+    "baseline_assumptions": [
+      "The fluid is inviscid and incompressible.",
+      "Surface displacement and velocity are sufficiently small for linear mode dynamics.",
+      "Fluid depth and background acceleration are fixed.",
+      "Only one spatial mode is active, with no mode coupling."
+    ],
+    "scientific_constraints": [
+      "The baseline modal energy must remain constant and nonnegative.",
+      "Finite initial states must produce bounded trajectories.",
+      "The restoring response must point toward the undisturbed surface."
+    ],
+    "refinement_agenda": [
+      "Add viscous attenuation of modal velocity.",
+      "Release the small-amplitude assumption to introduce nonlinear steepening and mode coupling.",
+      "Add surface-tension restoration for shorter wavelengths.",
+      "Allow depth variation to modify propagation and modal frequency."
+    ],
+    "evolution_contracts": [
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The scored target mapping is deta_dt = u, so for observed state u the target is exactly linear and independent of eta; under the parent dynamics u itself evolves with a displacement-independent linear restoring frequency.",
+          "child_relation": "Retain deta_dt = u but relax the linear-wave assumption so the modal restoring dynamics acquire amplitude dependence, causing the eta-u trajectory and therefore the conditional target evolution along observed trajectories to bend differently at larger |eta| than at smaller |eta|.",
+          "affected_inputs": [
+            "eta",
+            "u",
+            "mode_wavenumber",
+            "fluid_depth",
+            "gravity_acceleration"
+          ],
+          "observable_effect": "Holding gravity_acceleration, mode_wavenumber, and fluid_depth fixed, trajectories started with larger admissible initial |eta| develop amplitude-dependent period/frequency relative to smaller-amplitude trajectories; a single linear parent parameter set cannot match both small-amplitude and moderately larger-amplitude phase progression over time."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "linear_frequency_sq",
+            "expression": "gravity_acceleration*mode_wavenumber*tanh(mode_wavenumber*fluid_depth)",
+            "role": "Baseline linear restoring scale"
+          },
+          {
+            "name": "steepness_proxy",
+            "expression": "mode_wavenumber*eta",
+            "role": "Dimensionless wave-steepness measure controlling departure from linearity"
+          },
+          {
+            "name": "modal_energy_like",
+            "expression": "u**2 + gravity_acceleration*mode_wavenumber*tanh(mode_wavenumber*fluid_depth)*eta**2",
+            "role": "Conservative amplitude indicator for comparing weakly and moderately nonlinear trajectories"
+          }
+        ],
+        "activation_condition": "Weak-to-moderate steepness with |mode_wavenumber*eta| no longer asymptotically small but still below overturning and breaking, so a single-mode conservative description remains admissible.",
+        "train_hidden_contrast": "Within training, modest variation in observed |eta| or energy reveals slight amplitude-dependent phase curvature; in holdout, somewhat larger but still non-breaking steepness extends the same conservative trend rather than introducing a different mechanism.",
+        "continuation_path": "Recover the parent law in the small-steepness limit |mode_wavenumber*eta| -> 0, where amplitude-dependent corrections vanish and the linear gravity-wave oscillator is restored.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "eta",
+          "u"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "amplitude-dependent conservative restoring force in a weakly nonlinear free-surface mode",
+        "scientific_mechanism": "Weakly nonlinear free-surface geometry modifies the effective restoring response of the mode without introducing dissipation or mode coupling, producing amplitude-dependent conservative oscillation.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the restoring coefficient now changes along the trajectory through eta, so one shared linear frequency cannot reproduce amplitude-dependent phase drift across different energy levels.",
+        "taxonomy_match": "known",
+        "assumption_before": "Surface displacement and velocity are sufficiently small for linear mode dynamics.",
+        "assumption_after": "Finite but non-breaking steepness is allowed, giving a conservative state-dependent restoring coefficient.",
+        "before_fragment": "u",
+        "after_fragment": "u",
+        "parent_reduction": "In the limit |mode_wavenumber*eta| -> 0, the multiplicative correction in du/dt approaches 1 and the parent system is recovered.",
+        "observable_signature": "The parent target relation deta_dt=u is preserved pointwise, but along trajectories with the same gravity_acceleration, mode_wavenumber, and fluid_depth, larger admissible |eta| produces a different phase progression than smaller |eta| because du/dt contains an eta-dependent coefficient. This changes the time-conditioned target evolution through curvature of the eta-u orbit, observable when comparing weak and moderately nonlinear initial amplitudes under the same fixed parameters.",
+        "shortcut_blocked": "Refitting all existing parent parameters still leaves a linear oscillator with one amplitude-independent frequency for a given gravity_acceleration, mode_wavenumber, and fluid_depth. That single parameter set can shift the common period but cannot simultaneously match the amplitude-dependent dephasing between small- and moderate-amplitude trajectories generated by the child across the stated admissible regime."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "With fixed gravity_acceleration, the scored mapping is deta_dt = u and any amplitude dependence in eta(t) arises only through a time-invariant restoring stiffness in du/dt proportional to gravity_acceleration*mode_wavenumber*tanh(mode_wavenumber*fluid_depth)*(1 + (mode_wavenumber*eta)**2).",
+          "child_relation": "Release gravity_acceleration from a fixed parameter to a slowly varying state so the eta-u oscillation evolves in a time-varying effective stiffness; then the target trajectory deta_dt = u acquires envelope and phase-curvature changes through the dynamically changing environment.",
+          "affected_inputs": [
+            "eta",
+            "u",
+            "gravity_acceleration"
+          ],
+          "observable_effect": "Across trajectories with the same initial eta and u but different admissible initial gravity_acceleration states, the timing of zero crossings and peak |deta_dt| changes systematically because the oscillation frequency drifts with the evolving restoring strength; one shared fixed-gravity parent cannot match both early- and late-time curvature patterns across those conditions."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "linear_stiffness",
+            "expression": "gravity_acceleration*mode_wavenumber*tanh(mode_wavenumber*fluid_depth)",
+            "role": "instantaneous linear restoring scale"
+          },
+          {
+            "name": "nonlinear_stiffness",
+            "expression": "gravity_acceleration*mode_wavenumber*tanh(mode_wavenumber*fluid_depth)*(1 + (mode_wavenumber*eta)**2)",
+            "role": "instantaneous amplitude-corrected restoring scale"
+          },
+          {
+            "name": "hydrostatic_timescale",
+            "expression": "1/sqrt(gravity_acceleration*mode_wavenumber*tanh(mode_wavenumber*fluid_depth))",
+            "role": "instantaneous modal oscillation timescale"
+          }
+        ],
+        "activation_condition": "Observable when gravity_acceleration varies on a timescale comparable to or slower than a few modal periods, so the mode remains bounded but experiences measurable frequency/envelope drift over the observation window; negligible if gravity_acceleration is effectively constant.",
+        "train_hidden_contrast": "In training, modest variation of gravity_acceleration produces small but visible period changes; in holdout, the same mechanism extends to larger yet still positive excursions, yielding stronger accumulated phase and peak-velocity contrast in deta_dt without changing the initial eta-u preparation.",
+        "continuation_path": "Recover the parent by taking gravity_acceleration to a constant state, i.e. zero evolution of the promoted parameter or an invariant equilibrium at its initial value.",
+        "freedom_change": "parameter_to_state",
+        "promoted_symbol": "gravity_acceleration",
+        "promotion_reason": "A fixed parameter cannot represent slowly varying effective gravity or vertical acceleration bias along the trajectory; to expose the missing response relationship within the ODE observation protocol, gravity_acceleration must itself evolve as a state.",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "eta",
+          "u",
+          "gravity_acceleration"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "slow environmental modulation of hydrostatic restoring strength",
+        "scientific_mechanism": "A slowly varying effective gravitational acceleration, representing weak background vertical acceleration or gradual environmental forcing, modulates the hydrostatic restoring strength while preserving single-mode conservative exchange instantaneously.",
+        "embedding_pattern": "multiplicative_modulation",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the restoring coefficient is no longer a single dataset constant: it evolves along the trajectory and multiplicatively changes the oscillator stiffness, creating accumulated phase-curvature differences that cannot be collapsed into one shared constant-frequency fit.",
+        "taxonomy_match": "known",
+        "assumption_before": "Fluid depth and background acceleration are fixed.",
+        "assumption_after": "Fluid depth remains fixed but effective gravitational acceleration evolves slowly as an internal state.",
+        "before_fragment": "u",
+        "after_fragment": "u",
+        "parent_reduction": "The parent is recovered when gravity_acceleration is constant, equivalently gravity_relaxation_rate = 0 or gravity_acceleration = gravity_reference for all time.",
+        "observable_signature": "Holding mode_wavenumber, fluid_depth, and the initial eta and u protocol fixed, varying the initial gravity_acceleration state changes the later deta_dt waveform through drift in instantaneous stiffness gravity_acceleration*mode_wavenumber*tanh(mode_wavenumber*fluid_depth). The child therefore shows systematic zero-crossing shifts and peak-|deta_dt| curvature changes over time, whereas the parent with one fixed gravity value imposes one time-invariant oscillation geometry.",
+        "shortcut_blocked": "A single refitted parent parameter set can only choose one constant effective gravity and therefore one fixed stiffness-frequency relation over the whole window. It may approximate one average period, but it cannot simultaneously reproduce trajectories whose early-time and late-time deta_dt curvature differ because gravity_acceleration drifts differently within each trajectory; this is a structural mismatch, not just a coefficient mismatch."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The scored target mapping is deta_dt = u, so for observed trajectories the parent treats the displacement rate as exactly linear in the supplied modal velocity, independent of free-surface steepness except indirectly through the auxiliary evolution of u.",
+          "child_relation": "Retain kinematic coupling but relax the small-slope graph assumption so the vertical surface-displacement rate depends on the local free-surface normal geometry of the single mode, making deta_dt a nonlinear function of both u and eta through steepness.",
+          "affected_inputs": [
+            "u",
+            "eta",
+            "mode_wavenumber"
+          ],
+          "observable_effect": "Holding u fixed while varying |mode_wavenumber*eta|, the child predicts reduced vertical displacement rate relative to u at larger steepness, whereas the parent always gives the same deta_dt = u."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "steepness",
+            "expression": "mode_wavenumber*eta",
+            "role": "dimensionless modal free-surface slope scale controlling departure from small-slope kinematics"
+          },
+          {
+            "name": "kinematic_pair",
+            "expression": "u/(1 + (mode_wavenumber*eta)**2)",
+            "role": "candidate geometry-reduced displacement-rate scale under finite-slope kinematics"
+          }
+        ],
+        "activation_condition": "Observable when the modal steepness |mode_wavenumber*eta| is not negligible but remains within non-breaking single-mode conditions, e.g. moderate O(0.1-1) steepness with finite depth and bounded oscillations.",
+        "train_hidden_contrast": "In training, weakly nonlinear restoring dynamics already create trajectories where eta and u vary jointly; extending to moderate steepness reveals that samples with similar u but different |mode_wavenumber*eta| have different deta_dt, exposing target curvature absent from the parent.",
+        "continuation_path": "Recover the parent law in the small-slope limit |mode_wavenumber*eta| << 1, where the geometric correction tends to 1 and deta_dt -> u.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "pairwise",
+        "scope_symbols": [
+          "eta",
+          "u",
+          "mode_wavenumber"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "finite-slope kinematic projection of modal surface motion",
+        "scientific_mechanism": "Finite-slope free-surface kinematics: for a single-mode interface represented as a graph, the vertical motion of the surface is reduced relative to the along-mode velocity amplitude by geometric projection when slope is no longer asymptotically small.",
+        "embedding_pattern": "competing_processes",
+        "difficulty_rationale": "This embedding is harder than a coefficient-only correction because the target law acquires state-dependent suppression: the kinematic driving by u competes against a steepness-dependent geometric loss factor that varies across the trajectory, creating curvature in the scored mapping that cannot be mimicked by a single constant gain.",
+        "taxonomy_match": "provisional",
+        "assumption_before": "The parent assumes the modal vertical displacement rate equals the modal velocity amplitude exactly, independent of instantaneous surface steepness.",
+        "assumption_after": "Finite-slope geometry reduces the vertical displacement rate through steepness-dependent projection, even when the same modal velocity amplitude is supplied.",
+        "before_fragment": "u",
+        "after_fragment": "u/(1 + (mode_wavenumber*eta)**2)",
+        "parent_reduction": "In the small-slope limit |mode_wavenumber*eta| << 1, the denominator tends to 1 and the target equation recovers the parent expression u.",
+        "observable_signature": "Compare observations with the same supplied u and fixed mode_wavenumber but different |eta| along trajectories: the parent predicts identical deta_dt, while the child predicts smaller |deta_dt| at larger |mode_wavenumber*eta|. This is visible in moderate-steepness, non-breaking intervals and changes the scored target mapping directly rather than only altering auxiliary state evolution.",
+        "shortcut_blocked": "A single parent parameter set cannot reproduce this contrast because the parent target law is exactly deta_dt = u once u is observed; it has unit slope in u and no eta dependence at all. Refitting parameters in the auxiliary u or gravity_acceleration dynamics cannot create differing deta_dt values for two observations that present the same u but different eta to the scorer."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "For supplied states, deta_dt depends on eta and u only through u/(1 + (mode_wavenumber*eta)**2), so at fixed u the eta-dependence is a single geometric saturation set entirely by mode_wavenumber and is independent of fluid_depth.",
+          "child_relation": "Retain geometric kinematic reduction but replace the depth response in the restoring dynamics by its finite-amplitude free-surface form, so the observed deta_dt-versus-time trajectory acquires depth-dependent amplitude curvature through the coupled evolution: larger |eta| samples an amplitude-modified effective depth sensitivity instead of the parent's depth dependence entering only as a constant tanh(mode_wavenumber*fluid_depth).",
+          "affected_inputs": [
+            "eta",
+            "u",
+            "fluid_depth",
+            "mode_wavenumber"
+          ],
+          "observable_effect": "Across experiments varying fluid_depth with the same initial eta and u, the child predicts a different amplitude-dependent change in oscillation timing and turning-point sharpness; in shallower-to-intermediate depth the contrast grows with |mode_wavenumber*eta|, whereas the parent can only rescale frequency by one fixed depth factor."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "slope_parameter",
+            "expression": "mode_wavenumber*eta",
+            "role": "dimensionless wave steepness controlling finite-amplitude activation"
+          },
+          {
+            "name": "depth_parameter",
+            "expression": "mode_wavenumber*fluid_depth",
+            "role": "dimensionless depth setting the baseline dispersive regime"
+          },
+          {
+            "name": "hydrostatic_scale",
+            "expression": "gravity_acceleration*mode_wavenumber*tanh(mode_wavenumber*fluid_depth)",
+            "role": "parent linear restoring-rate scale"
+          }
+        ],
+        "activation_condition": "Observable when |mode_wavenumber*eta| is not asymptotically small and mode_wavenumber*fluid_depth is O(1) or smaller, so finite-amplitude modification of the depth response is comparable to the baseline tanh(mode_wavenumber*fluid_depth) dependence; effect is weak in the deep-water or infinitesimal-amplitude limits.",
+        "train_hidden_contrast": "Within training, moderate variation in eta already bends trajectories away from a single depth-scaled oscillator; in holdout, varying fluid_depth extends the same mechanism by changing how strongly finite amplitude alters the restoring response, especially at intermediate depth.",
+        "continuation_path": "Recover the parent by taking |mode_wavenumber*eta| -> 0, where the finite-amplitude depth correction reduces to the linear tanh(mode_wavenumber*fluid_depth) law.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "eta",
+          "u",
+          "fluid_depth",
+          "mode_wavenumber",
+          "gravity_acceleration"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "finite-amplitude modification of finite-depth restoring response",
+        "scientific_mechanism": "A finite-amplitude free surface changes the effective vertical extent sampled by the mode, so the depth-dependent restoring response is weakly amplitude dependent even without dissipation or mode coupling.",
+        "embedding_pattern": "saturating_or_thresholded",
+        "difficulty_rationale": "The refinement is structurally harder than a coefficient-only correction because the restoring factor now changes with the evolving state eta through a bounded tanh response, creating amplitude-dependent depth curvature along trajectories rather than a single constant depth scaling.",
+        "taxonomy_match": "known",
+        "assumption_before": "Finite depth affects the restoring response only through the linearized fixed-depth factor tanh(mode_wavenumber*fluid_depth), independent of instantaneous free-surface elevation amplitude.",
+        "assumption_after": "Finite amplitude alters the effective sampled depth, so the restoring depth response becomes tanh(mode_wavenumber*(fluid_depth + eta)).",
+        "before_fragment": "u/(1 + (mode_wavenumber*eta)**2)",
+        "after_fragment": "u/(1 + (mode_wavenumber*eta)**2)",
+        "parent_reduction": "For |mode_wavenumber*eta| -> 0, tanh(mode_wavenumber*(fluid_depth + eta)) -> tanh(mode_wavenumber*fluid_depth).",
+        "observable_signature": "The parent target mapping produces deta_dt histories whose depth dependence is inherited only through a fixed restoring multiplier in u, so across fluid_depth values one shared parameter set mainly changes oscillation timescale. The child instead produces amplitude-dependent curvature in deta_dt(t): at intermediate depth, larger |eta| shifts turning-point sharpness and timing differently than in deeper water because the restoring factor saturates as tanh(mode_wavenumber*(fluid_depth + eta)). This changed target mapping is observable from eta and u trajectories actually supplied to the solver, not merely from an unobserved auxiliary branch.",
+        "shortcut_blocked": "Refitting the existing parent parameters cannot absorb this contrast across varying fluid_depth with one shared parameter set, because the parent enforces separability of amplitude and depth in restoring dynamics: eta enters through (1 + (mode_wavenumber*eta)**2)*eta while depth enters only through tanh(mode_wavenumber*fluid_depth). The child breaks that separability by making depth response state dependent through eta inside tanh(...), so no single constant mode_wavenumber or fluid_depth rescaling can reproduce the depth-specific amplitude curvature whenever |mode_wavenumber*eta| is appreciable and mode_wavenumber*fluid_depth is not large."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "With supplied states, the scored mapping is deta_dt = u/(1 + (mode_wavenumber*eta)**2), so at fixed u it depends only on the instantaneous slope measure mode_wavenumber*eta and is independent of sub-surface compression effects.",
+          "child_relation": "Relax the incompressibility assumption so finite pressure excursions associated with the mode make the vertical kinematic transfer slightly state dependent through fluid compressibility, causing deta_dt at fixed u and eta to acquire additional even-in-eta curvature through the instantaneous hydrostatic pressure scale tied to gravity_acceleration and depth.",
+          "affected_inputs": [
+            "eta",
+            "u",
+            "gravity_acceleration",
+            "fluid_depth",
+            "mode_wavenumber"
+          ],
+          "observable_effect": "Across trajectories with similar eta and u but different gravity_acceleration histories, the child predicts systematically different deta_dt magnitudes; the parent predicts the same deta_dt because gravity_acceleration affects only auxiliary evolution of u, not the instantaneous target mapping."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "surface_slope",
+            "expression": "mode_wavenumber*eta",
+            "role": "existing finite-slope kinematic nonlinearity level"
+          },
+          {
+            "name": "hydrostatic_load",
+            "expression": "gravity_acceleration*(fluid_depth + eta)",
+            "role": "instantaneous pressure scale that would activate weak compressibility corrections"
+          },
+          {
+            "name": "depth_ratio",
+            "expression": "mode_wavenumber*(fluid_depth + eta)",
+            "role": "combined amplitude-depth regime controlling how much of the fluid column participates"
+          }
+        ],
+        "activation_condition": "Weak but observable when the layer is not extremely shallow and hydrostatic pressure variations are non-negligible over the admissible trajectories, i.e. fluid_depth + eta > 0 and gravity_acceleration varies enough that hydrostatic_load changes across runs while remaining in a weak-compressibility regime.",
+        "train_hidden_contrast": "In training, gravity_acceleration already drifts, but the parent target law ignores it instantaneously. In holdout, larger excursions in gravity_acceleration or deeper layers extend the same mechanism, revealing curvature of deta_dt versus hydrostatic_load at fixed surface_slope.",
+        "continuation_path": "Recover the parent law in the incompressible limit where compressibility corrections vanish, so the kinematic map depends only on mode_wavenumber*eta.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A compressibility effect needs one additional dynamical quantity representing the mode-associated pressure or density perturbation memory; existing states eta, u, and gravity_acceleration do not encode this reversible storage channel explicitly.",
+        "scope_kind": "memory",
+        "scope_symbols": [
+          "compressibility_strain",
+          "eta",
+          "u",
+          "gravity_acceleration"
+        ],
+        "structural_role": "timescale",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "weak reversible compressibility of the fluid column",
+        "scientific_mechanism": "Weak reversible compressibility of the fluid column modifies the conversion between modal velocity amplitude and free-surface displacement rate through pressure-dependent volumetric strain, without introducing dissipation or mode coupling.",
+        "embedding_pattern": "multi_timescale",
+        "difficulty_rationale": "This embedding is harder than a coefficient correction because the target mapping now depends on an added internal memory state with its own relaxation timescale, so the same instantaneous eta and u can map to different deta_dt depending on prior hydrostatic loading history.",
+        "taxonomy_match": "known",
+        "assumption_before": "The fluid is inviscid and incompressible.",
+        "assumption_after": "The fluid is weakly compressible, with a reversible bulk-strain memory that modulates kinematic transfer.",
+        "before_fragment": "u/(1 + (mode_wavenumber*eta)**2)",
+        "after_fragment": "u/((1 + (mode_wavenumber*eta)**2)*(1 + compressibility_strain))",
+        "parent_reduction": "The parent is recovered when compressibility_strain -> 0, including the limit compressibility_coupling -> 0 or when compressibility_relaxation_rate is fast enough that the strain remains negligible.",
+        "observable_signature": "At fixed eta and u, deta_dt is no longer unique as a function of surface_slope alone; it varies monotonically with compressibility_strain, which is itself driven by hydrostatic_load. Thus runs with similar eta and u but different gravity_acceleration histories or depths show different target magnitudes, especially when hydrostatic_load changes while mode_wavenumber*eta stays comparable.",
+        "shortcut_blocked": "A single refitted parent parameter set cannot reproduce this contrast because the parent target expression has no dependence on gravity_acceleration, fluid_depth, or any memory variable once eta and u are supplied. Retuning mode_wavenumber only changes one shared slope-dependent curve, whereas the child creates a family of curves indexed by compressibility history, so cross-condition differences at matched eta and u are structurally unavailable to the parent."
+      }
+    ]
+  },
+  "finalization": {
+    "mode": "candidate",
+    "accepted_generations": 5,
+    "novelty": {
+      "answer": "NOT_EVALUATED"
+    },
+    "total_points": 5000,
+    "evaluation_status": "not_evaluated"
+  }
+}

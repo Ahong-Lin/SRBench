@@ -1,0 +1,1716 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "N_D",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        250.0
+      ],
+      "n_points": 400,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "parent_decay_constant",
+      "value": 0.02
+    },
+    {
+      "symbol": "damage_drive_rate",
+      "value": 0.0004
+    },
+    {
+      "symbol": "damage_relaxation_rate",
+      "value": 0.03
+    },
+    {
+      "symbol": "capacity_growth_rate",
+      "value": 0.00015
+    },
+    {
+      "symbol": "capacity_relaxation_rate",
+      "value": 0.015
+    },
+    {
+      "symbol": "baseline_damage_capacity",
+      "value": 5000.0
+    }
+  ],
+  "benchmark_output": "dN_D_dt",
+  "benchmark_target_state": "N_D",
+  "observed_variables": [
+    "t",
+    "N_P",
+    "N_D",
+    "daughter_decay_constant",
+    "damage_capacity"
+  ],
+  "rhs_for_integrator": "parent_decay_constant*N_P - daughter_decay_constant*N_D/((1 + N_D/damage_capacity)*(1 + (N_D/damage_capacity)**2)*(1 + daughter_decay_constant/damage_capacity))",
+  "state_variables": [
+    "N_P",
+    "N_D",
+    "daughter_decay_constant",
+    "damage_capacity"
+  ],
+  "state_rhs": [
+    "-parent_decay_constant*N_P",
+    "parent_decay_constant*N_P - daughter_decay_constant*N_D/((1 + N_D/damage_capacity)*(1 + (N_D/damage_capacity)**2)*(1 + daughter_decay_constant/damage_capacity))",
+    "damage_drive_rate*N_D*(1 - daughter_decay_constant/damage_capacity) - damage_relaxation_rate*daughter_decay_constant",
+    "capacity_growth_rate*N_D - capacity_relaxation_rate*(damage_capacity - baseline_damage_capacity)"
+  ],
+  "initial_conditions": {
+    "N_P": 100000.0,
+    "N_D": 0.0,
+    "daughter_decay_constant": 1.0,
+    "damage_capacity": 1.0
+  },
+  "sanity_expectations": [
+    "N_P(t) decreases monotonically from its initial value because dN_P/dt = -parent_decay_constant*N_P for positive parent_decay_constant.",
+    "N_D(t) should start at zero, increase while parent feed dominates, then show a peak and later decline once the daughter-loss term overtakes production.",
+    "damage_capacity(t) should move rapidly upward away from the inherited initial value 1 because the relaxation term drives it toward the large positive baseline; this should reduce the severity of the initial tiny-capacity regime.",
+    "daughter_decay_constant(t) should evolve in time rather than remain constant, giving history-dependent daughter loss.",
+    "There should be an intermediate portion of the trajectory where both N_D/damage_capacity and daughter_decay_constant/damage_capacity are non-negligible, so the daughter-loss term is more strongly throttled than in the previous-generation model without the final factor.",
+    "The run should not stay in a parent-recovery limit with nearly constant daughter_decay_constant and damage_capacity throughout; visible curvature in the buildup-to-depletion transition is expected."
+  ],
+  "role_corrections": [
+    "dN_D_dt: claimed-output/target derivative -> scored target-state RHS for N_D within the inherited ODE system (confirmed)",
+    "t: claimed-input/time axis -> independent variable (confirmed)",
+    "N_P: claimed-dynamic state -> dynamic state (confirmed)",
+    "N_D: claimed-dynamic state -> dynamic state and dependent variable/target_state (confirmed)",
+    "daughter_decay_constant: claimed-dynamic state -> dynamic state (confirmed under explicit freedom-preserving ODE contract)",
+    "damage_capacity: claimed-dynamic state -> dynamic state (confirmed under explicit freedom-preserving ODE contract)",
+    "parent_decay_constant: claimed-parameter -> parameter (confirmed)",
+    "damage_drive_rate: claimed-parameter -> parameter (confirmed)",
+    "damage_relaxation_rate: claimed-parameter -> parameter (confirmed)",
+    "capacity_growth_rate: claimed-parameter -> parameter (confirmed)",
+    "capacity_relaxation_rate: claimed-parameter -> parameter (confirmed)",
+    "baseline_damage_capacity: claimed-parameter -> parameter (confirmed)"
+  ],
+  "rationale": "The typed ODE contract is preserved exactly as required: although the scored expression alone is explicit in dN_D_dt, the provided contract declares N_P, N_D, daughter_decay_constant, and damage_capacity as dynamic states, and the explicit freedom metadata says to preserve declared V/P roles. The chosen time window spans several parent-decay times (1/parent_decay_constant = 50), allowing visible daughter buildup, a peak, and later depletion without pushing the whole run immediately into a flat tail. Parameter choices keep the recorded mechanisms active but not extreme: parent_decay_constant=0.02 supplies sustained parent feed; damage_drive_rate=4e-4 and damage_relaxation_rate=0.03 let daughter_decay_constant evolve appreciably with daughter burden but still relax; capacity_growth_rate=1.5e-4 and capacity_relaxation_rate=0.015 allow damage_capacity to move substantially from its inherited initial value toward a larger scale set by baseline_damage_capacity=5000. This means the trajectory can pass through regimes where both N_D/damage_capacity and daughter_decay_constant/damage_capacity matter, exposing the occupancy-limited daughter-loss curvature and the added throttling by environment load. The inherited initial condition damage_capacity(0)=1 is extreme relative to baseline_damage_capacity, so an initial transient is expected; this cannot be repaired because the ODE contract and initial conditions must be inherited exactly. The chosen parameters are intended to let that transient relax while preserving observable history dependence later, rather than collapsing to the parent-recovery limit where daughter_decay_constant and damage_capacity are effectively static.",
+  "coverage_report": {
+    "groups": [
+      {
+        "generation": 1,
+        "name": "daughter_loss_flux",
+        "expression": "daughter_decay_constant*N_D",
+        "role": "instantaneous removal flux of daughter nuclei",
+        "train_range": [
+          0.0,
+          9641804.751161288
+        ],
+        "hidden_range": [
+          13.499426829808863,
+          22.121993075108946
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 9641804.751161288,
+          "q05": 27.493313377147313,
+          "median": 210.3994841377671,
+          "q95": 8099380.857805504,
+          "range": 9641804.751161288,
+          "robust_range": 8099353.364492128
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 13.499426829808863,
+          "max": 22.121993075108946,
+          "q05": 13.835197900450492,
+          "median": 17.270457517621807,
+          "q95": 21.580181859654065,
+          "range": 8.622566245300083,
+          "robust_range": 7.744983959203573
+        }
+      },
+      {
+        "generation": 1,
+        "name": "parent_feed_flux",
+        "expression": "parent_decay_constant*N_P",
+        "role": "instantaneous production flux into the daughter pool",
+        "train_range": [
+          22.2179930769653,
+          2000.0
+        ],
+        "hidden_range": [
+          13.47589399846313,
+          22.131373330842976
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 22.2179930769653,
+          "max": 2000.0,
+          "q05": 27.824342977675084,
+          "median": 210.8020866546833,
+          "q95": 1597.0464537690468,
+          "range": 1977.7820069230347,
+          "robust_range": 1569.2221107913717
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 13.47589399846313,
+          "max": 22.131373330842976,
+          "q05": 13.814363489266968,
+          "median": 17.269660643560453,
+          "q95": 21.589201455624522,
+          "range": 8.655479332379846,
+          "robust_range": 7.774837966357554
+        }
+      },
+      {
+        "generation": 1,
+        "name": "net_daughter_balance",
+        "expression": "parent_decay_constant*N_P - daughter_decay_constant*N_D",
+        "role": "signed daughter growth rate under the baseline law",
+        "train_range": [
+          -9640872.879700318,
+          2000.0
+        ],
+        "hidden_range": [
+          -0.02353283134573303,
+          0.009380255734029674
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": -9640872.879700318,
+          "max": 2000.0,
+          "q05": -8098498.881787275,
+          "median": -2.0011164761350813,
+          "q95": 0.006506273439025618,
+          "range": 9642872.879700318,
+          "robust_range": 8098498.8882935485
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": -0.02353283134573303,
+          "max": 0.009380255734029674,
+          "q05": -0.02083441118352374,
+          "median": -0.0007968740613524261,
+          "q95": 0.00901959597045927,
+          "range": 0.032913087079762704,
+          "robust_range": 0.02985400715398301
+        }
+      },
+      {
+        "generation": 2,
+        "name": "production_to_loss",
+        "expression": "parent_decay_constant*N_P/(daughter_decay_constant*N_D + 1.0e-12)",
+        "role": "instantaneous balance between daughter production and removal",
+        "train_range": [
+          9.49848620586076e-05,
+          2000000000000000.0
+        ],
+        "hidden_range": [
+          0.9982567532945349,
+          1.000424023988308
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 9.49848620586076e-05,
+          "max": 2000000000000000.0,
+          "q05": 0.00012197949428570723,
+          "median": 0.9903754463672508,
+          "q95": 1.0002394814709616,
+          "range": 2000000000000000.0,
+          "robust_range": 1.000117501976676
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.9982567532945349,
+          "max": 1.000424023988308,
+          "q05": 0.9984940691913089,
+          "median": 0.9999538437577596,
+          "q95": 1.0004179559636868,
+          "range": 0.0021672706937730934,
+          "robust_range": 0.0019238867723778696
+        }
+      },
+      {
+        "generation": 2,
+        "name": "capacity_loading",
+        "expression": "daughter_decay_constant/(damage_capacity + 1.0e-12)",
+        "role": "fractional approach to the current loss-environment saturation scale",
+        "train_range": [
+          0.00029388866830390876,
+          0.9999999999989999
+        ],
+        "hidden_range": [
+          0.0001612594011890012,
+          0.00029239465033101893
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.00029388866830390876,
+          "max": 0.9999999999989999,
+          "q05": 0.00039758608290762403,
+          "median": 0.008907270268865095,
+          "q95": 0.1067438693524531,
+          "range": 0.999706111330696,
+          "robust_range": 0.10634628326954547
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.0001612594011890012,
+          "max": 0.00029239465033101893,
+          "q05": 0.00016567549299387375,
+          "median": 0.00021416941330710485,
+          "q95": 0.0002831212027683189,
+          "range": 0.00013113524914201772,
+          "robust_range": 0.00011744570977444515
+        }
+      },
+      {
+        "generation": 2,
+        "name": "daughter_burden",
+        "expression": "N_D/(N_P + N_D + 1.0e-12)",
+        "role": "tracked-population share carried by the daughter, indicating how strongly daughter-driven environmental evolution can matter",
+        "train_range": [
+          0.0,
+          0.44923613297743514
+        ],
+        "hidden_range": [
+          0.013931625475449782,
+          0.024781094096633104
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 0.44923613297743514,
+          "q05": 0.00010829698054987373,
+          "median": 0.002098492409974945,
+          "q95": 0.4217333787497976,
+          "range": 0.44923613297743514,
+          "robust_range": 0.42162508176924773
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.013931625475449782,
+          "max": 0.024781094096633104,
+          "q05": 0.014372870818264657,
+          "median": 0.01882843788615063,
+          "q95": 0.024141026721941974,
+          "range": 0.010849468621183323,
+          "robust_range": 0.009768155903677318
+        }
+      },
+      {
+        "generation": 3,
+        "name": "load_ratio",
+        "expression": "N_D/damage_capacity",
+        "role": "daughter occupancy relative to the evolving removal-environment scale; indicates when linear loss should fail",
+        "train_range": [
+          0.0,
+          26.260165893853056
+        ],
+        "hidden_range": [
+          0.0032306612965704255,
+          0.0035018829353162463
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 26.260165893853056,
+          "q05": 0.0011662161207349738,
+          "median": 0.0019678483083728857,
+          "q95": 25.116566646206604,
+          "range": 26.260165893853056,
+          "robust_range": 25.11540043008587
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.0032306612965704255,
+          "max": 0.0035018829353162463,
+          "q05": 0.003250782185714077,
+          "median": 0.0034048316375702922,
+          "q95": 0.003496299681625716,
+          "range": 0.00027122163874582087,
+          "robust_range": 0.0002455174959116388
+        }
+      },
+      {
+        "generation": 3,
+        "name": "source_sink_ratio",
+        "expression": "parent_decay_constant*N_P/(daughter_decay_constant*N_D + 1.0e-12)",
+        "role": "instantaneous competition between parent feed and daughter removal under the current linearized sink strength",
+        "train_range": [
+          9.49848620586076e-05,
+          2000000000000000.0
+        ],
+        "hidden_range": [
+          0.9982567532945349,
+          1.000424023988308
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 9.49848620586076e-05,
+          "max": 2000000000000000.0,
+          "q05": 0.00012197949428570723,
+          "median": 0.9903754463672508,
+          "q95": 1.0002394814709616,
+          "range": 2000000000000000.0,
+          "robust_range": 1.000117501976676
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.9982567532945349,
+          "max": 1.000424023988308,
+          "q05": 0.9984940691913089,
+          "median": 0.9999538437577596,
+          "q95": 1.0004179559636868,
+          "range": 0.0021672706937730934,
+          "robust_range": 0.0019238867723778696
+        }
+      },
+      {
+        "generation": 3,
+        "name": "environment_utilization",
+        "expression": "daughter_decay_constant/(damage_capacity + 1.0e-12)",
+        "role": "how strongly the effective daughter-loss rate has approached the current environmental capacity",
+        "train_range": [
+          0.00029388866830390876,
+          0.9999999999989999
+        ],
+        "hidden_range": [
+          0.0001612594011890012,
+          0.00029239465033101893
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.00029388866830390876,
+          "max": 0.9999999999989999,
+          "q05": 0.00039758608290762403,
+          "median": 0.008907270268865095,
+          "q95": 0.1067438693524531,
+          "range": 0.999706111330696,
+          "robust_range": 0.10634628326954547
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.0001612594011890012,
+          "max": 0.00029239465033101893,
+          "q05": 0.00016567549299387375,
+          "median": 0.00021416941330710485,
+          "q95": 0.0002831212027683189,
+          "range": 0.00013113524914201772,
+          "robust_range": 0.00011744570977444515
+        }
+      },
+      {
+        "generation": 4,
+        "name": "occupancy_ratio",
+        "expression": "N_D/damage_capacity",
+        "role": "Crowding of the finite daughter-loss environment already present in the parent",
+        "train_range": [
+          0.0,
+          26.260165893853056
+        ],
+        "hidden_range": [
+          0.0032306612965704255,
+          0.0035018829353162463
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 26.260165893853056,
+          "q05": 0.0011662161207349738,
+          "median": 0.0019678483083728857,
+          "q95": 25.116566646206604,
+          "range": 26.260165893853056,
+          "robust_range": 25.11540043008587
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.0032306612965704255,
+          "max": 0.0035018829353162463,
+          "q05": 0.003250782185714077,
+          "median": 0.0034048316375702922,
+          "q95": 0.003496299681625716,
+          "range": 0.00027122163874582087,
+          "robust_range": 0.0002455174959116388
+        }
+      },
+      {
+        "generation": 4,
+        "name": "removal_pressure",
+        "expression": "daughter_decay_constant*N_D/(1 + N_D/damage_capacity)",
+        "role": "Current realized daughter sink strength before the planned refinement",
+        "train_range": [
+          0.0,
+          640859.6501413585
+        ],
+        "hidden_range": [
+          13.452318385613841,
+          22.05075455580533
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 640859.6501413585,
+          "q05": 27.41008187451728,
+          "median": 205.15435735281756,
+          "q95": 451143.5336816308,
+          "range": 640859.6501413585,
+          "robust_range": 451116.1235997563
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 13.452318385613841,
+          "max": 22.05075455580533,
+          "q05": 13.786994447797854,
+          "median": 17.211854089162713,
+          "q95": 21.510256759921678,
+          "range": 8.598436170191489,
+          "robust_range": 7.723262312123824
+        }
+      },
+      {
+        "generation": 4,
+        "name": "supply_to_sink_ratio",
+        "expression": "parent_decay_constant*N_P/(daughter_decay_constant*N_D/(1 + N_D/damage_capacity) + 1.0e-12)",
+        "role": "Whether daughter production or daughter removal dominates the instantaneous balance",
+        "train_range": [
+          0.0012894326967762479,
+          2000000000000000.0
+        ],
+        "hidden_range": [
+          1.001752531583961,
+          1.0036760238092421
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0012894326967762479,
+          "max": 2000000000000000.0,
+          "q05": 0.0022470419981197535,
+          "median": 0.992578547479356,
+          "q95": 1.0034314072000328,
+          "range": 2000000000000000.0,
+          "robust_range": 1.001184365201913
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 1.001752531583961,
+          "max": 1.0036760238092421,
+          "q05": 1.0019851036796623,
+          "median": 1.003358518232399,
+          "q95": 1.0036747338683565,
+          "range": 0.0019234922252810982,
+          "robust_range": 0.001689630188694169
+        }
+      },
+      {
+        "generation": 5,
+        "name": "daughter_loading",
+        "expression": "N_D/damage_capacity",
+        "role": "Current occupancy/self-shielding control already used by the parent target mapping",
+        "train_range": [
+          0.0,
+          26.260165893853056
+        ],
+        "hidden_range": [
+          0.0032306612965704255,
+          0.0035018829353162463
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 26.260165893853056,
+          "q05": 0.0011662161207349738,
+          "median": 0.0019678483083728857,
+          "q95": 25.116566646206604,
+          "range": 26.260165893853056,
+          "robust_range": 25.11540043008587
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.0032306612965704255,
+          "max": 0.0035018829353162463,
+          "q05": 0.003250782185714077,
+          "median": 0.0034048316375702922,
+          "q95": 0.003496299681625716,
+          "range": 0.00027122163874582087,
+          "robust_range": 0.0002455174959116388
+        }
+      },
+      {
+        "generation": 5,
+        "name": "environment_load",
+        "expression": "daughter_decay_constant/damage_capacity",
+        "role": "Degree to which the effective daughter-loss environment is itself driven near saturation and can no longer convert additional damage into proportionally higher removal",
+        "train_range": [
+          0.0002938886683039088,
+          1.0
+        ],
+        "hidden_range": [
+          0.00016125940118900123,
+          0.000292394650331019
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0002938886683039088,
+          "max": 1.0,
+          "q05": 0.0003975860829076241,
+          "median": 0.008907270268865099,
+          "q95": 0.10674386935245314,
+          "range": 0.9997061113316961,
+          "robust_range": 0.10634628326954551
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.00016125940118900123,
+          "max": 0.000292394650331019,
+          "q05": 0.0001656754929938738,
+          "median": 0.0002141694133071049,
+          "q95": 0.00028312120276831896,
+          "range": 0.00013113524914201775,
+          "robust_range": 0.00011744570977444515
+        }
+      }
+    ],
+    "inactive_mechanisms": [],
+    "visible_mechanisms": [
+      "daughter_loss_flux",
+      "parent_feed_flux",
+      "net_daughter_balance",
+      "production_to_loss",
+      "capacity_loading",
+      "daughter_burden",
+      "load_ratio",
+      "source_sink_ratio",
+      "environment_utilization",
+      "occupancy_ratio",
+      "removal_pressure",
+      "supply_to_sink_ratio",
+      "daughter_loading",
+      "environment_load"
+    ],
+    "extended_mechanisms": [
+      "daughter_loss_flux",
+      "parent_feed_flux",
+      "net_daughter_balance",
+      "production_to_loss",
+      "capacity_loading",
+      "source_sink_ratio",
+      "environment_utilization",
+      "removal_pressure",
+      "supply_to_sink_ratio",
+      "environment_load"
+    ]
+  },
+  "inactive_mechanisms": [],
+  "target_variance": {
+    "train": {
+      "n": 384,
+      "variance": 1356122.6637911068,
+      "range": 18630.18411128768
+    },
+    "hidden": {
+      "n": 128,
+      "variance": 0.0003259512656042905,
+      "range": 0.06138497536017162
+    }
+  },
+  "parent_absorption_report": {
+    "status": "ok",
+    "n_points": 512,
+    "fixed_parent_normalized_rmse": 4102.279098861404,
+    "refit": {
+      "status": "not_run",
+      "reason": "no free parent parameters"
+    },
+    "interpretation": "<1e-3 nearly absorbed; 1e-3..1e-2 weak; >1e-2 visible structure"
+  },
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_TzVE4akw9rpCWmK0A1T9Cua4"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "parent_decay_constant*N_P - daughter_decay_constant*N_D/((1 + N_D/damage_capacity)*(1 + (N_D/damage_capacity)**2)*(1 + daughter_decay_constant/damage_capacity))",
+        "target_symbol": "dN_D_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "N_D",
+          "N_P",
+          "damage_capacity",
+          "daughter_decay_constant",
+          "parent_decay_constant"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "-N_D*daughter_decay_constant/((1 + daughter_decay_constant/damage_capacity)*(N_D/damage_capacity + 1)*((N_D/damage_capac"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_PYUoAWsj9EuWWvyslzME3r9y"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "parent_decay_constant*N_P - daughter_decay_constant*N_D/((1 + N_D/damage_capacity)*(1 + (N_D/damage_capacity)**2)*(1 + daughter_decay_constant/damage_capacity))",
+        "target_symbol": "dN_D_dt",
+        "assignments": {
+          "N_P": 100000,
+          "N_D": 1000,
+          "daughter_decay_constant": 0.8,
+          "damage_capacity": 5000,
+          "parent_decay_constant": 0.02
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": 1359.076906669292,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_OIrIgqs5KbJEHe1uSKvmdF4r"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_Sz8xttVaMbJODpYtrQOaTNi4"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 4,
+  "discipline": "physics",
+  "scenario_text": "A radioactive parent nucleus transforms into a daughter nucleus, while the daughter is also unstable and leaves the tracked decay chain. The benchmark follows both populations from their initial abundances and targets the daughter population's instantaneous rate of change. Transformation probabilities per unit time are constant, and all untracked decay products are treated as sinks. The resulting trajectory should show daughter buildup followed by depletion when the daughter removal process becomes dominant.",
+  "record_id": "m2_nuclear_and_particle_physics_20280761_000",
+  "generation": 5,
+  "_n_total": 5000,
+  "mechanism_observation_history": [
+    {
+      "generation": 1,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The daughter loss term is linear in N_D with a constant daughter_decay_constant, so for fixed parent trajectory the target mapping dN_D_dt versus N_D has one fixed negative slope at all times.",
+          "child_relation": "Release the assumption of a time-independent daughter removal rate by allowing daughter_decay_constant to evolve under irradiation or chemical/radiation damage history, so the target mapping dN_D_dt versus N_D acquires history-dependent curvature through a time-varying effective loss slope.",
+          "affected_inputs": [
+            "N_D",
+            "daughter_decay_constant"
+          ],
+          "observable_effect": "Across runs with the same initial N_P and N_D but different elapsed histories within the observation window, daughter buildup and peak timing/depletion sharpen or delay because the instantaneous negative slope with respect to N_D changes over time instead of remaining fixed."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "daughter_loss_flux",
+            "expression": "daughter_decay_constant*N_D",
+            "role": "instantaneous removal flux of daughter nuclei"
+          },
+          {
+            "name": "parent_feed_flux",
+            "expression": "parent_decay_constant*N_P",
+            "role": "instantaneous production flux into the daughter pool"
+          },
+          {
+            "name": "net_daughter_balance",
+            "expression": "parent_decay_constant*N_P - daughter_decay_constant*N_D",
+            "role": "signed daughter growth rate under the baseline law"
+          }
+        ],
+        "activation_condition": "Observable when the daughter removal environment evolves on a timescale comparable to daughter buildup/depletion, so the effective daughter loss rate changes appreciably during the measured trajectory rather than remaining quasi-constant.",
+        "train_hidden_contrast": "In training, mild evolution of the daughter loss rate already bends the late-time decline away from the single-exponential-loss baseline; in holdout, stronger or slower evolution extends the same history dependence and shifts the daughter peak in a way one fixed loss constant cannot match across all runs.",
+        "continuation_path": "Recover the parent law when the daughter removal rate state is constant in time, equivalently when its evolution timescale is much longer than the experiment or its driving term vanishes.",
+        "freedom_change": "parameter_to_state",
+        "promoted_symbol": "daughter_decay_constant",
+        "promotion_reason": "A fixed daughter_decay_constant cannot encode history-dependent daughter removal within one run. To represent an evolving effective loss environment without introducing an unrelated external input, the existing removal-rate parameter must be released as a dynamical state.",
+        "gap_statement": "The model assumes the daughter's removal probability per unit time is strictly time independent even if the sample environment or self-induced damage changes during decay.",
+        "baseline_assumption": "Transformation rates are time independent.",
+        "scientific_mechanism": "History-dependent effective daughter decay/removal caused by evolving local environment or radiation-damage/escape conditions that alter the daughter loss rate during the experiment.",
+        "affected_symbols": [
+          "N_D",
+          "daughter_decay_constant"
+        ],
+        "rationale": "A realistic next refinement is to relax only the daughter's constant-rate assumption, not the one-to-one parent-to-daughter production balance. The parent shortcut is a fixed_environment mapping: once N_P is known, the scored target depends on N_D through one constant loss slope -daughter_decay_constant. Vary the within-run history of accumulated daughter population and elapsed decay time, while holding the initial conditions and parent decay law fixed. Then the child model allows the effective daughter-loss slope to evolve, changing the target curvature and the daughter peak timing/height. This is a changed target mapping, not merely an auxiliary trajectory change, because dN_D_dt directly uses the evolving daughter_decay_constant. The effect is admissible when environmental evolution is not negligible over the measurement window; if it is negligible, the refinement collapses back to the parent. A single refitted constant daughter_decay_constant cannot reproduce both early weak-loss buildup and later stronger-loss depletion across those conditions within one shared parameter set."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The daughter loss term is linear in N_D with a constant daughter_decay_constant, so for fixed parent trajectory the target mapping dN_D_dt versus N_D has one fixed negative slope at all times.",
+          "child_relation": "Release the assumption of a time-independent daughter removal rate by allowing daughter_decay_constant to evolve under irradiation or chemical/radiation damage history, so the target mapping dN_D_dt versus N_D acquires history-dependent curvature through a time-varying effective loss slope.",
+          "affected_inputs": [
+            "N_D",
+            "daughter_decay_constant"
+          ],
+          "observable_effect": "Across runs with the same initial N_P and N_D but different elapsed histories within the observation window, daughter buildup and peak timing/depletion sharpen or delay because the instantaneous negative slope with respect to N_D changes over time instead of remaining fixed."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "daughter_loss_flux",
+            "expression": "daughter_decay_constant*N_D",
+            "role": "instantaneous removal flux of daughter nuclei"
+          },
+          {
+            "name": "parent_feed_flux",
+            "expression": "parent_decay_constant*N_P",
+            "role": "instantaneous production flux into the daughter pool"
+          },
+          {
+            "name": "net_daughter_balance",
+            "expression": "parent_decay_constant*N_P - daughter_decay_constant*N_D",
+            "role": "signed daughter growth rate under the baseline law"
+          }
+        ],
+        "activation_condition": "Observable when the daughter removal environment evolves on a timescale comparable to daughter buildup/depletion, so the effective daughter loss rate changes appreciably during the measured trajectory rather than remaining quasi-constant.",
+        "train_hidden_contrast": "In training, mild evolution of the daughter loss rate already bends the late-time decline away from the single-exponential-loss baseline; in holdout, stronger or slower evolution extends the same history dependence and shifts the daughter peak in a way one fixed loss constant cannot match across all runs.",
+        "continuation_path": "Recover the parent law when the daughter removal rate state is constant in time, equivalently when its evolution timescale is much longer than the experiment or its driving term vanishes.",
+        "freedom_change": "parameter_to_state",
+        "promoted_symbol": "daughter_decay_constant",
+        "promotion_reason": "A fixed daughter_decay_constant cannot encode history-dependent daughter removal within one run. To represent an evolving effective loss environment without introducing an unrelated external input, the existing removal-rate parameter must be released as a dynamical state.",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "N_D",
+          "daughter_decay_constant"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Finite-capacity evolution of the daughter's effective loss environment",
+        "scientific_mechanism": "History-dependent effective daughter decay/removal caused by evolving local environment or radiation-damage/escape conditions that alter the daughter loss rate during the experiment.",
+        "embedding_pattern": "saturating_or_thresholded",
+        "difficulty_rationale": "This is harder than a coefficient correction because the scored target depends on a latent dynamical loss-rate state with finite-capacity saturation, so the effective slope of the daughter loss term changes over time according to trajectory history rather than remaining globally representable by one shared constant.",
+        "taxonomy_match": "known",
+        "assumption_before": "The daughter's removal probability per unit time is strictly time independent.",
+        "assumption_after": "The daughter's effective removal probability evolves dynamically with daughter-driven environmental damage and saturates at finite capacity.",
+        "before_fragment": "parent_decay_constant*N_P - daughter_decay_constant*N_D",
+        "after_fragment": "parent_decay_constant*N_P - daughter_decay_constant*N_D",
+        "parent_reduction": "Set damage_drive_rate = 0 so daughter_decay_constant is constant, or take the daughter-loss evolution timescale much longer than the experiment.",
+        "observable_signature": "With the parent decay law and initial populations held fixed, the parent predicts one fixed negative dN_D_dt-versus-N_D slope for the entire run, whereas the child shows history-dependent bending: early buildup can resemble weak loss, then later depletion steepens or saturates as daughter_decay_constant evolves toward its finite-capacity scale. This altered target mapping is observable only when the daughter-loss state changes appreciably during the measured window.",
+        "shortcut_blocked": "Refitting a single constant daughter_decay_constant can shift the overall loss level but cannot reproduce both early-time shallow effective loss and later-time stronger or saturating depletion within one shared parameter set, because the child changes the within-run slope of the scored mapping itself rather than merely altering an auxiliary trajectory."
+      },
+      "range_suggestions": {
+        "daughter_decay_constant": "positive; initial value comparable to or below parent_decay_constant for visible buildup before depletion",
+        "damage_drive_rate": "positive; small to moderate relative to damage_relaxation_rate/damage_capacity so saturation occurs within some runs but not instantaneously",
+        "damage_relaxation_rate": "nonnegative; comparable to or smaller than parent_decay_constant when history dependence should be observable",
+        "damage_capacity": "positive; sets the saturation scale of daughter_decay_constant above its initial value"
+      }
+    },
+    {
+      "generation": 2,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The daughter loss term is linear in N_D with an effective removal rate driven only by current daughter abundance and saturating against a fixed capacity, so for fixed N_P, N_D, and daughter_decay_constant history the target depends on N_D through a single first-order sink.",
+          "child_relation": "Release the damage-capacity assumption by allowing the capacity of the daughter-loss environment itself to evolve under irradiation history, so the same instantaneous N_D can produce different future target curvature depending on accumulated environmental state.",
+          "affected_inputs": [
+            "N_D",
+            "daughter_decay_constant",
+            "damage_capacity"
+          ],
+          "observable_effect": "Across runs with the same parent decay constant and similar early N_D buildup, the daughter peak height and post-peak steepening separate: some trajectories show prolonged moderate loss before late acceleration, while others saturate the loss environment earlier and deplete sooner."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "production_to_loss",
+            "expression": "parent_decay_constant*N_P/(daughter_decay_constant*N_D + 1.0e-12)",
+            "role": "instantaneous balance between daughter production and removal"
+          },
+          {
+            "name": "capacity_loading",
+            "expression": "daughter_decay_constant/(damage_capacity + 1.0e-12)",
+            "role": "fractional approach to the current loss-environment saturation scale"
+          },
+          {
+            "name": "daughter_burden",
+            "expression": "N_D/(N_P + N_D + 1.0e-12)",
+            "role": "tracked-population share carried by the daughter, indicating how strongly daughter-driven environmental evolution can matter"
+          }
+        ],
+        "activation_condition": "Observable when daughter-driven environmental modification is neither negligible nor instantaneous: damage_drive_rate*N_D comparable to damage_relaxation_rate*damage_capacity over part of the sampled trajectory, so saturation effects occur after visible daughter buildup rather than being absent or immediate.",
+        "train_hidden_contrast": "In training, the mechanism appears as gradual variation in peak sharpness and late-time curvature among trajectories with comparable early rise; in holdout, stronger or longer irradiation histories extend this into delayed versus early saturation of daughter loss that the fixed-capacity parent cannot match with one shared parameter set.",
+        "continuation_path": "Recover the parent law when the capacity-evolution effect is turned off so the capacity remains constant over the experiment, or in the limit where its evolution is much slower than the observation window.",
+        "freedom_change": "parameter_to_state",
+        "promoted_symbol": "damage_capacity",
+        "promotion_reason": "A fixed damage_capacity enforces one shared saturation scale for the daughter-loss environment. To represent irradiation-history-dependent carrying capacity of that environment, the capacity itself must evolve as a state; existing states cannot encode this without changing the target mapping only trivially.",
+        "gap_statement": "The current model assumes the saturation scale of the daughter-loss environment is fixed, but in irradiated media the available loss pathways or trapping/escape structure can themselves grow or anneal during the run.",
+        "baseline_assumption": "The finite saturation scale damage_capacity is time independent and unaffected by irradiation history.",
+        "scientific_mechanism": "Radiation-induced restructuring changes the number of effective daughter-removal sites or channels, so the environment controlling daughter loss has an evolving capacity rather than a fixed one.",
+        "affected_symbols": [
+          "N_D",
+          "daughter_decay_constant",
+          "damage_capacity"
+        ],
+        "rationale": "A realistic next refinement is to relax the fixed-capacity assumption rather than adding an unrelated source or sink. The current target mapping already includes history dependence through daughter_decay_constant, but all trajectories are forced toward the same maximum effective loss scale set by one constant damage_capacity. Varying the irradiation history through the observed N_D trajectory while holding parent_decay_constant, initial N_P, and initial daughter_decay_constant fixed can therefore only change how quickly that fixed ceiling is approached, not the ceiling itself. If damage_capacity is promoted to a state, then accumulated daughter presence can alter the eventual saturation scale of daughter loss. This changes the scored mapping consequentially: dN_D_dt at later times no longer depends only on N_P, N_D, and the current daughter_decay_constant under one fixed ceiling, but on whether the environment has expanded or relaxed its capacity during the trajectory. The observable contrast is a changed daughter peak and post-peak curvature reachable under the stated initial conditions when daughter-driven environmental evolution is moderate. A single refitted parent parameter set cannot reproduce both delayed saturation with prolonged daughter residence and earlier stronger depletion across such conditions, because it has only one fixed saturation scale for all runs. Limitation: if capacity evolution is extremely slow or negligible on the observation window, the refinement collapses back to the parent and may not be distinguishable."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The daughter loss term is linear in N_D with an effective removal rate driven only by current daughter abundance and saturating against a fixed capacity, so for fixed N_P, N_D, and daughter_decay_constant history the target depends on N_D through a single first-order sink.",
+          "child_relation": "Release the damage-capacity assumption by allowing the capacity of the daughter-loss environment itself to evolve under irradiation history, so the same instantaneous N_D can produce different future target curvature depending on accumulated environmental state.",
+          "affected_inputs": [
+            "N_D",
+            "daughter_decay_constant",
+            "damage_capacity"
+          ],
+          "observable_effect": "Across runs with the same parent decay constant and similar early N_D buildup, the daughter peak height and post-peak steepening separate: some trajectories show prolonged moderate loss before late acceleration, while others saturate the loss environment earlier and deplete sooner."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "production_to_loss",
+            "expression": "parent_decay_constant*N_P/(daughter_decay_constant*N_D + 1.0e-12)",
+            "role": "instantaneous balance between daughter production and removal"
+          },
+          {
+            "name": "capacity_loading",
+            "expression": "daughter_decay_constant/(damage_capacity + 1.0e-12)",
+            "role": "fractional approach to the current loss-environment saturation scale"
+          },
+          {
+            "name": "daughter_burden",
+            "expression": "N_D/(N_P + N_D + 1.0e-12)",
+            "role": "tracked-population share carried by the daughter, indicating how strongly daughter-driven environmental evolution can matter"
+          }
+        ],
+        "activation_condition": "Observable when daughter-driven environmental modification is neither negligible nor instantaneous: damage_drive_rate*N_D comparable to damage_relaxation_rate*damage_capacity over part of the sampled trajectory, so saturation effects occur after visible daughter buildup rather than being absent or immediate.",
+        "train_hidden_contrast": "In training, the mechanism appears as gradual variation in peak sharpness and late-time curvature among trajectories with comparable early rise; in holdout, stronger or longer irradiation histories extend this into delayed versus early saturation of daughter loss that the fixed-capacity parent cannot match with one shared parameter set.",
+        "continuation_path": "Recover the parent law when the capacity-evolution effect is turned off so the capacity remains constant over the experiment, or in the limit where its evolution is much slower than the observation window.",
+        "freedom_change": "parameter_to_state",
+        "promoted_symbol": "damage_capacity",
+        "promotion_reason": "A fixed damage_capacity enforces one shared saturation scale for the daughter-loss environment. To represent irradiation-history-dependent carrying capacity of that environment, the capacity itself must evolve as a state; existing states cannot encode this without changing the target mapping only trivially.",
+        "scope_kind": "memory",
+        "scope_symbols": [
+          "N_D",
+          "daughter_decay_constant",
+          "damage_capacity"
+        ],
+        "structural_role": "feedback",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "irradiation-driven evolution of the daughter-loss saturation scale",
+        "scientific_mechanism": "Radiation-induced restructuring changes the number of effective daughter-removal sites or channels, so the environment controlling daughter loss has an evolving capacity rather than a fixed one.",
+        "embedding_pattern": "competing_processes",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the target trajectory now depends on competition between daughter-driven strengthening of the loss environment and relaxation of the capacity that bounds that strengthening. One shared fixed ceiling can no longer encode both delayed and early saturation regimes across runs with similar initial conditions.",
+        "taxonomy_match": "known",
+        "assumption_before": "The finite saturation scale damage_capacity is time independent and unaffected by irradiation history.",
+        "assumption_after": "The saturation scale damage_capacity evolves as an internal state under daughter-driven restructuring and relaxation toward a baseline.",
+        "before_fragment": "parent_decay_constant*N_P - daughter_decay_constant*N_D",
+        "after_fragment": "parent_decay_constant*N_P - daughter_decay_constant*N_D",
+        "parent_reduction": "Set capacity_growth_rate = 0 and capacity_relaxation_rate = 0 with damage_capacity initialized to baseline_damage_capacity, so damage_capacity remains constant and the parent system is recovered.",
+        "observable_signature": "With parent_decay_constant, initial N_P, and initial daughter_decay_constant held fixed, varying trajectories that generate different cumulative daughter burden can now separate in daughter peak height and late-time curvature because the loss-environment ceiling itself evolves. This is observable when capacity evolution occurs on the same order as daughter buildup and depletion, producing delayed versus earlier saturation of daughter loss.",
+        "shortcut_blocked": "Refitting the parent's existing parameters cannot absorb this across the stated conditions with one shared parameter set, because the parent has only one fixed saturation scale for daughter-loss evolution. It can change how fast daughter_decay_constant approaches that ceiling, but it cannot make the ceiling itself expand in some runs and remain lower in others under the same parameter set."
+      },
+      "range_suggestions": {
+        "damage_capacity": "positive dynamic state; initial value positive and comparable to or somewhat above initial daughter_decay_constant so saturation is reachable but not immediate",
+        "capacity_growth_rate": "positive; small to moderate relative to capacity_relaxation_rate and baseline_damage_capacity so capacity evolution is observable without runaway expansion",
+        "capacity_relaxation_rate": "nonnegative; comparable to or below parent_decay_constant when restructuring memory should persist over the observation window",
+        "baseline_damage_capacity": "positive; sets the parent-recovery capacity scale when restructuring is absent"
+      }
+    },
+    {
+      "generation": 3,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The daughter loss term is linear in N_D through daughter_decay_constant*N_D, so at fixed N_P and daughter_decay_constant the target slope with respect to N_D is a single constant negative gain.",
+          "child_relation": "Refine the daughter removal law so the effective sink strength rolls off at high daughter occupancy because the finite removal environment cannot process daughters proportionally forever; then dN_D_dt depends on N_D with a bending, sublinear loss response rather than one constant slope.",
+          "affected_inputs": [
+            "N_D",
+            "daughter_decay_constant",
+            "damage_capacity"
+          ],
+          "observable_effect": "Across trajectories with similar parent feed but different attained daughter burdens, the daughter buildup-to-depletion transition shifts from a single linear downturn to a compressed depletion response: early loss strengthens with N_D, but at larger N_D the incremental steepening weakens, delaying or broadening the peak compared with the parent law."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "load_ratio",
+            "expression": "N_D/damage_capacity",
+            "role": "daughter occupancy relative to the evolving removal-environment scale; indicates when linear loss should fail"
+          },
+          {
+            "name": "source_sink_ratio",
+            "expression": "parent_decay_constant*N_P/(daughter_decay_constant*N_D + 1.0e-12)",
+            "role": "instantaneous competition between parent feed and daughter removal under the current linearized sink strength"
+          },
+          {
+            "name": "environment_utilization",
+            "expression": "daughter_decay_constant/(damage_capacity + 1.0e-12)",
+            "role": "how strongly the effective daughter-loss rate has approached the current environmental capacity"
+          }
+        ],
+        "activation_condition": "Observable when the daughter population becomes comparable to or larger than the instantaneous removal-environment scale, i.e. N_D/damage_capacity is not small over part of the sampled window; if N_D stays well below damage_capacity throughout, the parent linear law remains an adequate approximation.",
+        "train_hidden_contrast": "In training, moderate daughter loads can already show slight peak broadening relative to a linear sink; in holdout, runs reaching higher N_D/damage_capacity amplify the same occupancy-limited curvature rather than introducing a new mechanism.",
+        "continuation_path": "Recover the parent law in the low-occupancy limit N_D/damage_capacity << 1, where the refined sink reduces to approximately daughter_decay_constant*N_D.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The current model lets daughter removal remain exactly first-order in daughter abundance even when the same evolving environment is already modeled as having a finite capacity, omitting occupancy-limited processing of daughters by that environment.",
+        "baseline_assumption": "The daughter-removal flux is proportional to N_D at all daughter loads, with no saturation or crowding in the realized removal rate once daughter_decay_constant and damage_capacity are specified.",
+        "scientific_mechanism": "Finite trapping, recombination, escape, or removal channels can become occupied or throughput-limited, so the realized daughter loss per unit time increases sublinearly with daughter abundance when many daughters compete for the same finite environment.",
+        "affected_symbols": [
+          "N_D",
+          "daughter_decay_constant",
+          "damage_capacity"
+        ],
+        "rationale": "A realistic next refinement is to relax the idealized first-order daughter-loss assumption rather than adding a wholly new process. The parent already acknowledges an evolving finite damage capacity, but its scored target mapping still uses a linear sink daughter_decay_constant*N_D, which implies unlimited proportional throughput at any daughter burden. Vary the regime through trajectories that differ in attained N_D/damage_capacity while holding the same governing parameter set and initial-condition contract otherwise fixed. Under the current law, once N_P and daughter_decay_constant are matched, the local dependence of dN_D_dt on N_D is always a single negative slope. Under the refined occupancy-limited law, the sink term bends: at low load it matches the parent, while at higher load the incremental sink gained from additional daughters weakens. This changes the target mapping itself, not just auxiliary states, because the N_D dependence of dN_D_dt is altered directly. The effect is scientifically admissible when daughter burden reaches a non-small fraction of the available removal scale; if not, this refinement is effectively latent and the parent remains a valid approximation."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The daughter loss term is linear in N_D through daughter_decay_constant*N_D, so at fixed N_P and daughter_decay_constant the target slope with respect to N_D is a single constant negative gain.",
+          "child_relation": "Refine the daughter removal law so the effective sink strength rolls off at high daughter occupancy because the finite removal environment cannot process daughters proportionally forever; then dN_D_dt depends on N_D with a bending, sublinear loss response rather than one constant slope.",
+          "affected_inputs": [
+            "N_D",
+            "daughter_decay_constant",
+            "damage_capacity"
+          ],
+          "observable_effect": "Across trajectories with similar parent feed but different attained daughter burdens, the daughter buildup-to-depletion transition shifts from a single linear downturn to a compressed depletion response: early loss strengthens with N_D, but at larger N_D the incremental steepening weakens, delaying or broadening the peak compared with the parent law."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "load_ratio",
+            "expression": "N_D/damage_capacity",
+            "role": "daughter occupancy relative to the evolving removal-environment scale; indicates when linear loss should fail"
+          },
+          {
+            "name": "source_sink_ratio",
+            "expression": "parent_decay_constant*N_P/(daughter_decay_constant*N_D + 1.0e-12)",
+            "role": "instantaneous competition between parent feed and daughter removal under the current linearized sink strength"
+          },
+          {
+            "name": "environment_utilization",
+            "expression": "daughter_decay_constant/(damage_capacity + 1.0e-12)",
+            "role": "how strongly the effective daughter-loss rate has approached the current environmental capacity"
+          }
+        ],
+        "activation_condition": "Observable when the daughter population becomes comparable to or larger than the instantaneous removal-environment scale, i.e. N_D/damage_capacity is not small over part of the sampled window; if N_D stays well below damage_capacity throughout, the parent linear law remains an adequate approximation.",
+        "train_hidden_contrast": "In training, moderate daughter loads can already show slight peak broadening relative to a linear sink; in holdout, runs reaching higher N_D/damage_capacity amplify the same occupancy-limited curvature rather than introducing a new mechanism.",
+        "continuation_path": "Recover the parent law in the low-occupancy limit N_D/damage_capacity << 1, where the refined sink reduces to approximately daughter_decay_constant*N_D.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "memory",
+        "scope_symbols": [
+          "N_D",
+          "daughter_decay_constant",
+          "damage_capacity"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "occupancy-limited daughter removal within a finite evolving environment",
+        "scientific_mechanism": "Finite trapping, recombination, escape, or removal channels can become occupied or throughput-limited, so the realized daughter loss per unit time increases sublinearly with daughter abundance when many daughters compete for the same finite environment.",
+        "embedding_pattern": "multi_timescale",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the target mapping acquires a load-dependent curvature set by the evolving capacity state, creating a crossover between low-load first-order loss and high-load throughput-limited loss. A single refitted linear sink coefficient cannot simultaneously match both early and high-occupancy segments across trajectories that traverse different N_D/damage_capacity ranges.",
+        "taxonomy_match": "known",
+        "assumption_before": "The daughter-removal flux is proportional to N_D at all daughter loads, with no saturation or crowding in the realized removal rate once daughter_decay_constant and damage_capacity are specified.",
+        "assumption_after": "The realized daughter-removal flux is occupancy-limited by the finite evolving environment, so additional daughters contribute progressively less marginal removal at high N_D/damage_capacity.",
+        "before_fragment": "parent_decay_constant*N_P - daughter_decay_constant*N_D",
+        "after_fragment": "parent_decay_constant*N_P - daughter_decay_constant*N_D/(1 + N_D/damage_capacity)",
+        "parent_reduction": "In the low-occupancy limit N_D/damage_capacity << 1, the denominator tends to 1 and the parent expression is recovered.",
+        "observable_signature": "Holding one shared parameter set and the same initial-condition contract, trajectories that remain in low load retain near-linear daughter loss, while trajectories that reach N_D comparable to damage_capacity exhibit a visibly softened downturn: the daughter peak broadens or shifts later because the sink term saturates instead of steepening proportionally with N_D.",
+        "shortcut_blocked": "Refitting all existing parent parameters still leaves the parent target law linear in N_D at fixed N_P and daughter_decay_constant, so its local slope with respect to N_D cannot bend as load increases. Therefore one shared parent parameter set cannot reproduce both low-load near-first-order behavior and high-load occupancy-limited curvature across conditions that differ in attained N_D/damage_capacity."
+      },
+      "range_suggestions": {}
+    },
+    {
+      "generation": 4,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The daughter loss term depends only on the instantaneous daughter population and evolving environmental states through a Michaelis-like occupancy factor, so at fixed N_P the N_D contribution to dN_D_dt has a single saturating shape with no intrinsic daughter self-shielding of its own production-to-loss balance.",
+          "child_relation": "Relax the assumption that all daughter nuclei are equally exposed to removal by allowing self-attenuation/self-shielding within the daughter population, so the effective per-daughter removal weakens further as N_D grows even at the same daughter_decay_constant and damage_capacity.",
+          "affected_inputs": [
+            "N_D",
+            "daughter_decay_constant",
+            "damage_capacity"
+          ],
+          "observable_effect": "When parent supply is held fixed through the same N_P trajectory, intermediate-to-large N_D shows a flatter decline in dN_D_dt versus N_D and a later, broader daughter peak than the parent model predicts."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "occupancy_ratio",
+            "expression": "N_D/damage_capacity",
+            "role": "Crowding of the finite daughter-loss environment already present in the parent"
+          },
+          {
+            "name": "removal_pressure",
+            "expression": "daughter_decay_constant*N_D/(1 + N_D/damage_capacity)",
+            "role": "Current realized daughter sink strength before the planned refinement"
+          },
+          {
+            "name": "supply_to_sink_ratio",
+            "expression": "parent_decay_constant*N_P/(daughter_decay_constant*N_D/(1 + N_D/damage_capacity) + 1.0e-12)",
+            "role": "Whether daughter production or daughter removal dominates the instantaneous balance"
+          }
+        ],
+        "activation_condition": "Observable when N_D becomes comparable to or exceeds damage_capacity so daughter crowding is appreciable; weak or negligible at early times with N_D << damage_capacity.",
+        "train_hidden_contrast": "The same buildup-to-depletion trajectories seen in training already pass through low- and moderate-occupancy regimes; in extended holdout with larger sustained daughter inventories, the refined law continues by further softening the sink rather than keeping the parent's single occupancy-limited curvature.",
+        "continuation_path": "Recover the parent law in the limit of negligible self-shielding, i.e. when the added attenuation strength tends to zero or throughout regimes with N_D small enough that all daughters are effectively equally exposed.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The current model assumes every daughter nucleus experiences the same removal accessibility once crowding is summarized by a single throughput-limited environment, omitting additional shielding or inaccessibility that can arise when daughter accumulation itself obstructs exposure to removal channels.",
+        "baseline_assumption": "The daughter-loss environment is fully characterized by the existing occupancy-limited factor 1 + N_D/damage_capacity, with no extra daughter-induced reduction in accessibility beyond that throughput saturation.",
+        "scientific_mechanism": "At high daughter loading, accumulated daughters can partially shield, trap, or bury one another so that a growing fraction resides in less accessible microenvironments; removal then falls off more strongly with N_D than the current single occupancy factor allows.",
+        "affected_symbols": [
+          "N_D",
+          "daughter_decay_constant",
+          "damage_capacity"
+        ],
+        "rationale": "A realistic next refinement is to change the daughter-removal assumption rather than add an unrelated source or sink. Vary time so that the observed trajectory spans low to high daughter abundance under the same initial conditions and fixed parent_decay_constant, damage-drive, and capacity parameters. In the parent, once N_P is fixed at any instant, the daughter contribution to dN_D_dt is controlled by one occupancy scale N_D/damage_capacity and therefore has a single saturating curvature. In the refined model, the same supplied states can produce weaker effective removal at larger N_D because daughters become less accessible to the loss channels, not merely because channels are throughput-limited. The observable contrast is a broader buildup region and delayed onset of strong depletion when N_D reaches the capacity scale. This is scientifically admissible in dense irradiated or trapping environments, but the effect may be unresolvable if trajectories stay in N_D << damage_capacity. No new state is needed because the omitted mechanism can be represented as a different instantaneous dependence of the target mapping on existing states rather than requiring an independently evolving memory variable."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The daughter loss term depends only on the instantaneous daughter population and evolving environmental states through a Michaelis-like occupancy factor, so at fixed N_P the N_D contribution to dN_D_dt has a single saturating shape with no intrinsic daughter self-shielding of its own production-to-loss balance.",
+          "child_relation": "Relax the assumption that all daughter nuclei are equally exposed to removal by allowing self-attenuation/self-shielding within the daughter population, so the effective per-daughter removal weakens further as N_D grows even at the same daughter_decay_constant and damage_capacity.",
+          "affected_inputs": [
+            "N_D",
+            "daughter_decay_constant",
+            "damage_capacity"
+          ],
+          "observable_effect": "When parent supply is held fixed through the same N_P trajectory, intermediate-to-large N_D shows a flatter decline in dN_D_dt versus N_D and a later, broader daughter peak than the parent model predicts."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "occupancy_ratio",
+            "expression": "N_D/damage_capacity",
+            "role": "Crowding of the finite daughter-loss environment already present in the parent"
+          },
+          {
+            "name": "removal_pressure",
+            "expression": "daughter_decay_constant*N_D/(1 + N_D/damage_capacity)",
+            "role": "Current realized daughter sink strength before the planned refinement"
+          },
+          {
+            "name": "supply_to_sink_ratio",
+            "expression": "parent_decay_constant*N_P/(daughter_decay_constant*N_D/(1 + N_D/damage_capacity) + 1.0e-12)",
+            "role": "Whether daughter production or daughter removal dominates the instantaneous balance"
+          }
+        ],
+        "activation_condition": "Observable when N_D becomes comparable to or exceeds damage_capacity so daughter crowding is appreciable; weak or negligible at early times with N_D << damage_capacity.",
+        "train_hidden_contrast": "The same buildup-to-depletion trajectories seen in training already pass through low- and moderate-occupancy regimes; in extended holdout with larger sustained daughter inventories, the refined law continues by further softening the sink rather than keeping the parent's single occupancy-limited curvature.",
+        "continuation_path": "Recover the parent law in the limit of negligible self-shielding, i.e. when the added attenuation strength tends to zero or throughout regimes with N_D small enough that all daughters are effectively equally exposed.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "N_D",
+          "daughter_decay_constant",
+          "damage_capacity"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "daughter self-shielding in the removal pathway",
+        "scientific_mechanism": "At high daughter loading, accumulated daughters can partially shield, trap, or bury one another so that a growing fraction resides in less accessible microenvironments; removal then falls off more strongly with N_D than the current single occupancy factor allows.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the sink coefficient now changes with the occupancy state itself, altering the curvature of the scored mapping across the same trajectory rather than merely rescaling all sink strengths by one shared parameter.",
+        "taxonomy_match": "known",
+        "assumption_before": "The daughter-loss environment is fully characterized by the existing occupancy-limited factor 1 + N_D/damage_capacity, with no extra daughter-induced reduction in accessibility beyond that throughput saturation.",
+        "assumption_after": "The occupancy-limited daughter-loss environment is further modulated by daughter self-shielding, so accessibility to removal channels decreases with loading even at fixed daughter_decay_constant and damage_capacity.",
+        "before_fragment": "parent_decay_constant*N_P - daughter_decay_constant*N_D/(1 + N_D/damage_capacity)",
+        "after_fragment": "parent_decay_constant*N_P - daughter_decay_constant*N_D/((1 + N_D/damage_capacity)*(1 + (N_D/damage_capacity)**2))",
+        "parent_reduction": "The successor reduces to the parent for N_D/damage_capacity << 1, where 1 + (N_D/damage_capacity)**2 approaches 1.",
+        "observable_signature": "Along trajectories sharing the same N_P response and fixed parameters, the child changes the scored target mapping itself: as N_D rises from below to around the capacity scale, dN_D_dt bends downward less sharply than in the parent, causing delayed depletion onset and a broader daughter peak. This contrast is observable when N_D reaches order damage_capacity; if trajectories remain in N_D << damage_capacity, the new factor is effectively inactive and the models are difficult to distinguish.",
+        "shortcut_blocked": "A single refit of the parent parameters cannot reproduce both the low-occupancy behavior and the softened high-occupancy sink across the same admissible trajectory family, because the parent has only one occupancy factor shaping the N_D dependence of removal. Retuning daughter_decay_constant or capacity-related parameters rescales or shifts that single saturation scale but does not create the additional high-occupancy curvature change needed to match both the early slope and the later broadened peak with one shared parameter set."
+      },
+      "range_suggestions": {}
+    },
+    {
+      "generation": 5,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The daughter loss term depends only on the instantaneous daughter loading N_D relative to a single evolving capacity, so for a given observed pair (N_P,N_D) the target slope changes smoothly with one occupancy-controlled suppression profile.",
+          "child_relation": "Retain the same parent-production term but refine the daughter-loss environment so that damage-driven removal efficiency is additionally throttled when the removal environment itself becomes highly damaged relative to its capacity, making the target depend on the joint state (N_D, daughter_decay_constant, damage_capacity) through a second internal saturation.",
+          "affected_inputs": [
+            "N_D",
+            "daughter_decay_constant",
+            "damage_capacity",
+            "N_P"
+          ],
+          "observable_effect": "At comparable N_P and N_D, runs reaching high daughter_decay_constant/damage_capacity show an earlier flattening and softer post-peak depletion of N_D than the parent law predicts, because removal self-saturates through environmental overdamage rather than only through daughter occupancy."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "daughter_loading",
+            "expression": "N_D/damage_capacity",
+            "role": "Current occupancy/self-shielding control already used by the parent target mapping"
+          },
+          {
+            "name": "environment_load",
+            "expression": "daughter_decay_constant/damage_capacity",
+            "role": "Degree to which the effective daughter-loss environment is itself driven near saturation and can no longer convert additional damage into proportionally higher removal"
+          }
+        ],
+        "activation_condition": "Observable when irradiation history drives daughter_decay_constant/damage_capacity to order one while N_D/damage_capacity is also non-negligible; weak or absent in the low-damage regime daughter_decay_constant << damage_capacity.",
+        "train_hidden_contrast": "Within training trajectories the mechanism appears late in runs after daughter buildup, where equal N_D can correspond to different daughter_decay_constant histories; in holdout it extends to stronger damage-drive or weaker relaxation conditions that push environment_load higher and accentuate the curvature change.",
+        "continuation_path": "Recover the parent law in the limit daughter_decay_constant/damage_capacity -> 0, where environmental overdamage never throttles the realized daughter-loss term.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The current model lets the effective daughter removal rate keep acting linearly in the target once daughter_decay_constant has been built up, aside from occupancy and self-shielding by N_D itself; it omits saturation of the removal environment's own throughput when the accumulated damage state becomes large relative to available capacity.",
+        "baseline_assumption": "The realized daughter-loss flux is fully determined by daughter occupancy/self-shielding and scales linearly with the history-dependent effective daughter_decay_constant, regardless of how saturated that damage state is relative to damage_capacity.",
+        "scientific_mechanism": "As radiation damage accumulates, removal sites/channels can become structurally degraded, congested, or mutually interfering, so a high effective daughter-loss environment does not translate into proportionally high daughter removal once the environment is itself near capacity.",
+        "affected_symbols": [
+          "N_D",
+          "daughter_decay_constant",
+          "damage_capacity",
+          "N_P"
+        ],
+        "rationale": "A realistic next refinement is to relax the parent's assumption that the damage-built removal environment remains perfectly effective once created. Hold fixed the parent source law parent_decay_constant*N_P and compare times or parameter settings that produce similar observed N_P and N_D but different accumulated environment_load = daughter_decay_constant/damage_capacity. The current target mapping uses only one suppression coordinate based on daughter_loading = N_D/damage_capacity, so after refitting one shared parameter set it cannot create a distinct additional downturn tied specifically to high environment_load at the same daughter loading. The refined child mapping would change the target itself, not merely auxiliary trajectories, by making daughter loss bend over when the removal environment is overdriven. This is scientifically admissible in regimes with substantial damage buildup and finite restructuring capacity; it is not expected to matter when damage remains small, which also provides a clear parent-recovery limit."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The daughter loss term depends only on the instantaneous daughter loading N_D relative to a single evolving capacity, so for a given observed pair (N_P,N_D) the target slope changes smoothly with one occupancy-controlled suppression profile.",
+          "child_relation": "Retain the same parent-production term but refine the daughter-loss environment so that damage-driven removal efficiency is additionally throttled when the removal environment itself becomes highly damaged relative to its capacity, making the target depend on the joint state (N_D, daughter_decay_constant, damage_capacity) through a second internal saturation.",
+          "affected_inputs": [
+            "N_D",
+            "daughter_decay_constant",
+            "damage_capacity",
+            "N_P"
+          ],
+          "observable_effect": "At comparable N_P and N_D, runs reaching high daughter_decay_constant/damage_capacity show an earlier flattening and softer post-peak depletion of N_D than the parent law predicts, because removal self-saturates through environmental overdamage rather than only through daughter occupancy."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "daughter_loading",
+            "expression": "N_D/damage_capacity",
+            "role": "Current occupancy/self-shielding control already used by the parent target mapping"
+          },
+          {
+            "name": "environment_load",
+            "expression": "daughter_decay_constant/damage_capacity",
+            "role": "Degree to which the effective daughter-loss environment is itself driven near saturation and can no longer convert additional damage into proportionally higher removal"
+          }
+        ],
+        "activation_condition": "Observable when irradiation history drives daughter_decay_constant/damage_capacity to order one while N_D/damage_capacity is also non-negligible; weak or absent in the low-damage regime daughter_decay_constant << damage_capacity.",
+        "train_hidden_contrast": "Within training trajectories the mechanism appears late in runs after daughter buildup, where equal N_D can correspond to different daughter_decay_constant histories; in holdout it extends to stronger damage-drive or weaker relaxation conditions that push environment_load higher and accentuate the curvature change.",
+        "continuation_path": "Recover the parent law in the limit daughter_decay_constant/damage_capacity -> 0, where environmental overdamage never throttles the realized daughter-loss term.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "N_D",
+          "daughter_decay_constant",
+          "damage_capacity",
+          "N_P"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "finite-capacity saturation of the damage-built daughter-removal environment",
+        "scientific_mechanism": "As radiation damage accumulates, removal sites/channels can become structurally degraded, congested, or mutually interfering, so a high effective daughter-loss environment does not translate into proportionally high daughter removal once the environment is itself near capacity.",
+        "embedding_pattern": "saturating_or_thresholded",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because it introduces a second state-dependent saturation coordinate in the scored target law. A single retuned occupancy profile cannot reproduce both low-environment-load and high-environment-load curvature at the same observed N_P and N_D with one shared parameter set.",
+        "taxonomy_match": "known",
+        "assumption_before": "The realized daughter-loss flux remains linear in daughter_decay_constant once that internal damage state is established, with only daughter-occupancy suppression modulating it.",
+        "assumption_after": "The realized daughter-loss flux is additionally throttled when daughter_decay_constant itself approaches damage_capacity, representing finite throughput of an overdriven removal environment.",
+        "before_fragment": "parent_decay_constant*N_P - daughter_decay_constant*N_D/((1 + N_D/damage_capacity)*(1 + (N_D/damage_capacity)**2))",
+        "after_fragment": "parent_decay_constant*N_P - daughter_decay_constant*N_D/((1 + N_D/damage_capacity)*(1 + (N_D/damage_capacity)**2)*(1 + daughter_decay_constant/damage_capacity))",
+        "parent_reduction": "In the limit daughter_decay_constant/damage_capacity -> 0, the extra denominator factor approaches 1 and the parent expression is recovered.",
+        "observable_signature": "Holding the parent source term relation fixed, compare portions of trajectories with similar N_P and N_D but different environment_load = daughter_decay_constant/damage_capacity. The successor predicts smaller-magnitude daughter loss, hence earlier flattening and softer post-peak decline, specifically in the high-environment-load case; the parent predicts the same loss whenever N_P, N_D, and damage_capacity imply the same occupancy suppression regardless of environment_load.",
+        "shortcut_blocked": "Refitting all existing parent parameters cannot create a separate target dependence on environment_load at fixed daughter_loading, because the parent scored mapping contains only one suppression coordinate N_D/damage_capacity multiplying a linear daughter_decay_constant factor. One shared parent parameter set therefore cannot simultaneously match low- and high-environment-load segments that share similar N_P and N_D but differ in realized loss throttling."
+      },
+      "range_suggestions": {}
+    }
+  ],
+  "evolution_provenance": {
+    "dimension_track": null,
+    "mechanism_profile": {
+      "allowed_structural_roles": [
+        "contribution",
+        "response_law",
+        "interaction",
+        "constraint",
+        "transition"
+      ],
+      "preferred_scopes": [
+        "unary",
+        "pairwise",
+        "multiway",
+        "time_forcing"
+      ],
+      "domain_mechanisms": [
+        {
+          "id": "threshold_channel",
+          "description": "an energetically allowed reaction or decay channel",
+          "operations": [
+            "add_term",
+            "change_assumption"
+          ]
+        },
+        {
+          "id": "screening_or_form_factor",
+          "description": "scale-dependent coupling or finite-size response",
+          "operations": [
+            "change_assumption"
+          ]
+        },
+        {
+          "id": "interference_channel",
+          "description": "interaction between physically distinct amplitudes",
+          "operations": [
+            "add_term"
+          ]
+        }
+      ],
+      "profile_source": "subfield",
+      "ontology_schema_version": "1.0",
+      "taxonomy_schema_version": "1.0"
+    },
+    "baseline_mechanisms": [
+      "Constant-rate radioactive transformation of the parent nucleus into the daughter nucleus.",
+      "Constant-rate radioactive removal of the daughter nucleus into untracked products."
+    ],
+    "baseline_assumptions": [
+      "The sample is closed to external production of either tracked nuclide.",
+      "Each parent transformation produces exactly one tracked daughter nucleus.",
+      "Transformation rates are time independent.",
+      "Reverse nuclear transformations are negligible."
+    ],
+    "scientific_constraints": [
+      "Both nuclear populations must remain non-negative.",
+      "Parent loss and daughter production from the first transformation must balance one-for-one.",
+      "The total tracked population cannot increase.",
+      "All transformation rates must be non-negative."
+    ],
+    "refinement_agenda": [
+      "Add a branching fraction for parent transformations that bypass the tracked daughter.",
+      "Add an externally driven production channel for the parent nucleus.",
+      "Allow the daughter to feed a third explicitly tracked radioactive nuclide.",
+      "Replace constant transformation rates when environmental modification of a relevant decay channel is under study."
+    ],
+    "evolution_contracts": [
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The daughter loss term is linear in N_D with a constant daughter_decay_constant, so for fixed parent trajectory the target mapping dN_D_dt versus N_D has one fixed negative slope at all times.",
+          "child_relation": "Release the assumption of a time-independent daughter removal rate by allowing daughter_decay_constant to evolve under irradiation or chemical/radiation damage history, so the target mapping dN_D_dt versus N_D acquires history-dependent curvature through a time-varying effective loss slope.",
+          "affected_inputs": [
+            "N_D",
+            "daughter_decay_constant"
+          ],
+          "observable_effect": "Across runs with the same initial N_P and N_D but different elapsed histories within the observation window, daughter buildup and peak timing/depletion sharpen or delay because the instantaneous negative slope with respect to N_D changes over time instead of remaining fixed."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "daughter_loss_flux",
+            "expression": "daughter_decay_constant*N_D",
+            "role": "instantaneous removal flux of daughter nuclei"
+          },
+          {
+            "name": "parent_feed_flux",
+            "expression": "parent_decay_constant*N_P",
+            "role": "instantaneous production flux into the daughter pool"
+          },
+          {
+            "name": "net_daughter_balance",
+            "expression": "parent_decay_constant*N_P - daughter_decay_constant*N_D",
+            "role": "signed daughter growth rate under the baseline law"
+          }
+        ],
+        "activation_condition": "Observable when the daughter removal environment evolves on a timescale comparable to daughter buildup/depletion, so the effective daughter loss rate changes appreciably during the measured trajectory rather than remaining quasi-constant.",
+        "train_hidden_contrast": "In training, mild evolution of the daughter loss rate already bends the late-time decline away from the single-exponential-loss baseline; in holdout, stronger or slower evolution extends the same history dependence and shifts the daughter peak in a way one fixed loss constant cannot match across all runs.",
+        "continuation_path": "Recover the parent law when the daughter removal rate state is constant in time, equivalently when its evolution timescale is much longer than the experiment or its driving term vanishes.",
+        "freedom_change": "parameter_to_state",
+        "promoted_symbol": "daughter_decay_constant",
+        "promotion_reason": "A fixed daughter_decay_constant cannot encode history-dependent daughter removal within one run. To represent an evolving effective loss environment without introducing an unrelated external input, the existing removal-rate parameter must be released as a dynamical state.",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "N_D",
+          "daughter_decay_constant"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Finite-capacity evolution of the daughter's effective loss environment",
+        "scientific_mechanism": "History-dependent effective daughter decay/removal caused by evolving local environment or radiation-damage/escape conditions that alter the daughter loss rate during the experiment.",
+        "embedding_pattern": "saturating_or_thresholded",
+        "difficulty_rationale": "This is harder than a coefficient correction because the scored target depends on a latent dynamical loss-rate state with finite-capacity saturation, so the effective slope of the daughter loss term changes over time according to trajectory history rather than remaining globally representable by one shared constant.",
+        "taxonomy_match": "known",
+        "assumption_before": "The daughter's removal probability per unit time is strictly time independent.",
+        "assumption_after": "The daughter's effective removal probability evolves dynamically with daughter-driven environmental damage and saturates at finite capacity.",
+        "before_fragment": "parent_decay_constant*N_P - daughter_decay_constant*N_D",
+        "after_fragment": "parent_decay_constant*N_P - daughter_decay_constant*N_D",
+        "parent_reduction": "Set damage_drive_rate = 0 so daughter_decay_constant is constant, or take the daughter-loss evolution timescale much longer than the experiment.",
+        "observable_signature": "With the parent decay law and initial populations held fixed, the parent predicts one fixed negative dN_D_dt-versus-N_D slope for the entire run, whereas the child shows history-dependent bending: early buildup can resemble weak loss, then later depletion steepens or saturates as daughter_decay_constant evolves toward its finite-capacity scale. This altered target mapping is observable only when the daughter-loss state changes appreciably during the measured window.",
+        "shortcut_blocked": "Refitting a single constant daughter_decay_constant can shift the overall loss level but cannot reproduce both early-time shallow effective loss and later-time stronger or saturating depletion within one shared parameter set, because the child changes the within-run slope of the scored mapping itself rather than merely altering an auxiliary trajectory."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The daughter loss term is linear in N_D with an effective removal rate driven only by current daughter abundance and saturating against a fixed capacity, so for fixed N_P, N_D, and daughter_decay_constant history the target depends on N_D through a single first-order sink.",
+          "child_relation": "Release the damage-capacity assumption by allowing the capacity of the daughter-loss environment itself to evolve under irradiation history, so the same instantaneous N_D can produce different future target curvature depending on accumulated environmental state.",
+          "affected_inputs": [
+            "N_D",
+            "daughter_decay_constant",
+            "damage_capacity"
+          ],
+          "observable_effect": "Across runs with the same parent decay constant and similar early N_D buildup, the daughter peak height and post-peak steepening separate: some trajectories show prolonged moderate loss before late acceleration, while others saturate the loss environment earlier and deplete sooner."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "production_to_loss",
+            "expression": "parent_decay_constant*N_P/(daughter_decay_constant*N_D + 1.0e-12)",
+            "role": "instantaneous balance between daughter production and removal"
+          },
+          {
+            "name": "capacity_loading",
+            "expression": "daughter_decay_constant/(damage_capacity + 1.0e-12)",
+            "role": "fractional approach to the current loss-environment saturation scale"
+          },
+          {
+            "name": "daughter_burden",
+            "expression": "N_D/(N_P + N_D + 1.0e-12)",
+            "role": "tracked-population share carried by the daughter, indicating how strongly daughter-driven environmental evolution can matter"
+          }
+        ],
+        "activation_condition": "Observable when daughter-driven environmental modification is neither negligible nor instantaneous: damage_drive_rate*N_D comparable to damage_relaxation_rate*damage_capacity over part of the sampled trajectory, so saturation effects occur after visible daughter buildup rather than being absent or immediate.",
+        "train_hidden_contrast": "In training, the mechanism appears as gradual variation in peak sharpness and late-time curvature among trajectories with comparable early rise; in holdout, stronger or longer irradiation histories extend this into delayed versus early saturation of daughter loss that the fixed-capacity parent cannot match with one shared parameter set.",
+        "continuation_path": "Recover the parent law when the capacity-evolution effect is turned off so the capacity remains constant over the experiment, or in the limit where its evolution is much slower than the observation window.",
+        "freedom_change": "parameter_to_state",
+        "promoted_symbol": "damage_capacity",
+        "promotion_reason": "A fixed damage_capacity enforces one shared saturation scale for the daughter-loss environment. To represent irradiation-history-dependent carrying capacity of that environment, the capacity itself must evolve as a state; existing states cannot encode this without changing the target mapping only trivially.",
+        "scope_kind": "memory",
+        "scope_symbols": [
+          "N_D",
+          "daughter_decay_constant",
+          "damage_capacity"
+        ],
+        "structural_role": "feedback",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "irradiation-driven evolution of the daughter-loss saturation scale",
+        "scientific_mechanism": "Radiation-induced restructuring changes the number of effective daughter-removal sites or channels, so the environment controlling daughter loss has an evolving capacity rather than a fixed one.",
+        "embedding_pattern": "competing_processes",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the target trajectory now depends on competition between daughter-driven strengthening of the loss environment and relaxation of the capacity that bounds that strengthening. One shared fixed ceiling can no longer encode both delayed and early saturation regimes across runs with similar initial conditions.",
+        "taxonomy_match": "known",
+        "assumption_before": "The finite saturation scale damage_capacity is time independent and unaffected by irradiation history.",
+        "assumption_after": "The saturation scale damage_capacity evolves as an internal state under daughter-driven restructuring and relaxation toward a baseline.",
+        "before_fragment": "parent_decay_constant*N_P - daughter_decay_constant*N_D",
+        "after_fragment": "parent_decay_constant*N_P - daughter_decay_constant*N_D",
+        "parent_reduction": "Set capacity_growth_rate = 0 and capacity_relaxation_rate = 0 with damage_capacity initialized to baseline_damage_capacity, so damage_capacity remains constant and the parent system is recovered.",
+        "observable_signature": "With parent_decay_constant, initial N_P, and initial daughter_decay_constant held fixed, varying trajectories that generate different cumulative daughter burden can now separate in daughter peak height and late-time curvature because the loss-environment ceiling itself evolves. This is observable when capacity evolution occurs on the same order as daughter buildup and depletion, producing delayed versus earlier saturation of daughter loss.",
+        "shortcut_blocked": "Refitting the parent's existing parameters cannot absorb this across the stated conditions with one shared parameter set, because the parent has only one fixed saturation scale for daughter-loss evolution. It can change how fast daughter_decay_constant approaches that ceiling, but it cannot make the ceiling itself expand in some runs and remain lower in others under the same parameter set."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The daughter loss term is linear in N_D through daughter_decay_constant*N_D, so at fixed N_P and daughter_decay_constant the target slope with respect to N_D is a single constant negative gain.",
+          "child_relation": "Refine the daughter removal law so the effective sink strength rolls off at high daughter occupancy because the finite removal environment cannot process daughters proportionally forever; then dN_D_dt depends on N_D with a bending, sublinear loss response rather than one constant slope.",
+          "affected_inputs": [
+            "N_D",
+            "daughter_decay_constant",
+            "damage_capacity"
+          ],
+          "observable_effect": "Across trajectories with similar parent feed but different attained daughter burdens, the daughter buildup-to-depletion transition shifts from a single linear downturn to a compressed depletion response: early loss strengthens with N_D, but at larger N_D the incremental steepening weakens, delaying or broadening the peak compared with the parent law."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "load_ratio",
+            "expression": "N_D/damage_capacity",
+            "role": "daughter occupancy relative to the evolving removal-environment scale; indicates when linear loss should fail"
+          },
+          {
+            "name": "source_sink_ratio",
+            "expression": "parent_decay_constant*N_P/(daughter_decay_constant*N_D + 1.0e-12)",
+            "role": "instantaneous competition between parent feed and daughter removal under the current linearized sink strength"
+          },
+          {
+            "name": "environment_utilization",
+            "expression": "daughter_decay_constant/(damage_capacity + 1.0e-12)",
+            "role": "how strongly the effective daughter-loss rate has approached the current environmental capacity"
+          }
+        ],
+        "activation_condition": "Observable when the daughter population becomes comparable to or larger than the instantaneous removal-environment scale, i.e. N_D/damage_capacity is not small over part of the sampled window; if N_D stays well below damage_capacity throughout, the parent linear law remains an adequate approximation.",
+        "train_hidden_contrast": "In training, moderate daughter loads can already show slight peak broadening relative to a linear sink; in holdout, runs reaching higher N_D/damage_capacity amplify the same occupancy-limited curvature rather than introducing a new mechanism.",
+        "continuation_path": "Recover the parent law in the low-occupancy limit N_D/damage_capacity << 1, where the refined sink reduces to approximately daughter_decay_constant*N_D.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "memory",
+        "scope_symbols": [
+          "N_D",
+          "daughter_decay_constant",
+          "damage_capacity"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "occupancy-limited daughter removal within a finite evolving environment",
+        "scientific_mechanism": "Finite trapping, recombination, escape, or removal channels can become occupied or throughput-limited, so the realized daughter loss per unit time increases sublinearly with daughter abundance when many daughters compete for the same finite environment.",
+        "embedding_pattern": "multi_timescale",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the target mapping acquires a load-dependent curvature set by the evolving capacity state, creating a crossover between low-load first-order loss and high-load throughput-limited loss. A single refitted linear sink coefficient cannot simultaneously match both early and high-occupancy segments across trajectories that traverse different N_D/damage_capacity ranges.",
+        "taxonomy_match": "known",
+        "assumption_before": "The daughter-removal flux is proportional to N_D at all daughter loads, with no saturation or crowding in the realized removal rate once daughter_decay_constant and damage_capacity are specified.",
+        "assumption_after": "The realized daughter-removal flux is occupancy-limited by the finite evolving environment, so additional daughters contribute progressively less marginal removal at high N_D/damage_capacity.",
+        "before_fragment": "parent_decay_constant*N_P - daughter_decay_constant*N_D",
+        "after_fragment": "parent_decay_constant*N_P - daughter_decay_constant*N_D/(1 + N_D/damage_capacity)",
+        "parent_reduction": "In the low-occupancy limit N_D/damage_capacity << 1, the denominator tends to 1 and the parent expression is recovered.",
+        "observable_signature": "Holding one shared parameter set and the same initial-condition contract, trajectories that remain in low load retain near-linear daughter loss, while trajectories that reach N_D comparable to damage_capacity exhibit a visibly softened downturn: the daughter peak broadens or shifts later because the sink term saturates instead of steepening proportionally with N_D.",
+        "shortcut_blocked": "Refitting all existing parent parameters still leaves the parent target law linear in N_D at fixed N_P and daughter_decay_constant, so its local slope with respect to N_D cannot bend as load increases. Therefore one shared parent parameter set cannot reproduce both low-load near-first-order behavior and high-load occupancy-limited curvature across conditions that differ in attained N_D/damage_capacity."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The daughter loss term depends only on the instantaneous daughter population and evolving environmental states through a Michaelis-like occupancy factor, so at fixed N_P the N_D contribution to dN_D_dt has a single saturating shape with no intrinsic daughter self-shielding of its own production-to-loss balance.",
+          "child_relation": "Relax the assumption that all daughter nuclei are equally exposed to removal by allowing self-attenuation/self-shielding within the daughter population, so the effective per-daughter removal weakens further as N_D grows even at the same daughter_decay_constant and damage_capacity.",
+          "affected_inputs": [
+            "N_D",
+            "daughter_decay_constant",
+            "damage_capacity"
+          ],
+          "observable_effect": "When parent supply is held fixed through the same N_P trajectory, intermediate-to-large N_D shows a flatter decline in dN_D_dt versus N_D and a later, broader daughter peak than the parent model predicts."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "occupancy_ratio",
+            "expression": "N_D/damage_capacity",
+            "role": "Crowding of the finite daughter-loss environment already present in the parent"
+          },
+          {
+            "name": "removal_pressure",
+            "expression": "daughter_decay_constant*N_D/(1 + N_D/damage_capacity)",
+            "role": "Current realized daughter sink strength before the planned refinement"
+          },
+          {
+            "name": "supply_to_sink_ratio",
+            "expression": "parent_decay_constant*N_P/(daughter_decay_constant*N_D/(1 + N_D/damage_capacity) + 1.0e-12)",
+            "role": "Whether daughter production or daughter removal dominates the instantaneous balance"
+          }
+        ],
+        "activation_condition": "Observable when N_D becomes comparable to or exceeds damage_capacity so daughter crowding is appreciable; weak or negligible at early times with N_D << damage_capacity.",
+        "train_hidden_contrast": "The same buildup-to-depletion trajectories seen in training already pass through low- and moderate-occupancy regimes; in extended holdout with larger sustained daughter inventories, the refined law continues by further softening the sink rather than keeping the parent's single occupancy-limited curvature.",
+        "continuation_path": "Recover the parent law in the limit of negligible self-shielding, i.e. when the added attenuation strength tends to zero or throughout regimes with N_D small enough that all daughters are effectively equally exposed.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "N_D",
+          "daughter_decay_constant",
+          "damage_capacity"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "daughter self-shielding in the removal pathway",
+        "scientific_mechanism": "At high daughter loading, accumulated daughters can partially shield, trap, or bury one another so that a growing fraction resides in less accessible microenvironments; removal then falls off more strongly with N_D than the current single occupancy factor allows.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the sink coefficient now changes with the occupancy state itself, altering the curvature of the scored mapping across the same trajectory rather than merely rescaling all sink strengths by one shared parameter.",
+        "taxonomy_match": "known",
+        "assumption_before": "The daughter-loss environment is fully characterized by the existing occupancy-limited factor 1 + N_D/damage_capacity, with no extra daughter-induced reduction in accessibility beyond that throughput saturation.",
+        "assumption_after": "The occupancy-limited daughter-loss environment is further modulated by daughter self-shielding, so accessibility to removal channels decreases with loading even at fixed daughter_decay_constant and damage_capacity.",
+        "before_fragment": "parent_decay_constant*N_P - daughter_decay_constant*N_D/(1 + N_D/damage_capacity)",
+        "after_fragment": "parent_decay_constant*N_P - daughter_decay_constant*N_D/((1 + N_D/damage_capacity)*(1 + (N_D/damage_capacity)**2))",
+        "parent_reduction": "The successor reduces to the parent for N_D/damage_capacity << 1, where 1 + (N_D/damage_capacity)**2 approaches 1.",
+        "observable_signature": "Along trajectories sharing the same N_P response and fixed parameters, the child changes the scored target mapping itself: as N_D rises from below to around the capacity scale, dN_D_dt bends downward less sharply than in the parent, causing delayed depletion onset and a broader daughter peak. This contrast is observable when N_D reaches order damage_capacity; if trajectories remain in N_D << damage_capacity, the new factor is effectively inactive and the models are difficult to distinguish.",
+        "shortcut_blocked": "A single refit of the parent parameters cannot reproduce both the low-occupancy behavior and the softened high-occupancy sink across the same admissible trajectory family, because the parent has only one occupancy factor shaping the N_D dependence of removal. Retuning daughter_decay_constant or capacity-related parameters rescales or shifts that single saturation scale but does not create the additional high-occupancy curvature change needed to match both the early slope and the later broadened peak with one shared parameter set."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The daughter loss term depends only on the instantaneous daughter loading N_D relative to a single evolving capacity, so for a given observed pair (N_P,N_D) the target slope changes smoothly with one occupancy-controlled suppression profile.",
+          "child_relation": "Retain the same parent-production term but refine the daughter-loss environment so that damage-driven removal efficiency is additionally throttled when the removal environment itself becomes highly damaged relative to its capacity, making the target depend on the joint state (N_D, daughter_decay_constant, damage_capacity) through a second internal saturation.",
+          "affected_inputs": [
+            "N_D",
+            "daughter_decay_constant",
+            "damage_capacity",
+            "N_P"
+          ],
+          "observable_effect": "At comparable N_P and N_D, runs reaching high daughter_decay_constant/damage_capacity show an earlier flattening and softer post-peak depletion of N_D than the parent law predicts, because removal self-saturates through environmental overdamage rather than only through daughter occupancy."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "daughter_loading",
+            "expression": "N_D/damage_capacity",
+            "role": "Current occupancy/self-shielding control already used by the parent target mapping"
+          },
+          {
+            "name": "environment_load",
+            "expression": "daughter_decay_constant/damage_capacity",
+            "role": "Degree to which the effective daughter-loss environment is itself driven near saturation and can no longer convert additional damage into proportionally higher removal"
+          }
+        ],
+        "activation_condition": "Observable when irradiation history drives daughter_decay_constant/damage_capacity to order one while N_D/damage_capacity is also non-negligible; weak or absent in the low-damage regime daughter_decay_constant << damage_capacity.",
+        "train_hidden_contrast": "Within training trajectories the mechanism appears late in runs after daughter buildup, where equal N_D can correspond to different daughter_decay_constant histories; in holdout it extends to stronger damage-drive or weaker relaxation conditions that push environment_load higher and accentuate the curvature change.",
+        "continuation_path": "Recover the parent law in the limit daughter_decay_constant/damage_capacity -> 0, where environmental overdamage never throttles the realized daughter-loss term.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "N_D",
+          "daughter_decay_constant",
+          "damage_capacity",
+          "N_P"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "finite-capacity saturation of the damage-built daughter-removal environment",
+        "scientific_mechanism": "As radiation damage accumulates, removal sites/channels can become structurally degraded, congested, or mutually interfering, so a high effective daughter-loss environment does not translate into proportionally high daughter removal once the environment is itself near capacity.",
+        "embedding_pattern": "saturating_or_thresholded",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because it introduces a second state-dependent saturation coordinate in the scored target law. A single retuned occupancy profile cannot reproduce both low-environment-load and high-environment-load curvature at the same observed N_P and N_D with one shared parameter set.",
+        "taxonomy_match": "known",
+        "assumption_before": "The realized daughter-loss flux remains linear in daughter_decay_constant once that internal damage state is established, with only daughter-occupancy suppression modulating it.",
+        "assumption_after": "The realized daughter-loss flux is additionally throttled when daughter_decay_constant itself approaches damage_capacity, representing finite throughput of an overdriven removal environment.",
+        "before_fragment": "parent_decay_constant*N_P - daughter_decay_constant*N_D/((1 + N_D/damage_capacity)*(1 + (N_D/damage_capacity)**2))",
+        "after_fragment": "parent_decay_constant*N_P - daughter_decay_constant*N_D/((1 + N_D/damage_capacity)*(1 + (N_D/damage_capacity)**2)*(1 + daughter_decay_constant/damage_capacity))",
+        "parent_reduction": "In the limit daughter_decay_constant/damage_capacity -> 0, the extra denominator factor approaches 1 and the parent expression is recovered.",
+        "observable_signature": "Holding the parent source term relation fixed, compare portions of trajectories with similar N_P and N_D but different environment_load = daughter_decay_constant/damage_capacity. The successor predicts smaller-magnitude daughter loss, hence earlier flattening and softer post-peak decline, specifically in the high-environment-load case; the parent predicts the same loss whenever N_P, N_D, and damage_capacity imply the same occupancy suppression regardless of environment_load.",
+        "shortcut_blocked": "Refitting all existing parent parameters cannot create a separate target dependence on environment_load at fixed daughter_loading, because the parent scored mapping contains only one suppression coordinate N_D/damage_capacity multiplying a linear daughter_decay_constant factor. One shared parent parameter set therefore cannot simultaneously match low- and high-environment-load segments that share similar N_P and N_D but differ in realized loss throttling."
+      }
+    ]
+  },
+  "finalization": {
+    "mode": "candidate",
+    "accepted_generations": 5,
+    "novelty": {
+      "answer": "NOT_EVALUATED"
+    },
+    "total_points": 5000,
+    "evaluation_status": "not_evaluated"
+  }
+}

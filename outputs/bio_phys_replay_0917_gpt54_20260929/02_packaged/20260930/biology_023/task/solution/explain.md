@@ -1,0 +1,3 @@
+Ground truth: dC_dt = k_cyclin_synthesis - k_cyclin_degradation*(D**2/(K_degradation_capacity_activation*D + D**2))*(A/(K_degradation_capacity_activation + A))*C/(K_cyclin_degradation_saturation/(1 + D/(K_degradation_capacity_activation + D)) + C)
+
+Fixed parameters: {'k_cyclin_synthesis': 0.25, 'k_cyclin_degradation': 2.5, 'K_cyclin_degradation_saturation': 0.7, 'k_regulator_activation': 1.8, 'K_cyclin_activation': 0.8, 'n_cyclin': 4.0, 'activation_seed': 0.08, 'K_regulator_feedback': 0.35, 'n_regulator': 4.0, 'k_regulator_relaxation': 0.45, 'k_degradation_capacity_maturation': 0.6, 'K_degradation_capacity_activation': 0.25}

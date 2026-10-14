@@ -1,0 +1,223 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "S",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        120.0
+      ],
+      "n_points": 301,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "receptor_production_rate",
+      "value": 400.0
+    },
+    {
+      "symbol": "internalization_rate",
+      "value": 0.08
+    },
+    {
+      "symbol": "recycling_rate",
+      "value": 350.0
+    },
+    {
+      "symbol": "endosomal_degradation_rate",
+      "value": 0.05
+    },
+    {
+      "symbol": "recycling_saturation_scale",
+      "value": 500.0
+    },
+    {
+      "symbol": "recycling_capacity_recovery_rate",
+      "value": 0.03
+    },
+    {
+      "symbol": "recycling_capacity_depletion_rate",
+      "value": 0.0002
+    },
+    {
+      "symbol": "endosomal_maturation_rate",
+      "value": 0.04
+    }
+  ],
+  "benchmark_output": "dS_dt",
+  "benchmark_target_state": "S",
+  "observed_variables": [
+    "t",
+    "S",
+    "E",
+    "R",
+    "M"
+  ],
+  "rhs_for_integrator": "receptor_production_rate - internalization_rate*S + recycling_rate*R*M/(recycling_saturation_scale/R + R*M)",
+  "state_variables": [
+    "S",
+    "E",
+    "R",
+    "M"
+  ],
+  "state_rhs": [
+    "receptor_production_rate - internalization_rate*S + recycling_rate*R*M/(recycling_saturation_scale/R + R*M)",
+    "internalization_rate*S - recycling_rate*R*M/(recycling_saturation_scale/R + R*M) - endosomal_degradation_rate*(E - M)",
+    "recycling_capacity_recovery_rate*(1 - R) - recycling_capacity_depletion_rate*E*R",
+    "endosomal_maturation_rate*(E - M) - recycling_rate*R*M/(recycling_saturation_scale/R + R*M)"
+  ],
+  "initial_conditions": {
+    "S": 5000.0,
+    "E": 1000.0,
+    "R": 1.0,
+    "M": 200.0
+  },
+  "sanity_expectations": [
+    "At t=0, the target derivative should be positive and finite: dS/dt = 400 - 0.08*5000 + 350*1*200/(500/1 + 1*200) = 100, so S initially rises despite internalization.",
+    "Because E(0)-M(0)=800 is large and endosomal_maturation_rate is only moderate, early trajectory segments should show appreciable endosomal load before the mature recyclable pool fully catches up; recycling support is therefore delayed relative to total endosomal accumulation.",
+    "The initial capacity-depletion drive (0.0002*1000*1 = 0.2) exceeds the initial recovery drive (0.03*(1-1)=0), so R should initially decrease below 1 rather than remain fixed at its nominal level.",
+    "Since recycling_saturation_scale = 500 and initial R*M = 200, the recycling term begins in a partially saturated regime; over the trajectory its incremental gain with respect to M should diminish as R*M approaches and exceeds the saturation scale, rather than staying globally linear.",
+    "Because degradation acts on the immature pool E-M in the inherited system and E-M is initially large, trajectories should display stronger early loss from endosomes before maturation catches up; later, as M/E increases, recycling can contribute more strongly to sustaining or increasing S.",
+    "No observation noise is added: outputs are exact numerical solutions of the fixed-parameter ODE system on the sampled time grid."
+  ],
+  "role_corrections": [
+    "dS_dt: claimed-output/target derivative -> derivative of dependent state S (confirmed within ODE-system contract)",
+    "t: claimed-input/time axis -> independent variable/time axis (confirmed)",
+    "S: claimed-dynamic state -> dependent variable and dynamic state (confirmed)",
+    "E: claimed-dynamic state -> dynamic state, not independent sampled axis (confirmed)",
+    "R: claimed-dynamic state -> dynamic state, not fixed parameter (confirmed)",
+    "M: claimed-dynamic state -> dynamic state, not fixed parameter (confirmed)",
+    "receptor_production_rate: claimed-parameter -> parameter (confirmed)",
+    "internalization_rate: claimed-parameter -> parameter (confirmed)",
+    "recycling_rate: claimed-parameter -> parameter (confirmed)",
+    "endosomal_degradation_rate: claimed-parameter -> parameter (confirmed)",
+    "recycling_saturation_scale: claimed-parameter -> parameter (confirmed)",
+    "recycling_capacity_recovery_rate: claimed-parameter -> parameter (confirmed)",
+    "recycling_capacity_depletion_rate: claimed-parameter -> parameter (confirmed)",
+    "endosomal_maturation_rate: claimed-parameter -> parameter (confirmed)",
+    "equation type: explicit-from-isolated-expression -> ode_system from provided validated system contract (overridden by contract requirement)"
+  ],
+  "rationale": "Preserved the provided typed ODE-system contract exactly, as required. Although the isolated target expression is structurally an explicit algebraic formula for dS_dt, the declared contract supplies a governed 4-state system with time as the only sampled axis, so S is the dependent variable and S,E,R,M remain dynamic states while all listed kinetic quantities remain fixed parameters. Parameter values were chosen to keep the system finite at the inherited initial condition and to expose the intended mechanisms without collapsing into either a fully linear or near-recovery limit. The inherited initial state already has a substantial immature endosomal pool (E-M = 800), so the maturation-delay effect is active from t=0 and can create an early phase where total endosomal load is appreciable but recycling support is still limited by modest M. Setting recycling_saturation_scale = 500 makes the initial mature recycling coordinate R*M = 200 below but not far below the saturation scale, so recycling is neither negligible nor deep in saturation; later evolution can traverse more curved parts of the saturating return law. The capacity state can also move: with the chosen depletion and recovery rates, the initial depletion drive recycling_capacity_depletion_rate*E*R = 0.2 exceeds the initial recovery drive recycling_capacity_recovery_rate*(1-R) = 0, so R should initially fall from 1 under endosomal load, then partially recover as load relaxes, exposing the adaptive-capacity mechanism. Endosomal degradation and maturation rates are chosen on comparable timescales (0.05 and 0.04), so the competition between loss from the immature pool E-M and maturation into M is visible rather than instantaneous or negligible. The 0-120 time window with 301 samples is long enough to capture the early lagged-recycling phase, the mid-course capacity depletion/recovery transition, and later relaxation, while remaining a single-condition exact trajectory dataset with no observation noise. Distinguishing conditions addressed directly in this design are reachable states where E remains appreciable, M starts well below E, R can depart from 1, and R*M becomes comparable to recycling_saturation_scale so the child law's delayed and state-dependent curvature is observable rather than hidden in a strict low-occupancy approximation.",
+  "coverage_report": {},
+  "inactive_mechanisms": [],
+  "target_variance": {},
+  "parent_absorption_report": {},
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_7HF9oxHOHUZzrVPjxvlGOV2b"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "receptor_production_rate - internalization_rate*S + recycling_rate*R*M/(recycling_saturation_scale/R + R*M)",
+        "target_symbol": "dS_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "M",
+          "R",
+          "S",
+          "internalization_rate",
+          "receptor_production_rate",
+          "recycling_rate",
+          "recycling_saturation_scale"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "M*R*recycling_rate/(M*R + recycling_saturation_scale/R) - S*internalization_rate + receptor_production_rate"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_j3Yee7GuKl3fWpwxKABaX5eL"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "receptor_production_rate - internalization_rate*S + recycling_rate*R*M/(recycling_saturation_scale/R + R*M)",
+        "target_symbol": "dS_dt",
+        "assignments": {
+          "S": 5000,
+          "E": 1000,
+          "R": 1,
+          "M": 200,
+          "receptor_production_rate": 400,
+          "internalization_rate": 0.08,
+          "recycling_rate": 350,
+          "recycling_saturation_scale": 500,
+          "endosomal_degradation_rate": 0.05,
+          "recycling_capacity_recovery_rate": 0.03,
+          "recycling_capacity_depletion_rate": 0.0002,
+          "endosomal_maturation_rate": 0.04
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": 100.0,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_jXguNpuSCMFy3S7MyWjmUpJK"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_vGWcArtZCDruYwliUBaJAMtT"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 4
+}

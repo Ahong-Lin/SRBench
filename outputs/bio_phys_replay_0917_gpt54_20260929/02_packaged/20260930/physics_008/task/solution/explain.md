@@ -1,0 +1,3 @@
+Ground truth: sigma = (sigma0 / (1 + screening_condition)) * exp(-(((T0 / (1 + screening_condition * T / T0)) / T)**(1 / (spatial_dimension + 1)) + sqrt(((T1 / (1 + screening_condition)) / T) / (1 + screening_condition * T / (T1 / (1 + screening_condition)))))) + (sigma0 * screening_condition / (1 + screening_condition)) * exp(-((((T0 * channel_scale_ratio) / (1 + screening_condition * T / (T0 * channel_scale_ratio))) / T)**(1 / (spatial_dimension + 1)) + sqrt((((T1 * coulomb_scale_ratio) / (1 + screening_condition)) / T) / (1 + screening_condition * T / ((T1 * coulomb_scale_ratio) / (1 + screening_condition))))))
+
+Fixed parameters: {'sigma0': 1.0, 'T0': 400.0, 'spatial_dimension': 3.0, 'T1': 150.0, 'channel_scale_ratio': 3.0, 'coulomb_scale_ratio': 0.4}

@@ -1,0 +1,1811 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "I",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        25.0
+      ],
+      "n_points": 301,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "transmission_rate",
+      "value": 1.8
+    },
+    {
+      "symbol": "recovery_rate",
+      "value": 0.6
+    },
+    {
+      "symbol": "saturation_strength",
+      "value": 8.0
+    },
+    {
+      "symbol": "phase_progression_rate",
+      "value": 1.2
+    },
+    {
+      "symbol": "phase_saturation",
+      "value": 4.0
+    },
+    {
+      "symbol": "phase_curvature_strength",
+      "value": 2.0
+    },
+    {
+      "symbol": "late_phase_share_saturation",
+      "value": 10.0
+    }
+  ],
+  "benchmark_output": "dI_dt",
+  "benchmark_target_state": "I",
+  "observed_variables": [
+    "t",
+    "S",
+    "I",
+    "R",
+    "I_phase"
+  ],
+  "rhs_for_integrator": "transmission_rate*S*I/(1 + saturation_strength*(I + I_phase + phase_curvature_strength*I_phase**2/(1 + late_phase_share_saturation*I_phase))) - recovery_rate*I_phase/(1 + phase_saturation*I_phase)",
+  "state_variables": [
+    "S",
+    "I",
+    "R",
+    "I_phase"
+  ],
+  "state_rhs": [
+    "-transmission_rate*S*I/(1 + saturation_strength*(I + I_phase + phase_curvature_strength*I_phase**2/(1 + late_phase_share_saturation*I_phase)))",
+    "transmission_rate*S*I/(1 + saturation_strength*(I + I_phase + phase_curvature_strength*I_phase**2/(1 + late_phase_share_saturation*I_phase))) - recovery_rate*I_phase/(1 + phase_saturation*I_phase)",
+    "recovery_rate*I_phase/(1 + phase_saturation*I_phase)",
+    "phase_progression_rate*(I - I_phase) - recovery_rate*I_phase/(1 + phase_saturation*I_phase)"
+  ],
+  "initial_conditions": {
+    "S": 0.99,
+    "I": 0.01,
+    "R": 0.0,
+    "I_phase": 0.0
+  },
+  "sanity_expectations": [
+    "At t=0, dI/dt should be positive and finite, so I initially rises from 0.01 while I_phase starts from 0 and then increases after a short lag.",
+    "The trajectory should show a single outbreak wave: I rises, reaches one peak, then declines as S falls and I_phase-mediated removal grows.",
+    "R should increase monotonically, S should decrease monotonically, and S+I+R should remain approximately conserved because the first three contracted equations sum to zero.",
+    "I_phase should remain nonnegative, initially below I, and become appreciable near the approach to peak, creating stronger post-rise suppression/removal than at very early times.",
+    "Because late_phase_share_saturation=10 > 0, the extra quadratic I_phase contribution to transmission suppression should show moderated growth at larger I_phase relative to the parent reference condition late_phase_share_saturation=0.",
+    "Compared with early-rise times of similar S*I scale, near-peak or early-decline times with larger I_phase should exhibit lower dI/dt due to combined composition-dependent transmission suppression and phase-dependent recovery."
+  ],
+  "role_corrections": [
+    "dI_dt: claimed-output/target derivative -> scored derivative of dependent state I (confirmed by ODE contract target_state=I and target expression structure)",
+    "t: claimed-input/time axis -> independent variable/time axis (confirmed by ODE system contract)",
+    "S: claimed-dynamic state -> dynamic state variable (confirmed by ODE system contract)",
+    "I: claimed-dynamic state -> dynamic state variable and dependent_variable/target_state (confirmed by ODE system contract)",
+    "R: claimed-dynamic state -> dynamic state variable (confirmed by ODE system contract)",
+    "I_phase: claimed-dynamic state -> dynamic state variable (confirmed by ODE system contract)",
+    "transmission_rate: claimed-parameter -> fixed parameter (confirmed)",
+    "recovery_rate: claimed-parameter -> fixed parameter (confirmed)",
+    "saturation_strength: claimed-parameter -> fixed parameter (confirmed)",
+    "phase_progression_rate: claimed-parameter -> fixed parameter (confirmed)",
+    "phase_saturation: claimed-parameter -> fixed parameter (confirmed)",
+    "phase_curvature_strength: claimed-parameter -> fixed parameter (confirmed)",
+    "late_phase_share_saturation: claimed-parameter -> fixed parameter (confirmed; positive value chosen within suggested 0 to 100 range)",
+    "equation_type: upstream typed ode_system preserved despite target expression alone looking explicit, because the validated ODE SYSTEM CONTRACT is authoritative for this record"
+  ],
+  "rationale": "Use the provided validated ODE system exactly as contracted, with time as the only sampled axis and all listed coefficients fixed. The chosen parameters produce a single closed-population outbreak with early net growth, visible prevalence-dependent transmission suppression, and a nontrivial lagged I_phase buildup before recovery dominates. Values are kept away from limiting reductions: late_phase_share_saturation is positive rather than the parent limit 0, phase_curvature_strength is nonzero, and saturation_strength is large enough to matter once I and I_phase become appreciable but not so extreme that transmission is crushed from the start. phase_progression_rate is moderate, allowing I_phase to lag I and create composition-dependent behavior around the rise, peak, and decline. phase_saturation is present but not overwhelming, so removal from I_phase is nonlinear without becoming effectively hard-capped over the full trajectory. The time window 0 to 25 with 301 points should capture rise, peak, and decline in normalized units. The distinguishing conditions are reachable within one trajectory: early times have small I_phase and near-parent behavior; near peak and early decline, I_phase accumulates, so at similar S or similar total infectious burden the infection term is more suppressed than in earlier parent generations, while the added quadratic I_phase contribution itself has finite-capacity moderation through positive late_phase_share_saturation.",
+  "coverage_report": {
+    "groups": [
+      {
+        "generation": 1,
+        "name": "force_of_infection",
+        "expression": "transmission_rate*S*I",
+        "role": "Parent bilinear infection pressure",
+        "train_range": [
+          0.010641616782923913,
+          0.22012859248386013
+        ],
+        "hidden_range": [
+          0.006537961356535468,
+          0.01060031488866471
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.010641616782923913,
+          "max": 0.22012859248386013,
+          "q05": 0.01334261209737945,
+          "median": 0.0820233634669265,
+          "q95": 0.21750965618296536,
+          "range": 0.20948697570093622,
+          "robust_range": 0.20416704408558592
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.006537961356535468,
+          "max": 0.01060031488866471,
+          "q05": 0.0066945918532205825,
+          "median": 0.008303224854162957,
+          "q95": 0.010342099007728658,
+          "range": 0.004062353532129243,
+          "robust_range": 0.003647507154508076
+        }
+      },
+      {
+        "generation": 1,
+        "name": "infectious_load",
+        "expression": "I",
+        "role": "Crowding or behavioral-response scale that can depress effective transmission at higher prevalence",
+        "train_range": [
+          0.01,
+          0.18733942494457903
+        ],
+        "hidden_range": [
+          0.019553596098989465,
+          0.029268244007284908
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.01,
+          "max": 0.18733942494457903,
+          "q05": 0.030542467009727577,
+          "median": 0.10762457089439426,
+          "q95": 0.1862686178213659,
+          "range": 0.17733942494457902,
+          "robust_range": 0.15572615081163832
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.019553596098989465,
+          "max": 0.029268244007284908,
+          "q05": 0.01995315274141193,
+          "median": 0.023931499532329578,
+          "q95": 0.028686237718484928,
+          "range": 0.009714647908295442,
+          "robust_range": 0.008733084977072997
+        }
+      },
+      {
+        "generation": 1,
+        "name": "net_parent_growth",
+        "expression": "I*(transmission_rate*S - recovery_rate)",
+        "role": "Baseline infectious growth whose curvature is being refined",
+        "train_range": [
+          -0.009120129624177298,
+          0.11999258214476664
+        ],
+        "hidden_range": [
+          -0.006960631515706234,
+          -0.00519419630285821
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": -0.009120129624177298,
+          "max": 0.11999258214476664,
+          "q05": -0.009046756225815373,
+          "median": 0.015782895608627424,
+          "q95": 0.11756516509918719,
+          "range": 0.12911271176894396,
+          "robust_range": 0.12661192132500257
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": -0.006960631515706234,
+          "max": -0.00519419630285821,
+          "q05": -0.006869643623362297,
+          "median": -0.006055674865234789,
+          "q95": -0.005277299791626577,
+          "range": 0.0017664352128480242,
+          "robust_range": 0.0015923438317357198
+        }
+      },
+      {
+        "generation": 2,
+        "name": "force_of_infection_sat",
+        "expression": "transmission_rate*S*I/(1 + saturation_strength*I)",
+        "role": "Current saturated influx into the infectious class",
+        "train_range": [
+          0.008617478437099235,
+          0.09522011574303274
+        ],
+        "hidden_range": [
+          0.005653578960479743,
+          0.00858919066337799
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.008617478437099235,
+          "max": 0.09522011574303274,
+          "q05": 0.010410416113000252,
+          "median": 0.0434768642348565,
+          "q95": 0.0941187002340975,
+          "range": 0.08660263730593351,
+          "robust_range": 0.08370828412109725
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.005653578960479743,
+          "max": 0.00858919066337799,
+          "q05": 0.005773063163273413,
+          "median": 0.006968993622428645,
+          "q95": 0.008411695311076342,
+          "range": 0.002935611702898247,
+          "robust_range": 0.002638632147802929
+        }
+      },
+      {
+        "generation": 2,
+        "name": "net_growth_parent",
+        "expression": "transmission_rate*S/(1 + saturation_strength*I) - recovery_rate",
+        "role": "Parent per-capita infectious growth rate determining rise versus decline",
+        "train_range": [
+          -0.3064985809213957,
+          1.0499999999999998
+        ],
+        "hidden_range": [
+          -0.31086755950881473,
+          -0.3065354976116733
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": -0.3064985809213957,
+          "max": 1.0499999999999998,
+          "q05": -0.3043089728556382,
+          "median": -0.2653917361533788,
+          "q95": 0.6931302560949774,
+          "range": 1.3564985809213956,
+          "robust_range": 0.9974392289506155
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": -0.31086755950881473,
+          "max": -0.3065354976116733,
+          "q05": -0.3106691466898722,
+          "median": -0.3087941370527175,
+          "q95": -0.30676898666804586,
+          "range": 0.004332061897141415,
+          "robust_range": 0.00390016002182636
+        }
+      },
+      {
+        "generation": 2,
+        "name": "susceptible_depletion",
+        "expression": "1 - S",
+        "role": "Cumulative epidemic progress in this closed population",
+        "train_range": [
+          0.010000000000000009,
+          0.7986437519025567
+        ],
+        "hidden_range": [
+          0.7987899846136941,
+          0.8142438487916538
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.010000000000000009,
+          "max": 0.7986437519025567,
+          "q05": 0.045872987422291345,
+          "median": 0.5973976388697524,
+          "q95": 0.7894586910842424,
+          "range": 0.7886437519025566,
+          "robust_range": 0.7435857036619511
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.7987899846136941,
+          "max": 0.8142438487916538,
+          "q05": 0.7997085689885751,
+          "median": 0.8072456600407159,
+          "q95": 0.8136025785464917,
+          "range": 0.015453864177959686,
+          "robust_range": 0.013894009557916531
+        }
+      },
+      {
+        "generation": 3,
+        "name": "force_of_infection_parent",
+        "expression": "transmission_rate*S*I/(1 + saturation_strength*I)",
+        "role": "Current incidence contribution to the target",
+        "train_range": [
+          0.008617478437099235,
+          0.09522011574303274
+        ],
+        "hidden_range": [
+          0.005653578960479743,
+          0.00858919066337799
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.008617478437099235,
+          "max": 0.09522011574303274,
+          "q05": 0.010410416113000252,
+          "median": 0.0434768642348565,
+          "q95": 0.0941187002340975,
+          "range": 0.08660263730593351,
+          "robust_range": 0.08370828412109725
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.005653578960479743,
+          "max": 0.00858919066337799,
+          "q05": 0.005773063163273413,
+          "median": 0.006968993622428645,
+          "q95": 0.008411695311076342,
+          "range": 0.002935611702898247,
+          "robust_range": 0.002638632147802929
+        }
+      },
+      {
+        "generation": 3,
+        "name": "phase_fraction",
+        "expression": "I_phase/(I + 1.0e-12)",
+        "role": "Composition of current infectious prevalence in the later recoverable subphase",
+        "train_range": [
+          0.0,
+          0.7929197771514113
+        ],
+        "hidden_range": [
+          0.7498680421711273,
+          0.7572456494778514
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 0.7929197771514113,
+          "q05": 0.4037773273875529,
+          "median": 0.769051151221444,
+          "q95": 0.7926069244678764,
+          "range": 0.7929197771514113,
+          "robust_range": 0.3888295970803235
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.7498680421711273,
+          "max": 0.7572456494778514,
+          "q05": 0.7501842634887144,
+          "median": 0.7532743510269995,
+          "q95": 0.7568225142741979,
+          "range": 0.007377607306724099,
+          "robust_range": 0.006638250785483524
+        }
+      },
+      {
+        "generation": 3,
+        "name": "removal_load",
+        "expression": "recovery_rate*I_phase/(1 + phase_saturation*I_phase)",
+        "role": "Current removal pressure already present in the target",
+        "train_range": [
+          0.0,
+          0.053995881620787244
+        ],
+        "hidden_range": [
+          0.008310174478440568,
+          0.012215049464086854
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 0.053995881620787244,
+          "q05": 0.00932078214394125,
+          "median": 0.03567907408078778,
+          "q95": 0.05377882721229284,
+          "range": 0.053995881620787244,
+          "robust_range": 0.04445804506835159
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.008310174478440568,
+          "max": 0.012215049464086854,
+          "q05": 0.008473764408718519,
+          "median": 0.010088713360277647,
+          "q95": 0.011985401772197691,
+          "range": 0.003904874985646286,
+          "robust_range": 0.003511637363479172
+        }
+      },
+      {
+        "generation": 4,
+        "name": "force_of_infection_load",
+        "expression": "S*I",
+        "role": "baseline mass-action exposure available for transmission",
+        "train_range": [
+          0.005912009323846618,
+          0.1222936624910334
+        ],
+        "hidden_range": [
+          0.0036322007536308157,
+          0.00588906382703595
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.005912009323846618,
+          "max": 0.1222936624910334,
+          "q05": 0.007412562276321917,
+          "median": 0.04556853525940361,
+          "q95": 0.1208386978794252,
+          "range": 0.1163816531671868,
+          "robust_range": 0.11342613560310327
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.0036322007536308157,
+          "max": 0.00588906382703595,
+          "q05": 0.0037192176962336566,
+          "median": 0.004612902696757199,
+          "q95": 0.0057456105598492554,
+          "range": 0.0022568630734051344,
+          "robust_range": 0.002026392863615599
+        }
+      },
+      {
+        "generation": 4,
+        "name": "stage_composition",
+        "expression": "I_phase/(I + I_phase + 1.0e-12)",
+        "role": "fraction of infectious burden occupying the later subphase",
+        "train_range": [
+          0.0,
+          0.4422505609320687
+        ],
+        "hidden_range": [
+          0.4285283370514829,
+          0.4309275995094139
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 0.4422505609320687,
+          "q05": 0.2876345608628249,
+          "median": 0.4347252171754404,
+          "q95": 0.44215322034589905,
+          "range": 0.4422505609320687,
+          "robust_range": 0.15451865948307414
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.4285283370514829,
+          "max": 0.4309275995094139,
+          "q05": 0.4286315897995467,
+          "median": 0.42963860750716387,
+          "q95": 0.4307905367800982,
+          "range": 0.002399262457930984,
+          "robust_range": 0.002158946980551524
+        }
+      },
+      {
+        "generation": 4,
+        "name": "effective_burden",
+        "expression": "I + I_phase",
+        "role": "current prevalence scale where transmission saturation activates",
+        "train_range": [
+          0.01,
+          0.32710596137451986
+        ],
+        "hidden_range": [
+          0.034216212923893555,
+          0.051431494450414846
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.01,
+          "max": 0.32710596137451986,
+          "q05": 0.0521709400395655,
+          "median": 0.18584519055363768,
+          "q95": 0.32520943151426784,
+          "range": 0.31710596137451985,
+          "robust_range": 0.2730384914747023
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.034216212923893555,
+          "max": 0.051431494450414846,
+          "q05": 0.03492169466233327,
+          "median": 0.041958485415095476,
+          "q95": 0.050396629639986534,
+          "range": 0.01721528152652129,
+          "robust_range": 0.015474934977653267
+        }
+      },
+      {
+        "generation": 5,
+        "name": "total_infectious_load",
+        "expression": "I + I_phase",
+        "role": "Overall infectious burden entering transmission saturation",
+        "train_range": [
+          0.01,
+          0.32710596137451986
+        ],
+        "hidden_range": [
+          0.034216212923893555,
+          0.051431494450414846
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.01,
+          "max": 0.32710596137451986,
+          "q05": 0.0521709400395655,
+          "median": 0.18584519055363768,
+          "q95": 0.32520943151426784,
+          "range": 0.31710596137451985,
+          "robust_range": 0.2730384914747023
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.034216212923893555,
+          "max": 0.051431494450414846,
+          "q05": 0.03492169466233327,
+          "median": 0.041958485415095476,
+          "q95": 0.050396629639986534,
+          "range": 0.01721528152652129,
+          "robust_range": 0.015474934977653267
+        }
+      },
+      {
+        "generation": 5,
+        "name": "late_phase_share",
+        "expression": "I_phase/(I + I_phase + 1.0e-12)",
+        "role": "Stage composition indicator distinguishing early-growth from late-outbreak infectious mix",
+        "train_range": [
+          0.0,
+          0.4422505609320687
+        ],
+        "hidden_range": [
+          0.4285283370514829,
+          0.4309275995094139
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 0.4422505609320687,
+          "q05": 0.2876345608628249,
+          "median": 0.4347252171754404,
+          "q95": 0.44215322034589905,
+          "range": 0.4422505609320687,
+          "robust_range": 0.15451865948307414
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.4285283370514829,
+          "max": 0.4309275995094139,
+          "q05": 0.4286315897995467,
+          "median": 0.42963860750716387,
+          "q95": 0.4307905367800982,
+          "range": 0.002399262457930984,
+          "robust_range": 0.002158946980551524
+        }
+      },
+      {
+        "generation": 5,
+        "name": "transmission_pressure",
+        "expression": "S*I",
+        "role": "Unsaturated mass-action infection pressure before prevalence-dependent suppression",
+        "train_range": [
+          0.005912009323846618,
+          0.1222936624910334
+        ],
+        "hidden_range": [
+          0.0036322007536308157,
+          0.00588906382703595
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.005912009323846618,
+          "max": 0.1222936624910334,
+          "q05": 0.007412562276321917,
+          "median": 0.04556853525940361,
+          "q95": 0.1208386978794252,
+          "range": 0.1163816531671868,
+          "robust_range": 0.11342613560310327
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.0036322007536308157,
+          "max": 0.00588906382703595,
+          "q05": 0.0037192176962336566,
+          "median": 0.004612902696757199,
+          "q95": 0.0057456105598492554,
+          "range": 0.0022568630734051344,
+          "robust_range": 0.002026392863615599
+        }
+      }
+    ],
+    "inactive_mechanisms": [],
+    "visible_mechanisms": [
+      "force_of_infection",
+      "infectious_load",
+      "net_parent_growth",
+      "force_of_infection_sat",
+      "net_growth_parent",
+      "susceptible_depletion",
+      "force_of_infection_parent",
+      "phase_fraction",
+      "removal_load",
+      "force_of_infection_load",
+      "stage_composition",
+      "effective_burden",
+      "total_infectious_load",
+      "late_phase_share",
+      "transmission_pressure"
+    ],
+    "extended_mechanisms": [
+      "force_of_infection",
+      "infectious_load",
+      "force_of_infection_sat",
+      "net_growth_parent",
+      "susceptible_depletion",
+      "force_of_infection_parent",
+      "removal_load",
+      "force_of_infection_load",
+      "effective_burden",
+      "total_infectious_load",
+      "transmission_pressure"
+    ]
+  },
+  "inactive_mechanisms": [],
+  "target_variance": {
+    "train": {
+      "n": 384,
+      "variance": 0.00034721033449334093,
+      "range": 0.06036768848533413
+    },
+    "hidden": {
+      "n": 128,
+      "variance": 2.0305436660320458e-07,
+      "range": 0.0015495972922673707
+    }
+  },
+  "parent_absorption_report": {
+    "status": "ok",
+    "n_points": 512,
+    "fixed_parent_normalized_rmse": 0.19899931947790833,
+    "refit": {
+      "status": "not_run",
+      "reason": "no free parent parameters"
+    },
+    "interpretation": "<1e-3 nearly absorbed; 1e-3..1e-2 weak; >1e-2 visible structure"
+  },
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_TDpgmCW9nwb37HV1GaG8PHEM"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "transmission_rate*S*I/(1 + saturation_strength*(I + I_phase + phase_curvature_strength*I_phase**2/(1 + late_phase_share_saturation*I_phase))) - recovery_rate*I_phase/(1 + phase_saturation*I_phase)",
+        "target_symbol": "dI_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "I",
+          "I_phase",
+          "S",
+          "late_phase_share_saturation",
+          "phase_curvature_strength",
+          "phase_saturation",
+          "recovery_rate",
+          "saturation_strength",
+          "transmission_rate"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "I*S*transmission_rate/(saturation_strength*(I + I_phase**2*phase_curvature_strength/(I_phase*late_phase_share_saturation"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_PLlEqlycNlKVNfsY7ObzOXtI"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "transmission_rate*S*I/(1 + saturation_strength*(I + I_phase + phase_curvature_strength*I_phase**2/(1 + late_phase_share_saturation*I_phase))) - recovery_rate*I_phase/(1 + phase_saturation*I_phase)",
+        "target_symbol": "dI_dt",
+        "assignments": {
+          "S": 0.99,
+          "I": 0.01,
+          "I_phase": 0.0,
+          "transmission_rate": 1.8,
+          "recovery_rate": 0.6,
+          "saturation_strength": 8.0,
+          "phase_progression_rate": 1.2,
+          "phase_saturation": 4.0,
+          "phase_curvature_strength": 2.0,
+          "late_phase_share_saturation": 10.0
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": 0.0165,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_2bMNfQiaJpDmqTv2CgoIYQ8P"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_1yFVwNm6M6OCmUfZKUdmVOrN"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 4,
+  "discipline": "biology",
+  "scenario_text": "Track an acute outbreak in a closed, normalized population divided into susceptible, infectious, and recovered fractions. New infections transfer individuals from the susceptible fraction to the infectious fraction through homogeneous person-to-person contact, while recovery transfers infectious individuals to the recovered fraction. The symbolic regression target is the instantaneous change in infectious prevalence over time. Observations span the rise, peak, and decline of a single outbreak under fixed transmission and recovery conditions.",
+  "record_id": "m2_epidemiology_and_disease_dynamics_20262905_000",
+  "generation": 5,
+  "_n_total": 5000,
+  "mechanism_observation_history": [
+    {
+      "generation": 1,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The parent maps observed states to infectious growth as dI_dt = I*(transmission_rate*S - recovery_rate), so transmission increases linearly with S at one fixed gain transmission_rate.",
+          "child_relation": "Relax the constant-per-contact transmission assumption so effective transmission weakens as infectious prevalence rises, making dI_dt depend on a nonlinear incidence term in S and I rather than a single linear gain on S*I.",
+          "affected_inputs": [
+            "S",
+            "I",
+            "transmission_rate"
+          ],
+          "observable_effect": "At the same susceptible fraction S, larger I produces less-than-proportional additional infection pressure, so the rise and approach to peak are flatter than the parent predicts under higher-prevalence portions of the same outbreak trajectory."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "force_of_infection",
+            "expression": "transmission_rate*S*I",
+            "role": "Parent bilinear infection pressure"
+          },
+          {
+            "name": "infectious_load",
+            "expression": "I",
+            "role": "Crowding or behavioral-response scale that can depress effective transmission at higher prevalence"
+          },
+          {
+            "name": "net_parent_growth",
+            "expression": "I*(transmission_rate*S - recovery_rate)",
+            "role": "Baseline infectious growth whose curvature is being refined"
+          }
+        ],
+        "activation_condition": "Observable when infectious prevalence reaches non-negligible levels during the same closed-outbreak trajectory, so repeated infectious contacts, local crowding, or spontaneous contact reduction become consequential; effect is weak as I -> 0 and strongest around the outbreak rise and near peak.",
+        "train_hidden_contrast": "In training, early growth at low I remains close to bilinear S*I transmission, while later points at larger I show suppressed growth relative to the parent. In holdout segments spanning higher-prevalence portions, the same mechanism extends this flattening without changing recovery structure.",
+        "continuation_path": "In the limit of vanishing prevalence-dependent suppression strength, the refined incidence law reduces continuously to transmission_rate*S*I and recovers the parent SIR model.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The current model assumes each additional infectious individual contributes the same marginal transmission opportunity regardless of how prevalent infection already is.",
+        "baseline_assumption": "Transmission and recovery conditions are constant over time, with transmission represented by strictly mass-action bilinear incidence transmission_rate*S*I.",
+        "scientific_mechanism": "Prevalence-dependent saturation of effective transmission due to repeated contacts, contact crowding, or spontaneous caution during an acute outbreak in a closed population.",
+        "affected_symbols": [
+          "S",
+          "I",
+          "transmission_rate"
+        ],
+        "rationale": "A realistic next refinement is to change the mathematical form of transmission, not to add a separate new process. The parent target mapping uses a single bilinear gain: at fixed recovery_rate and fixed observed S, dI_dt changes linearly with I through transmission_rate*S*I. That is a single_gain shortcut. A scientifically admissible refinement is prevalence-dependent transmission saturation, where the infection term bends downward as I increases. The varied condition is infectious prevalence I along the observed outbreak trajectory, with transmission_rate and recovery_rate held fixed as parameters and no new intervention required. The concrete contrast is that two times with similar S but different I can have less-than-proportional transmission at higher I, giving reduced slope and stronger downward curvature in dI_dt versus I than the parent allows. This is observable only when I becomes appreciable; near outbreak start with I very small, the child should closely match the parent, which also makes the refinement a natural continuation rather than a disconnected replacement. No new state is necessary because the intended effect can be expressed directly as a nonlinear dependence on already observed S and I."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The parent maps observed states to infectious growth as dI_dt = I*(transmission_rate*S - recovery_rate), so transmission increases linearly with S at one fixed gain transmission_rate.",
+          "child_relation": "Relax the constant-per-contact transmission assumption so effective transmission weakens as infectious prevalence rises, making dI_dt depend on a nonlinear incidence term in S and I rather than a single linear gain on S*I.",
+          "affected_inputs": [
+            "S",
+            "I",
+            "transmission_rate"
+          ],
+          "observable_effect": "At the same susceptible fraction S, larger I produces less-than-proportional additional infection pressure, so the rise and approach to peak are flatter than the parent predicts under higher-prevalence portions of the same outbreak trajectory."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "force_of_infection",
+            "expression": "transmission_rate*S*I",
+            "role": "Parent bilinear infection pressure"
+          },
+          {
+            "name": "infectious_load",
+            "expression": "I",
+            "role": "Crowding or behavioral-response scale that can depress effective transmission at higher prevalence"
+          },
+          {
+            "name": "net_parent_growth",
+            "expression": "I*(transmission_rate*S - recovery_rate)",
+            "role": "Baseline infectious growth whose curvature is being refined"
+          }
+        ],
+        "activation_condition": "Observable when infectious prevalence reaches non-negligible levels during the same closed-outbreak trajectory, so repeated infectious contacts, local crowding, or spontaneous contact reduction become consequential; effect is weak as I -> 0 and strongest around the outbreak rise and near peak.",
+        "train_hidden_contrast": "In training, early growth at low I remains close to bilinear S*I transmission, while later points at larger I show suppressed growth relative to the parent. In holdout segments spanning higher-prevalence portions, the same mechanism extends this flattening without changing recovery structure.",
+        "continuation_path": "In the limit of vanishing prevalence-dependent suppression strength, the refined incidence law reduces continuously to transmission_rate*S*I and recovers the parent SIR model.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "pairwise",
+        "scope_symbols": [
+          "S",
+          "I"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Prevalence-dependent saturation of transmission",
+        "scientific_mechanism": "Prevalence-dependent saturation of effective transmission due to repeated contacts, contact crowding, or spontaneous caution during an acute outbreak in a closed population.",
+        "embedding_pattern": "multiplicative_modulation",
+        "difficulty_rationale": "The refinement changes the target mapping itself by modulating the transmission process with the state-dependent factor 1/(1 + saturation_strength*I), creating curvature in dI_dt as a function of I at fixed S. This is structurally harder than a coefficient-only correction because no single constant transmission_rate can match both low-I near-bilinear growth and high-I suppressed growth over the same trajectory.",
+        "taxonomy_match": "known",
+        "assumption_before": "Transmission and recovery conditions are constant over time, with transmission represented by strictly mass-action bilinear incidence transmission_rate*S*I.",
+        "assumption_after": "Transmission remains under fixed external conditions but effective infection generation saturates with infectious prevalence through a prevalence-dependent modulation of the mass-action term.",
+        "before_fragment": "transmission_rate*S*I - recovery_rate*I",
+        "after_fragment": "transmission_rate*S*I/(1 + saturation_strength*I) - recovery_rate*I",
+        "parent_reduction": "As saturation_strength -> 0, transmission_rate*S*I/(1 + saturation_strength*I) - recovery_rate*I reduces to transmission_rate*S*I - recovery_rate*I.",
+        "observable_signature": "Compared on the observed states alone, the parent predicts dI_dt/I = transmission_rate*S - recovery_rate, linear in S and independent of any extra curvature in I beyond the overall factor I. The child predicts dI_dt = transmission_rate*S*I/(1 + saturation_strength*I) - recovery_rate*I, so for similar S values along the trajectory, increasing I depresses the incremental transmission contribution and flattens growth before and around the peak. This changed target mapping is observable when I is appreciable; it is not merely a change to auxiliary trajectories.",
+        "shortcut_blocked": "Refitting transmission_rate and recovery_rate with one shared parent parameter set cannot reproduce both regimes because the parent enforces one bilinear gain on S*I everywhere. Lowering transmission_rate enough to fit high-I suppression would underpredict early low-I growth, while fitting early growth would overpredict transmission later when I is larger. The discrepancy appears under the same fixed-parameter outbreak trajectory and therefore cannot be absorbed by parameter retuning alone."
+      },
+      "range_suggestions": {
+        "saturation_strength": "0 <= saturation_strength <= 1/I_initial_scale with nonnegative values; values near 0 recover mass-action transmission, larger values activate visible suppression when I becomes appreciable"
+      }
+    },
+    {
+      "generation": 2,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "phase_shift",
+          "parent_relation": "The parent maps (S,I) to dI_dt with a time-invariant recovery loss recovery_rate*I, so for fixed transmission parameters the decline rate at a given I depends only on S through the infection term and cannot change systematically with time spent infected.",
+          "child_relation": "Relax constant per-capita recovery by allowing recovery pressure to evolve during the outbreak through one additional latent disease-phase state, so dI_dt depends on both current prevalence and the current occupancy of a slower or faster recovery phase rather than only on total I.",
+          "affected_inputs": [
+            "S",
+            "I",
+            "recovery_rate"
+          ],
+          "observable_effect": "During outbreaks with the same initial conditions and fixed transmission conditions, the child can produce a sharper or delayed turnover and a decline rate at matched I that differs between the rising and falling sides of the epidemic because infectious individuals are not all equally recoverable at every moment."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "force_of_infection_sat",
+            "expression": "transmission_rate*S*I/(1 + saturation_strength*I)",
+            "role": "Current saturated influx into the infectious class"
+          },
+          {
+            "name": "net_growth_parent",
+            "expression": "transmission_rate*S/(1 + saturation_strength*I) - recovery_rate",
+            "role": "Parent per-capita infectious growth rate determining rise versus decline"
+          },
+          {
+            "name": "susceptible_depletion",
+            "expression": "1 - S",
+            "role": "Cumulative epidemic progress in this closed population"
+          }
+        ],
+        "activation_condition": "Observable when the infectious-period distribution is not approximately exponential, so the outbreak timescale is comparable to the mean infectious duration and phase structure becomes appreciable across the rise, peak, and decline under the given initial condition.",
+        "train_hidden_contrast": "In training, the same mechanism appears as asymmetric growth and decay around the peak at similar I values; in holdout it extends to shifted peak timing and altered post-peak steepness without changing the closed-population SIR setting.",
+        "continuation_path": "Recover the parent law in the limit where the added infectious phase collapses to an exponential-memory description, making total infectious individuals recover with an effectively constant per-capita rate recovery_rate.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A non-exponential infectious-period effect cannot be represented with the existing total-I state alone because any model using only current S and I with fixed parameters remains memoryless in I; one additional state is needed to encode infectious-phase occupancy that feeds back on dI_dt.",
+        "gap_statement": "The model treats all infectious individuals as having the same instantaneous recovery hazard, omitting disease-age or phase structure within the infectious class.",
+        "baseline_assumption": "Recovery that removes infectious individuals at a constant per-capita rate regardless of time since becoming infectious.",
+        "scientific_mechanism": "Stage-structured infectiousness or symptom progression causing recovery/removal to depend on occupancy of an infectious subphase rather than uniformly on total current prevalence.",
+        "affected_symbols": [
+          "I",
+          "recovery_rate",
+          "S"
+        ],
+        "rationale": "A realistic next refinement is to relax the exponential infectious-period assumption. The parent target mapping is memoryless: with transmission_rate, recovery_rate, and saturation_strength fixed, dI_dt at any observed (S,I) is fully determined, so matched (S,I) points on the ascending and descending limbs must have the same instantaneous derivative. That is a single-phase shortcut. A stage-structured infectious class changes the target mapping itself, not merely auxiliary trajectories, because the loss term from I can depend on how many infectious individuals occupy an early versus late subphase. Varying epidemic time along the observed single outbreak while holding the transmission and saturation parameters fixed, the child can show a different decline steepness or turnover timing at the same approximate I due to latent phase occupancy accumulated from prior incidence. This contrast is admissible when the infectious-period distribution is meaningfully non-exponential over the outbreak window; if the distribution is close to exponential, the added state may be weakly identifiable and the parent becomes an adequate approximation. The scientific continuation path is the limit where phase structure collapses and total I again recovers with constant per-capita rate."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "phase_shift",
+          "parent_relation": "The parent maps (S,I) to dI_dt with a time-invariant recovery loss recovery_rate*I, so for fixed transmission parameters the decline rate at a given I depends only on S through the infection term and cannot change systematically with time spent infected.",
+          "child_relation": "Relax constant per-capita recovery by allowing recovery pressure to evolve during the outbreak through one additional latent disease-phase state, so dI_dt depends on both current prevalence and the current occupancy of a slower or faster recovery phase rather than only on total I.",
+          "affected_inputs": [
+            "S",
+            "I",
+            "recovery_rate"
+          ],
+          "observable_effect": "During outbreaks with the same initial conditions and fixed transmission conditions, the child can produce a sharper or delayed turnover and a decline rate at matched I that differs between the rising and falling sides of the epidemic because infectious individuals are not all equally recoverable at every moment."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "force_of_infection_sat",
+            "expression": "transmission_rate*S*I/(1 + saturation_strength*I)",
+            "role": "Current saturated influx into the infectious class"
+          },
+          {
+            "name": "net_growth_parent",
+            "expression": "transmission_rate*S/(1 + saturation_strength*I) - recovery_rate",
+            "role": "Parent per-capita infectious growth rate determining rise versus decline"
+          },
+          {
+            "name": "susceptible_depletion",
+            "expression": "1 - S",
+            "role": "Cumulative epidemic progress in this closed population"
+          }
+        ],
+        "activation_condition": "Observable when the infectious-period distribution is not approximately exponential, so the outbreak timescale is comparable to the mean infectious duration and phase structure becomes appreciable across the rise, peak, and decline under the given initial condition.",
+        "train_hidden_contrast": "In training, the same mechanism appears as asymmetric growth and decay around the peak at similar I values; in holdout it extends to shifted peak timing and altered post-peak steepness without changing the closed-population SIR setting.",
+        "continuation_path": "Recover the parent law in the limit where the added infectious phase collapses to an exponential-memory description, making total infectious individuals recover with an effectively constant per-capita rate recovery_rate.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A non-exponential infectious-period effect cannot be represented with the existing total-I state alone because any model using only current S and I with fixed parameters remains memoryless in I; one additional state is needed to encode infectious-phase occupancy that feeds back on dI_dt.",
+        "scope_kind": "memory",
+        "scope_symbols": [
+          "S",
+          "I",
+          "I_phase"
+        ],
+        "structural_role": "feedback",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Stage-structured progression to a preferentially recoverable infectious subphase with finite-capacity removal",
+        "scientific_mechanism": "Stage-structured infectiousness or symptom progression causing recovery/removal to depend on occupancy of an infectious subphase rather than uniformly on total current prevalence.",
+        "embedding_pattern": "saturating_or_thresholded",
+        "difficulty_rationale": "The target derivative now depends on a hidden phase-occupancy state with its own dynamics, so matching dI_dt requires reconstructing outbreak memory rather than retuning a single constant recovery coefficient. The added saturation in phase-dependent removal changes how turnover sharpens as recoverable occupancy accumulates, which is structurally different from a coefficient-only correction.",
+        "taxonomy_match": "known",
+        "assumption_before": "Recovery that removes infectious individuals at a constant per-capita rate regardless of time since becoming infectious.",
+        "assumption_after": "Recovery/removal acts predominantly on a later infectious subphase whose occupancy evolves during the outbreak and can itself show finite-capacity saturation in effective removal.",
+        "before_fragment": "transmission_rate*S*I/(1 + saturation_strength*I) - recovery_rate*I",
+        "after_fragment": "transmission_rate*S*I/(1 + saturation_strength*I) - recovery_rate*I_phase/(1 + phase_saturation*I_phase)",
+        "parent_reduction": "When phase_progression_rate is large enough that I_phase tracks I and phase_saturation = 0, the child recovery term becomes recovery_rate*I and the parent equation is recovered.",
+        "observable_signature": "Along a single outbreak trajectory under fixed transmission and initial conditions, points with similar I but different epidemic phase can have different dI_dt because I_phase lags incidence history. This is strongest when I_phase accumulates appreciably near and after the peak, producing shifted turnover timing or steeper/shallower decline than the parent's unique (S,I) mapping permits.",
+        "shortcut_blocked": "A single refitted parent parameter set still imposes one memoryless mapping from current (S,I) to dI_dt, so it cannot generate different recovery pressure at matched I values on the rising versus falling limbs except through S alone. When phase occupancy history changes recovery loss independently of the current total I, no global retuning of transmission_rate, recovery_rate, and saturation_strength can reproduce that hysteresis-like asymmetry across the observed outbreak."
+      },
+      "range_suggestions": {
+        "I_phase": "0 <= I_phase <= I",
+        "phase_progression_rate": "phase_progression_rate > 0",
+        "phase_saturation": "phase_saturation >= 0"
+      }
+    },
+    {
+      "generation": 3,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "interaction_emergence",
+          "parent_relation": "The current target mapping uses transmission_rate*S*I/(1 + saturation_strength*I), so prevalence-dependent transmission saturation depends only on total infectious prevalence I and not on how much of that prevalence has progressed into the later infectious subphase.",
+          "child_relation": "Refine the transmission saturation assumption so the effective infection term depends on both I and I_phase, allowing the same total I to generate different dI_dt when the infectious pool is compositionally shifted toward later-stage cases that more strongly suppress effective contact or transmission.",
+          "affected_inputs": [
+            "S",
+            "I",
+            "I_phase",
+            "saturation_strength"
+          ],
+          "observable_effect": "At matched S and total I, outbreaks observed on the downslope or near the peak with larger I_phase would show weaker infection growth than early-rise outbreaks with smaller I_phase; the parent cannot express this composition-dependent split because its infection term is fixed by I alone."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "force_of_infection_parent",
+            "expression": "transmission_rate*S*I/(1 + saturation_strength*I)",
+            "role": "Current incidence contribution to the target"
+          },
+          {
+            "name": "phase_fraction",
+            "expression": "I_phase/(I + 1.0e-12)",
+            "role": "Composition of current infectious prevalence in the later recoverable subphase"
+          },
+          {
+            "name": "removal_load",
+            "expression": "recovery_rate*I_phase/(1 + phase_saturation*I_phase)",
+            "role": "Current removal pressure already present in the target"
+          }
+        ],
+        "activation_condition": "Observable when I is appreciable and I_phase varies within its admissible range 0 <= I_phase <= I during the sampled rise, peak, and decline; especially near and after the peak when phase progression has created substantial late-stage occupancy.",
+        "train_hidden_contrast": "Within the same outbreak trajectory, early times and later times can share similar I but differ in I_phase; training already contains this phase-composition variation, and holdout extends it to stronger late-stage occupancy near the decline.",
+        "continuation_path": "Recover the parent law in the limit where transmission saturation depends only on total I and is insensitive to infectious-stage composition.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The model assumes that prevalence-dependent transmission suppression is controlled only by total infectious prevalence, ignoring that later-stage infectious occupancy may alter behavior, contact ability, or effective infectiousness differently from earlier-stage cases even at the same I.",
+        "baseline_assumption": "The transmission saturation denominator is a function of I alone and is independent of infectious-stage composition.",
+        "scientific_mechanism": "Stage-composition-dependent effective transmission, where accumulation in the later infectious subphase modifies the saturation of transmission beyond what is explained by total prevalence alone.",
+        "affected_symbols": [
+          "S",
+          "I",
+          "I_phase",
+          "saturation_strength",
+          "phase_progression_rate"
+        ],
+        "rationale": "A realistic next refinement is to relax the parent's single-phase transmission assumption, not to add a wholly new process. The parent already includes stage structure in recovery through I_phase but keeps transmission saturation tied only to aggregate I. In an acute outbreak, individuals in later infectious stages may be more symptomatic, less mobile, more likely to self-isolate, or otherwise less effective at sustaining transmission-generating contact. Holding transmission_rate, recovery_rate, and the closed-population setting fixed, vary the within-outbreak condition represented by I_phase at matched S and I. The parent predicts the same incidence contribution whenever S and I match, because I_phase affects dI_dt only through the recovery term. The child would instead produce lower infection influx when I_phase is larger, changing the target mapping itself rather than only auxiliary trajectories. This contrast is admissible under the current observation protocol because I_phase is an observed state supplied to the solver and naturally increases after the early growth phase through progression. A single refitted parent parameter set cannot reproduce a systematic split in the infection term at matched S and I across low-versus-high I_phase conditions, because its transmission contribution has no I_phase dependence at all. The limitation is that this effect is weak when I is very small or when I_phase remains near zero, so it is mainly visible around intermediate-to-high prevalence and later outbreak stages."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "interaction_emergence",
+          "parent_relation": "The current target mapping uses transmission_rate*S*I/(1 + saturation_strength*I), so prevalence-dependent transmission saturation depends only on total infectious prevalence I and not on how much of that prevalence has progressed into the later infectious subphase.",
+          "child_relation": "Refine the transmission saturation assumption so the effective infection term depends on both I and I_phase, allowing the same total I to generate different dI_dt when the infectious pool is compositionally shifted toward later-stage cases that more strongly suppress effective contact or transmission.",
+          "affected_inputs": [
+            "S",
+            "I",
+            "I_phase",
+            "saturation_strength"
+          ],
+          "observable_effect": "At matched S and total I, outbreaks observed on the downslope or near the peak with larger I_phase would show weaker infection growth than early-rise outbreaks with smaller I_phase; the parent cannot express this composition-dependent split because its infection term is fixed by I alone."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "force_of_infection_parent",
+            "expression": "transmission_rate*S*I/(1 + saturation_strength*I)",
+            "role": "Current incidence contribution to the target"
+          },
+          {
+            "name": "phase_fraction",
+            "expression": "I_phase/(I + 1.0e-12)",
+            "role": "Composition of current infectious prevalence in the later recoverable subphase"
+          },
+          {
+            "name": "removal_load",
+            "expression": "recovery_rate*I_phase/(1 + phase_saturation*I_phase)",
+            "role": "Current removal pressure already present in the target"
+          }
+        ],
+        "activation_condition": "Observable when I is appreciable and I_phase varies within its admissible range 0 <= I_phase <= I during the sampled rise, peak, and decline; especially near and after the peak when phase progression has created substantial late-stage occupancy.",
+        "train_hidden_contrast": "Within the same outbreak trajectory, early times and later times can share similar I but differ in I_phase; training already contains this phase-composition variation, and holdout extends it to stronger late-stage occupancy near the decline.",
+        "continuation_path": "Recover the parent law in the limit where transmission saturation depends only on total I and is insensitive to infectious-stage composition.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "S",
+          "I",
+          "I_phase"
+        ],
+        "structural_role": "interaction",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "composition-dependent transmission saturation",
+        "scientific_mechanism": "Stage-composition-dependent effective transmission, where accumulation in the later infectious subphase modifies the saturation of transmission beyond what is explained by total prevalence alone.",
+        "embedding_pattern": "state_coupling",
+        "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the transmission contribution is no longer determined by S and I alone; it now changes across trajectories with identical S and I but different I_phase, creating a genuine joint dependence in the scored target law.",
+        "taxonomy_match": "known",
+        "assumption_before": "The transmission saturation denominator is a function of I alone and is independent of infectious-stage composition.",
+        "assumption_after": "Transmission saturation depends jointly on total infectious prevalence and later-phase occupancy, so late-stage cases contribute extra suppression of effective transmission.",
+        "before_fragment": "transmission_rate*S*I/(1 + saturation_strength*I) - recovery_rate*I_phase/(1 + phase_saturation*I_phase)",
+        "after_fragment": "transmission_rate*S*I/(1 + saturation_strength*(I + I_phase)) - recovery_rate*I_phase/(1 + phase_saturation*I_phase)",
+        "parent_reduction": "When the saturation law is taken to depend only on I and not on I_phase, the parent expression is recovered.",
+        "observable_signature": "For matched S and I during the observed outbreak, dI_dt is lower when I_phase is larger because the infection influx is additionally saturated by I_phase; this split is most visible near the peak and downslope where I_phase has accumulated while I remains appreciable.",
+        "shortcut_blocked": "A single refitted parent parameter set cannot reproduce this contrast across low- versus high-I_phase conditions at the same S and I, because in the parent the infection term is exactly fixed by S and I and all I_phase influence enters only through removal. Retuning transmission_rate or saturation_strength changes the common S,I response for all compositions rather than creating a composition-specific transmission split."
+      },
+      "range_suggestions": {}
+    },
+    {
+      "generation": 4,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_threshold",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The infection gain term decreases hyperbolically with total effective infectious burden through transmission_rate*S*I/(1 + saturation_strength*(I + I_phase)), so increasing I_phase only weakens transmission with a fixed linear weighting inside one shared denominator.",
+          "child_relation": "Retain the same states but relax the assumption that later-phase occupancy suppresses transmission with the same linear weighting at all occupancies; instead, let the transmission reduction bend nonlinearly with I_phase so the dI_dt response to changing stage composition has occupancy-dependent curvature.",
+          "affected_inputs": [
+            "S",
+            "I",
+            "I_phase",
+            "saturation_strength"
+          ],
+          "observable_effect": "At fixed S and I, early increases in I_phase can have little additional effect on dI_dt but larger reductions once I_phase becomes appreciable, or vice versa depending on the refined saturation shape; this changes how fast epidemic growth flattens near the peak as stage composition shifts."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "force_of_infection_load",
+            "expression": "S*I",
+            "role": "baseline mass-action exposure available for transmission"
+          },
+          {
+            "name": "stage_composition",
+            "expression": "I_phase/(I + I_phase + 1.0e-12)",
+            "role": "fraction of infectious burden occupying the later subphase"
+          },
+          {
+            "name": "effective_burden",
+            "expression": "I + I_phase",
+            "role": "current prevalence scale where transmission saturation activates"
+          }
+        ],
+        "activation_condition": "Observable when infectious prevalence is no longer infinitesimal and I_phase becomes a non-negligible share of the infectious burden, so stage composition changes during the rise-to-peak transition while transmission saturation is active.",
+        "train_hidden_contrast": "Within the sampled single-outbreak trajectory, the mechanism appears as changing curvature of dI_dt versus stage composition at similar S*I levels; in holdout regions later in the outbreak, the same nonlinear stage-composition effect becomes stronger as I_phase accumulates further.",
+        "continuation_path": "The child should reduce to the parent when the refined I_phase dependence is taken to its linear-limit form over the observed occupancy range.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The current model assumes a single linear contribution of I_phase inside the transmission-saturation denominator, forcing one fixed shape for how later-stage occupancy modifies infection pressure.",
+        "baseline_assumption": "Later infectious subphase occupancy affects transmission reduction through the same first-order weighting at all occupancies.",
+        "scientific_mechanism": "Behavioral withdrawal, symptom-linked contact loss, or repeated-contact crowding may intensify nonlinearly as the later infectious subphase accumulates, making transmission suppression depend on stage composition with curved rather than purely linear sensitivity.",
+        "affected_symbols": [
+          "S",
+          "I",
+          "I_phase",
+          "saturation_strength"
+        ],
+        "rationale": "A realistic next refinement is to change the mathematical form of stage-composition-dependent transmission saturation, not to add a new process. The parent target mapping from observed states to dI_dt is a single-threshold form: for fixed S and I, increasing I_phase only enters through one shared linear denominator term and therefore imposes one fixed concavity in the transmission contribution. Under the outbreak protocol, S declines and I_phase lags behind I, so there are intervals near the approach to peak where S*I is still substantial but stage composition differs. In those admissible conditions, a child with nonlinear dependence on I_phase in the transmission saturation can predict a different flattening pattern of dI_dt as I_phase rises. The contrast is a changed target mapping, not merely altered auxiliary trajectories, because dI_dt directly uses I_phase and its response to I_phase at fixed S and I is reshaped. A single refit of the parent parameters can move the overall saturation scale, but cannot reproduce two distinct local sensitivities of dI_dt to I_phase across low- and moderate-I_phase regimes if the true relationship bends away from the parent's linear weighting. This remains scientifically bounded because the mechanism only activates once prevalence and later-stage occupancy are appreciable; near outbreak start, the child should effectively collapse back toward the parent behavior."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_threshold",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The infection gain term decreases hyperbolically with total effective infectious burden through transmission_rate*S*I/(1 + saturation_strength*(I + I_phase)), so increasing I_phase only weakens transmission with a fixed linear weighting inside one shared denominator.",
+          "child_relation": "Retain the same states but relax the assumption that later-phase occupancy suppresses transmission with the same linear weighting at all occupancies; instead, let the transmission reduction bend nonlinearly with I_phase so the dI_dt response to changing stage composition has occupancy-dependent curvature.",
+          "affected_inputs": [
+            "S",
+            "I",
+            "I_phase",
+            "saturation_strength"
+          ],
+          "observable_effect": "At fixed S and I, early increases in I_phase can have little additional effect on dI_dt but larger reductions once I_phase becomes appreciable, or vice versa depending on the refined saturation shape; this changes how fast epidemic growth flattens near the peak as stage composition shifts."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "force_of_infection_load",
+            "expression": "S*I",
+            "role": "baseline mass-action exposure available for transmission"
+          },
+          {
+            "name": "stage_composition",
+            "expression": "I_phase/(I + I_phase + 1.0e-12)",
+            "role": "fraction of infectious burden occupying the later subphase"
+          },
+          {
+            "name": "effective_burden",
+            "expression": "I + I_phase",
+            "role": "current prevalence scale where transmission saturation activates"
+          }
+        ],
+        "activation_condition": "Observable when infectious prevalence is no longer infinitesimal and I_phase becomes a non-negligible share of the infectious burden, so stage composition changes during the rise-to-peak transition while transmission saturation is active.",
+        "train_hidden_contrast": "Within the sampled single-outbreak trajectory, the mechanism appears as changing curvature of dI_dt versus stage composition at similar S*I levels; in holdout regions later in the outbreak, the same nonlinear stage-composition effect becomes stronger as I_phase accumulates further.",
+        "continuation_path": "The child should reduce to the parent when the refined I_phase dependence is taken to its linear-limit form over the observed occupancy range.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "S",
+          "I",
+          "I_phase"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "nonlinear later-stage suppression of effective transmission",
+        "scientific_mechanism": "Behavioral withdrawal, symptom-linked contact loss, or repeated-contact crowding may intensify nonlinearly as the later infectious subphase accumulates, making transmission suppression depend on stage composition with curved rather than purely linear sensitivity.",
+        "embedding_pattern": "competing_processes",
+        "difficulty_rationale": "This embedding is structurally harder than a coefficient-only correction because the new nonlinear I_phase contribution competes with the existing linear burden term in different occupancy regions, creating low- and moderate-I_phase regimes with different local sensitivities that one shared parent denominator cannot match simultaneously.",
+        "taxonomy_match": "known",
+        "assumption_before": "Later infectious subphase occupancy affects transmission reduction through the same first-order weighting at all occupancies.",
+        "assumption_after": "Later infectious subphase occupancy contributes a curved nonlinear suppression to effective transmission as that subphase accumulates.",
+        "before_fragment": "transmission_rate*S*I/(1 + saturation_strength*(I + I_phase)) - recovery_rate*I_phase/(1 + phase_saturation*I_phase)",
+        "after_fragment": "transmission_rate*S*I/(1 + saturation_strength*(I + I_phase + phase_curvature_strength*I_phase**2)) - recovery_rate*I_phase/(1 + phase_saturation*I_phase)",
+        "parent_reduction": "phase_curvature_strength -> 0",
+        "observable_signature": "At similar S*I along the outbreak trajectory, the child predicts a stage-composition-dependent bending of dI_dt with I_phase: near low later-phase occupancy the response can remain close to the parent, while at appreciable I_phase transmission suppression strengthens more rapidly and epidemic growth flattens earlier near the peak. This is a direct change in the scored mapping from supplied states to dI_dt, not merely a change in auxiliary trajectories.",
+        "shortcut_blocked": "A single refit of transmission_rate and saturation_strength can move the parent's overall saturation scale, but the parent remains affine in I_phase inside one shared denominator and therefore imposes one fixed local sensitivity pattern. It cannot with one parameter set reproduce weak sensitivity to I_phase at low occupancy and stronger sensitivity at moderate occupancy across the same admissible outbreak conditions where S*I is comparable but stage composition differs."
+      },
+      "range_suggestions": {
+        "phase_curvature_strength": "0 to 10"
+      }
+    },
+    {
+      "generation": 5,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The current target mapping makes transmission suppression depend on total infectious burden through a single rational saturation factor built from I and I_phase, so increasing later-stage occupancy only strengthens inhibition in one fixed monotone way.",
+          "child_relation": "Refine the transmission-suppression assumption so that the marginal effect of later-stage occupancy on infection generation changes with stage composition more sharply than the current single rational form, yielding stronger curvature in how dI_dt falls as I_phase becomes a larger share of infectious prevalence.",
+          "affected_inputs": [
+            "S",
+            "I",
+            "I_phase",
+            "saturation_strength",
+            "phase_curvature_strength"
+          ],
+          "observable_effect": "At matched S and similar total infectious prevalence, outbreaks with higher I_phase/I show a disproportionately lower growth rate of I than the parent predicts, especially near peak and early decline."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "total_infectious_load",
+            "expression": "I + I_phase",
+            "role": "Overall infectious burden entering transmission saturation"
+          },
+          {
+            "name": "late_phase_share",
+            "expression": "I_phase/(I + I_phase + 1.0e-12)",
+            "role": "Stage composition indicator distinguishing early-growth from late-outbreak infectious mix"
+          },
+          {
+            "name": "transmission_pressure",
+            "expression": "S*I",
+            "role": "Unsaturated mass-action infection pressure before prevalence-dependent suppression"
+          }
+        ],
+        "activation_condition": "Visible when infectious prevalence is moderate to high and I_phase is a non-negligible fraction of I, so stage composition varies over the sampled rise-to-decline trajectory while transmission and recovery parameters remain fixed.",
+        "train_hidden_contrast": "During training, the mechanism appears as stronger-than-parent bending of dI_dt versus I_phase/I around the approach to peak; in holdout, the same composition-dependent curvature extends further into the decline without changing the underlying closed-population setting.",
+        "continuation_path": "Recover the parent law in the limit where the added stage-composition curvature control tends to zero, reducing the refined suppression function back to the current rational dependence on I and I_phase.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The current model already lets later infectious-stage occupancy alter transmission suppression, but it assumes a single fixed rational sensitivity that may be too rigid to capture how symptom-linked withdrawal or repeated-contact crowding steepens as the infectious pool becomes dominated by later-stage cases.",
+        "baseline_assumption": "Later-stage occupancy affects effective transmission through one fixed-form saturation denominator with a single curvature contribution, implying one shared shape for suppression across all stage compositions.",
+        "scientific_mechanism": "As infection progresses through an acute outbreak, later-stage cases may withdraw from contact networks disproportionately strongly, so composition changes in the infectious pool can bend transmission more sharply than a single rational saturation shape allows.",
+        "affected_symbols": [
+          "S",
+          "I",
+          "I_phase",
+          "saturation_strength",
+          "phase_curvature_strength"
+        ],
+        "rationale": "A realistic next refinement is to relax the parent's fixed-shape stage-composition effect inside transmission suppression rather than adding a new process. The parent already encodes that later infectious occupancy reduces transmission efficiency, but only through one rational denominator whose shape is globally fixed once parameters are set. The scientific gap is that symptom-linked contact withdrawal or crowding can intensify nonlinearly as later-stage occupancy becomes a larger share of infectious prevalence, not merely as an additive burden term. The varying condition is stage composition along the observed outbreak trajectory, summarized by I_phase relative to I and total infectious load, while transmission and recovery conditions remain fixed and the same initial-condition protocol is used. Under admissible conditions with moderate prevalence and appreciable I_phase accumulation, the child should show stronger downward curvature of dI_dt at similar S and similar total infectious burden when I_phase/I is larger. This changes the scored target mapping itself, not only auxiliary trajectories, because dI_dt directly depends on how transmission is suppressed by observed I and I_phase. A single refit of existing parent parameters can shift overall saturation scale or current quadratic contribution, but it cannot generally reproduce a systematically different composition-dependent curvature across both early rise and late peak/decline if the true suppression steepens with late-phase share beyond the parent's fixed rational shape. Limitation: if I_phase remains near zero throughout observations, the refinement would be weakly identifiable, so the claimed contrast relies on appreciable later-stage occupancy within the sampled outbreak window."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The current target mapping makes transmission suppression depend on total infectious burden through a single rational saturation factor built from I and I_phase, so increasing later-stage occupancy only strengthens inhibition in one fixed monotone way.",
+          "child_relation": "Refine the transmission-suppression assumption so that the marginal effect of later-stage occupancy on infection generation changes with stage composition more sharply than the current single rational form, yielding stronger curvature in how dI_dt falls as I_phase becomes a larger share of infectious prevalence.",
+          "affected_inputs": [
+            "S",
+            "I",
+            "I_phase",
+            "saturation_strength",
+            "phase_curvature_strength"
+          ],
+          "observable_effect": "At matched S and similar total infectious prevalence, outbreaks with higher I_phase/I show a disproportionately lower growth rate of I than the parent predicts, especially near peak and early decline."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "total_infectious_load",
+            "expression": "I + I_phase",
+            "role": "Overall infectious burden entering transmission saturation"
+          },
+          {
+            "name": "late_phase_share",
+            "expression": "I_phase/(I + I_phase + 1.0e-12)",
+            "role": "Stage composition indicator distinguishing early-growth from late-outbreak infectious mix"
+          },
+          {
+            "name": "transmission_pressure",
+            "expression": "S*I",
+            "role": "Unsaturated mass-action infection pressure before prevalence-dependent suppression"
+          }
+        ],
+        "activation_condition": "Visible when infectious prevalence is moderate to high and I_phase is a non-negligible fraction of I, so stage composition varies over the sampled rise-to-decline trajectory while transmission and recovery parameters remain fixed.",
+        "train_hidden_contrast": "During training, the mechanism appears as stronger-than-parent bending of dI_dt versus I_phase/I around the approach to peak; in holdout, the same composition-dependent curvature extends further into the decline without changing the underlying closed-population setting.",
+        "continuation_path": "Recover the parent law in the limit where the added stage-composition curvature control tends to zero, reducing the refined suppression function back to the current rational dependence on I and I_phase.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "S",
+          "I",
+          "I_phase"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "finite-capacity composition-dependent transmission suppression",
+        "scientific_mechanism": "As infection progresses through an acute outbreak, later-stage cases may withdraw from contact networks disproportionately strongly, so composition changes in the infectious pool can bend transmission more sharply than a single rational saturation shape allows.",
+        "embedding_pattern": "saturating_or_thresholded",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because it changes the functional shape of how I_phase enters the transmission denominator, creating a new saturation scale for the curvature term itself rather than merely rescaling the existing burden terms.",
+        "taxonomy_match": "known",
+        "assumption_before": "Later-stage occupancy affects transmission suppression through a single globally fixed quadratic contribution inside one rational denominator.",
+        "assumption_after": "The later-stage quadratic suppression contribution itself has finite capacity, so composition-dependent inhibition steepens at intermediate I_phase and then saturates.",
+        "before_fragment": "transmission_rate*S*I/(1 + saturation_strength*(I + I_phase + phase_curvature_strength*I_phase**2)) - recovery_rate*I_phase/(1 + phase_saturation*I_phase)",
+        "after_fragment": "transmission_rate*S*I/(1 + saturation_strength*(I + I_phase + phase_curvature_strength*I_phase**2/(1 + late_phase_share_saturation*I_phase))) - recovery_rate*I_phase/(1 + phase_saturation*I_phase)",
+        "parent_reduction": "late_phase_share_saturation -> 0",
+        "observable_signature": "Along the same closed-population trajectory, compare times with similar S and similar I + I_phase but different I_phase/I: the child predicts a stronger downturn in dI_dt as late-phase share rises around approach-to-peak and early decline, while reverting toward a finite-capacity effect at very large I_phase.",
+        "shortcut_blocked": "A single parent parameter set can shift the overall saturation scale or the strength of the quadratic I_phase term, but its one fixed rational shape cannot simultaneously match early-rise behavior and the sharper intermediate composition-dependent downturn in dI_dt versus I_phase/I when stage composition changes appreciably along one outbreak trajectory."
+      },
+      "range_suggestions": {
+        "late_phase_share_saturation": "0 to 100"
+      }
+    }
+  ],
+  "evolution_provenance": {
+    "dimension_track": null,
+    "mechanism_profile": {
+      "allowed_structural_roles": [
+        "contribution",
+        "interaction",
+        "constraint",
+        "feedback",
+        "transition",
+        "timescale"
+      ],
+      "preferred_scopes": [
+        "unary",
+        "pairwise",
+        "state_coupling",
+        "time_forcing"
+      ],
+      "domain_mechanisms": [
+        {
+          "id": "density_dependent_transmission",
+          "description": "contact or transmission response changes with prevalence or density",
+          "operations": [
+            "add_term",
+            "change_assumption"
+          ]
+        },
+        {
+          "id": "behavioral_feedback",
+          "description": "risk response changes contact or control behavior",
+          "operations": [
+            "add_term"
+          ]
+        },
+        {
+          "id": "waning_immunity",
+          "description": "finite immunity duration or recovery transition",
+          "operations": [
+            "change_assumption"
+          ]
+        },
+        {
+          "id": "seasonal_forcing",
+          "description": "seasonally modulated exposure or transmission",
+          "operations": [
+            "change_assumption"
+          ]
+        }
+      ],
+      "profile_source": "subfield",
+      "ontology_schema_version": "1.0",
+      "taxonomy_schema_version": "1.0"
+    },
+    "baseline_mechanisms": [
+      "Transmission generated by encounters between susceptible and infectious population fractions.",
+      "Recovery that removes individuals from the infectious fraction at a constant per-capita rate.",
+      "Compartment transfers that preserve the total normalized population."
+    ],
+    "baseline_assumptions": [
+      "The population is closed to births, deaths, immigration, and emigration during the observation window.",
+      "Contacts are homogeneous, with no age, spatial, or behavioral structure.",
+      "Recovered individuals remain immune for the full observation window.",
+      "Transmission and recovery conditions are constant over time."
+    ],
+    "scientific_constraints": [
+      "All state fractions must remain non-negative.",
+      "The susceptible, infectious, and recovered fractions must sum to one at all times.",
+      "Transmission cannot occur when either the susceptible or infectious fraction is zero.",
+      "Recovery can only decrease the infectious fraction and increase the recovered fraction."
+    ],
+    "refinement_agenda": [
+      "Add time-varying transmission to represent behavioral changes or control measures.",
+      "Introduce a latent infected state to represent a noninfectious incubation period.",
+      "Allow immunity to wane so recovered individuals can return to susceptibility.",
+      "Add disease-associated mortality or demographic turnover when the closed-population assumption is relaxed."
+    ],
+    "evolution_contracts": [
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The parent maps observed states to infectious growth as dI_dt = I*(transmission_rate*S - recovery_rate), so transmission increases linearly with S at one fixed gain transmission_rate.",
+          "child_relation": "Relax the constant-per-contact transmission assumption so effective transmission weakens as infectious prevalence rises, making dI_dt depend on a nonlinear incidence term in S and I rather than a single linear gain on S*I.",
+          "affected_inputs": [
+            "S",
+            "I",
+            "transmission_rate"
+          ],
+          "observable_effect": "At the same susceptible fraction S, larger I produces less-than-proportional additional infection pressure, so the rise and approach to peak are flatter than the parent predicts under higher-prevalence portions of the same outbreak trajectory."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "force_of_infection",
+            "expression": "transmission_rate*S*I",
+            "role": "Parent bilinear infection pressure"
+          },
+          {
+            "name": "infectious_load",
+            "expression": "I",
+            "role": "Crowding or behavioral-response scale that can depress effective transmission at higher prevalence"
+          },
+          {
+            "name": "net_parent_growth",
+            "expression": "I*(transmission_rate*S - recovery_rate)",
+            "role": "Baseline infectious growth whose curvature is being refined"
+          }
+        ],
+        "activation_condition": "Observable when infectious prevalence reaches non-negligible levels during the same closed-outbreak trajectory, so repeated infectious contacts, local crowding, or spontaneous contact reduction become consequential; effect is weak as I -> 0 and strongest around the outbreak rise and near peak.",
+        "train_hidden_contrast": "In training, early growth at low I remains close to bilinear S*I transmission, while later points at larger I show suppressed growth relative to the parent. In holdout segments spanning higher-prevalence portions, the same mechanism extends this flattening without changing recovery structure.",
+        "continuation_path": "In the limit of vanishing prevalence-dependent suppression strength, the refined incidence law reduces continuously to transmission_rate*S*I and recovers the parent SIR model.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "pairwise",
+        "scope_symbols": [
+          "S",
+          "I"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Prevalence-dependent saturation of transmission",
+        "scientific_mechanism": "Prevalence-dependent saturation of effective transmission due to repeated contacts, contact crowding, or spontaneous caution during an acute outbreak in a closed population.",
+        "embedding_pattern": "multiplicative_modulation",
+        "difficulty_rationale": "The refinement changes the target mapping itself by modulating the transmission process with the state-dependent factor 1/(1 + saturation_strength*I), creating curvature in dI_dt as a function of I at fixed S. This is structurally harder than a coefficient-only correction because no single constant transmission_rate can match both low-I near-bilinear growth and high-I suppressed growth over the same trajectory.",
+        "taxonomy_match": "known",
+        "assumption_before": "Transmission and recovery conditions are constant over time, with transmission represented by strictly mass-action bilinear incidence transmission_rate*S*I.",
+        "assumption_after": "Transmission remains under fixed external conditions but effective infection generation saturates with infectious prevalence through a prevalence-dependent modulation of the mass-action term.",
+        "before_fragment": "transmission_rate*S*I - recovery_rate*I",
+        "after_fragment": "transmission_rate*S*I/(1 + saturation_strength*I) - recovery_rate*I",
+        "parent_reduction": "As saturation_strength -> 0, transmission_rate*S*I/(1 + saturation_strength*I) - recovery_rate*I reduces to transmission_rate*S*I - recovery_rate*I.",
+        "observable_signature": "Compared on the observed states alone, the parent predicts dI_dt/I = transmission_rate*S - recovery_rate, linear in S and independent of any extra curvature in I beyond the overall factor I. The child predicts dI_dt = transmission_rate*S*I/(1 + saturation_strength*I) - recovery_rate*I, so for similar S values along the trajectory, increasing I depresses the incremental transmission contribution and flattens growth before and around the peak. This changed target mapping is observable when I is appreciable; it is not merely a change to auxiliary trajectories.",
+        "shortcut_blocked": "Refitting transmission_rate and recovery_rate with one shared parent parameter set cannot reproduce both regimes because the parent enforces one bilinear gain on S*I everywhere. Lowering transmission_rate enough to fit high-I suppression would underpredict early low-I growth, while fitting early growth would overpredict transmission later when I is larger. The discrepancy appears under the same fixed-parameter outbreak trajectory and therefore cannot be absorbed by parameter retuning alone."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "phase_shift",
+          "parent_relation": "The parent maps (S,I) to dI_dt with a time-invariant recovery loss recovery_rate*I, so for fixed transmission parameters the decline rate at a given I depends only on S through the infection term and cannot change systematically with time spent infected.",
+          "child_relation": "Relax constant per-capita recovery by allowing recovery pressure to evolve during the outbreak through one additional latent disease-phase state, so dI_dt depends on both current prevalence and the current occupancy of a slower or faster recovery phase rather than only on total I.",
+          "affected_inputs": [
+            "S",
+            "I",
+            "recovery_rate"
+          ],
+          "observable_effect": "During outbreaks with the same initial conditions and fixed transmission conditions, the child can produce a sharper or delayed turnover and a decline rate at matched I that differs between the rising and falling sides of the epidemic because infectious individuals are not all equally recoverable at every moment."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "force_of_infection_sat",
+            "expression": "transmission_rate*S*I/(1 + saturation_strength*I)",
+            "role": "Current saturated influx into the infectious class"
+          },
+          {
+            "name": "net_growth_parent",
+            "expression": "transmission_rate*S/(1 + saturation_strength*I) - recovery_rate",
+            "role": "Parent per-capita infectious growth rate determining rise versus decline"
+          },
+          {
+            "name": "susceptible_depletion",
+            "expression": "1 - S",
+            "role": "Cumulative epidemic progress in this closed population"
+          }
+        ],
+        "activation_condition": "Observable when the infectious-period distribution is not approximately exponential, so the outbreak timescale is comparable to the mean infectious duration and phase structure becomes appreciable across the rise, peak, and decline under the given initial condition.",
+        "train_hidden_contrast": "In training, the same mechanism appears as asymmetric growth and decay around the peak at similar I values; in holdout it extends to shifted peak timing and altered post-peak steepness without changing the closed-population SIR setting.",
+        "continuation_path": "Recover the parent law in the limit where the added infectious phase collapses to an exponential-memory description, making total infectious individuals recover with an effectively constant per-capita rate recovery_rate.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A non-exponential infectious-period effect cannot be represented with the existing total-I state alone because any model using only current S and I with fixed parameters remains memoryless in I; one additional state is needed to encode infectious-phase occupancy that feeds back on dI_dt.",
+        "scope_kind": "memory",
+        "scope_symbols": [
+          "S",
+          "I",
+          "I_phase"
+        ],
+        "structural_role": "feedback",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Stage-structured progression to a preferentially recoverable infectious subphase with finite-capacity removal",
+        "scientific_mechanism": "Stage-structured infectiousness or symptom progression causing recovery/removal to depend on occupancy of an infectious subphase rather than uniformly on total current prevalence.",
+        "embedding_pattern": "saturating_or_thresholded",
+        "difficulty_rationale": "The target derivative now depends on a hidden phase-occupancy state with its own dynamics, so matching dI_dt requires reconstructing outbreak memory rather than retuning a single constant recovery coefficient. The added saturation in phase-dependent removal changes how turnover sharpens as recoverable occupancy accumulates, which is structurally different from a coefficient-only correction.",
+        "taxonomy_match": "known",
+        "assumption_before": "Recovery that removes infectious individuals at a constant per-capita rate regardless of time since becoming infectious.",
+        "assumption_after": "Recovery/removal acts predominantly on a later infectious subphase whose occupancy evolves during the outbreak and can itself show finite-capacity saturation in effective removal.",
+        "before_fragment": "transmission_rate*S*I/(1 + saturation_strength*I) - recovery_rate*I",
+        "after_fragment": "transmission_rate*S*I/(1 + saturation_strength*I) - recovery_rate*I_phase/(1 + phase_saturation*I_phase)",
+        "parent_reduction": "When phase_progression_rate is large enough that I_phase tracks I and phase_saturation = 0, the child recovery term becomes recovery_rate*I and the parent equation is recovered.",
+        "observable_signature": "Along a single outbreak trajectory under fixed transmission and initial conditions, points with similar I but different epidemic phase can have different dI_dt because I_phase lags incidence history. This is strongest when I_phase accumulates appreciably near and after the peak, producing shifted turnover timing or steeper/shallower decline than the parent's unique (S,I) mapping permits.",
+        "shortcut_blocked": "A single refitted parent parameter set still imposes one memoryless mapping from current (S,I) to dI_dt, so it cannot generate different recovery pressure at matched I values on the rising versus falling limbs except through S alone. When phase occupancy history changes recovery loss independently of the current total I, no global retuning of transmission_rate, recovery_rate, and saturation_strength can reproduce that hysteresis-like asymmetry across the observed outbreak."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "interaction_emergence",
+          "parent_relation": "The current target mapping uses transmission_rate*S*I/(1 + saturation_strength*I), so prevalence-dependent transmission saturation depends only on total infectious prevalence I and not on how much of that prevalence has progressed into the later infectious subphase.",
+          "child_relation": "Refine the transmission saturation assumption so the effective infection term depends on both I and I_phase, allowing the same total I to generate different dI_dt when the infectious pool is compositionally shifted toward later-stage cases that more strongly suppress effective contact or transmission.",
+          "affected_inputs": [
+            "S",
+            "I",
+            "I_phase",
+            "saturation_strength"
+          ],
+          "observable_effect": "At matched S and total I, outbreaks observed on the downslope or near the peak with larger I_phase would show weaker infection growth than early-rise outbreaks with smaller I_phase; the parent cannot express this composition-dependent split because its infection term is fixed by I alone."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "force_of_infection_parent",
+            "expression": "transmission_rate*S*I/(1 + saturation_strength*I)",
+            "role": "Current incidence contribution to the target"
+          },
+          {
+            "name": "phase_fraction",
+            "expression": "I_phase/(I + 1.0e-12)",
+            "role": "Composition of current infectious prevalence in the later recoverable subphase"
+          },
+          {
+            "name": "removal_load",
+            "expression": "recovery_rate*I_phase/(1 + phase_saturation*I_phase)",
+            "role": "Current removal pressure already present in the target"
+          }
+        ],
+        "activation_condition": "Observable when I is appreciable and I_phase varies within its admissible range 0 <= I_phase <= I during the sampled rise, peak, and decline; especially near and after the peak when phase progression has created substantial late-stage occupancy.",
+        "train_hidden_contrast": "Within the same outbreak trajectory, early times and later times can share similar I but differ in I_phase; training already contains this phase-composition variation, and holdout extends it to stronger late-stage occupancy near the decline.",
+        "continuation_path": "Recover the parent law in the limit where transmission saturation depends only on total I and is insensitive to infectious-stage composition.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "S",
+          "I",
+          "I_phase"
+        ],
+        "structural_role": "interaction",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "composition-dependent transmission saturation",
+        "scientific_mechanism": "Stage-composition-dependent effective transmission, where accumulation in the later infectious subphase modifies the saturation of transmission beyond what is explained by total prevalence alone.",
+        "embedding_pattern": "state_coupling",
+        "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the transmission contribution is no longer determined by S and I alone; it now changes across trajectories with identical S and I but different I_phase, creating a genuine joint dependence in the scored target law.",
+        "taxonomy_match": "known",
+        "assumption_before": "The transmission saturation denominator is a function of I alone and is independent of infectious-stage composition.",
+        "assumption_after": "Transmission saturation depends jointly on total infectious prevalence and later-phase occupancy, so late-stage cases contribute extra suppression of effective transmission.",
+        "before_fragment": "transmission_rate*S*I/(1 + saturation_strength*I) - recovery_rate*I_phase/(1 + phase_saturation*I_phase)",
+        "after_fragment": "transmission_rate*S*I/(1 + saturation_strength*(I + I_phase)) - recovery_rate*I_phase/(1 + phase_saturation*I_phase)",
+        "parent_reduction": "When the saturation law is taken to depend only on I and not on I_phase, the parent expression is recovered.",
+        "observable_signature": "For matched S and I during the observed outbreak, dI_dt is lower when I_phase is larger because the infection influx is additionally saturated by I_phase; this split is most visible near the peak and downslope where I_phase has accumulated while I remains appreciable.",
+        "shortcut_blocked": "A single refitted parent parameter set cannot reproduce this contrast across low- versus high-I_phase conditions at the same S and I, because in the parent the infection term is exactly fixed by S and I and all I_phase influence enters only through removal. Retuning transmission_rate or saturation_strength changes the common S,I response for all compositions rather than creating a composition-specific transmission split."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_threshold",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The infection gain term decreases hyperbolically with total effective infectious burden through transmission_rate*S*I/(1 + saturation_strength*(I + I_phase)), so increasing I_phase only weakens transmission with a fixed linear weighting inside one shared denominator.",
+          "child_relation": "Retain the same states but relax the assumption that later-phase occupancy suppresses transmission with the same linear weighting at all occupancies; instead, let the transmission reduction bend nonlinearly with I_phase so the dI_dt response to changing stage composition has occupancy-dependent curvature.",
+          "affected_inputs": [
+            "S",
+            "I",
+            "I_phase",
+            "saturation_strength"
+          ],
+          "observable_effect": "At fixed S and I, early increases in I_phase can have little additional effect on dI_dt but larger reductions once I_phase becomes appreciable, or vice versa depending on the refined saturation shape; this changes how fast epidemic growth flattens near the peak as stage composition shifts."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "force_of_infection_load",
+            "expression": "S*I",
+            "role": "baseline mass-action exposure available for transmission"
+          },
+          {
+            "name": "stage_composition",
+            "expression": "I_phase/(I + I_phase + 1.0e-12)",
+            "role": "fraction of infectious burden occupying the later subphase"
+          },
+          {
+            "name": "effective_burden",
+            "expression": "I + I_phase",
+            "role": "current prevalence scale where transmission saturation activates"
+          }
+        ],
+        "activation_condition": "Observable when infectious prevalence is no longer infinitesimal and I_phase becomes a non-negligible share of the infectious burden, so stage composition changes during the rise-to-peak transition while transmission saturation is active.",
+        "train_hidden_contrast": "Within the sampled single-outbreak trajectory, the mechanism appears as changing curvature of dI_dt versus stage composition at similar S*I levels; in holdout regions later in the outbreak, the same nonlinear stage-composition effect becomes stronger as I_phase accumulates further.",
+        "continuation_path": "The child should reduce to the parent when the refined I_phase dependence is taken to its linear-limit form over the observed occupancy range.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "S",
+          "I",
+          "I_phase"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "nonlinear later-stage suppression of effective transmission",
+        "scientific_mechanism": "Behavioral withdrawal, symptom-linked contact loss, or repeated-contact crowding may intensify nonlinearly as the later infectious subphase accumulates, making transmission suppression depend on stage composition with curved rather than purely linear sensitivity.",
+        "embedding_pattern": "competing_processes",
+        "difficulty_rationale": "This embedding is structurally harder than a coefficient-only correction because the new nonlinear I_phase contribution competes with the existing linear burden term in different occupancy regions, creating low- and moderate-I_phase regimes with different local sensitivities that one shared parent denominator cannot match simultaneously.",
+        "taxonomy_match": "known",
+        "assumption_before": "Later infectious subphase occupancy affects transmission reduction through the same first-order weighting at all occupancies.",
+        "assumption_after": "Later infectious subphase occupancy contributes a curved nonlinear suppression to effective transmission as that subphase accumulates.",
+        "before_fragment": "transmission_rate*S*I/(1 + saturation_strength*(I + I_phase)) - recovery_rate*I_phase/(1 + phase_saturation*I_phase)",
+        "after_fragment": "transmission_rate*S*I/(1 + saturation_strength*(I + I_phase + phase_curvature_strength*I_phase**2)) - recovery_rate*I_phase/(1 + phase_saturation*I_phase)",
+        "parent_reduction": "phase_curvature_strength -> 0",
+        "observable_signature": "At similar S*I along the outbreak trajectory, the child predicts a stage-composition-dependent bending of dI_dt with I_phase: near low later-phase occupancy the response can remain close to the parent, while at appreciable I_phase transmission suppression strengthens more rapidly and epidemic growth flattens earlier near the peak. This is a direct change in the scored mapping from supplied states to dI_dt, not merely a change in auxiliary trajectories.",
+        "shortcut_blocked": "A single refit of transmission_rate and saturation_strength can move the parent's overall saturation scale, but the parent remains affine in I_phase inside one shared denominator and therefore imposes one fixed local sensitivity pattern. It cannot with one parameter set reproduce weak sensitivity to I_phase at low occupancy and stronger sensitivity at moderate occupancy across the same admissible outbreak conditions where S*I is comparable but stage composition differs."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The current target mapping makes transmission suppression depend on total infectious burden through a single rational saturation factor built from I and I_phase, so increasing later-stage occupancy only strengthens inhibition in one fixed monotone way.",
+          "child_relation": "Refine the transmission-suppression assumption so that the marginal effect of later-stage occupancy on infection generation changes with stage composition more sharply than the current single rational form, yielding stronger curvature in how dI_dt falls as I_phase becomes a larger share of infectious prevalence.",
+          "affected_inputs": [
+            "S",
+            "I",
+            "I_phase",
+            "saturation_strength",
+            "phase_curvature_strength"
+          ],
+          "observable_effect": "At matched S and similar total infectious prevalence, outbreaks with higher I_phase/I show a disproportionately lower growth rate of I than the parent predicts, especially near peak and early decline."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "total_infectious_load",
+            "expression": "I + I_phase",
+            "role": "Overall infectious burden entering transmission saturation"
+          },
+          {
+            "name": "late_phase_share",
+            "expression": "I_phase/(I + I_phase + 1.0e-12)",
+            "role": "Stage composition indicator distinguishing early-growth from late-outbreak infectious mix"
+          },
+          {
+            "name": "transmission_pressure",
+            "expression": "S*I",
+            "role": "Unsaturated mass-action infection pressure before prevalence-dependent suppression"
+          }
+        ],
+        "activation_condition": "Visible when infectious prevalence is moderate to high and I_phase is a non-negligible fraction of I, so stage composition varies over the sampled rise-to-decline trajectory while transmission and recovery parameters remain fixed.",
+        "train_hidden_contrast": "During training, the mechanism appears as stronger-than-parent bending of dI_dt versus I_phase/I around the approach to peak; in holdout, the same composition-dependent curvature extends further into the decline without changing the underlying closed-population setting.",
+        "continuation_path": "Recover the parent law in the limit where the added stage-composition curvature control tends to zero, reducing the refined suppression function back to the current rational dependence on I and I_phase.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "S",
+          "I",
+          "I_phase"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "finite-capacity composition-dependent transmission suppression",
+        "scientific_mechanism": "As infection progresses through an acute outbreak, later-stage cases may withdraw from contact networks disproportionately strongly, so composition changes in the infectious pool can bend transmission more sharply than a single rational saturation shape allows.",
+        "embedding_pattern": "saturating_or_thresholded",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because it changes the functional shape of how I_phase enters the transmission denominator, creating a new saturation scale for the curvature term itself rather than merely rescaling the existing burden terms.",
+        "taxonomy_match": "known",
+        "assumption_before": "Later-stage occupancy affects transmission suppression through a single globally fixed quadratic contribution inside one rational denominator.",
+        "assumption_after": "The later-stage quadratic suppression contribution itself has finite capacity, so composition-dependent inhibition steepens at intermediate I_phase and then saturates.",
+        "before_fragment": "transmission_rate*S*I/(1 + saturation_strength*(I + I_phase + phase_curvature_strength*I_phase**2)) - recovery_rate*I_phase/(1 + phase_saturation*I_phase)",
+        "after_fragment": "transmission_rate*S*I/(1 + saturation_strength*(I + I_phase + phase_curvature_strength*I_phase**2/(1 + late_phase_share_saturation*I_phase))) - recovery_rate*I_phase/(1 + phase_saturation*I_phase)",
+        "parent_reduction": "late_phase_share_saturation -> 0",
+        "observable_signature": "Along the same closed-population trajectory, compare times with similar S and similar I + I_phase but different I_phase/I: the child predicts a stronger downturn in dI_dt as late-phase share rises around approach-to-peak and early decline, while reverting toward a finite-capacity effect at very large I_phase.",
+        "shortcut_blocked": "A single parent parameter set can shift the overall saturation scale or the strength of the quadratic I_phase term, but its one fixed rational shape cannot simultaneously match early-rise behavior and the sharper intermediate composition-dependent downturn in dI_dt versus I_phase/I when stage composition changes appreciably along one outbreak trajectory."
+      }
+    ]
+  },
+  "finalization": {
+    "mode": "candidate",
+    "accepted_generations": 5,
+    "novelty": {
+      "answer": "NOT_EVALUATED"
+    },
+    "total_points": 5000,
+    "evaluation_status": "not_evaluated"
+  }
+}

@@ -1,0 +1,1815 @@
+{
+  "version": 7,
+  "spec": {
+    "equation_type": "ode_system",
+    "integrator": "integrate_system",
+    "dependent_variable": "v",
+    "independent_variables": [
+      {
+        "symbol": "t",
+        "range": [
+          0.0,
+          12.0
+        ],
+        "n_points": 400,
+        "scale": "linear"
+      }
+    ],
+    "parameters": [
+      {
+        "symbol": "g",
+        "value": 9.81
+      },
+      {
+        "symbol": "drag_coefficient",
+        "value": 0.2
+      },
+      {
+        "symbol": "mass",
+        "value": 1.0
+      },
+      {
+        "symbol": "wake_relaxation_time",
+        "value": 0.8
+      },
+      {
+        "symbol": "regime_relaxation_time",
+        "value": 1.2
+      },
+      {
+        "symbol": "critical_speed",
+        "value": 8.0
+      },
+      {
+        "symbol": "drag_reduction_fraction",
+        "value": 0.5
+      },
+      {
+        "symbol": "drag_shape_fraction",
+        "value": 0.8
+      },
+      {
+        "symbol": "flow_relaxation_time",
+        "value": 1.5
+      },
+      {
+        "symbol": "entrainment_fraction",
+        "value": 0.35
+      }
+    ],
+    "benchmark_output": "dv_dt",
+    "benchmark_target_state": "v",
+    "observed_variables": [
+      "t",
+      "v",
+      "wake_drag",
+      "regime_occupancy",
+      "local_flow_velocity"
+    ],
+    "rhs_for_integrator": "-g - (wake_drag * regime_occupancy / mass) * (v - local_flow_velocity) * Abs(v - local_flow_velocity) * (1 + drag_shape_fraction * Abs(v - local_flow_velocity) / (critical_speed + Abs(v - local_flow_velocity)))",
+    "state_variables": [
+      "v",
+      "wake_drag",
+      "regime_occupancy",
+      "local_flow_velocity"
+    ],
+    "state_rhs": [
+      "-g - (wake_drag * regime_occupancy / mass) * (v - local_flow_velocity) * Abs(v - local_flow_velocity) * (1 + drag_shape_fraction * Abs(v - local_flow_velocity) / (critical_speed + Abs(v - local_flow_velocity)))",
+      "(drag_coefficient - wake_drag) / wake_relaxation_time",
+      "(1 - drag_reduction_fraction * Abs(v)**2 / (critical_speed**2 + Abs(v)**2) - regime_occupancy) / regime_relaxation_time",
+      "(entrainment_fraction * v - local_flow_velocity) / flow_relaxation_time"
+    ],
+    "initial_conditions": {
+      "v": 0.0,
+      "wake_drag": 0.0,
+      "regime_occupancy": 1.0,
+      "local_flow_velocity": 0.0
+    },
+    "sanity_expectations": [
+      "At t=0, dv/dt = -g exactly because wake_drag(0)=0, regardless of the other parameter values.",
+      "wake_drag should increase monotonically from 0 toward drag_coefficient=0.2 with e-folding time wake_relaxation_time=0.8.",
+      "regime_occupancy should start at 1 and decrease only after |v| becomes appreciable, remaining between roughly 0.5 and 1 for these parameters.",
+      "local_flow_velocity should begin at 0 and follow the sign of v; during sustained downward motion it should become negative with magnitude smaller than |v| because entrainment_fraction=0.35 < 1.",
+      "As local_flow_velocity becomes negative during descent, slip |v-local_flow_velocity| should be smaller than |v|, so drag should be weaker than in the stationary-medium parent at the same instantaneous v, all else equal.",
+      "Because critical_speed=8 is near the reachable fall-speed scale, the drag-shape factor 1 + drag_shape_fraction*|slip|/(critical_speed+|slip|) should transition from near 1 at early low speeds toward noticeably larger values at moderate/high speeds rather than staying constant.",
+      "The trajectory should approach a finite downward terminal-like regime rather than accelerate indefinitely; late-time dv/dt should move toward 0 with at most mild residual transients from state relaxation."
+    ],
+    "role_corrections": [
+      "dv_dt: claimed-output/target derivative -> not the dependent variable itself (confirmed as derivative expression; overridden for dataset role to dependent variable v by ODE-system contract)",
+      "t: claimed-input/time axis -> independent variable (confirmed)",
+      "v: claimed-dynamic state -> dependent variable and state variable (confirmed)",
+      "wake_drag: claimed-dynamic state -> state variable (confirmed)",
+      "regime_occupancy: claimed-dynamic state -> state variable (confirmed)",
+      "local_flow_velocity: claimed-dynamic state -> state variable (confirmed)",
+      "g: claimed-parameter -> parameter (confirmed)",
+      "drag_coefficient: claimed-parameter -> parameter (confirmed)",
+      "mass: claimed-parameter -> parameter (confirmed)",
+      "wake_relaxation_time: claimed-parameter -> parameter (confirmed)",
+      "regime_relaxation_time: claimed-parameter -> parameter (confirmed)",
+      "critical_speed: claimed-parameter -> parameter (confirmed)",
+      "drag_reduction_fraction: claimed-parameter -> parameter (confirmed)",
+      "drag_shape_fraction: claimed-parameter -> parameter (confirmed)",
+      "flow_relaxation_time: claimed-parameter -> parameter (confirmed)",
+      "entrainment_fraction: claimed-parameter -> parameter (confirmed)"
+    ],
+    "rationale": "The supplied ODE-system contract is preserved exactly as required: time is the only sampled axis, v is the target state, and wake_drag, regime_occupancy, and local_flow_velocity remain dynamic states rather than fixed coefficients. Parameter choices are finite and real under direct substitution, and are selected to keep the system away from trivial parent-recovery limits while remaining physically sensible. With g=9.81 and mass=1, drag_coefficient=0.2 gives a baseline quadratic terminal-speed scale sqrt(mg/c) of about 7, so choosing critical_speed=8 places the speed-shape and reduced-drag transition in the reachable trajectory range rather than far outside it. drag_reduction_fraction=0.5 makes the reduced-drag regime visible but not sign-changing; regime_occupancy relaxes from 1 toward a speed-dependent level between about 0.5 and 1. wake_relaxation_time=0.8 and regime_relaxation_time=1.2 are neither instantaneous nor extremely slow relative to the 12 s window, so history dependence from wake buildup and regime adaptation should be observable during the same descent. The added co-flow mechanism is kept active but moderate with entrainment_fraction=0.35 and flow_relaxation_time=1.5, allowing local_flow_velocity to become a noticeable fraction of particle speed without collapsing slip toward zero. drag_shape_fraction=0.8 produces visible non-quadratic drag reshaping near and above the critical-speed band without extreme stiffening. The inherited initial state v=0, wake_drag=0, regime_occupancy=1, local_flow_velocity=0 implies an initially ballistic phase with zero drag contribution; this delays activation of all drag-memory mechanisms at very early times, and that limitation is accepted rather than repaired. A 0-12 s window with 400 points should capture onset, transient curvature changes, and approach toward a finite downward terminal regime while leaving enough temporal resolution for the coupled relaxations.",
+    "coverage_report": {
+      "groups": [
+        {
+          "generation": 1,
+          "name": "speed",
+          "expression": "Abs(v)",
+          "role": "instantaneous slip-speed scale controlling drag activation",
+          "train_range": [
+            0.0,
+            11.051630646164712
+          ],
+          "hidden_range": [
+            11.051760025768893,
+            11.104815688554911
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0,
+            "max": 11.051630646164712,
+            "q05": 4.891263516437712,
+            "median": 10.226343805392013,
+            "q95": 11.019678161990642,
+            "range": 11.051630646164712,
+            "robust_range": 6.1284146455529305
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 11.051760025768893,
+            "max": 11.104815688554911,
+            "q05": 11.05495427311787,
+            "median": 11.080967573538024,
+            "q95": 11.102642535342177,
+            "range": 0.05305566278601859,
+            "robust_range": 0.04768826222430711
+          }
+        },
+        {
+          "generation": 1,
+          "name": "quad_drag_accel",
+          "expression": "(drag_coefficient/mass)*v*Abs(v)",
+          "role": "parent quadratic resistive contribution",
+          "train_range": [
+            -24.42770798784941,
+            0.0
+          ],
+          "hidden_range": [
+            -24.66338629535506,
+            -24.42827993343665
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -24.42770798784941,
+            "max": 0.0,
+            "q05": -24.286661358999968,
+            "median": -20.91562155622158,
+            "q95": -4.784894588265496,
+            "range": 24.42770798784941,
+            "robust_range": 19.50176677073447
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": -24.66338629535506,
+            "max": -24.42827993343665,
+            "q05": -24.653734253591363,
+            "median": -24.557568473717815,
+            "q95": -24.442402796298108,
+            "range": 0.23510636191841172,
+            "robust_range": 0.2113314572932552
+          }
+        },
+        {
+          "generation": 1,
+          "name": "ballistic_ratio",
+          "expression": "(drag_coefficient*Abs(v)**2)/(mass*g)",
+          "role": "dimensionless measure of drag importance relative to gravity",
+          "train_range": [
+            0.0,
+            2.490082363695149
+          ],
+          "hidden_range": [
+            2.4901406659976195,
+            2.514106655999496
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0,
+            "max": 2.490082363695149,
+            "q05": 0.48775683876304815,
+            "median": 2.132071514395676,
+            "q95": 2.4757045218144715,
+            "range": 2.490082363695149,
+            "robust_range": 1.9879476830514233
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 2.4901406659976195,
+            "max": 2.514106655999496,
+            "q05": 2.4915803054330388,
+            "median": 2.503319925965119,
+            "q95": 2.51312275775651,
+            "range": 0.02396599000187649,
+            "robust_range": 0.021542452323471295
+          }
+        },
+        {
+          "generation": 2,
+          "name": "speed_scale",
+          "expression": "Abs(v)",
+          "role": "instantaneous speed magnitude controlling nonlinear drag regime",
+          "train_range": [
+            0.0,
+            11.051630646164712
+          ],
+          "hidden_range": [
+            11.051760025768893,
+            11.104815688554911
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0,
+            "max": 11.051630646164712,
+            "q05": 4.891263516437712,
+            "median": 10.226343805392013,
+            "q95": 11.019678161990642,
+            "range": 11.051630646164712,
+            "robust_range": 6.1284146455529305
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 11.051760025768893,
+            "max": 11.104815688554911,
+            "q05": 11.05495427311787,
+            "median": 11.080967573538024,
+            "q95": 11.102642535342177,
+            "range": 0.05305566278601859,
+            "robust_range": 0.04768826222430711
+          }
+        },
+        {
+          "generation": 2,
+          "name": "drag_loading",
+          "expression": "wake_drag*Abs(v)/mass",
+          "role": "instantaneous drag-induced acceleration scale relative to inertia",
+          "train_range": [
+            0.0,
+            2.2103230988964286
+          ],
+          "hidden_range": [
+            2.2103489838599515,
+            2.22096245820435
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0,
+            "max": 2.2103230988964286,
+            "q05": 0.48016920281139486,
+            "median": 2.0428739922182855,
+            "q95": 2.203929697868077,
+            "range": 2.2103230988964286,
+            "robust_range": 1.7237604950566823
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 2.2103489838599515,
+            "max": 2.22096245820435,
+            "q05": 2.210988050397659,
+            "median": 2.2161920815783676,
+            "q95": 2.220527774898234,
+            "range": 0.010613474344398632,
+            "robust_range": 0.009539724500575275
+          }
+        },
+        {
+          "generation": 2,
+          "name": "gravity_drag_ratio",
+          "expression": "wake_drag*v*Abs(v)/(mass*g)",
+          "role": "relative importance of resistive and gravitational accelerations",
+          "train_range": [
+            -2.490078949815446,
+            0.0
+          ],
+          "hidden_range": [
+            -2.5141058868052135,
+            -2.49013726226527
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -2.490078949815446,
+            "max": 0.0,
+            "q05": -2.475697855493261,
+            "median": -2.129575109877873,
+            "q95": -0.23941250929260416,
+            "range": 2.490078949815446,
+            "robust_range": 2.2362853462006567
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": -2.5141058868052135,
+            "max": -2.49013726226527,
+            "q05": -2.5131219291098224,
+            "median": -2.50331830716201,
+            "q95": -2.4915771453322013,
+            "range": 0.023968624539943306,
+            "robust_range": 0.021544783777621035
+          }
+        },
+        {
+          "generation": 3,
+          "name": "speed_ratio",
+          "expression": "Abs(v)/critical_speed",
+          "role": "Dimensionless distance into the high-speed drag-reduction regime",
+          "train_range": [
+            0.0,
+            1.381453830770589
+          ],
+          "hidden_range": [
+            1.3814700032211116,
+            1.388101961069364
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0,
+            "max": 1.381453830770589,
+            "q05": 0.611407939554714,
+            "median": 1.2782929756740016,
+            "q95": 1.3774597702488303,
+            "range": 1.381453830770589,
+            "robust_range": 0.7660518306941163
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 1.3814700032211116,
+            "max": 1.388101961069364,
+            "q05": 1.3818692841397338,
+            "median": 1.385120946692253,
+            "q95": 1.3878303169177721,
+            "range": 0.006631957848252323,
+            "robust_range": 0.005961032778038389
+          }
+        },
+        {
+          "generation": 3,
+          "name": "effective_drag_factor",
+          "expression": "wake_drag*regime_occupancy/mass",
+          "role": "Instantaneous quadratic drag strength appearing in dv_dt",
+          "train_range": [
+            0.0,
+            0.15229497347201934
+          ],
+          "hidden_range": [
+            0.13446890953588414,
+            0.13484433534011256
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0,
+            "max": 0.15229497347201934,
+            "q05": 0.09601642611140096,
+            "median": 0.13874169450892188,
+            "q95": 0.1519280234771633,
+            "range": 0.15229497347201934,
+            "robust_range": 0.055911597365762344
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.13446890953588414,
+            "max": 0.13484433534011256,
+            "q05": 0.13448414905024292,
+            "median": 0.1346367976719941,
+            "q95": 0.13482153686601858,
+            "range": 0.00037542580422841865,
+            "robust_range": 0.0003373878157756638
+          }
+        },
+        {
+          "generation": 3,
+          "name": "terminal_balance_proxy",
+          "expression": "wake_drag*regime_occupancy*Abs(v)**2/(mass*g)",
+          "role": "Relative importance of drag to weight at the current speed",
+          "train_range": [
+            0.0,
+            1.678879009975334
+          ],
+          "hidden_range": [
+            1.678906815049171,
+            1.6903459024458019
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0,
+            "max": 1.678879009975334,
+            "q05": 0.23416356844383027,
+            "median": 1.5071435526636932,
+            "q95": 1.6720248806796076,
+            "range": 1.678879009975334,
+            "robust_range": 1.4378613122357773
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 1.678906815049171,
+            "max": 1.6903459024458019,
+            "q05": 1.6795934300056563,
+            "median": 1.6851948918576587,
+            "q95": 1.6898758776725853,
+            "range": 0.011439087396630798,
+            "robust_range": 0.010282447666928984
+          }
+        },
+        {
+          "generation": 4,
+          "name": "effective_drag_load",
+          "expression": "wake_drag*regime_occupancy*Abs(v)**2/mass",
+          "role": "Current quadratic-scale drag acceleration used by the parent target mapping",
+          "train_range": [
+            0.0,
+            16.469803087858025
+          ],
+          "hidden_range": [
+            16.47007585563237,
+            16.582293302993317
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0,
+            "max": 16.469803087858025,
+            "q05": 2.297144606433975,
+            "median": 14.785078251630832,
+            "q95": 16.402564079466952,
+            "range": 16.469803087858025,
+            "robust_range": 14.105419473032978
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 16.47007585563237,
+            "max": 16.582293302993317,
+            "q05": 16.47681154835549,
+            "median": 16.531761889123633,
+            "q95": 16.577682359968062,
+            "range": 0.11221744736094763,
+            "robust_range": 0.10087081161257316
+          }
+        },
+        {
+          "generation": 4,
+          "name": "net_accel_offset",
+          "expression": "dv_dt + g",
+          "role": "Observed resistive contribution to acceleration after removing the constant field",
+          "train_range": [
+            0.0,
+            9.756069642474662
+          ],
+          "hidden_range": [
+            9.756113424632535,
+            9.774075078232906
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0,
+            "max": 9.756069642474662,
+            "q05": 2.6306883521024784,
+            "median": 9.481960015274066,
+            "q95": 9.745259622888693,
+            "range": 9.756069642474662,
+            "robust_range": 7.1145712707862145
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 9.756113424632535,
+            "max": 9.774075078232906,
+            "q05": 9.757194430701418,
+            "median": 9.76599982890532,
+            "q95": 9.773339134581324,
+            "range": 0.01796165360037172,
+            "robust_range": 0.016144703879906075
+          }
+        },
+        {
+          "generation": 5,
+          "name": "quadratic_drag_load",
+          "expression": "(wake_drag*regime_occupancy/mass)*Abs(v)*Abs(v)",
+          "role": "current magnitude scale of the parent quadratic resistance",
+          "train_range": [
+            0.0,
+            16.469803087858025
+          ],
+          "hidden_range": [
+            16.47007585563237,
+            16.582293302993317
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0,
+            "max": 16.469803087858025,
+            "q05": 2.297144606433975,
+            "median": 14.785078251630832,
+            "q95": 16.402564079466952,
+            "range": 16.469803087858025,
+            "robust_range": 14.105419473032978
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 16.47007585563237,
+            "max": 16.582293302993317,
+            "q05": 16.47681154835549,
+            "median": 16.531761889123633,
+            "q95": 16.577682359968062,
+            "range": 0.11221744736094763,
+            "robust_range": 0.10087081161257316
+          }
+        },
+        {
+          "generation": 5,
+          "name": "shape_ratio",
+          "expression": "Abs(v)/(critical_speed + Abs(v))",
+          "role": "strength of the existing smooth drag-shape correction",
+          "train_range": [
+            0.0,
+            0.5800884371222849
+          ],
+          "hidden_range": [
+            0.5800912887219124,
+            0.5812574101516956
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0,
+            "max": 0.5800884371222849,
+            "q05": 0.3794246256786003,
+            "median": 0.5610748875829563,
+            "q95": 0.5793829983930676,
+            "range": 0.5800884371222849,
+            "robust_range": 0.19995837271446731
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.5800912887219124,
+            "max": 0.5812574101516956,
+            "q05": 0.5801616794587132,
+            "median": 0.5807340498206253,
+            "q95": 0.5812097731920022,
+            "range": 0.001166121429783229,
+            "robust_range": 0.0010480937332889573
+          }
+        },
+        {
+          "generation": 5,
+          "name": "regime_deficit",
+          "expression": "1 - regime_occupancy",
+          "role": "occupation of the reduced-drag high-speed regime",
+          "train_range": [
+            0.0,
+            0.3257727791724174
+          ],
+          "hidden_range": [
+            0.32577740171564895,
+            0.3276552466158059
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0,
+            "max": 0.3257727791724174,
+            "q05": 0.021924144965422568,
+            "median": 0.2922796905938942,
+            "q95": 0.3246248216484866,
+            "range": 0.3257727791724174,
+            "robust_range": 0.30270067668306405
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.32577740171564895,
+            "max": 0.3276552466158059,
+            "q05": 0.32589146069005204,
+            "median": 0.3268155763169027,
+            "q95": 0.32757903303283176,
+            "range": 0.0018778449001569664,
+            "robust_range": 0.0016875723427797196
+          }
+        }
+      ],
+      "inactive_mechanisms": [],
+      "visible_mechanisms": [
+        "speed",
+        "quad_drag_accel",
+        "ballistic_ratio",
+        "speed_scale",
+        "drag_loading",
+        "gravity_drag_ratio",
+        "speed_ratio",
+        "effective_drag_factor",
+        "terminal_balance_proxy",
+        "effective_drag_load",
+        "net_accel_offset",
+        "quadratic_drag_load",
+        "shape_ratio",
+        "regime_deficit"
+      ],
+      "extended_mechanisms": [
+        "speed",
+        "quad_drag_accel",
+        "ballistic_ratio",
+        "speed_scale",
+        "drag_loading",
+        "gravity_drag_ratio",
+        "speed_ratio",
+        "terminal_balance_proxy",
+        "effective_drag_load",
+        "net_accel_offset",
+        "quadratic_drag_load",
+        "shape_ratio",
+        "regime_deficit"
+      ]
+    },
+    "inactive_mechanisms": [],
+    "target_variance": {
+      "train": {
+        "n": 4500,
+        "variance": 4.426817704638516,
+        "range": 9.756069642474662
+      },
+      "hidden": {
+        "n": 500,
+        "variance": 2.69210265679884e-05,
+        "range": 0.01796165360037172
+      }
+    },
+    "parent_absorption_report": {
+      "status": "ok",
+      "n_points": 512,
+      "fixed_parent_normalized_rmse": 87.13893824498015,
+      "refit": {
+        "status": "not_run",
+        "reason": "no free parent parameters"
+      },
+      "interpretation": "<1e-3 nearly absorbed; 1e-3..1e-2 weak; >1e-2 visible structure"
+    },
+    "noise": 0.0,
+    "_trace": [
+      {
+        "turn": 1,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "analyze_expression",
+            "id": "call_CArN8adTvXVm4uNnNlEdYTut"
+          }
+        ]
+      },
+      {
+        "tool": "analyze_expression",
+        "input": {
+          "expression": "-g - (wake_drag * regime_occupancy / mass) * (v - local_flow_velocity) * Abs(v - local_flow_velocity) * (1 + drag_shape_fraction * Abs(v - local_flow_velocity) / (critical_speed + Abs(v - local_flow_velocity)))",
+          "target_symbol": "dv_dt"
+        },
+        "result": {
+          "ok": true,
+          "free_symbols": [
+            "critical_speed",
+            "drag_shape_fraction",
+            "g",
+            "local_flow_velocity",
+            "mass",
+            "regime_occupancy",
+            "v",
+            "wake_drag"
+          ],
+          "functions_of": {},
+          "target_function_calls": [],
+          "delayed_target_calls": [],
+          "ungoverned_functions": [],
+          "derivatives": [],
+          "max_derivative_order": 0,
+          "integral_kernels": [],
+          "explicitly_solvable_for_target": true,
+          "explicit_solution_preview": [
+            "-g - regime_occupancy*wake_drag*(-local_flow_velocity + v)*(drag_shape_fraction*Abs(-local_flow_velocity + v)/(critical_"
+          ],
+          "classification_hint": "explicit",
+          "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+        }
+      },
+      {
+        "turn": 2,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "check_substitution",
+            "id": "call_CVkVTnDPndUOifecmykWQcQr"
+          }
+        ]
+      },
+      {
+        "tool": "check_substitution",
+        "input": {
+          "expression": "-g - (wake_drag * regime_occupancy / mass) * (v - local_flow_velocity) * Abs(v - local_flow_velocity) * (1 + drag_shape_fraction * Abs(v - local_flow_velocity) / (critical_speed + Abs(v - local_flow_velocity)))",
+          "target_symbol": "dv_dt",
+          "assignments": {
+            "g": 9.81,
+            "drag_coefficient": 0.2,
+            "mass": 1.0,
+            "wake_relaxation_time": 0.8,
+            "regime_relaxation_time": 1.2,
+            "critical_speed": 8.0,
+            "drag_reduction_fraction": 0.5,
+            "drag_shape_fraction": 0.8,
+            "flow_relaxation_time": 1.5,
+            "entrainment_fraction": 0.35,
+            "v": -6.0,
+            "wake_drag": 0.1,
+            "regime_occupancy": 0.8,
+            "local_flow_velocity": -2.0
+          }
+        },
+        "result": {
+          "ok": true,
+          "value_real": -8.188666666666666,
+          "value_imag": 0.0,
+          "is_finite": true,
+          "is_real": true,
+          "verdict": "ok",
+          "residual_free_symbols": []
+        }
+      },
+      {
+        "turn": 3,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "emit_data_gen_spec",
+            "id": "call_6IojfvksvXBjo8StLeWhZy4L"
+          }
+        ]
+      },
+      {
+        "tool": "emit_data_gen_spec",
+        "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+      },
+      {
+        "turn": 4,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "emit_data_gen_spec",
+            "id": "call_BCTrUtu0KZ8e0PNTsP4yifEZ"
+          }
+        ]
+      },
+      {
+        "tool": "emit_data_gen_spec",
+        "accepted": true
+      }
+    ],
+    "_provider": "openai",
+    "_num_turns": 4,
+    "discipline": "physics",
+    "scenario_text": "A particle moves vertically through a uniform medium while a constant downward field acts on it and resistance grows with the magnitude of its speed. The velocity is evolved from an independently chosen initial value, without modeling position or impacts. The target is the instantaneous acceleration and the characteristic behavior is approach toward a finite downward terminal speed.",
+    "record_id": "m2_classical_mechanics_20280757_002",
+    "generation": 5,
+    "_n_total": 5000,
+    "mechanism_observation_history": [
+      {
+        "generation": 1,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "For fixed g, mass, and drag_coefficient, the target mapping dv_dt(v) is a single odd-quadratic drag law plus constant gravity: dv_dt=-g-(drag_coefficient/mass)*v*Abs(v), so the deceleration magnitude grows strictly quadratically with |v| in both directions.",
+            "child_relation": "Relax the idealized assumption that the quadratic drag coefficient is constant over the trajectory by allowing it to evolve as a state representing transient wake or medium-structure adjustment. Then dv_dt(v, drag_state) keeps the same opposing-force sign but the effective drag strength depends on recent motion history, producing a non-single-valued acceleration-versus-velocity relation during transients.",
+            "affected_inputs": [
+              "v",
+              "drag_coefficient"
+            ],
+            "observable_effect": "At the same instantaneous velocity magnitude reached at different times after release, the child can give different accelerations because the effective drag level is still relaxing, whereas the parent predicts one unique dv_dt for each v with one shared parameter set."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "speed",
+              "expression": "Abs(v)",
+              "role": "instantaneous slip-speed scale controlling drag activation"
+            },
+            {
+              "name": "quad_drag_accel",
+              "expression": "(drag_coefficient/mass)*v*Abs(v)",
+              "role": "parent quadratic resistive contribution"
+            },
+            {
+              "name": "ballistic_ratio",
+              "expression": "(drag_coefficient*Abs(v)**2)/(mass*g)",
+              "role": "dimensionless measure of drag importance relative to gravity"
+            }
+          ],
+          "activation_condition": "Observable when the drag-adjustment timescale is not negligible compared with the velocity relaxation timescale, so the particle traverses a substantial speed range before the effective drag fully equilibrates; weak or absent when adjustment is much faster than the velocity dynamics.",
+          "train_hidden_contrast": "Within training trajectories, early-time acceleration at moderate |v| differs from later-time acceleration at similar |v| because drag memory is still developing; in holdout trajectories with longer observation or different initial velocity, the same history-dependent curvature persists over a wider speed-time region.",
+          "continuation_path": "Recover the parent law in the fast-adjustment limit where the drag state rapidly locks to the constant baseline drag_coefficient, or when the added state is initialized and constrained to remain at that equilibrium for all t.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "A transient medium-response or wake-strength effect is inherently dynamical and cannot be represented by the existing state v alone without making dv_dt a single-valued function of v again. One additional state is needed to encode the lagged drag environment seen by the particle.",
+          "gap_statement": "The model assumes the resistive environment is instantaneously equilibrated and stationary, so drag strength depends only on current speed and not on recent trajectory history.",
+          "baseline_assumption": "The medium is uniform and stationary, and the quadratic drag response uses a time-independent coefficient with no transient adjustment.",
+          "scientific_mechanism": "Finite-time development and relaxation of the particle's wake or local disturbed flow, causing the effective quadratic drag coefficient to lag changes in speed.",
+          "affected_symbols": [
+            "v",
+            "drag_coefficient",
+            "mass"
+          ],
+          "rationale": "A realistic next refinement is to relax the parent's fixed-environment shortcut: the current target law maps instantaneous velocity to a unique acceleration, with one shared quadratic curvature set by drag_coefficient/mass. Hold mass, g, and the baseline drag scale fixed, and vary the elapsed time along trajectories started from the allowed initial-condition protocol while observing moments that share similar v. The parent predicts identical dv_dt whenever v matches, regardless of whether that speed occurs early or late. A child with a wake-adjustment state predicts weaker drag just after a rapid change in speed and stronger drag after the wake has developed, so the acceleration-versus-velocity curve acquires hysteretic curvature rather than a single static parabola. This is scientifically admissible when wake adaptation is comparable to the fall relaxation time; if adaptation is effectively instantaneous, the effect collapses to the parent and should not be claimed. Refitting one constant drag_coefficient in the parent cannot reproduce two different accelerations at the same v across those conditions, because its target mapping is single-valued in v."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "For fixed g, mass, and drag_coefficient, the target mapping dv_dt(v) is a single odd-quadratic drag law plus constant gravity: dv_dt=-g-(drag_coefficient/mass)*v*Abs(v), so the deceleration magnitude grows strictly quadratically with |v| in both directions.",
+            "child_relation": "Relax the idealized assumption that the quadratic drag coefficient is constant over the trajectory by allowing it to evolve as a state representing transient wake or medium-structure adjustment. Then dv_dt(v, drag_state) keeps the same opposing-force sign but the effective drag strength depends on recent motion history, producing a non-single-valued acceleration-versus-velocity relation during transients.",
+            "affected_inputs": [
+              "v",
+              "drag_coefficient"
+            ],
+            "observable_effect": "At the same instantaneous velocity magnitude reached at different times after release, the child can give different accelerations because the effective drag level is still relaxing, whereas the parent predicts one unique dv_dt for each v with one shared parameter set."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "speed",
+              "expression": "Abs(v)",
+              "role": "instantaneous slip-speed scale controlling drag activation"
+            },
+            {
+              "name": "quad_drag_accel",
+              "expression": "(drag_coefficient/mass)*v*Abs(v)",
+              "role": "parent quadratic resistive contribution"
+            },
+            {
+              "name": "ballistic_ratio",
+              "expression": "(drag_coefficient*Abs(v)**2)/(mass*g)",
+              "role": "dimensionless measure of drag importance relative to gravity"
+            }
+          ],
+          "activation_condition": "Observable when the drag-adjustment timescale is not negligible compared with the velocity relaxation timescale, so the particle traverses a substantial speed range before the effective drag fully equilibrates; weak or absent when adjustment is much faster than the velocity dynamics.",
+          "train_hidden_contrast": "Within training trajectories, early-time acceleration at moderate |v| differs from later-time acceleration at similar |v| because drag memory is still developing; in holdout trajectories with longer observation or different initial velocity, the same history-dependent curvature persists over a wider speed-time region.",
+          "continuation_path": "Recover the parent law in the fast-adjustment limit where the drag state rapidly locks to the constant baseline drag_coefficient, or when the added state is initialized and constrained to remain at that equilibrium for all t.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "A transient medium-response or wake-strength effect is inherently dynamical and cannot be represented by the existing state v alone without making dv_dt a single-valued function of v again. One additional state is needed to encode the lagged drag environment seen by the particle.",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "v",
+            "wake_drag"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "wake-adjusted quadratic drag",
+          "scientific_mechanism": "Finite-time development and relaxation of the particle's wake or local disturbed flow, causing the effective quadratic drag coefficient to lag changes in speed.",
+          "embedding_pattern": "multiplicative_modulation",
+          "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the existing quadratic drag process is multiplied by a dynamically evolving state, making the target law history dependent rather than a single static parabola in v.",
+          "taxonomy_match": "known",
+          "assumption_before": "The medium is uniform and stationary, and the quadratic drag response uses a time-independent coefficient with no transient adjustment.",
+          "assumption_after": "The effective quadratic drag strength evolves with a finite relaxation time as the particle's wake develops and relaxes.",
+          "before_fragment": "-g - (drag_coefficient / mass) * v * Abs(v)",
+          "after_fragment": "-g - (wake_drag / mass) * v * Abs(v)",
+          "parent_reduction": "The parent is recovered when wake_relaxation_time -> 0 so wake_drag = drag_coefficient quasi-instantly, or when wake_drag is fixed identically at drag_coefficient.",
+          "observable_signature": "Compared at fixed g, mass, and drag_coefficient across times within the same trajectory, the parent gives one unique dv_dt for each observed v, while the child gives weaker early drag and stronger later drag at similar |v| whenever wake_drag has not yet equilibrated. The changed target mapping is directly observable because dv_dt depends on the supplied state v together with the observed trajectory-evolved wake_drag state, not merely on an auxiliary variable that leaves dv_dt(v) unchanged.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce this contrast because its target mapping is single-valued in v: once v is fixed, dv_dt is fixed. Retuning drag_coefficient, mass, or g only rescales that one curve and cannot produce two distinct accelerations at the same v across early- and late-time conditions when wake adjustment is active."
+        },
+        "range_suggestions": {
+          "wake_drag": "0 < wake_drag < 10*drag_coefficient",
+          "wake_relaxation_time": "mass/(10*drag_coefficient*max(Abs(v), sqrt(mass*g/drag_coefficient))) < wake_relaxation_time < 10*mass/(drag_coefficient*max(Abs(v), sqrt(mass*g/drag_coefficient)))"
+        }
+      },
+      {
+        "generation": 2,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "For supplied state v, the target mapping dv_dt is a quadratic odd drag law with a single shared gain wake_drag/mass: dv_dt = -g - (wake_drag/mass) v Abs(v), so deceleration magnitude grows exactly like |v|^2 at all admissible speeds.",
+            "child_relation": "Relax the assumption that the effective resistive coefficient is speed-independent once the wake state is given, by allowing wake_drag to weaken with increasing |v| through a finite-speed saturation of drag crisis / slip-stream shielding. Then dv_dt versus v bends away from pure quadratic growth, with weaker-than-quadratic additional deceleration at high |v| while remaining oppositional and bounded.",
+            "affected_inputs": [
+              "v",
+              "wake_drag",
+              "mass"
+            ],
+            "observable_effect": "Across trajectories that reach moderate versus large |v| while holding g, mass, drag_coefficient, and wake_relaxation_time fixed, the child predicts a flatter increase in downward acceleration magnitude at large speeds than the parent's single quadratic curve; one refitted parent gain cannot match both the near-terminal moderate-speed slope and the high-speed curvature simultaneously."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "speed_scale",
+              "expression": "Abs(v)",
+              "role": "instantaneous speed magnitude controlling nonlinear drag regime"
+            },
+            {
+              "name": "drag_loading",
+              "expression": "wake_drag*Abs(v)/mass",
+              "role": "instantaneous drag-induced acceleration scale relative to inertia"
+            },
+            {
+              "name": "gravity_drag_ratio",
+              "expression": "wake_drag*v*Abs(v)/(mass*g)",
+              "role": "relative importance of resistive and gravitational accelerations"
+            }
+          ],
+          "activation_condition": "Observable when trajectories sample a broad enough speed range that |v| transitions from low/moderate values, where the parent's quadratic law is approximately valid, to larger values where drag-coefficient weakening is non-negligible but still leaves resistance positive and the long-time speed finite.",
+          "train_hidden_contrast": "In training, the mechanism appears as mild deviation from a single quadratic dv_dt-versus-v curve at the largest sampled |v|; in holdout with faster initial drops or stronger transient wake mismatch, the same speed-dependent coefficient produces a clearer flattening of acceleration growth rather than a new qualitative regime.",
+          "continuation_path": "Recover the parent by taking the speed-dependence scale to infinity or its amplitude to zero, so the effective drag coefficient becomes independent of |v| and the law returns to dv_dt = -g - (wake_drag/mass) v Abs(v).",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "The omitted physics is a delayed flow-regime adjustment distinct from the existing wake-strength relaxation: a separate state is needed if the speed-dependent drag reduction should develop over finite time rather than instantaneously, because the current states v and wake_drag cannot encode both wake magnitude and regime occupancy without collapsing back to an algebraic coefficient.",
+          "gap_statement": "The current model assumes that, once wake_drag is specified, resistive force remains exactly proportional to v|v| with a speed-independent coefficient over the entire admissible speed range.",
+          "baseline_assumption": "The drag response is symmetric with respect to direction and grows quadratically with speed magnitude with one effective coefficient independent of speed regime.",
+          "scientific_mechanism": "At sufficiently large Reynolds number or disturbed-flow intensity, the surrounding flow can transition toward a lower effective drag regime; this produces a smooth high-speed weakening of the drag coefficient, plausibly with finite relaxation rather than instant switching.",
+          "affected_symbols": [
+            "v",
+            "wake_drag",
+            "mass",
+            "wake_relaxation_time",
+            "drag_coefficient"
+          ],
+          "rationale": "A realistic next refinement is to relax the parent's exact quadratic drag-growth assumption, not to add an unrelated force. Vary the initial velocity so that some runs remain in moderate-speed descent while others reach substantially larger |v|; hold g, mass, drag_coefficient, and wake_relaxation_time fixed. The parent maps the observed state v to dv_dt through one shared quadratic gain wake_drag/mass, so after refitting its parameters it still predicts a single parabola in v for each wake_drag value. A child with speed-regime drag weakening changes the target mapping itself: at larger |v| the slope of dv_dt with respect to v and the curvature of dv_dt versus |v| both reduce relative to the parent, while at lower |v| it remains close to quadratic. This is observable only if the sampled trajectories actually explore a sufficiently wide speed range; otherwise the refinement may be weak and should be acknowledged as such. Because the contrast concerns the shape of dv_dt as a function of the supplied state v, not merely an unobserved auxiliary trajectory, it is a genuine target-function complexity increase. A separate new state is justified if that regime change is assumed to relax over time; otherwise any effect would be an instantaneous algebraic correction and could miss the documented lineage preference for finite-time wake development."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "For supplied state v, the target mapping dv_dt is a quadratic odd drag law with a single shared gain wake_drag/mass: dv_dt = -g - (wake_drag/mass) v Abs(v), so deceleration magnitude grows exactly like |v|^2 at all admissible speeds.",
+            "child_relation": "Relax the assumption that the effective resistive coefficient is speed-independent once the wake state is given, by allowing wake_drag to weaken with increasing |v| through a finite-speed saturation of drag crisis / slip-stream shielding. Then dv_dt versus v bends away from pure quadratic growth, with weaker-than-quadratic additional deceleration at high |v| while remaining oppositional and bounded.",
+            "affected_inputs": [
+              "v",
+              "wake_drag",
+              "mass"
+            ],
+            "observable_effect": "Across trajectories that reach moderate versus large |v| while holding g, mass, drag_coefficient, and wake_relaxation_time fixed, the child predicts a flatter increase in downward acceleration magnitude at large speeds than the parent's single quadratic curve; one refitted parent gain cannot match both the near-terminal moderate-speed slope and the high-speed curvature simultaneously."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "speed_scale",
+              "expression": "Abs(v)",
+              "role": "instantaneous speed magnitude controlling nonlinear drag regime"
+            },
+            {
+              "name": "drag_loading",
+              "expression": "wake_drag*Abs(v)/mass",
+              "role": "instantaneous drag-induced acceleration scale relative to inertia"
+            },
+            {
+              "name": "gravity_drag_ratio",
+              "expression": "wake_drag*v*Abs(v)/(mass*g)",
+              "role": "relative importance of resistive and gravitational accelerations"
+            }
+          ],
+          "activation_condition": "Observable when trajectories sample a broad enough speed range that |v| transitions from low/moderate values, where the parent's quadratic law is approximately valid, to larger values where drag-coefficient weakening is non-negligible but still leaves resistance positive and the long-time speed finite.",
+          "train_hidden_contrast": "In training, the mechanism appears as mild deviation from a single quadratic dv_dt-versus-v curve at the largest sampled |v|; in holdout with faster initial drops or stronger transient wake mismatch, the same speed-dependent coefficient produces a clearer flattening of acceleration growth rather than a new qualitative regime.",
+          "continuation_path": "Recover the parent by taking the speed-dependence scale to infinity or its amplitude to zero, so the effective drag coefficient becomes independent of |v| and the law returns to dv_dt = -g - (wake_drag/mass) v Abs(v).",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "The omitted physics is a delayed flow-regime adjustment distinct from the existing wake-strength relaxation: a separate state is needed if the speed-dependent drag reduction should develop over finite time rather than instantaneously, because the current states v and wake_drag cannot encode both wake magnitude and regime occupancy without collapsing back to an algebraic coefficient.",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "v",
+            "wake_drag",
+            "regime_occupancy"
+          ],
+          "structural_role": "interaction",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "finite-time transition to a reduced-drag high-speed flow regime",
+          "scientific_mechanism": "At sufficiently large Reynolds number or disturbed-flow intensity, the surrounding flow can transition toward a lower effective drag regime; this produces a smooth high-speed weakening of the drag coefficient, plausibly with finite relaxation rather than instant switching.",
+          "embedding_pattern": "nested_nonlinearity",
+          "difficulty_rationale": "The successor nests speed magnitude inside a saturating regime target and then feeds that delayed state into the quadratic drag law, so fitting requires resolving both changed curvature in dv_dt versus v and memory of prior high-speed exposure rather than only retuning one gain.",
+          "taxonomy_match": "known",
+          "assumption_before": "The drag response is symmetric with respect to direction and grows quadratically with speed magnitude with one effective coefficient independent of speed regime.",
+          "assumption_after": "A high-speed reduced-drag regime develops with finite relaxation, making the effective quadratic drag coefficient decrease smoothly with sustained large |v|.",
+          "before_fragment": "-g - (wake_drag / mass) * v * Abs(v)",
+          "after_fragment": "-g - (wake_drag * regime_occupancy / mass) * v * Abs(v)",
+          "parent_reduction": "The parent is recovered when drag_reduction_fraction -> 0, or critical_speed -> oo, or regime_relaxation_time -> 0 together with regime_occupancy approaching 1.",
+          "observable_signature": "Holding g, mass, drag_coefficient, and wake_relaxation_time fixed while varying initial velocity so some trajectories remain in moderate-speed motion and others reach substantially larger |v|, the parent gives one quadratic dv_dt-versus-v curve for each wake_drag value, whereas the child shows reduced curvature and flatter high-speed acceleration growth after finite lag once regime_occupancy drops below 1. The change is in the scored target mapping itself, because large-speed exposure alters dv_dt through the drag multiplier rather than only altering an unobserved auxiliary state.",
+          "shortcut_blocked": "A single parent parameter set can only rescale the quadratic term and therefore preserves exact |v|^2 curvature for all observations. It cannot match both low/moderate-speed behavior and systematically weaker high-speed drag growth across trajectories sampling different speed ranges, because the child introduces a delayed saturating multiplier tied to high-speed regime occupancy rather than a constant coefficient change."
+        },
+        "range_suggestions": {
+          "regime_occupancy": "1 - drag_reduction_fraction <= regime_occupancy <= 1",
+          "regime_relaxation_time": "mass/(10*drag_coefficient*max(critical_speed, sqrt(mass*g/drag_coefficient))) < regime_relaxation_time < 10*mass/(drag_coefficient*max(critical_speed, sqrt(mass*g/drag_coefficient)))",
+          "critical_speed": "sqrt(mass*g/drag_coefficient)/10 < critical_speed < 10*sqrt(mass*g/drag_coefficient)",
+          "drag_reduction_fraction": "0 < drag_reduction_fraction < 1"
+        }
+      },
+      {
+        "generation": 3,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_threshold",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The target acceleration depends on speed through a quadratic drag term multiplied by a smooth monotone regime factor 1 - drag_reduction_fraction*Abs(v)/(critical_speed + Abs(v)), so drag weakening turns on with one fixed broad speed scale.",
+            "child_relation": "Replace the instantaneous speed-selection law for the reduced-drag occupancy by a sharper Reynolds-like onset, e.g. a steeper sigmoidal dependence on Abs(v)/critical_speed, while retaining finite relaxation. Then dv_dt changes from a one-scale gradual weakening to a more abrupt crossover in effective drag versus speed.",
+            "affected_inputs": [
+              "v",
+              "regime_occupancy",
+              "critical_speed",
+              "drag_reduction_fraction"
+            ],
+            "observable_effect": "At fixed mass, g, drag_coefficient, and relaxation times, trajectories that pass from |v| well below to well above critical_speed show a narrower transition band in acceleration-versus-speed: the child has little drag reduction below threshold and stronger reduction soon above it, whereas the parent spreads the change too broadly."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "speed_ratio",
+              "expression": "Abs(v)/critical_speed",
+              "role": "Dimensionless distance into the high-speed drag-reduction regime"
+            },
+            {
+              "name": "effective_drag_factor",
+              "expression": "wake_drag*regime_occupancy/mass",
+              "role": "Instantaneous quadratic drag strength appearing in dv_dt"
+            },
+            {
+              "name": "terminal_balance_proxy",
+              "expression": "wake_drag*regime_occupancy*Abs(v)**2/(mass*g)",
+              "role": "Relative importance of drag to weight at the current speed"
+            }
+          ],
+          "activation_condition": "Observable when trajectories explore speed ratios from below to above order unity, i.e. Abs(v)/critical_speed ~ 0.3 to 3, and regime relaxation is not so slow that occupancy stays frozen over the sampled window.",
+          "train_hidden_contrast": "In training, moderate excursions around critical_speed reveal changed local curvature of acceleration versus speed; in holdout, larger downward-speed excursions extend the same sharper crossover toward the reduced-drag asymptote without introducing a new mechanism.",
+          "continuation_path": "Recover the parent by taking the sharpened regime-selection function back to the current hyperbolic form, or to its weak-slope limit over the sampled speed range.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The current model assumes reduced-drag regime selection increases with speed through one fixed rational saturation shape, which hard-codes a broad crossover and may miss a sharper onset of wake reorganization near a critical speed.",
+          "baseline_assumption": "The occupancy source term is assumed to be a specific smooth function proportional to Abs(v)/(critical_speed + Abs(v)).",
+          "scientific_mechanism": "Transition to a lower-drag flow state often turns on over a relatively narrow speed band rather than with a uniformly gradual saturation; this changes how effective drag weakens as speed crosses the critical scale.",
+          "affected_symbols": [
+            "v",
+            "regime_occupancy",
+            "critical_speed",
+            "drag_reduction_fraction"
+          ],
+          "rationale": "A realistic next refinement is to relax the parent’s specific speed-to-regime mapping, not to add a new process. The parent already includes delayed occupation of a reduced-drag state, but it uses a single broad threshold shape. Vary the initial velocity so that some runs remain mostly below critical_speed and others traverse through and above it, while holding g, mass, drag_coefficient, wake_relaxation_time, regime_relaxation_time, critical_speed, and drag_reduction_fraction fixed. Then compare dv_dt as a function of observed v along trajectories. The parent predicts a gradual redistribution of drag across all these runs with one fixed curvature in speed ratio. A child with a sharper onset predicts nearly baseline drag for subcritical speeds and a faster drop in effective drag just above threshold, producing a visibly different acceleration-versus-speed curvature and transition width. This affects the scored target mapping directly because regime_occupancy enters dv_dt and is already an observed state in the solver contract. The effect is admissible when the sampled trajectories actually cross the critical-speed scale and when occupancy relaxation is not so slow that no transition develops during observation. If all observed speeds stay far below or far above critical_speed, the refinement would be weakly identifiable; that limitation is explicit."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_threshold",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The target acceleration depends on speed through a quadratic drag term multiplied by a smooth monotone regime factor 1 - drag_reduction_fraction*Abs(v)/(critical_speed + Abs(v)), so drag weakening turns on with one fixed broad speed scale.",
+            "child_relation": "Replace the instantaneous speed-selection law for the reduced-drag occupancy by a sharper Reynolds-like onset, e.g. a steeper sigmoidal dependence on Abs(v)/critical_speed, while retaining finite relaxation. Then dv_dt changes from a one-scale gradual weakening to a more abrupt crossover in effective drag versus speed.",
+            "affected_inputs": [
+              "v",
+              "regime_occupancy",
+              "critical_speed",
+              "drag_reduction_fraction"
+            ],
+            "observable_effect": "At fixed mass, g, drag_coefficient, and relaxation times, trajectories that pass from |v| well below to well above critical_speed show a narrower transition band in acceleration-versus-speed: the child has little drag reduction below threshold and stronger reduction soon above it, whereas the parent spreads the change too broadly."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "speed_ratio",
+              "expression": "Abs(v)/critical_speed",
+              "role": "Dimensionless distance into the high-speed drag-reduction regime"
+            },
+            {
+              "name": "effective_drag_factor",
+              "expression": "wake_drag*regime_occupancy/mass",
+              "role": "Instantaneous quadratic drag strength appearing in dv_dt"
+            },
+            {
+              "name": "terminal_balance_proxy",
+              "expression": "wake_drag*regime_occupancy*Abs(v)**2/(mass*g)",
+              "role": "Relative importance of drag to weight at the current speed"
+            }
+          ],
+          "activation_condition": "Observable when trajectories explore speed ratios from below to above order unity, i.e. Abs(v)/critical_speed ~ 0.3 to 3, and regime relaxation is not so slow that occupancy stays frozen over the sampled window.",
+          "train_hidden_contrast": "In training, moderate excursions around critical_speed reveal changed local curvature of acceleration versus speed; in holdout, larger downward-speed excursions extend the same sharper crossover toward the reduced-drag asymptote without introducing a new mechanism.",
+          "continuation_path": "Recover the parent by taking the sharpened regime-selection function back to the current hyperbolic form, or to its weak-slope limit over the sampled speed range.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "v",
+            "regime_occupancy",
+            "critical_speed",
+            "drag_reduction_fraction"
+          ],
+          "structural_role": "transition",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Sharper speed-triggered occupation of a lower-drag wake regime",
+          "scientific_mechanism": "Transition to a lower-drag flow state often turns on over a relatively narrow speed band rather than with a uniformly gradual saturation; this changes how effective drag weakens as speed crosses the critical scale.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "This is harder than coefficient retuning because it changes the shape of the speed-to-occupancy transfer law inside the dynamical feedback to dv_dt, specifically narrowing the crossover region instead of rescaling one broad threshold curve.",
+          "taxonomy_match": "known",
+          "assumption_before": "The occupancy source term is assumed to be a specific smooth function proportional to Abs(v)/(critical_speed + Abs(v)).",
+          "assumption_after": "The occupancy source term follows a sharper sigmoidal threshold in the speed ratio while retaining the same saturation limits and relaxation structure.",
+          "before_fragment": "-g - (wake_drag * regime_occupancy / mass) * v * Abs(v)",
+          "after_fragment": "-g - (wake_drag * regime_occupancy / mass) * v * Abs(v)",
+          "parent_reduction": "The parent is recovered by replacing the sharpened occupancy source in the regime_occupancy equation with the original hyperbolic source term.",
+          "observable_signature": "With all parameters fixed and initial velocity varied so some trajectories stay subcritical while others cross |v| ~ critical_speed, the child predicts a tighter acceleration-versus-speed transition band: dv_dt remains closer to the baseline quadratic-drag law below threshold and then bends more quickly toward the reduced-drag branch above threshold. This directly changes the scored target mapping because regime_occupancy is part of the solved state entering dv_dt, not merely an unobserved auxiliary trajectory.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce both weak drag reduction well below critical_speed and the faster post-threshold drop in effective drag over the same observed speed window, because its occupancy source has one fixed hyperbolic curvature and transition width. Retuning drag_reduction_fraction, critical_speed, or regime_relaxation_time only shifts amplitude, location, or lag of that broad crossover, but does not create the sharper thresholded redistribution of drag across subcritical and supercritical conditions."
+        },
+        "range_suggestions": {}
+      },
+      {
+        "generation": 4,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The target mapping uses a purely quadratic resistive law, dv_dt = -g - K_eff(v,t) * v * Abs(v) / mass, so at fixed wake_drag and regime_occupancy the drag magnitude scales as |v|^2 with one fixed local log-slope in speed.",
+            "child_relation": "Relax the assumption that resistance remains exactly quadratic at all admissible speeds by allowing the drag prefactor to vary smoothly with speed through an additional Reynolds-like shape factor, so the target mapping bends from near-quadratic to a different high-speed slope while still opposing motion and remaining bounded.",
+            "affected_inputs": [
+              "v",
+              "wake_drag",
+              "regime_occupancy",
+              "critical_speed"
+            ],
+            "observable_effect": "Across trajectories that stay below versus exceed the critical-speed band, acceleration-versus-speed curvature changes systematically: the child predicts a different steepening or flattening of |dv_dt+g| against |v| than any single quadratic parent law with one shared parameter set."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "speed_ratio",
+              "expression": "Abs(v)/critical_speed",
+              "role": "Dimensionless measure of whether the trajectory samples the onset region where the drag-speed law can depart from strict quadratic behavior"
+            },
+            {
+              "name": "effective_drag_load",
+              "expression": "wake_drag*regime_occupancy*Abs(v)**2/mass",
+              "role": "Current quadratic-scale drag acceleration used by the parent target mapping"
+            },
+            {
+              "name": "net_accel_offset",
+              "expression": "dv_dt + g",
+              "role": "Observed resistive contribution to acceleration after removing the constant field"
+            }
+          ],
+          "activation_condition": "Observable when admissible trajectories sample both |v| << critical_speed and |v| comparable to or larger than critical_speed, so the speed dependence of resistive scaling can be contrasted over at least a moderate dynamic range.",
+          "train_hidden_contrast": "In training, the mechanism appears as modest but systematic deviation from a single |v|^2 drag curve near and above the critical-speed band; in holdout with larger attained speeds or longer transients in the reduced-drag regime, the same speed-dependent reshaping persists and becomes clearer.",
+          "continuation_path": "Recover the parent by taking the added speed-shape correction to zero so the drag law returns exactly to quadratic in |v| at every speed.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The model assumes the resistive force remains exactly quadratic in speed magnitude even while the flow regime itself is already allowed to change with speed and wake history.",
+          "baseline_assumption": "The drag response is symmetric with respect to direction and grows quadratically with speed magnitude.",
+          "scientific_mechanism": "As the surrounding flow transitions across Reynolds-number or wake-structure regimes, the drag law can remain direction-opposing yet deviate smoothly from a strict |v|^2 dependence, producing speed-dependent curvature in the acceleration-speed relation beyond a single quadratic form.",
+          "affected_symbols": [
+            "v",
+            "wake_drag",
+            "regime_occupancy",
+            "critical_speed"
+          ],
+          "rationale": "A realistic next refinement is to relax the exact-quadratic drag assumption rather than adding an unrelated process. The parent already includes delayed wake adjustment and occupation of a reduced-drag regime, but its scored target still maps those states to acceleration through one fixed quadratic speed law. Varying condition: trajectories or initial velocities that keep |v| well below the critical-speed scale versus those that pass through and above it. Held fixed: g, mass, drag_coefficient, wake_relaxation_time, regime_relaxation_time, drag_reduction_fraction, and the same shared parameter set for all trajectories. Parent response: once wake_drag and regime_occupancy are known, the resistive acceleration is constrained to lie on a single quadratic dependence in |v|. Child response: the same wake and regime variables remain, but the speed-to-drag mapping itself changes curvature with |v|, so the slope of log resistive acceleration versus log speed is no longer fixed at 2. This is observable in the scored target, not only in auxiliary states, because dv_dt at a given observed v changes directly. The effect is scientifically admissible when the sampled speeds span the regime where flow-structure changes matter; if all observations remain in a narrow low-speed range, the refinement will be weak and effectively collapse back toward the parent."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The target mapping uses a purely quadratic resistive law, dv_dt = -g - K_eff(v,t) * v * Abs(v) / mass, so at fixed wake_drag and regime_occupancy the drag magnitude scales as |v|^2 with one fixed local log-slope in speed.",
+            "child_relation": "Relax the assumption that resistance remains exactly quadratic at all admissible speeds by allowing the drag prefactor to vary smoothly with speed through an additional Reynolds-like shape factor, so the target mapping bends from near-quadratic to a different high-speed slope while still opposing motion and remaining bounded.",
+            "affected_inputs": [
+              "v",
+              "wake_drag",
+              "regime_occupancy",
+              "critical_speed"
+            ],
+            "observable_effect": "Across trajectories that stay below versus exceed the critical-speed band, acceleration-versus-speed curvature changes systematically: the child predicts a different steepening or flattening of |dv_dt+g| against |v| than any single quadratic parent law with one shared parameter set."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "speed_ratio",
+              "expression": "Abs(v)/critical_speed",
+              "role": "Dimensionless measure of whether the trajectory samples the onset region where the drag-speed law can depart from strict quadratic behavior"
+            },
+            {
+              "name": "effective_drag_load",
+              "expression": "wake_drag*regime_occupancy*Abs(v)**2/mass",
+              "role": "Current quadratic-scale drag acceleration used by the parent target mapping"
+            },
+            {
+              "name": "net_accel_offset",
+              "expression": "dv_dt + g",
+              "role": "Observed resistive contribution to acceleration after removing the constant field"
+            }
+          ],
+          "activation_condition": "Observable when admissible trajectories sample both |v| << critical_speed and |v| comparable to or larger than critical_speed, so the speed dependence of resistive scaling can be contrasted over at least a moderate dynamic range.",
+          "train_hidden_contrast": "In training, the mechanism appears as modest but systematic deviation from a single |v|^2 drag curve near and above the critical-speed band; in holdout with larger attained speeds or longer transients in the reduced-drag regime, the same speed-dependent reshaping persists and becomes clearer.",
+          "continuation_path": "Recover the parent by taking the added speed-shape correction to zero so the drag law returns exactly to quadratic in |v| at every speed.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "unary",
+          "scope_symbols": [
+            "v"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "speed-dependent reshaping of drag through a finite-capacity transition across flow regimes",
+          "scientific_mechanism": "As the surrounding flow transitions across Reynolds-number or wake-structure regimes, the drag law can remain direction-opposing yet deviate smoothly from a strict |v|^2 dependence, producing speed-dependent curvature in the acceleration-speed relation beyond a single quadratic form.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "This refinement changes the functional dependence of the scored target on speed by inserting a bounded transition factor tied to the critical-speed scale, so the local slope of resistive acceleration versus speed varies across the trajectory. A coefficient-only correction cannot create this speed-dependent curvature while preserving one shared parameter set across low- and high-speed conditions.",
+          "taxonomy_match": "known",
+          "assumption_before": "The drag response is symmetric with respect to direction and grows quadratically with speed magnitude.",
+          "assumption_after": "The drag remains direction-opposing but its magnitude departs smoothly from exact quadratic scaling through a saturating speed-shape factor near and above the critical-speed band.",
+          "before_fragment": "-g - (wake_drag * regime_occupancy / mass) * v * Abs(v)",
+          "after_fragment": "-g - (wake_drag * regime_occupancy / mass) * v * Abs(v) * (1 + drag_shape_fraction * Abs(v) / (critical_speed + Abs(v)))",
+          "parent_reduction": "Setting drag_shape_fraction = 0 recovers the parent expression exactly.",
+          "observable_signature": "Holding g, mass, wake_drag, regime_occupancy, and the shared parameter set fixed, the parent predicts net resistive acceleration proportional to Abs(v)^2, whereas the child predicts an additional smooth increase in effective drag scaling once Abs(v)/critical_speed is no longer small. Thus trajectories confined to low speed and trajectories entering the critical-speed band show different acceleration-speed curvature under the child, directly in dv_dt rather than only in auxiliary state histories.",
+          "shortcut_blocked": "Refitting wake_drag, drag_coefficient, drag_reduction_fraction, or mass only rescales the quadratic parent relation or its auxiliary evolution; it cannot change the fixed local log-slope of the target mapping with respect to Abs(v) at fixed observed wake_drag and regime_occupancy. Therefore one shared parent parameter set cannot simultaneously match near-quadratic low-speed behavior and the systematically steeper high-speed resistive trend produced by the saturating shape factor when both speed ranges are observed."
+        },
+        "range_suggestions": {
+          "drag_shape_fraction": "0 <= drag_shape_fraction <= 2"
+        }
+      },
+      {
+        "generation": 5,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "interaction_emergence",
+            "parent_relation": "The drag multiplier depends only on the particle speed and internal wake/regime states, so the acceleration-speed curve is symmetric with respect to the medium and is fully determined by v once wake_drag and regime_occupancy are known.",
+            "child_relation": "Release the assumption of a stationary medium by allowing the drag to depend on slip speed relative to a slowly evolving local flow state, so the target acceleration depends on the interaction between particle velocity and that flow state rather than on v alone.",
+            "affected_inputs": [
+              "v",
+              "wake_drag",
+              "regime_occupancy"
+            ],
+            "observable_effect": "For trajectories with the same instantaneous particle speed v but different recently induced co-flow state, the child predicts weaker downward drag after sustained downward motion and stronger drag after upward motion into still-descending disturbed fluid; the parent cannot produce this history-dependent asymmetry from v alone."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "quadratic_drag_load",
+              "expression": "(wake_drag*regime_occupancy/mass)*Abs(v)*Abs(v)",
+              "role": "current magnitude scale of the parent quadratic resistance"
+            },
+            {
+              "name": "shape_ratio",
+              "expression": "Abs(v)/(critical_speed + Abs(v))",
+              "role": "strength of the existing smooth drag-shape correction"
+            },
+            {
+              "name": "regime_deficit",
+              "expression": "1 - regime_occupancy",
+              "role": "occupation of the reduced-drag high-speed regime"
+            }
+          ],
+          "activation_condition": "Most visible when the particle undergoes sustained motion long enough to build a disturbed co-moving wake over a timescale comparable to wake_relaxation_time or regime_relaxation_time, and when |v| is large enough that drag is dynamically important relative to g; negligible in very short transients or near-rest motion.",
+          "train_hidden_contrast": "In training, long downward runs already create wake-memory effects through wake_drag and regime_occupancy but the target still depends only on absolute speed; extending to holdout with stronger speed reversals or abrupt release conditions reveals additional acceleration differences caused by slip-relative drag that are not reproducible by the parent with one shared parameter set.",
+          "continuation_path": "Recover the parent law in the limit of vanishing or instantaneously relaxing local-flow advection memory, so the medium is effectively stationary and drag depends only on v.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "A stationary-medium model cannot represent history-dependent slip between the particle and a locally entrained disturbed flow. This requires one dynamic state for the local co-flow velocity; existing states only scale drag magnitude and regime occupancy and cannot encode signed medium motion relative to the particle.",
+          "gap_statement": "The current model assumes the surrounding medium is stationary even while it already includes finite wake development; this omits the possibility that the disturbed flow acquires a transient co-moving velocity that changes drag through slip speed rather than particle speed alone.",
+          "baseline_assumption": "The medium is uniform and stationary.",
+          "scientific_mechanism": "Wake entrainment or local co-flow memory: after sustained motion, the nearby fluid is partially carried with the particle and relaxes back over finite time, so the resistive force remains direction-opposing to the slip velocity but no longer depends only on the particle's absolute velocity.",
+          "affected_symbols": [
+            "v",
+            "wake_drag",
+            "regime_occupancy",
+            "wake_relaxation_time"
+          ],
+          "rationale": "A realistic next refinement is to relax the stationary-medium assumption rather than adding a wholly new force. The parent target mapping is effectively a fixed-environment law: once wake_drag and regime_occupancy are observed, dv_dt is an even-in-speed drag correction plus constant gravity, with no dependence on whether the surrounding disturbed fluid is co-moving. Hold mass, g, drag_coefficient, critical_speed, drag_reduction_fraction, drag_shape_fraction, and the initial conditions fixed; vary the recent velocity history so that one trajectory reaches a given negative v after a long uninterrupted fall while another reaches the same v after a reversal or shorter descent. Under admissible conditions with significant drag and finite wake-memory timescales, the child predicts different accelerations at the same v because the slip relative to the entrained local flow differs. A single refit of the parent parameters cannot reproduce this across both conditions, because its scored mapping at a supplied state is still only a function of v, wake_drag, and regime_occupancy and remains symmetric with respect to medium motion. The refinement is scientifically limited if the disturbed fluid velocity relaxes much faster than the trajectory changes or remains negligible throughout the sampled speeds; in that case the parent is recovered."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "interaction_emergence",
+            "parent_relation": "The drag multiplier depends only on the particle speed and internal wake/regime states, so the acceleration-speed curve is symmetric with respect to the medium and is fully determined by v once wake_drag and regime_occupancy are known.",
+            "child_relation": "Release the assumption of a stationary medium by allowing the drag to depend on slip speed relative to a slowly evolving local flow state, so the target acceleration depends on the interaction between particle velocity and that flow state rather than on v alone.",
+            "affected_inputs": [
+              "v",
+              "wake_drag",
+              "regime_occupancy"
+            ],
+            "observable_effect": "For trajectories with the same instantaneous particle speed v but different recently induced co-flow state, the child predicts weaker downward drag after sustained downward motion and stronger drag after upward motion into still-descending disturbed fluid; the parent cannot produce this history-dependent asymmetry from v alone."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "quadratic_drag_load",
+              "expression": "(wake_drag*regime_occupancy/mass)*Abs(v)*Abs(v)",
+              "role": "current magnitude scale of the parent quadratic resistance"
+            },
+            {
+              "name": "shape_ratio",
+              "expression": "Abs(v)/(critical_speed + Abs(v))",
+              "role": "strength of the existing smooth drag-shape correction"
+            },
+            {
+              "name": "regime_deficit",
+              "expression": "1 - regime_occupancy",
+              "role": "occupation of the reduced-drag high-speed regime"
+            }
+          ],
+          "activation_condition": "Most visible when the particle undergoes sustained motion long enough to build a disturbed co-moving wake over a timescale comparable to wake_relaxation_time or regime_relaxation_time, and when |v| is large enough that drag is dynamically important relative to g; negligible in very short transients or near-rest motion.",
+          "train_hidden_contrast": "In training, long downward runs already create wake-memory effects through wake_drag and regime_occupancy but the target still depends only on absolute speed; extending to holdout with stronger speed reversals or abrupt release conditions reveals additional acceleration differences caused by slip-relative drag that are not reproducible by the parent with one shared parameter set.",
+          "continuation_path": "Recover the parent law in the limit of vanishing or instantaneously relaxing local-flow advection memory, so the medium is effectively stationary and drag depends only on v.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "A stationary-medium model cannot represent history-dependent slip between the particle and a locally entrained disturbed flow. This requires one dynamic state for the local co-flow velocity; existing states only scale drag magnitude and regime occupancy and cannot encode signed medium motion relative to the particle.",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "v",
+            "local_flow_velocity",
+            "wake_drag",
+            "regime_occupancy"
+          ],
+          "structural_role": "interaction",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "local wake entrainment modifies drag through slip-relative motion",
+          "scientific_mechanism": "Wake entrainment or local co-flow memory: after sustained motion, the nearby fluid is partially carried with the particle and relaxes back over finite time, so the resistive force remains direction-opposing to the slip velocity but no longer depends only on the particle's absolute velocity.",
+          "embedding_pattern": "multiplicative_modulation",
+          "difficulty_rationale": "This is harder than a coefficient-only correction because the new state changes the argument of the nonlinear drag law itself, creating trajectory-dependent acceleration differences at the same instantaneous particle speed. Retuning existing drag gains can only rescale or reshape a v-only resistance curve, not create a slip-mediated interaction with signed local flow memory.",
+          "taxonomy_match": "known",
+          "assumption_before": "The medium is uniform and stationary.",
+          "assumption_after": "The nearby medium can acquire a transient entrained co-flow velocity that relaxes back to the ambient state, so drag depends on slip relative to that local flow.",
+          "before_fragment": "-g - (wake_drag * regime_occupancy / mass) * v * Abs(v) * (1 + drag_shape_fraction * Abs(v) / (critical_speed + Abs(v)))",
+          "after_fragment": "-g - (wake_drag * regime_occupancy / mass) * (v - local_flow_velocity) * Abs(v - local_flow_velocity) * (1 + drag_shape_fraction * Abs(v - local_flow_velocity) / (critical_speed + Abs(v - local_flow_velocity)))",
+          "parent_reduction": "The successor reduces to the parent when entrainment_fraction = 0 or flow_relaxation_time -> 0, giving local_flow_velocity -> 0 so drag depends only on v.",
+          "observable_signature": "Hold fixed mass, g, drag_coefficient, critical_speed, drag_reduction_fraction, drag_shape_fraction, and the initial conditions; compare times at which two trajectories share the same instantaneous v, wake_drag, and regime_occupancy but differ in local_flow_velocity because one follows a long same-direction fall and the other follows a reversal. The child then gives different dv_dt through slip-relative drag, with reduced resistance when local_flow_velocity has been entrained toward v and enhanced resistance when it opposes v; this effect is observable when flow memory persists over the sampled trajectory segment.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce this contrast because its scored target mapping is exactly a function of v, wake_drag, and regime_occupancy only, with no argument for signed medium motion. Refitting wake or regime timescales can change auxiliary trajectories, but once those supplied states are fixed the parent assigns one unique dv_dt, whereas the child assigns different dv_dt values at the same supplied parent-state coordinates when local_flow_velocity differs."
+        },
+        "range_suggestions": {
+          "local_flow_velocity": "order of the particle speed magnitude, with admissible sign matching recent motion",
+          "flow_relaxation_time": "positive and comparable to or larger than short wake-memory timescales when co-flow memory is observable",
+          "entrainment_fraction": "0 <= entrainment_fraction <= 1"
+        }
+      }
+    ],
+    "evolution_provenance": {
+      "dimension_track": null,
+      "mechanism_profile": {
+        "allowed_structural_roles": [
+          "contribution",
+          "response_law",
+          "modulation",
+          "interaction",
+          "transition",
+          "timescale"
+        ],
+        "preferred_scopes": [
+          "unary",
+          "pairwise",
+          "state_coupling",
+          "time_forcing"
+        ],
+        "domain_mechanisms": [
+          {
+            "id": "nonlinear_drag",
+            "description": "velocity-dependent nonlinear dissipation",
+            "operations": [
+              "add_term",
+              "change_assumption"
+            ]
+          },
+          {
+            "id": "position_dependent_force",
+            "description": "nonlinear or spatially varying restoring/drive force",
+            "operations": [
+              "add_term",
+              "change_assumption"
+            ]
+          },
+          {
+            "id": "thermal_friction",
+            "description": "temperature-dependent or regime-dependent friction",
+            "operations": [
+              "change_assumption"
+            ]
+          },
+          {
+            "id": "coupled_auxiliary_force",
+            "description": "force mediated by an already modeled auxiliary state",
+            "operations": [
+              "add_term"
+            ]
+          }
+        ],
+        "profile_source": "subfield",
+        "ontology_schema_version": "1.0",
+        "taxonomy_schema_version": "1.0"
+      },
+      "baseline_mechanisms": [
+        "Uniform downward field",
+        "Inertia",
+        "Speed-dependent resistive drag"
+      ],
+      "baseline_assumptions": [
+        "The medium is uniform and stationary.",
+        "The downward field is constant in time and space.",
+        "The drag response is symmetric with respect to direction and grows quadratically with speed magnitude.",
+        "The particle remains intact and does not contact a boundary."
+      ],
+      "scientific_constraints": [
+        "The resistive force opposes the instantaneous direction of motion.",
+        "The long-time speed remains bounded.",
+        "The particle's mass and the medium properties remain positive and fixed.",
+        "The downward direction is fixed throughout the trajectory."
+      ],
+      "refinement_agenda": [
+        "Replace the drag response with a low-speed linear regime.",
+        "Add buoyancy as a revised background assumption.",
+        "Allow the medium density to vary with position or time.",
+        "Add a boundary and an impact rule after diagnosing finite-domain motion."
+      ],
+      "evolution_contracts": [
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "For fixed g, mass, and drag_coefficient, the target mapping dv_dt(v) is a single odd-quadratic drag law plus constant gravity: dv_dt=-g-(drag_coefficient/mass)*v*Abs(v), so the deceleration magnitude grows strictly quadratically with |v| in both directions.",
+            "child_relation": "Relax the idealized assumption that the quadratic drag coefficient is constant over the trajectory by allowing it to evolve as a state representing transient wake or medium-structure adjustment. Then dv_dt(v, drag_state) keeps the same opposing-force sign but the effective drag strength depends on recent motion history, producing a non-single-valued acceleration-versus-velocity relation during transients.",
+            "affected_inputs": [
+              "v",
+              "drag_coefficient"
+            ],
+            "observable_effect": "At the same instantaneous velocity magnitude reached at different times after release, the child can give different accelerations because the effective drag level is still relaxing, whereas the parent predicts one unique dv_dt for each v with one shared parameter set."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "speed",
+              "expression": "Abs(v)",
+              "role": "instantaneous slip-speed scale controlling drag activation"
+            },
+            {
+              "name": "quad_drag_accel",
+              "expression": "(drag_coefficient/mass)*v*Abs(v)",
+              "role": "parent quadratic resistive contribution"
+            },
+            {
+              "name": "ballistic_ratio",
+              "expression": "(drag_coefficient*Abs(v)**2)/(mass*g)",
+              "role": "dimensionless measure of drag importance relative to gravity"
+            }
+          ],
+          "activation_condition": "Observable when the drag-adjustment timescale is not negligible compared with the velocity relaxation timescale, so the particle traverses a substantial speed range before the effective drag fully equilibrates; weak or absent when adjustment is much faster than the velocity dynamics.",
+          "train_hidden_contrast": "Within training trajectories, early-time acceleration at moderate |v| differs from later-time acceleration at similar |v| because drag memory is still developing; in holdout trajectories with longer observation or different initial velocity, the same history-dependent curvature persists over a wider speed-time region.",
+          "continuation_path": "Recover the parent law in the fast-adjustment limit where the drag state rapidly locks to the constant baseline drag_coefficient, or when the added state is initialized and constrained to remain at that equilibrium for all t.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "A transient medium-response or wake-strength effect is inherently dynamical and cannot be represented by the existing state v alone without making dv_dt a single-valued function of v again. One additional state is needed to encode the lagged drag environment seen by the particle.",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "v",
+            "wake_drag"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "wake-adjusted quadratic drag",
+          "scientific_mechanism": "Finite-time development and relaxation of the particle's wake or local disturbed flow, causing the effective quadratic drag coefficient to lag changes in speed.",
+          "embedding_pattern": "multiplicative_modulation",
+          "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the existing quadratic drag process is multiplied by a dynamically evolving state, making the target law history dependent rather than a single static parabola in v.",
+          "taxonomy_match": "known",
+          "assumption_before": "The medium is uniform and stationary, and the quadratic drag response uses a time-independent coefficient with no transient adjustment.",
+          "assumption_after": "The effective quadratic drag strength evolves with a finite relaxation time as the particle's wake develops and relaxes.",
+          "before_fragment": "-g - (drag_coefficient / mass) * v * Abs(v)",
+          "after_fragment": "-g - (wake_drag / mass) * v * Abs(v)",
+          "parent_reduction": "The parent is recovered when wake_relaxation_time -> 0 so wake_drag = drag_coefficient quasi-instantly, or when wake_drag is fixed identically at drag_coefficient.",
+          "observable_signature": "Compared at fixed g, mass, and drag_coefficient across times within the same trajectory, the parent gives one unique dv_dt for each observed v, while the child gives weaker early drag and stronger later drag at similar |v| whenever wake_drag has not yet equilibrated. The changed target mapping is directly observable because dv_dt depends on the supplied state v together with the observed trajectory-evolved wake_drag state, not merely on an auxiliary variable that leaves dv_dt(v) unchanged.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce this contrast because its target mapping is single-valued in v: once v is fixed, dv_dt is fixed. Retuning drag_coefficient, mass, or g only rescales that one curve and cannot produce two distinct accelerations at the same v across early- and late-time conditions when wake adjustment is active."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "For supplied state v, the target mapping dv_dt is a quadratic odd drag law with a single shared gain wake_drag/mass: dv_dt = -g - (wake_drag/mass) v Abs(v), so deceleration magnitude grows exactly like |v|^2 at all admissible speeds.",
+            "child_relation": "Relax the assumption that the effective resistive coefficient is speed-independent once the wake state is given, by allowing wake_drag to weaken with increasing |v| through a finite-speed saturation of drag crisis / slip-stream shielding. Then dv_dt versus v bends away from pure quadratic growth, with weaker-than-quadratic additional deceleration at high |v| while remaining oppositional and bounded.",
+            "affected_inputs": [
+              "v",
+              "wake_drag",
+              "mass"
+            ],
+            "observable_effect": "Across trajectories that reach moderate versus large |v| while holding g, mass, drag_coefficient, and wake_relaxation_time fixed, the child predicts a flatter increase in downward acceleration magnitude at large speeds than the parent's single quadratic curve; one refitted parent gain cannot match both the near-terminal moderate-speed slope and the high-speed curvature simultaneously."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "speed_scale",
+              "expression": "Abs(v)",
+              "role": "instantaneous speed magnitude controlling nonlinear drag regime"
+            },
+            {
+              "name": "drag_loading",
+              "expression": "wake_drag*Abs(v)/mass",
+              "role": "instantaneous drag-induced acceleration scale relative to inertia"
+            },
+            {
+              "name": "gravity_drag_ratio",
+              "expression": "wake_drag*v*Abs(v)/(mass*g)",
+              "role": "relative importance of resistive and gravitational accelerations"
+            }
+          ],
+          "activation_condition": "Observable when trajectories sample a broad enough speed range that |v| transitions from low/moderate values, where the parent's quadratic law is approximately valid, to larger values where drag-coefficient weakening is non-negligible but still leaves resistance positive and the long-time speed finite.",
+          "train_hidden_contrast": "In training, the mechanism appears as mild deviation from a single quadratic dv_dt-versus-v curve at the largest sampled |v|; in holdout with faster initial drops or stronger transient wake mismatch, the same speed-dependent coefficient produces a clearer flattening of acceleration growth rather than a new qualitative regime.",
+          "continuation_path": "Recover the parent by taking the speed-dependence scale to infinity or its amplitude to zero, so the effective drag coefficient becomes independent of |v| and the law returns to dv_dt = -g - (wake_drag/mass) v Abs(v).",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "The omitted physics is a delayed flow-regime adjustment distinct from the existing wake-strength relaxation: a separate state is needed if the speed-dependent drag reduction should develop over finite time rather than instantaneously, because the current states v and wake_drag cannot encode both wake magnitude and regime occupancy without collapsing back to an algebraic coefficient.",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "v",
+            "wake_drag",
+            "regime_occupancy"
+          ],
+          "structural_role": "interaction",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "finite-time transition to a reduced-drag high-speed flow regime",
+          "scientific_mechanism": "At sufficiently large Reynolds number or disturbed-flow intensity, the surrounding flow can transition toward a lower effective drag regime; this produces a smooth high-speed weakening of the drag coefficient, plausibly with finite relaxation rather than instant switching.",
+          "embedding_pattern": "nested_nonlinearity",
+          "difficulty_rationale": "The successor nests speed magnitude inside a saturating regime target and then feeds that delayed state into the quadratic drag law, so fitting requires resolving both changed curvature in dv_dt versus v and memory of prior high-speed exposure rather than only retuning one gain.",
+          "taxonomy_match": "known",
+          "assumption_before": "The drag response is symmetric with respect to direction and grows quadratically with speed magnitude with one effective coefficient independent of speed regime.",
+          "assumption_after": "A high-speed reduced-drag regime develops with finite relaxation, making the effective quadratic drag coefficient decrease smoothly with sustained large |v|.",
+          "before_fragment": "-g - (wake_drag / mass) * v * Abs(v)",
+          "after_fragment": "-g - (wake_drag * regime_occupancy / mass) * v * Abs(v)",
+          "parent_reduction": "The parent is recovered when drag_reduction_fraction -> 0, or critical_speed -> oo, or regime_relaxation_time -> 0 together with regime_occupancy approaching 1.",
+          "observable_signature": "Holding g, mass, drag_coefficient, and wake_relaxation_time fixed while varying initial velocity so some trajectories remain in moderate-speed motion and others reach substantially larger |v|, the parent gives one quadratic dv_dt-versus-v curve for each wake_drag value, whereas the child shows reduced curvature and flatter high-speed acceleration growth after finite lag once regime_occupancy drops below 1. The change is in the scored target mapping itself, because large-speed exposure alters dv_dt through the drag multiplier rather than only altering an unobserved auxiliary state.",
+          "shortcut_blocked": "A single parent parameter set can only rescale the quadratic term and therefore preserves exact |v|^2 curvature for all observations. It cannot match both low/moderate-speed behavior and systematically weaker high-speed drag growth across trajectories sampling different speed ranges, because the child introduces a delayed saturating multiplier tied to high-speed regime occupancy rather than a constant coefficient change."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_threshold",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The target acceleration depends on speed through a quadratic drag term multiplied by a smooth monotone regime factor 1 - drag_reduction_fraction*Abs(v)/(critical_speed + Abs(v)), so drag weakening turns on with one fixed broad speed scale.",
+            "child_relation": "Replace the instantaneous speed-selection law for the reduced-drag occupancy by a sharper Reynolds-like onset, e.g. a steeper sigmoidal dependence on Abs(v)/critical_speed, while retaining finite relaxation. Then dv_dt changes from a one-scale gradual weakening to a more abrupt crossover in effective drag versus speed.",
+            "affected_inputs": [
+              "v",
+              "regime_occupancy",
+              "critical_speed",
+              "drag_reduction_fraction"
+            ],
+            "observable_effect": "At fixed mass, g, drag_coefficient, and relaxation times, trajectories that pass from |v| well below to well above critical_speed show a narrower transition band in acceleration-versus-speed: the child has little drag reduction below threshold and stronger reduction soon above it, whereas the parent spreads the change too broadly."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "speed_ratio",
+              "expression": "Abs(v)/critical_speed",
+              "role": "Dimensionless distance into the high-speed drag-reduction regime"
+            },
+            {
+              "name": "effective_drag_factor",
+              "expression": "wake_drag*regime_occupancy/mass",
+              "role": "Instantaneous quadratic drag strength appearing in dv_dt"
+            },
+            {
+              "name": "terminal_balance_proxy",
+              "expression": "wake_drag*regime_occupancy*Abs(v)**2/(mass*g)",
+              "role": "Relative importance of drag to weight at the current speed"
+            }
+          ],
+          "activation_condition": "Observable when trajectories explore speed ratios from below to above order unity, i.e. Abs(v)/critical_speed ~ 0.3 to 3, and regime relaxation is not so slow that occupancy stays frozen over the sampled window.",
+          "train_hidden_contrast": "In training, moderate excursions around critical_speed reveal changed local curvature of acceleration versus speed; in holdout, larger downward-speed excursions extend the same sharper crossover toward the reduced-drag asymptote without introducing a new mechanism.",
+          "continuation_path": "Recover the parent by taking the sharpened regime-selection function back to the current hyperbolic form, or to its weak-slope limit over the sampled speed range.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "v",
+            "regime_occupancy",
+            "critical_speed",
+            "drag_reduction_fraction"
+          ],
+          "structural_role": "transition",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Sharper speed-triggered occupation of a lower-drag wake regime",
+          "scientific_mechanism": "Transition to a lower-drag flow state often turns on over a relatively narrow speed band rather than with a uniformly gradual saturation; this changes how effective drag weakens as speed crosses the critical scale.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "This is harder than coefficient retuning because it changes the shape of the speed-to-occupancy transfer law inside the dynamical feedback to dv_dt, specifically narrowing the crossover region instead of rescaling one broad threshold curve.",
+          "taxonomy_match": "known",
+          "assumption_before": "The occupancy source term is assumed to be a specific smooth function proportional to Abs(v)/(critical_speed + Abs(v)).",
+          "assumption_after": "The occupancy source term follows a sharper sigmoidal threshold in the speed ratio while retaining the same saturation limits and relaxation structure.",
+          "before_fragment": "-g - (wake_drag * regime_occupancy / mass) * v * Abs(v)",
+          "after_fragment": "-g - (wake_drag * regime_occupancy / mass) * v * Abs(v)",
+          "parent_reduction": "The parent is recovered by replacing the sharpened occupancy source in the regime_occupancy equation with the original hyperbolic source term.",
+          "observable_signature": "With all parameters fixed and initial velocity varied so some trajectories stay subcritical while others cross |v| ~ critical_speed, the child predicts a tighter acceleration-versus-speed transition band: dv_dt remains closer to the baseline quadratic-drag law below threshold and then bends more quickly toward the reduced-drag branch above threshold. This directly changes the scored target mapping because regime_occupancy is part of the solved state entering dv_dt, not merely an unobserved auxiliary trajectory.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce both weak drag reduction well below critical_speed and the faster post-threshold drop in effective drag over the same observed speed window, because its occupancy source has one fixed hyperbolic curvature and transition width. Retuning drag_reduction_fraction, critical_speed, or regime_relaxation_time only shifts amplitude, location, or lag of that broad crossover, but does not create the sharper thresholded redistribution of drag across subcritical and supercritical conditions."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The target mapping uses a purely quadratic resistive law, dv_dt = -g - K_eff(v,t) * v * Abs(v) / mass, so at fixed wake_drag and regime_occupancy the drag magnitude scales as |v|^2 with one fixed local log-slope in speed.",
+            "child_relation": "Relax the assumption that resistance remains exactly quadratic at all admissible speeds by allowing the drag prefactor to vary smoothly with speed through an additional Reynolds-like shape factor, so the target mapping bends from near-quadratic to a different high-speed slope while still opposing motion and remaining bounded.",
+            "affected_inputs": [
+              "v",
+              "wake_drag",
+              "regime_occupancy",
+              "critical_speed"
+            ],
+            "observable_effect": "Across trajectories that stay below versus exceed the critical-speed band, acceleration-versus-speed curvature changes systematically: the child predicts a different steepening or flattening of |dv_dt+g| against |v| than any single quadratic parent law with one shared parameter set."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "speed_ratio",
+              "expression": "Abs(v)/critical_speed",
+              "role": "Dimensionless measure of whether the trajectory samples the onset region where the drag-speed law can depart from strict quadratic behavior"
+            },
+            {
+              "name": "effective_drag_load",
+              "expression": "wake_drag*regime_occupancy*Abs(v)**2/mass",
+              "role": "Current quadratic-scale drag acceleration used by the parent target mapping"
+            },
+            {
+              "name": "net_accel_offset",
+              "expression": "dv_dt + g",
+              "role": "Observed resistive contribution to acceleration after removing the constant field"
+            }
+          ],
+          "activation_condition": "Observable when admissible trajectories sample both |v| << critical_speed and |v| comparable to or larger than critical_speed, so the speed dependence of resistive scaling can be contrasted over at least a moderate dynamic range.",
+          "train_hidden_contrast": "In training, the mechanism appears as modest but systematic deviation from a single |v|^2 drag curve near and above the critical-speed band; in holdout with larger attained speeds or longer transients in the reduced-drag regime, the same speed-dependent reshaping persists and becomes clearer.",
+          "continuation_path": "Recover the parent by taking the added speed-shape correction to zero so the drag law returns exactly to quadratic in |v| at every speed.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "unary",
+          "scope_symbols": [
+            "v"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "speed-dependent reshaping of drag through a finite-capacity transition across flow regimes",
+          "scientific_mechanism": "As the surrounding flow transitions across Reynolds-number or wake-structure regimes, the drag law can remain direction-opposing yet deviate smoothly from a strict |v|^2 dependence, producing speed-dependent curvature in the acceleration-speed relation beyond a single quadratic form.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "This refinement changes the functional dependence of the scored target on speed by inserting a bounded transition factor tied to the critical-speed scale, so the local slope of resistive acceleration versus speed varies across the trajectory. A coefficient-only correction cannot create this speed-dependent curvature while preserving one shared parameter set across low- and high-speed conditions.",
+          "taxonomy_match": "known",
+          "assumption_before": "The drag response is symmetric with respect to direction and grows quadratically with speed magnitude.",
+          "assumption_after": "The drag remains direction-opposing but its magnitude departs smoothly from exact quadratic scaling through a saturating speed-shape factor near and above the critical-speed band.",
+          "before_fragment": "-g - (wake_drag * regime_occupancy / mass) * v * Abs(v)",
+          "after_fragment": "-g - (wake_drag * regime_occupancy / mass) * v * Abs(v) * (1 + drag_shape_fraction * Abs(v) / (critical_speed + Abs(v)))",
+          "parent_reduction": "Setting drag_shape_fraction = 0 recovers the parent expression exactly.",
+          "observable_signature": "Holding g, mass, wake_drag, regime_occupancy, and the shared parameter set fixed, the parent predicts net resistive acceleration proportional to Abs(v)^2, whereas the child predicts an additional smooth increase in effective drag scaling once Abs(v)/critical_speed is no longer small. Thus trajectories confined to low speed and trajectories entering the critical-speed band show different acceleration-speed curvature under the child, directly in dv_dt rather than only in auxiliary state histories.",
+          "shortcut_blocked": "Refitting wake_drag, drag_coefficient, drag_reduction_fraction, or mass only rescales the quadratic parent relation or its auxiliary evolution; it cannot change the fixed local log-slope of the target mapping with respect to Abs(v) at fixed observed wake_drag and regime_occupancy. Therefore one shared parent parameter set cannot simultaneously match near-quadratic low-speed behavior and the systematically steeper high-speed resistive trend produced by the saturating shape factor when both speed ranges are observed."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "interaction_emergence",
+            "parent_relation": "The drag multiplier depends only on the particle speed and internal wake/regime states, so the acceleration-speed curve is symmetric with respect to the medium and is fully determined by v once wake_drag and regime_occupancy are known.",
+            "child_relation": "Release the assumption of a stationary medium by allowing the drag to depend on slip speed relative to a slowly evolving local flow state, so the target acceleration depends on the interaction between particle velocity and that flow state rather than on v alone.",
+            "affected_inputs": [
+              "v",
+              "wake_drag",
+              "regime_occupancy"
+            ],
+            "observable_effect": "For trajectories with the same instantaneous particle speed v but different recently induced co-flow state, the child predicts weaker downward drag after sustained downward motion and stronger drag after upward motion into still-descending disturbed fluid; the parent cannot produce this history-dependent asymmetry from v alone."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "quadratic_drag_load",
+              "expression": "(wake_drag*regime_occupancy/mass)*Abs(v)*Abs(v)",
+              "role": "current magnitude scale of the parent quadratic resistance"
+            },
+            {
+              "name": "shape_ratio",
+              "expression": "Abs(v)/(critical_speed + Abs(v))",
+              "role": "strength of the existing smooth drag-shape correction"
+            },
+            {
+              "name": "regime_deficit",
+              "expression": "1 - regime_occupancy",
+              "role": "occupation of the reduced-drag high-speed regime"
+            }
+          ],
+          "activation_condition": "Most visible when the particle undergoes sustained motion long enough to build a disturbed co-moving wake over a timescale comparable to wake_relaxation_time or regime_relaxation_time, and when |v| is large enough that drag is dynamically important relative to g; negligible in very short transients or near-rest motion.",
+          "train_hidden_contrast": "In training, long downward runs already create wake-memory effects through wake_drag and regime_occupancy but the target still depends only on absolute speed; extending to holdout with stronger speed reversals or abrupt release conditions reveals additional acceleration differences caused by slip-relative drag that are not reproducible by the parent with one shared parameter set.",
+          "continuation_path": "Recover the parent law in the limit of vanishing or instantaneously relaxing local-flow advection memory, so the medium is effectively stationary and drag depends only on v.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "A stationary-medium model cannot represent history-dependent slip between the particle and a locally entrained disturbed flow. This requires one dynamic state for the local co-flow velocity; existing states only scale drag magnitude and regime occupancy and cannot encode signed medium motion relative to the particle.",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "v",
+            "local_flow_velocity",
+            "wake_drag",
+            "regime_occupancy"
+          ],
+          "structural_role": "interaction",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "local wake entrainment modifies drag through slip-relative motion",
+          "scientific_mechanism": "Wake entrainment or local co-flow memory: after sustained motion, the nearby fluid is partially carried with the particle and relaxes back over finite time, so the resistive force remains direction-opposing to the slip velocity but no longer depends only on the particle's absolute velocity.",
+          "embedding_pattern": "multiplicative_modulation",
+          "difficulty_rationale": "This is harder than a coefficient-only correction because the new state changes the argument of the nonlinear drag law itself, creating trajectory-dependent acceleration differences at the same instantaneous particle speed. Retuning existing drag gains can only rescale or reshape a v-only resistance curve, not create a slip-mediated interaction with signed local flow memory.",
+          "taxonomy_match": "known",
+          "assumption_before": "The medium is uniform and stationary.",
+          "assumption_after": "The nearby medium can acquire a transient entrained co-flow velocity that relaxes back to the ambient state, so drag depends on slip relative to that local flow.",
+          "before_fragment": "-g - (wake_drag * regime_occupancy / mass) * v * Abs(v) * (1 + drag_shape_fraction * Abs(v) / (critical_speed + Abs(v)))",
+          "after_fragment": "-g - (wake_drag * regime_occupancy / mass) * (v - local_flow_velocity) * Abs(v - local_flow_velocity) * (1 + drag_shape_fraction * Abs(v - local_flow_velocity) / (critical_speed + Abs(v - local_flow_velocity)))",
+          "parent_reduction": "The successor reduces to the parent when entrainment_fraction = 0 or flow_relaxation_time -> 0, giving local_flow_velocity -> 0 so drag depends only on v.",
+          "observable_signature": "Hold fixed mass, g, drag_coefficient, critical_speed, drag_reduction_fraction, drag_shape_fraction, and the initial conditions; compare times at which two trajectories share the same instantaneous v, wake_drag, and regime_occupancy but differ in local_flow_velocity because one follows a long same-direction fall and the other follows a reversal. The child then gives different dv_dt through slip-relative drag, with reduced resistance when local_flow_velocity has been entrained toward v and enhanced resistance when it opposes v; this effect is observable when flow memory persists over the sampled trajectory segment.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce this contrast because its scored target mapping is exactly a function of v, wake_drag, and regime_occupancy only, with no argument for signed medium motion. Refitting wake or regime timescales can change auxiliary trajectories, but once those supplied states are fixed the parent assigns one unique dv_dt, whereas the child assigns different dv_dt values at the same supplied parent-state coordinates when local_flow_velocity differs."
+        }
+      ]
+    },
+    "finalization": {
+      "mode": "candidate",
+      "accepted_generations": 5,
+      "novelty": {
+        "answer": "NOT_EVALUATED"
+      },
+      "total_points": 5000,
+      "evaluation_status": "not_evaluated"
+    }
+  },
+  "contract": {
+    "features": [
+      "t",
+      "v",
+      "wake_drag",
+      "regime_occupancy",
+      "local_flow_velocity"
+    ],
+    "target": "dv_dt",
+    "family": "ode",
+    "expression": "-g - (wake_drag * regime_occupancy / mass) * (v - local_flow_velocity) * Abs(v - local_flow_velocity) * (1 + drag_shape_fraction * Abs(v - local_flow_velocity) / (critical_speed + Abs(v - local_flow_velocity)))",
+    "parameters": {
+      "g": 9.81,
+      "drag_coefficient": 0.2,
+      "mass": 1.0,
+      "wake_relaxation_time": 0.8,
+      "regime_relaxation_time": 1.2,
+      "critical_speed": 8.0,
+      "drag_reduction_fraction": 0.5,
+      "drag_shape_fraction": 0.8,
+      "flow_relaxation_time": 1.5,
+      "entrainment_fraction": 0.35
+    },
+    "implicit_branch": null
+  }
+}

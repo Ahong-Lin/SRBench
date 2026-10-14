@@ -1,0 +1,242 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "P",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        20.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "V_max",
+      "value": 12.0
+    },
+    {
+      "symbol": "K_m",
+      "value": 20.0
+    },
+    {
+      "symbol": "k_Ki_decay",
+      "value": 0.12
+    },
+    {
+      "symbol": "K_i_min",
+      "value": 2.5
+    },
+    {
+      "symbol": "K_icat",
+      "value": 40.0
+    },
+    {
+      "symbol": "k_Islow_relax",
+      "value": 0.18
+    },
+    {
+      "symbol": "K_P_sat",
+      "value": 35.0
+    }
+  ],
+  "benchmark_output": "dP_dt",
+  "benchmark_target_state": "P",
+  "observed_variables": [
+    "t",
+    "S",
+    "P",
+    "K_i",
+    "I_slow"
+  ],
+  "rhs_for_integrator": "V_max*S/((1 + I_slow/K_icat)*(K_m*(1 + P/K_i) + S))",
+  "state_variables": [
+    "S",
+    "P",
+    "K_i",
+    "I_slow"
+  ],
+  "state_rhs": [
+    "-V_max*S/((1 + I_slow/K_icat)*(K_m*(1 + P/K_i) + S))",
+    "V_max*S/((1 + I_slow/K_icat)*(K_m*(1 + P/K_i) + S))",
+    "-k_Ki_decay*P*(K_i - K_i_min)/(K_P_sat + P)",
+    "k_Islow_relax*(P - I_slow)"
+  ],
+  "initial_conditions": {
+    "S": 100.0,
+    "P": 0.0,
+    "K_i": 10.0,
+    "I_slow": 0.0
+  },
+  "sanity_expectations": [
+    "All sampled rates remain finite and nonnegative because S, K_i, K_icat, and the inhibition factors are chosen positive and the denominator stays positive.",
+    "Initially dP/dt is high: at t=0 with the chosen parameters it is about 10, since P=I_slow=0 and S0=100 exceeds K_m.",
+    "Because dS/dt = -dP/dt exactly, S(t)+P(t) should remain approximately 100 along the numerical trajectory.",
+    "I_slow should lag behind P early in the run, so early suppression from the (1 + I_slow/K_icat) factor is weaker than it would be if suppression tracked product instantaneously.",
+    "K_i should decrease monotonically from 10 toward but not below K_i_min=2.5, with the fastest drift at intermediate product and a slowing of drift once P becomes large relative to K_P_sat=35.",
+    "The target rate dP/dt should decline over time, with late-time slowdown stronger than substrate depletion alone would predict because both decreasing K_i and increasing I_slow amplify product-mediated inhibition.",
+    "A visible curvature change should occur around mid-trajectory when P becomes comparable to both K_i0 and K_P_sat: competitive inhibition strengthens noticeably, then the K_i adaptation drive partially saturates rather than accelerating without bound."
+  ],
+  "role_corrections": [
+    "dP_dt: claimed-output/target derivative -> target rate expression derived from ODE state P (confirmed as scored derivative, but dependent variable for the DataGenSpec is P per typed contract)",
+    "t: claimed-input/time axis -> independent variable (confirmed)",
+    "S: claimed-dynamic state -> dynamic state in ode_system contract (confirmed)",
+    "P: claimed-dynamic state -> dynamic state and dependent_variable/target_state (confirmed)",
+    "K_i: claimed-dynamic state -> dynamic state in ode_system contract (confirmed)",
+    "I_slow: claimed-dynamic state -> dynamic state in ode_system contract (confirmed)",
+    "V_max: claimed-parameter -> fixed parameter (confirmed)",
+    "K_m: claimed-parameter -> fixed parameter (confirmed)",
+    "k_Ki_decay: claimed-parameter -> fixed parameter (confirmed)",
+    "K_i_min: claimed-parameter -> fixed parameter (confirmed)",
+    "K_icat: claimed-parameter -> fixed parameter (confirmed)",
+    "k_Islow_relax: claimed-parameter -> fixed parameter (confirmed)",
+    "K_P_sat: claimed-parameter -> fixed parameter (confirmed)"
+  ],
+  "rationale": "The typed ODE contract is preserved exactly: time is the only sampled axis, P is the target state, and the inherited 4-state system defines the trajectory from which dP_dt is read. Although the displayed target expression is algebraically explicit in S, P, K_i, and I_slow, the record explicitly supplies an ODE-system contract with promoted dynamic states K_i and I_slow; per the contract and freedom metadata, these remain dynamic states rather than fixed parameters. The chosen parameter set keeps all denominators positive and finite, while making the intended mechanisms visible over the inherited closed-vessel run: initial S0=100 is well above K_m=20, so the reaction starts near a substantial fraction of V_max; initial K_i0=10 puts product inhibition on the reachable product scale rather than in a negligible limit; K_i_min=2.5 leaves room for appreciable strengthening of competitive inhibition; K_P_sat=35 is comparable to reachable P so the K_i adaptation drive is strong at intermediate product and then saturates rather than remaining purely linear; K_icat=40 places delayed noncompetitive suppression on the same product scale so I_slow buildup matters in mid/late trajectory; k_Islow_relax=0.18 is slow enough to create lag between P and I_slow, but not so slow that the extra suppression remains inactive across the whole window; k_Ki_decay=0.12 is large enough that K_i moves visibly away from 10 toward 2.5 during conversion, without collapsing immediately to the floor. The 0-20 time window with 300 points should capture early near-parent behavior, intermediate curvature changes, and later stronger suppression before complete exhaustion dominates. No noise is added; outputs are exact trajectory-derived rates.",
+  "coverage_report": {},
+  "inactive_mechanisms": [],
+  "target_variance": {},
+  "parent_absorption_report": {},
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_AfSNUQi9ajFhL8JGkD7TPLnK"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "V_max*S/((1 + I_slow/K_icat)*(K_m*(1 + P/K_i) + S))",
+        "target_symbol": "dP_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "I_slow",
+          "K_i",
+          "K_icat",
+          "K_m",
+          "P",
+          "S",
+          "V_max"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "S*V_max/(((I_slow/K_icat + 1)*(K_m*(1 + P/K_i) + S)))"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_E3rKb6lWEbmxL4nuZcilMKYG"
+        },
+        {
+          "name": "check_substitution",
+          "id": "call_VxAYsJXedylEe8QdZN8HJhNf"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "assignments": {
+          "S": 100,
+          "P": 0,
+          "K_i": 10,
+          "I_slow": 0,
+          "V_max": 12,
+          "K_m": 20,
+          "K_icat": 40
+        },
+        "expression": "V_max*S/((1 + I_slow/K_icat)*(K_m*(1 + P/K_i) + S))",
+        "target_symbol": "dP_dt"
+      },
+      "result": {
+        "ok": true,
+        "value_real": 10.0,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "assignments": {
+          "S": 40,
+          "P": 60,
+          "K_i": 6,
+          "I_slow": 30,
+          "V_max": 12,
+          "K_m": 20,
+          "K_icat": 40
+        },
+        "expression": "V_max*S/((1 + I_slow/K_icat)*(K_m*(1 + P/K_i) + S))",
+        "target_symbol": "dP_dt"
+      },
+      "result": {
+        "ok": true,
+        "value_real": 1.0549450549450547,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_oD1ACPu7OtCfvGGrCotihEIi"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_2wePeyhbGbyV9X1xErCm8RnH"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 4
+}

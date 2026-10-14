@@ -1,0 +1,237 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "P",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        40.0
+      ],
+      "n_points": 401,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "E_total",
+      "value": 1.0
+    },
+    {
+      "symbol": "k_on",
+      "value": 0.08
+    },
+    {
+      "symbol": "k_off",
+      "value": 1.2
+    },
+    {
+      "symbol": "k_cat",
+      "value": 2.0
+    },
+    {
+      "symbol": "k_on_P",
+      "value": 0.05
+    },
+    {
+      "symbol": "k_off_P",
+      "value": 0.2
+    },
+    {
+      "symbol": "K_I_P",
+      "value": 30.0
+    },
+    {
+      "symbol": "K_I_cat",
+      "value": 40.0
+    },
+    {
+      "symbol": "n_I_cat",
+      "value": 2.0
+    },
+    {
+      "symbol": "K_S_protect",
+      "value": 50.0
+    }
+  ],
+  "benchmark_output": "dP_dt",
+  "benchmark_target_state": "P",
+  "observed_variables": [
+    "t",
+    "S",
+    "C",
+    "P",
+    "EP"
+  ],
+  "rhs_for_integrator": "k_cat*C/(1 + (P/(K_I_cat*(1 + S/K_S_protect)))**n_I_cat) - k_on_P*(E_total - C - EP)*P/(1 + P/K_I_P) + k_off_P*EP",
+  "state_variables": [
+    "S",
+    "C",
+    "P",
+    "EP"
+  ],
+  "state_rhs": [
+    "-k_on*(E_total - C - EP)*S + k_off*C",
+    "k_on*(E_total - C - EP)*S - k_off*C - k_cat*C/(1 + (P/(K_I_cat*(1 + S/K_S_protect)))**n_I_cat)",
+    "k_cat*C/(1 + (P/(K_I_cat*(1 + S/K_S_protect)))**n_I_cat) - k_on_P*(E_total - C - EP)*P/(1 + P/K_I_P) + k_off_P*EP",
+    "k_on_P*(E_total - C - EP)*P/(1 + P/K_I_P) - k_off_P*EP"
+  ],
+  "initial_conditions": {
+    "S": 100.0,
+    "C": 0.0,
+    "P": 0.0,
+    "EP": 0.0
+  },
+  "sanity_expectations": [
+    "At t=0, dP/dt = 0 exactly because C=P=EP=0 under the inherited initial conditions.",
+    "Soon after t=0, C should rise from zero, producing positive dP/dt and increasing P before eventual slowdown as substrate is depleted and inhibition strengthens.",
+    "EP should remain nonnegative and typically increase only after P has accumulated to non-negligible levels; it should stay bounded by E_total.",
+    "The direct catalytic factor 1/(1 + (P/(K_I_cat*(1 + S/K_S_protect)))**n_I_cat) should be closer to 1 early when S is high, and smaller later when S is lower and P has accumulated.",
+    "A checkable mechanism prediction for this dataset: during later portions of the same trajectory, dP/dt plus k_on_P*(E_total - C - EP)*P/(1 + P/K_I_P) minus k_off_P*EP, all divided by C where C>0, should be lower at comparable P than during earlier higher-S portions, reflecting weaker substrate protection as S falls.",
+    "Net product rate should eventually bend downward more strongly than would be expected from C alone, due to the combined effects of product rebinding (EP branch) and substrate-modulated direct catalytic suppression."
+  ],
+  "role_corrections": [
+    "dP_dt: claimed-output/target derivative -> target rate expression (confirmed structurally; in the ODE contract the dependent variable is target_state P)",
+    "t: claimed-input/time axis -> independent variable (confirmed by ODE contract)",
+    "S: claimed-dynamic state -> dynamic state variable (confirmed by ODE contract)",
+    "C: claimed-dynamic state -> dynamic state variable (confirmed by ODE contract)",
+    "P: claimed-dynamic state -> dynamic state variable and dependent_variable/target_state (confirmed by ODE contract override of expression-only explicit hint)",
+    "EP: claimed-dynamic state -> dynamic state variable (confirmed by ODE contract)",
+    "E_total: claimed-parameter -> parameter (confirmed)",
+    "k_on: claimed-parameter -> parameter (confirmed)",
+    "k_off: claimed-parameter -> parameter (confirmed)",
+    "k_cat: claimed-parameter -> parameter (confirmed)",
+    "k_on_P: claimed-parameter -> parameter (confirmed)",
+    "k_off_P: claimed-parameter -> parameter (confirmed)",
+    "K_I_P: claimed-parameter -> parameter (confirmed)",
+    "K_I_cat: claimed-parameter -> parameter (confirmed)",
+    "n_I_cat: claimed-parameter -> parameter (confirmed)",
+    "K_S_protect: claimed-parameter -> parameter (confirmed)"
+  ],
+  "rationale": "The supplied ODE system contract is preserved exactly as required. Structural analysis of the target expression alone is explicit in dP_dt, but the record also provides an already validated dynamical contract with states S, C, P, EP and time t; per instruction, that typed ODE contract governs the data plan. Parameter values are chosen to keep all denominators positive and to place the trajectory away from both trivial recovery and deep saturation. With S(0)=100 and K_S_protect=50, early substrate-rich conditions enlarge the effective direct-inhibition scale to K_I_cat*(1+S/K_S_protect)≈120, so direct catalytic suppression by product is initially weak. As substrate depletes, that protection weakens toward the base scale K_I_cat=40, making the same product burden more inhibitory later in the batch. The chosen K_I_cat and K_S_protect are therefore comparable to reachable product and substrate scales, exposing the intended S-P interaction in the catalytic term rather than hiding it in a limit. K_I_P=30 and moderate k_on_P=0.05, k_off_P=0.2 make EP formation visible but not overwhelming; product rebinding should contribute noticeable late-time sequestration while avoiding immediate dominance of the net rate. n_I_cat=2 creates a sharper-than-hyperbolic onset of direct catalytic suppression once P enters the relevant range, but not an extreme switch. k_on=0.08, k_off=1.2, k_cat=2.0, and E_total=1.0 give fast ES formation relative to the batch window and allow appreciable product accumulation from the fixed initial substrate pool. The distinguishing condition requested by the evolution notes is reachable within a single batch run: moderate-to-high product with substantially different remaining substrate levels. Under these settings, early high-S portions should show weaker direct product suppression than later low-S portions at similar P and nonzero C. Exact labels are generated from the ODE without observation noise.",
+  "coverage_report": {},
+  "inactive_mechanisms": [],
+  "target_variance": {},
+  "parent_absorption_report": {},
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_51e80S2kZORn6QHaXmeQVhiG"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "k_cat*C/(1 + (P/(K_I_cat*(1 + S/K_S_protect)))**n_I_cat) - k_on_P*(E_total - C - EP)*P/(1 + P/K_I_P) + k_off_P*EP",
+        "target_symbol": "dP_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "C",
+          "EP",
+          "E_total",
+          "K_I_P",
+          "K_I_cat",
+          "K_S_protect",
+          "P",
+          "S",
+          "k_cat",
+          "k_off_P",
+          "k_on_P",
+          "n_I_cat"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "C*k_cat/((P/((K_I_cat*(1 + S/K_S_protect))))**n_I_cat + 1) + EP*k_off_P - P*k_on_P*(-C - EP + E_total)/(1 + P/K_I_P)"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_qlhwhzoTX9PVeSqpY53BND8k"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "k_cat*C/(1 + (P/(K_I_cat*(1 + S/K_S_protect)))**n_I_cat) - k_on_P*(E_total - C - EP)*P/(1 + P/K_I_P) + k_off_P*EP",
+        "target_symbol": "dP_dt",
+        "assignments": {
+          "S": 100,
+          "C": 0,
+          "P": 0,
+          "EP": 0,
+          "E_total": 1,
+          "k_cat": 2,
+          "k_on_P": 0.05,
+          "k_off_P": 0.2,
+          "K_I_P": 30,
+          "K_I_cat": 40,
+          "n_I_cat": 2,
+          "K_S_protect": 50
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": 0.0,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_WrJqcSFO3ovXEmAarR40yyHC"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_zUnosYuhvaI0IJlHLwWnnSEZ"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 4
+}

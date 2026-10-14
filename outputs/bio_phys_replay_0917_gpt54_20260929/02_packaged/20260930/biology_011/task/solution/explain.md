@@ -1,0 +1,3 @@
+Ground truth: dD_dt = -recombination_rate*D*(1 + nonlinear_ld_coupling*D**2)/(1 + occupancy_buffer + boundary_compression_strength*D**2 + refractory_occupancy_strength*refractory_occupancy/(1 + refractory_occupancy_halfscale + refractory_occupancy))
+
+Fixed parameters: {'recombination_relaxation_rate': 0.8, 'recombination_setpoint': 0.55, 'occupancy_relaxation_rate': 1.2, 'occupancy_sensitivity': 14.0, 'nonlinear_ld_coupling': 8.0, 'boundary_compression_strength': 12.0, 'refractory_occupancy_relaxation_rate': 0.18, 'refractory_occupancy_sensitivity': 20.0, 'refractory_occupancy_strength': 3.0, 'refractory_occupancy_halfscale': 0.5}

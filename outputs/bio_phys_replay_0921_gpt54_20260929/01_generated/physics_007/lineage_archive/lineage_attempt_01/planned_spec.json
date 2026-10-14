@@ -1,0 +1,239 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "I",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        0.03
+      ],
+      "n_points": 400,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "capacitance",
+      "value": 0.001
+    },
+    {
+      "symbol": "inductance",
+      "value": 0.001
+    },
+    {
+      "symbol": "charge_saturation",
+      "value": 0.002
+    },
+    {
+      "symbol": "current_saturation",
+      "value": 0.5
+    },
+    {
+      "symbol": "polarization_relaxation_time",
+      "value": 0.0012
+    },
+    {
+      "symbol": "polarization_coupling",
+      "value": 0.8
+    },
+    {
+      "symbol": "polarization_saturation",
+      "value": 0.0007
+    },
+    {
+      "symbol": "slow_polarization_relaxation_time",
+      "value": 0.004
+    },
+    {
+      "symbol": "slow_polarization_coupling",
+      "value": 0.4
+    },
+    {
+      "symbol": "slow_polarization_saturation",
+      "value": 0.00035
+    }
+  ],
+  "benchmark_output": "dI_dt",
+  "benchmark_target_state": "I",
+  "observed_variables": [
+    "t",
+    "Q",
+    "I",
+    "P_pol",
+    "P_slow"
+  ],
+  "rhs_for_integrator": "-(Q + (polarization_coupling/(1 + (P_pol/polarization_saturation)**2))*P_pol/(1 + (P_pol/polarization_saturation)**2) + (slow_polarization_coupling/(1 + (P_slow/slow_polarization_saturation)**2))*P_slow/(1 + (P_slow/slow_polarization_saturation)**2))/(capacitance*(1 + (Q/charge_saturation)**2)*(inductance*(1 + (I/current_saturation)**2)))",
+  "state_variables": [
+    "Q",
+    "I",
+    "P_pol",
+    "P_slow"
+  ],
+  "state_rhs": [
+    "I",
+    "-(Q + (polarization_coupling/(1 + (P_pol/polarization_saturation)**2))*P_pol/(1 + (P_pol/polarization_saturation)**2) + (slow_polarization_coupling/(1 + (P_slow/slow_polarization_saturation)**2))*P_slow/(1 + (P_slow/slow_polarization_saturation)**2))/(capacitance*(1 + (Q/charge_saturation)**2)*(inductance*(1 + (I/current_saturation)**2)))",
+    "(Q - P_pol)/polarization_relaxation_time",
+    "(Q - P_slow)/slow_polarization_relaxation_time"
+  ],
+  "initial_conditions": {
+    "Q": 0.001,
+    "I": 0.0,
+    "P_pol": 0.0005,
+    "P_slow": 0.00025
+  },
+  "sanity_expectations": [
+    "At t=0, dI_dt should be negative and finite because Q, P_pol, and P_slow are all positive while all denominator factors are positive.",
+    "Because polarization_relaxation_time is comparable to sqrt(inductance*capacitance), the fast polarization state should not remain exactly slaved to Q; early oscillation segments should show noticeable lag between Q and P_pol.",
+    "Because slow_polarization_relaxation_time is several times larger than sqrt(inductance*capacitance) but still well inside the 0.03 s window, later-cycle behavior should differ from earliest-cycle behavior through additional slow-memory contribution from P_slow.",
+    "The polarization contributions are weighted by effectively steeper factors ~1/(1+(P/P_sat)^2)^2, so as |P_pol| or |P_slow| approaches its saturation scale, incremental changes in dI_dt from further polarization growth should flatten more strongly than in the parent generation.",
+    "Since charge_saturation is only about twice the initial |Q|, the restoring response should deviate from a single global linear dI_dt-versus-Q slope over the trajectory, but not be fully saturated at all times.",
+    "Since current_saturation is finite and moderate, points with similar Q but larger |I| should tend to have reduced |dI_dt| relative to small-|I| points, other states being comparable."
+  ],
+  "role_corrections": [
+    "dI_dt: claimed-output/target derivative -> target derivative within ode_system contract (confirmed: target is derivative of dependent state I, not the dependent variable itself)",
+    "t: claimed-input/time axis -> independent variable (confirmed)",
+    "Q: claimed-dynamic state -> dynamic state (confirmed)",
+    "I: claimed-dynamic state -> dependent variable and dynamic state (confirmed)",
+    "P_pol: claimed-dynamic state -> dynamic state (confirmed)",
+    "P_slow: claimed-dynamic state -> dynamic state (confirmed)",
+    "capacitance: claimed-parameter -> parameter (confirmed)",
+    "inductance: claimed-parameter -> parameter (confirmed)",
+    "charge_saturation: claimed-parameter -> parameter (confirmed)",
+    "current_saturation: claimed-parameter -> parameter (confirmed)",
+    "polarization_relaxation_time: claimed-parameter -> parameter (confirmed)",
+    "polarization_coupling: claimed-parameter -> parameter (confirmed)",
+    "polarization_saturation: claimed-parameter -> parameter (confirmed)",
+    "slow_polarization_relaxation_time: claimed-parameter -> parameter (confirmed)",
+    "slow_polarization_coupling: claimed-parameter -> parameter (confirmed)",
+    "slow_polarization_saturation: claimed-parameter -> parameter (confirmed)"
+  ],
+  "rationale": "Preserved the supplied ODE-system contract exactly as required: target state I, time as the sole sampled axis, and the inherited four-state system with fixed initial conditions. Although the target expression alone is structurally explicit in dI_dt, the typed contract governs data generation here and closes the dynamics through Q' = I, P_pol' = (Q-P_pol)/polarization_relaxation_time, and P_slow' = (Q-P_slow)/slow_polarization_relaxation_time, so integrate_system is the correct plan. Parameter choices are conservative and finite, with nominal LC time sqrt(L*C)=0.001 s. I set polarization_relaxation_time = 0.0012 s, comparable to the LC time, to keep the fast polarization lag observable rather than adiabatically slaved; slow_polarization_relaxation_time = 0.004 s gives a distinct slower reversible memory branch still active within the observation window. The saturation scales are chosen comparable to reachable state magnitudes from the inherited initial condition: charge_saturation = 0.002 C is about twice the initial Q, polarization_saturation = 0.0007 C and slow_polarization_saturation = 0.00035 C are near the initial polarization amplitudes, so the steeper polarization compression in the current generation should become visible without placing the trajectory deep in saturation everywhere. current_saturation = 0.5 A should allow current-dependent inductive modulation to emerge once oscillatory current grows from the initial charged state, but not dominate immediately. Couplings 0.8 and 0.4 keep Q as the primary restoring contribution while making both fast and slow polarization branches visibly consequential. The time window 0 to 0.03 s spans about 30 nominal LC times, enough to resolve early-cycle fast lag and later-cycle slow-memory effects from the fixed inherited initial state; no observation noise is added.",
+  "coverage_report": {},
+  "inactive_mechanisms": [],
+  "target_variance": {},
+  "parent_absorption_report": {},
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_gHPRkaHIRVcJGwdP1wMbQVYz"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "-(Q + (polarization_coupling/(1 + (P_pol/polarization_saturation)**2))*P_pol/(1 + (P_pol/polarization_saturation)**2) + (slow_polarization_coupling/(1 + (P_slow/slow_polarization_saturation)**2))*P_slow/(1 + (P_slow/slow_polarization_saturation)**2))/(capacitance*(1 + (Q/charge_saturation)**2)*(inductance*(1 + (I/current_saturation)**2)))",
+        "target_symbol": "dI_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "I",
+          "P_pol",
+          "P_slow",
+          "Q",
+          "capacitance",
+          "charge_saturation",
+          "current_saturation",
+          "inductance",
+          "polarization_coupling",
+          "polarization_saturation",
+          "slow_polarization_coupling",
+          "slow_polarization_saturation"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "(-P_pol*polarization_coupling/(((P_pol/polarization_saturation)**2 + 1)*((P_pol/polarization_saturation)**2 + 1)) - P_sl"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_yhaYkuo3QPlOCPb8KFJ8HBSr"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "-(Q + (polarization_coupling/(1 + (P_pol/polarization_saturation)**2))*P_pol/(1 + (P_pol/polarization_saturation)**2) + (slow_polarization_coupling/(1 + (P_slow/slow_polarization_saturation)**2))*P_slow/(1 + (P_slow/slow_polarization_saturation)**2))/(capacitance*(1 + (Q/charge_saturation)**2)*(inductance*(1 + (I/current_saturation)**2)))",
+        "target_symbol": "dI_dt",
+        "assignments": {
+          "Q": 0.001,
+          "I": 0,
+          "P_pol": 0.0005,
+          "P_slow": 0.00025,
+          "capacitance": 0.001,
+          "inductance": 0.001,
+          "charge_saturation": 0.002,
+          "current_saturation": 0.5,
+          "polarization_relaxation_time": 0.0012,
+          "polarization_coupling": 0.8,
+          "polarization_saturation": 0.0007,
+          "slow_polarization_relaxation_time": 0.004,
+          "slow_polarization_coupling": 0.4,
+          "slow_polarization_saturation": 0.00035
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": -975.3834915997078,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_YXOzju42SXh18vBTbxmvWZ0E"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_2Wnu81Hty6p1WTGnaDjumIcD"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 4
+}

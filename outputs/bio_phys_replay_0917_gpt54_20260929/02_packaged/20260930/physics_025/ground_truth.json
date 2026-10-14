@@ -1,0 +1,1735 @@
+{
+  "version": 7,
+  "spec": {
+    "equation_type": "ode_system",
+    "integrator": "integrate_system",
+    "dependent_variable": "v_x",
+    "independent_variables": [
+      {
+        "symbol": "t",
+        "range": [
+          0.0,
+          20.0
+        ],
+        "n_points": 300,
+        "scale": "linear"
+      }
+    ],
+    "parameters": [
+      {
+        "symbol": "particle_charge",
+        "value": 1.0
+      },
+      {
+        "symbol": "particle_mass",
+        "value": 1.0
+      },
+      {
+        "symbol": "electric_field_x",
+        "value": 0.35
+      },
+      {
+        "symbol": "signal_speed",
+        "value": 3.0
+      },
+      {
+        "symbol": "radiation_field_scale",
+        "value": 0.8
+      },
+      {
+        "symbol": "radiation_activation_rate",
+        "value": 0.12
+      },
+      {
+        "symbol": "radiation_relaxation_rate",
+        "value": 0.05
+      },
+      {
+        "symbol": "radiation_damping_capacity",
+        "value": 2.5
+      },
+      {
+        "symbol": "magnetic_relaxation_rate",
+        "value": 0.08
+      },
+      {
+        "symbol": "magnetic_screening_strength",
+        "value": 0.03
+      },
+      {
+        "symbol": "magnetic_field_equilibrium",
+        "value": 1.0
+      }
+    ],
+    "benchmark_output": "dv_x_dt",
+    "benchmark_target_state": "v_x",
+    "observed_variables": [
+      "t",
+      "v_x",
+      "v_y",
+      "radiation_damping_strength",
+      "magnetic_field_z"
+    ],
+    "rhs_for_integrator": "(particle_charge*(1 - v_x**2/signal_speed**2)/(particle_mass*(1 - (v_x**2 + v_y**2)/signal_speed**2)**(3/2)))*(electric_field_x + magnetic_field_z*v_y) - radiation_damping_strength*((electric_field_x + magnetic_field_z*v_y)**2/(1 + ((electric_field_x + magnetic_field_z*v_y)/radiation_field_scale)**2))*v_x",
+    "state_variables": [
+      "v_x",
+      "v_y",
+      "radiation_damping_strength",
+      "magnetic_field_z"
+    ],
+    "state_rhs": [
+      "(particle_charge*(1 - v_x**2/signal_speed**2)/(particle_mass*(1 - (v_x**2 + v_y**2)/signal_speed**2)**(3/2)))*(electric_field_x + magnetic_field_z*v_y) - radiation_damping_strength*((electric_field_x + magnetic_field_z*v_y)**2/(1 + ((electric_field_x + magnetic_field_z*v_y)/radiation_field_scale)**2))*v_x",
+      "-(particle_charge/(particle_mass*sqrt(1 - (v_x**2 + v_y**2)/signal_speed**2)))*magnetic_field_z*v_x",
+      "radiation_activation_rate*((electric_field_x + magnetic_field_z*v_y)**2/(1 + ((electric_field_x + magnetic_field_z*v_y)/radiation_field_scale)**2))*v_x**2*(1 - radiation_damping_strength/radiation_damping_capacity) - radiation_relaxation_rate*radiation_damping_strength",
+      "magnetic_relaxation_rate*(magnetic_field_equilibrium - magnetic_field_z) - magnetic_screening_strength*(v_x**2 + v_y**2)*magnetic_field_z"
+    ],
+    "initial_conditions": {
+      "v_x": 0.0,
+      "v_y": 0.0,
+      "radiation_damping_strength": 1.0,
+      "magnetic_field_z": 1.0
+    },
+    "sanity_expectations": [
+      "Because v_x(0)=v_y(0)=0 and magnetic_field_z(0)=1, the initial x-acceleration is positive: dv_x_dt(0)=particle_charge*electric_field_x/particle_mass > 0 for the chosen values, so v_x should initially increase from zero.",
+      "The trajectory should remain in the admissible relativistic region v_x^2 + v_y^2 < signal_speed^2 throughout integration; otherwise the RHS would approach a singularity and the run would be invalid.",
+      "radiation_damping_strength should stay nonnegative and typically rise above its initial value during sustained drive before being limited by radiation_damping_capacity; it should not grow without bound.",
+      "magnetic_field_z should tend to decrease below its equilibrium value once v_x^2+v_y^2 becomes appreciable because the screening term is nonnegative; with the chosen parameters it should vary gradually rather than instantaneously.",
+      "Relative to very early times, later portions of the same trajectory should show weaker x-acceleration at comparable instantaneous velocity scale because both the evolving damping state and screened magnetic state reduce the effective drive.",
+      "The anisotropic relativistic factor should be more suppressive when |v_x| becomes a larger share of total speed, so acceleration rolloff should strengthen as motion aligns more with x even before any extreme approach to signal_speed."
+    ],
+    "role_corrections": [
+      "dv_x_dt: claimed-output/target derivative -> target derivative within inherited ode_system contract (confirmed)",
+      "t: claimed-input/time axis -> independent variable/time axis (confirmed)",
+      "v_x: claimed-dynamic state -> dynamic state and dependent_variable/target_state (confirmed)",
+      "v_y: claimed-dynamic state -> dynamic state (confirmed)",
+      "radiation_damping_strength: claimed-dynamic state -> dynamic state (confirmed, preserved by explicit freedom decision and ODE contract)",
+      "magnetic_field_z: claimed-dynamic state -> dynamic state (confirmed, preserved by explicit freedom decision and ODE contract)",
+      "particle_charge: claimed-parameter -> parameter (confirmed)",
+      "particle_mass: claimed-parameter -> parameter (confirmed)",
+      "electric_field_x: claimed-parameter -> parameter (confirmed)",
+      "signal_speed: claimed-parameter -> parameter (confirmed)",
+      "radiation_field_scale: claimed-parameter -> parameter (confirmed)",
+      "radiation_activation_rate: claimed-parameter -> parameter (confirmed)",
+      "radiation_relaxation_rate: claimed-parameter -> parameter (confirmed)",
+      "radiation_damping_capacity: claimed-parameter -> parameter (confirmed)",
+      "magnetic_relaxation_rate: claimed-parameter -> parameter (confirmed)",
+      "magnetic_screening_strength: claimed-parameter -> parameter (confirmed)",
+      "magnetic_field_equilibrium: claimed-parameter -> parameter (confirmed)",
+      "Equation type: prior typed ode_system -> ode_system (confirmed; must inherit contract exactly despite standalone RHS appearing explicit)"
+    ],
+    "rationale": "The provided ODE-system contract must be preserved exactly, so the dataset should integrate the declared 4-state system over time only. Structural analysis of the displayed target RHS by itself looks explicit in dv_x_dt, but the record includes an explicit typed ODE-system contract and freedom_change='none'; therefore the declared dynamic states v_x, v_y, radiation_damping_strength, and magnetic_field_z are retained as states, while the listed parameter symbols are fixed constants. Parameter values are chosen to keep trajectories real and finite while exposing the intended mechanisms without pushing everything into immediate saturation or the near-parent limit. signal_speed=3.0 keeps the relativistic denominator safely positive from the zero-velocity initial state while still allowing mildly relativistic motion if the electric drive accelerates the particle appreciably. electric_field_x=0.35 with initial magnetic_field_z=1.0 gives sustained forcing strong enough to move the system away from the trivial initial equilibrium, but not so strong that speed should rush too close to signal_speed. radiation_field_scale=0.8 makes the drive magnitude |electric_field_x + magnetic_field_z*v_y| transition through the saturating radiation factor over accessible states rather than staying always tiny or always fully saturated. The initial radiation_damping_strength is inherited as 1.0; choosing radiation_activation_rate=0.12, radiation_relaxation_rate=0.05, and radiation_damping_capacity=2.5 allows observable buildup and bounded relaxation of the damping state over the observation window instead of freezing it. magnetic_relaxation_rate=0.08 with magnetic_screening_strength=0.03 and magnetic_field_equilibrium=1.0 makes magnetic_field_z evolve on a comparable but not ultrafast timescale, so screening/history effects can appear without immediate collapse of the field. The time window [0,20] with 300 points is long enough to reveal early-versus-late trajectory differences in the damping and magnetic states, while still being a moderate sampling density suitable for exact noiseless ODE data. A representative substitution check confirms the displayed RHS remains finite and real for these magnitudes.",
+    "coverage_report": {
+      "groups": [
+        {
+          "generation": 1,
+          "name": "speed_sq",
+          "expression": "v_x**2 + v_y**2",
+          "role": "tracks whether the trajectory enters a regime where inertial response becomes speed dependent",
+          "train_range": [
+            0.0,
+            0.46883387523322007
+          ],
+          "hidden_range": [
+            0.007951427575902824,
+            0.13126839917041494
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0,
+            "max": 0.46883387523322007,
+            "q05": 0.006418911558387324,
+            "median": 0.24582709345427756,
+            "q95": 0.4491749606610187,
+            "range": 0.46883387523322007,
+            "robust_range": 0.4427560491026314
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.007951427575902824,
+            "max": 0.13126839917041494,
+            "q05": 0.008195605505059884,
+            "median": 0.030920618394522918,
+            "q95": 0.11330672136906017,
+            "range": 0.12331697159451212,
+            "robust_range": 0.10511111586400029
+          }
+        },
+        {
+          "generation": 1,
+          "name": "lorentz_drive_x",
+          "expression": "(particle_charge/particle_mass)*(electric_field_x + magnetic_field_z*v_y)",
+          "role": "parent x-acceleration law used as the low-speed reference",
+          "train_range": [
+            -0.32112870856377274,
+            0.35
+          ],
+          "hidden_range": [
+            0.11436053450333564,
+            0.26637105815403
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -0.32112870856377274,
+            "max": 0.35,
+            "q05": -0.2900530543940263,
+            "median": -0.01991498628967886,
+            "q95": 0.3041170830369578,
+            "range": 0.6711287085637727,
+            "robust_range": 0.594170137430984
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.11436053450333564,
+            "max": 0.26637105815403,
+            "q05": 0.13652091281881557,
+            "median": 0.23754451834049964,
+            "q95": 0.26607179245530327,
+            "range": 0.15201052365069437,
+            "robust_range": 0.1295508796364877
+          }
+        },
+        {
+          "generation": 1,
+          "name": "magnetic_turning_scale",
+          "expression": "(particle_charge/particle_mass)*magnetic_field_z",
+          "role": "parent constant cyclotron turning scale to compare against speed-dependent turning",
+          "train_range": [
+            0.9330929793168244,
+            1.0
+          ],
+          "hidden_range": [
+            0.9333532141535787,
+            0.9410992276714681
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.9330929793168244,
+            "max": 1.0,
+            "q05": 0.9341144728258964,
+            "median": 0.9590023929126223,
+            "q95": 0.9991987277457786,
+            "range": 0.06690702068317556,
+            "robust_range": 0.06508425491988212
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.9333532141535787,
+            "max": 0.9410992276714681,
+            "q05": 0.9335430495232587,
+            "median": 0.9369005250643274,
+            "q95": 0.940789914191277,
+            "range": 0.007746013517889394,
+            "robust_range": 0.007246864668018271
+          }
+        },
+        {
+          "generation": 2,
+          "name": "beta2",
+          "expression": "(v_x**2 + v_y**2)/signal_speed**2",
+          "role": "dimensionless relativistic speed controlling inertial enhancement",
+          "train_range": [
+            0.0,
+            0.05209265280369112
+          ],
+          "hidden_range": [
+            0.0008834919528780916,
+            0.01458537768560166
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0,
+            "max": 0.05209265280369112,
+            "q05": 0.0007132123953763692,
+            "median": 0.027314121494919727,
+            "q95": 0.049908328962335415,
+            "range": 0.05209265280369112,
+            "robust_range": 0.049195116566959046
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.0008834919528780916,
+            "max": 0.01458537768560166,
+            "q05": 0.0009106228338955426,
+            "median": 0.003435624266058102,
+            "q95": 0.012589635707673352,
+            "range": 0.01370188573272357,
+            "robust_range": 0.01167901287377781
+          }
+        },
+        {
+          "generation": 2,
+          "name": "lorentz_drive_x",
+          "expression": "electric_field_x + magnetic_field_z*v_y",
+          "role": "instantaneous transverse x Lorentz driving term",
+          "train_range": [
+            -0.32112870856377274,
+            0.35
+          ],
+          "hidden_range": [
+            0.11436053450333564,
+            0.26637105815403
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -0.32112870856377274,
+            "max": 0.35,
+            "q05": -0.2900530543940263,
+            "median": -0.01991498628967886,
+            "q95": 0.3041170830369578,
+            "range": 0.6711287085637727,
+            "robust_range": 0.594170137430984
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.11436053450333564,
+            "max": 0.26637105815403,
+            "q05": 0.13652091281881557,
+            "median": 0.23754451834049964,
+            "q95": 0.26607179245530327,
+            "range": 0.15201052365069437,
+            "robust_range": 0.1295508796364877
+          }
+        },
+        {
+          "generation": 2,
+          "name": "cyclotron_scale",
+          "expression": "particle_charge*magnetic_field_z/particle_mass",
+          "role": "magnetic turning-rate scale that sets transverse acceleration magnitude",
+          "train_range": [
+            0.9330929793168244,
+            1.0
+          ],
+          "hidden_range": [
+            0.9333532141535787,
+            0.9410992276714681
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.9330929793168244,
+            "max": 1.0,
+            "q05": 0.9341144728258964,
+            "median": 0.9590023929126223,
+            "q95": 0.9991987277457786,
+            "range": 0.06690702068317556,
+            "robust_range": 0.06508425491988212
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.9333532141535787,
+            "max": 0.9410992276714681,
+            "q05": 0.9335430495232587,
+            "median": 0.9369005250643274,
+            "q95": 0.940789914191277,
+            "range": 0.007746013517889394,
+            "robust_range": 0.007246864668018271
+          }
+        },
+        {
+          "generation": 3,
+          "name": "speed_ratio_sq",
+          "expression": "(v_x**2 + v_y**2)/signal_speed**2",
+          "role": "Relativistic activity level controlling inertial softening",
+          "train_range": [
+            0.0,
+            0.05209265280369112
+          ],
+          "hidden_range": [
+            0.0008834919528780916,
+            0.01458537768560166
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0,
+            "max": 0.05209265280369112,
+            "q05": 0.0007132123953763692,
+            "median": 0.027314121494919727,
+            "q95": 0.049908328962335415,
+            "range": 0.05209265280369112,
+            "robust_range": 0.049195116566959046
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.0008834919528780916,
+            "max": 0.01458537768560166,
+            "q05": 0.0009106228338955426,
+            "median": 0.003435624266058102,
+            "q95": 0.012589635707673352,
+            "range": 0.01370188573272357,
+            "robust_range": 0.01167901287377781
+          }
+        },
+        {
+          "generation": 3,
+          "name": "radiative_load_proxy",
+          "expression": "((electric_field_x + magnetic_field_z*v_y)**2/(1 + ((electric_field_x + magnetic_field_z*v_y)/radiation_field_scale)**2))*v_x**2",
+          "role": "Proxy for cumulative radiation-loss-induced heating or environmental activation that can make damping strength history dependent",
+          "train_range": [
+            0.0,
+            0.0032938686092066336
+          ],
+          "hidden_range": [
+            2.770422146974394e-09,
+            0.001389121892786942
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0,
+            "max": 0.0032938686092066336,
+            "q05": 1.197688307733405e-05,
+            "median": 0.0009574379880942546,
+            "q95": 0.0024899678995449212,
+            "range": 0.0032938686092066336,
+            "robust_range": 0.002477991016467587
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 2.770422146974394e-09,
+            "max": 0.001389121892786942,
+            "q05": 1.1847856563957325e-05,
+            "median": 0.0008575436238348162,
+            "q95": 0.001376505532737842,
+            "range": 0.001389119122364795,
+            "robust_range": 0.0013646576761738847
+          }
+        },
+        {
+          "generation": 4,
+          "name": "gamma_inv",
+          "expression": "sqrt(1 - (v_x**2 + v_y**2)/signal_speed**2)",
+          "role": "available relativistic inertial factor separating speed saturation from the proposed field-environment effect",
+          "train_range": [
+            0.9736053344124141,
+            1.0
+          ],
+          "hidden_range": [
+            0.9926805237912136,
+            0.9995581564106822
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.9736053344124141,
+            "max": 1.0,
+            "q05": 0.9747264595965701,
+            "median": 0.9862483857762376,
+            "q95": 0.9996433301956363,
+            "range": 0.026394665587585853,
+            "robust_range": 0.02491687059906622
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.9926805237912136,
+            "max": 0.9995581564106822,
+            "q05": 0.9936852440381575,
+            "median": 0.9982807098536138,
+            "q95": 0.9995445848815474,
+            "range": 0.00687763261946861,
+            "robust_range": 0.005859340843389904
+          }
+        },
+        {
+          "generation": 4,
+          "name": "transverse_current_scale",
+          "expression": "v_x**2 + v_y**2",
+          "role": "proxy for driven motion intensity that can activate magnetic screening or inductive relaxation",
+          "train_range": [
+            0.0,
+            0.46883387523322007
+          ],
+          "hidden_range": [
+            0.007951427575902824,
+            0.13126839917041494
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0,
+            "max": 0.46883387523322007,
+            "q05": 0.006418911558387324,
+            "median": 0.24582709345427756,
+            "q95": 0.4491749606610187,
+            "range": 0.46883387523322007,
+            "robust_range": 0.4427560491026314
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.007951427575902824,
+            "max": 0.13126839917041494,
+            "q05": 0.008195605505059884,
+            "median": 0.030920618394522918,
+            "q95": 0.11330672136906017,
+            "range": 0.12331697159451212,
+            "robust_range": 0.10511111586400029
+          }
+        },
+        {
+          "generation": 5,
+          "name": "parallel_fraction",
+          "expression": "v_x**2/(v_x**2 + v_y**2 + 1.0e-12)",
+          "role": "fraction of motion aligned with the x-directed electric acceleration, distinguishing longitudinal from transverse response",
+          "train_range": [
+            0.0,
+            0.9999954874925538
+          ],
+          "hidden_range": [
+            5.454935625480939e-06,
+            0.5830023773672818
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0,
+            "max": 0.9999954874925538,
+            "q05": 0.00443645866457886,
+            "median": 0.3504015649757847,
+            "q95": 0.8066880435083374,
+            "range": 0.9999954874925538,
+            "robust_range": 0.8022515848437586
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 5.454935625480939e-06,
+            "max": 0.5830023773672818,
+            "q05": 0.02267686798455381,
+            "median": 0.5249820454765336,
+            "q95": 0.5816426157294301,
+            "range": 0.5829969224316564,
+            "robust_range": 0.5589657477448763
+          }
+        }
+      ],
+      "inactive_mechanisms": [],
+      "visible_mechanisms": [
+        "speed_sq",
+        "lorentz_drive_x",
+        "magnetic_turning_scale",
+        "beta2",
+        "lorentz_drive_x",
+        "cyclotron_scale",
+        "speed_ratio_sq",
+        "radiative_load_proxy",
+        "gamma_inv",
+        "transverse_current_scale",
+        "parallel_fraction"
+      ],
+      "extended_mechanisms": [
+        "magnetic_turning_scale",
+        "cyclotron_scale",
+        "radiative_load_proxy"
+      ]
+    },
+    "inactive_mechanisms": [],
+    "target_variance": {
+      "train": {
+        "n": 4500,
+        "variance": 0.047065330240966805,
+        "range": 0.6994493221851226
+      },
+      "hidden": {
+        "n": 500,
+        "variance": 0.0015744106533675793,
+        "range": 0.149440501868096
+      }
+    },
+    "parent_absorption_report": {
+      "status": "ok",
+      "n_points": 512,
+      "fixed_parent_normalized_rmse": 0.04285865623893226,
+      "refit": {
+        "status": "not_run",
+        "reason": "no free parent parameters"
+      },
+      "interpretation": "<1e-3 nearly absorbed; 1e-3..1e-2 weak; >1e-2 visible structure"
+    },
+    "noise": 0.0,
+    "_trace": [
+      {
+        "turn": 1,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "analyze_expression",
+            "id": "call_z3HLfFhEjThd7XcSeAeQ3Y4O"
+          }
+        ]
+      },
+      {
+        "tool": "analyze_expression",
+        "input": {
+          "expression": "(particle_charge*(1 - v_x**2/signal_speed**2)/(particle_mass*(1 - (v_x**2 + v_y**2)/signal_speed**2)**(3/2)))*(electric_field_x + magnetic_field_z*v_y) - radiation_damping_strength*((electric_field_x + magnetic_field_z*v_y)**2/(1 + ((electric_field_x + magnetic_field_z*v_y)/radiation_field_scale)**2))*v_x",
+          "target_symbol": "dv_x_dt"
+        },
+        "result": {
+          "ok": true,
+          "free_symbols": [
+            "electric_field_x",
+            "magnetic_field_z",
+            "particle_charge",
+            "particle_mass",
+            "radiation_damping_strength",
+            "radiation_field_scale",
+            "signal_speed",
+            "v_x",
+            "v_y"
+          ],
+          "functions_of": {},
+          "target_function_calls": [],
+          "delayed_target_calls": [],
+          "ungoverned_functions": [],
+          "derivatives": [],
+          "max_derivative_order": 0,
+          "integral_kernels": [],
+          "explicitly_solvable_for_target": true,
+          "explicit_solution_preview": [
+            "particle_charge*(1 - v_x**2/(signal_speed**2))*(electric_field_x + magnetic_field_z*v_y)/((particle_mass*(1 - (v_x**2 + "
+          ],
+          "classification_hint": "explicit",
+          "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+        }
+      },
+      {
+        "turn": 2,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "check_substitution",
+            "id": "call_fp6iiMQcBBY0NmGp7vKs996e"
+          }
+        ]
+      },
+      {
+        "tool": "check_substitution",
+        "input": {
+          "expression": "(particle_charge*(1 - v_x**2/signal_speed**2)/(particle_mass*(1 - (v_x**2 + v_y**2)/signal_speed**2)**(3/2)))*(electric_field_x + magnetic_field_z*v_y) - radiation_damping_strength*((electric_field_x + magnetic_field_z*v_y)**2/(1 + ((electric_field_x + magnetic_field_z*v_y)/radiation_field_scale)**2))*v_x",
+          "target_symbol": "dv_x_dt",
+          "assignments": {
+            "particle_charge": 1,
+            "particle_mass": 1,
+            "electric_field_x": 0.35,
+            "signal_speed": 3,
+            "radiation_field_scale": 0.8,
+            "v_x": 0.4,
+            "v_y": 0.3,
+            "radiation_damping_strength": 1,
+            "magnetic_field_z": 1
+          }
+        },
+        "result": {
+          "ok": true,
+          "value_real": 0.5642032234787842,
+          "value_imag": 0.0,
+          "is_finite": true,
+          "is_real": true,
+          "verdict": "ok",
+          "residual_free_symbols": []
+        }
+      },
+      {
+        "turn": 3,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "emit_data_gen_spec",
+            "id": "call_EDQzdhEZycvWz8mVo05bj5YD"
+          }
+        ]
+      },
+      {
+        "tool": "emit_data_gen_spec",
+        "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+      },
+      {
+        "turn": 4,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "emit_data_gen_spec",
+            "id": "call_VMqHWvHCIYN43EkrLtQcoetM"
+          }
+        ]
+      },
+      {
+        "tool": "emit_data_gen_spec",
+        "accepted": true
+      }
+    ],
+    "_provider": "openai",
+    "_num_turns": 4,
+    "discipline": "physics",
+    "scenario_text": "A charged particle moves through uniform electric and magnetic fields, and its transverse velocity is tracked over time. The electric field changes the particle's velocity in a fixed direction while the magnetic field continually redirects motion perpendicular to the instantaneous velocity. The baseline model neglects collisions, radiation losses, gravity, and spatial variation of the fields.",
+    "record_id": "m2_electromagnetism_20280757_004",
+    "generation": 5,
+    "_n_total": 5000,
+    "mechanism_observation_history": [
+      {
+        "generation": 1,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "With fixed electric_field_x and magnetic_field_z, dv_x_dt depends linearly on v_y with constant cyclotron factor (particle_charge/particle_mass)*magnetic_field_z, so the transverse response is harmonic drift/rotation at one field-independent frequency for a given charge-to-mass ratio.",
+            "child_relation": "Relax the nonrelativistic assumption so the effective inertial response increases with speed; then dv_x_dt still couples to electric_field_x and magnetic_field_z*v_y, but through a speed-dependent factor, making the target mapping from observed velocities to acceleration state-dependent and nonlinear.",
+            "affected_inputs": [
+              "v_x",
+              "v_y",
+              "particle_mass",
+              "particle_charge",
+              "electric_field_x",
+              "magnetic_field_z"
+            ],
+            "observable_effect": "Across trajectories reaching different speeds under different electric forcing while magnetic_field_z is held fixed, the child shows reduced acceleration magnitude and slower transverse turning at higher speed; the parent with one shared parameter set predicts the same curvature/frequency regardless of attained speed."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "speed_sq",
+              "expression": "v_x**2 + v_y**2",
+              "role": "tracks whether the trajectory enters a regime where inertial response becomes speed dependent"
+            },
+            {
+              "name": "lorentz_drive_x",
+              "expression": "(particle_charge/particle_mass)*(electric_field_x + magnetic_field_z*v_y)",
+              "role": "parent x-acceleration law used as the low-speed reference"
+            },
+            {
+              "name": "magnetic_turning_scale",
+              "expression": "(particle_charge/particle_mass)*magnetic_field_z",
+              "role": "parent constant cyclotron turning scale to compare against speed-dependent turning"
+            }
+          ],
+          "activation_condition": "Observable when the electric acceleration drives speeds out of the strictly nonrelativistic regime, i.e. speed becomes a non-negligible fraction of the relevant signal-speed scale so that inertial response measurably departs from the constant-mass law; negligible in the low-speed limit.",
+          "train_hidden_contrast": "In training, modest speed variation already produces small but systematic reduction of turning/acceleration at larger |v|; in holdout, stronger electric forcing extends the same trend to higher speeds, increasing the curvature difference from the parent while preserving the same low-speed limit.",
+          "continuation_path": "Recover the parent law in the low-speed limit where speed-dependent inertial corrections vanish and the effective response reduces to the constant particle_mass formulation.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The model assumes the particle remains nonrelativistic, so its inertial response and cyclotron turning rate are independent of speed even when electric forcing can accelerate it to appreciable speeds.",
+          "baseline_assumption": "The particle remains nonrelativistic.",
+          "scientific_mechanism": "Relativistic increase of effective inertia causes the Lorentz-force-driven acceleration and magnetic turning to weaken as speed rises.",
+          "affected_symbols": [
+            "v_x",
+            "v_y",
+            "particle_mass",
+            "particle_charge",
+            "electric_field_x",
+            "magnetic_field_z"
+          ],
+          "rationale": "A realistic next refinement is to relax the nonrelativistic assumption already named in the baseline. Vary electric_field_x across experiments while holding particle_charge, particle_mass, magnetic_field_z, and initial conditions fixed. In the parent, all such runs share one constant turning scale and produce x-acceleration that is linear in v_y with no explicit dependence on speed magnitude, so after refitting one shared parameter set the model still cannot make higher-speed segments bend more slowly than lower-speed segments at the same magnetic_field_z. In the child, once speed grows enough that relativistic inertia matters, the scored target dv_x_dt acquires a direct dependence on the observed state magnitude through v_x and v_y, changing the target mapping itself rather than only an auxiliary trajectory. This is scientifically admissible when electric forcing is strong enough, over a long enough observation window, to reach appreciable speeds; it is not expected to matter in the strictly low-speed regime, which provides the continuation back to the parent."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "With fixed electric_field_x and magnetic_field_z, dv_x_dt depends linearly on v_y with constant cyclotron factor (particle_charge/particle_mass)*magnetic_field_z, so the transverse response is harmonic drift/rotation at one field-independent frequency for a given charge-to-mass ratio.",
+            "child_relation": "Relax the nonrelativistic assumption so the effective inertial response increases with speed; then dv_x_dt still couples to electric_field_x and magnetic_field_z*v_y, but through a speed-dependent factor, making the target mapping from observed velocities to acceleration state-dependent and nonlinear.",
+            "affected_inputs": [
+              "v_x",
+              "v_y",
+              "particle_mass",
+              "particle_charge",
+              "electric_field_x",
+              "magnetic_field_z"
+            ],
+            "observable_effect": "Across trajectories reaching different speeds under different electric forcing while magnetic_field_z is held fixed, the child shows reduced acceleration magnitude and slower transverse turning at higher speed; the parent with one shared parameter set predicts the same curvature/frequency regardless of attained speed."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "speed_sq",
+              "expression": "v_x**2 + v_y**2",
+              "role": "tracks whether the trajectory enters a regime where inertial response becomes speed dependent"
+            },
+            {
+              "name": "lorentz_drive_x",
+              "expression": "(particle_charge/particle_mass)*(electric_field_x + magnetic_field_z*v_y)",
+              "role": "parent x-acceleration law used as the low-speed reference"
+            },
+            {
+              "name": "magnetic_turning_scale",
+              "expression": "(particle_charge/particle_mass)*magnetic_field_z",
+              "role": "parent constant cyclotron turning scale to compare against speed-dependent turning"
+            }
+          ],
+          "activation_condition": "Observable when the electric acceleration drives speeds out of the strictly nonrelativistic regime, i.e. speed becomes a non-negligible fraction of the relevant signal-speed scale so that inertial response measurably departs from the constant-mass law; negligible in the low-speed limit.",
+          "train_hidden_contrast": "In training, modest speed variation already produces small but systematic reduction of turning/acceleration at larger |v|; in holdout, stronger electric forcing extends the same trend to higher speeds, increasing the curvature difference from the parent while preserving the same low-speed limit.",
+          "continuation_path": "Recover the parent law in the low-speed limit where speed-dependent inertial corrections vanish and the effective response reduces to the constant particle_mass formulation.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "v_x",
+            "v_y"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "relativistic inertia in Lorentz-force motion",
+          "scientific_mechanism": "Relativistic increase of effective inertia causes the Lorentz-force-driven acceleration and magnetic turning to weaken as speed rises.",
+          "embedding_pattern": "state_coupling",
+          "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the target RHS now depends jointly on two declared states through the speed magnitude, so one shared parameter set cannot reproduce the speed-conditioned curvature change by merely rescaling electric or magnetic gains.",
+          "taxonomy_match": "known",
+          "assumption_before": "The particle remains nonrelativistic.",
+          "assumption_after": "The particle can enter a relativistic regime where inertial response depends on total transverse speed.",
+          "before_fragment": "(particle_charge/particle_mass)*(electric_field_x + magnetic_field_z*v_y)",
+          "after_fragment": "(particle_charge/(particle_mass*sqrt(1 - (v_x**2 + v_y**2)/signal_speed**2)))*(electric_field_x + magnetic_field_z*v_y)",
+          "parent_reduction": "In the low-speed limit (v_x**2 + v_y**2)/signal_speed**2 << 1, sqrt(1 - (v_x**2 + v_y**2)/signal_speed**2) -> 1, recovering the parent law.",
+          "observable_signature": "Holding particle_charge, particle_mass, magnetic_field_z, and initial conditions fixed while varying electric_field_x across runs, low-speed segments follow the parent approximately, but higher-speed segments show systematically smaller |dv_x_dt| than the parent predicts at the same v_y because the RHS now also depends on v_x**2 + v_y**2. This changes the scored target mapping itself, not just auxiliary trajectories.",
+          "shortcut_blocked": "A single refit of particle_charge/particle_mass or magnetic_field_z can only change the global gain of the parent law. It cannot make two trajectory segments with the same v_y but different speed magnitude produce different dv_x_dt values, nor can it reproduce the progressive slowing of turning with increasing |v| across multiple electric_field_x conditions using one shared parameter set."
+        },
+        "range_suggestions": {
+          "signal_speed": "positive, with 0 <= v_x**2 + v_y**2 < signal_speed**2 along admissible trajectories"
+        }
+      },
+      {
+        "generation": 2,
+        "plan": {
+          "operation": "add_term",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "With uniform fields and no dissipation, dv_x_dt depends only on the instantaneous Lorentz-force factor q/(m*sqrt(1-(v_x**2+v_y**2)/signal_speed**2)) multiplying electric_field_x + magnetic_field_z*v_y, so at fixed fields the target acceleration is set solely by the current transverse velocity state.",
+            "child_relation": "Add radiation-reaction damping from accelerated charge motion in crossed fields, so dv_x_dt gains a speed- and field-dependent opposing contribution. The target mapping then depends not only on the Lorentz drive but also on the acceleration-induced energy-loss scale, bending the approach to high-speed motion and reducing late-time acceleration more strongly when electric_field_x and magnetic_field_z are larger.",
+            "affected_inputs": [
+              "v_x",
+              "v_y",
+              "electric_field_x",
+              "magnetic_field_z",
+              "signal_speed",
+              "particle_charge",
+              "particle_mass"
+            ],
+            "observable_effect": "Holding particle_charge, particle_mass, and signal_speed fixed while varying field strength, the child predicts stronger late-time flattening and lower attainable transverse speed under stronger fields than the parent, beyond the parent's relativistic saturation alone."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "beta2",
+              "expression": "(v_x**2 + v_y**2)/signal_speed**2",
+              "role": "dimensionless relativistic speed controlling inertial enhancement"
+            },
+            {
+              "name": "lorentz_drive_x",
+              "expression": "electric_field_x + magnetic_field_z*v_y",
+              "role": "instantaneous transverse x Lorentz driving term"
+            },
+            {
+              "name": "cyclotron_scale",
+              "expression": "particle_charge*magnetic_field_z/particle_mass",
+              "role": "magnetic turning-rate scale that sets transverse acceleration magnitude"
+            }
+          ],
+          "activation_condition": "Observable when the particle experiences sustained transverse acceleration in sufficiently strong electric and/or magnetic fields so radiation losses are not negligible over the modeled time window, while still remaining below signal_speed.",
+          "train_hidden_contrast": "Across trajectories with the same initial conditions and particle constants but different field amplitudes, training already shows that stronger forcing produces extra downward bending of dv_x_dt versus speed; in holdout at larger field magnitudes this curvature enhancement becomes more pronounced rather than remaining a simple rescaling.",
+          "continuation_path": "In the weak-radiation limit, equivalently over short times or low acceleration where the damping coefficient tends to zero, the successor reduces continuously to the parent relativistic Lorentz-force law.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The model omits radiation reaction: an accelerating charge in electromagnetic fields radiates and loses energy-momentum, which feeds back as a damping correction to the transverse acceleration.",
+          "baseline_assumption": "Collisions, radiation reaction, gravity, and field back-reaction are neglected.",
+          "scientific_mechanism": "Radiative energy loss from accelerated charged-particle motion in crossed electric and magnetic fields introduces self-damping that opposes the Lorentz-driven acceleration.",
+          "affected_symbols": [
+            "v_x",
+            "v_y",
+            "electric_field_x",
+            "magnetic_field_z",
+            "particle_charge",
+            "particle_mass",
+            "signal_speed"
+          ],
+          "rationale": "A natural next refinement is to relax the explicit neglect of radiation losses. The parent target mapping has a fixed-environment shortcut: once the uniform fields and constants are set, dv_x_dt is determined only by the instantaneous Lorentz drive and relativistic inertia, so stronger fields mainly rescale the acceleration before relativistic saturation. Vary electric_field_x and/or magnetic_field_z across admissible trajectories while holding particle_charge, particle_mass, signal_speed, and initial conditions fixed. Then compare the dv_x_dt-versus-speed trend over time. The child with radiation reaction predicts an additional field-strength-dependent suppression of dv_x_dt that grows with acceleration, producing more pronounced downward curvature and a lower late-time speed ceiling than the parent can reproduce with one shared parameter set, because the parent has no mechanism tying extra damping specifically to acceleration strength at fixed speed. This effect is scientifically admissible when acceleration is sustained long enough and fields are strong enough for radiative losses to accumulate, but it may be weak in low-field or short-duration data; in that weak-loss regime the parent is recovered."
+        },
+        "contract": {
+          "operation": "add_term",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "With uniform fields and no dissipation, dv_x_dt depends only on the instantaneous Lorentz-force factor q/(m*sqrt(1-(v_x**2+v_y**2)/signal_speed**2)) multiplying electric_field_x + magnetic_field_z*v_y, so at fixed fields the target acceleration is set solely by the current transverse velocity state.",
+            "child_relation": "Add radiation-reaction damping from accelerated charge motion in crossed fields, so dv_x_dt gains a speed- and field-dependent opposing contribution. The target mapping then depends not only on the Lorentz drive but also on the acceleration-induced energy-loss scale, bending the approach to high-speed motion and reducing late-time acceleration more strongly when electric_field_x and magnetic_field_z are larger.",
+            "affected_inputs": [
+              "v_x",
+              "v_y",
+              "electric_field_x",
+              "magnetic_field_z",
+              "signal_speed",
+              "particle_charge",
+              "particle_mass"
+            ],
+            "observable_effect": "Holding particle_charge, particle_mass, and signal_speed fixed while varying field strength, the child predicts stronger late-time flattening and lower attainable transverse speed under stronger fields than the parent, beyond the parent's relativistic saturation alone."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "beta2",
+              "expression": "(v_x**2 + v_y**2)/signal_speed**2",
+              "role": "dimensionless relativistic speed controlling inertial enhancement"
+            },
+            {
+              "name": "lorentz_drive_x",
+              "expression": "electric_field_x + magnetic_field_z*v_y",
+              "role": "instantaneous transverse x Lorentz driving term"
+            },
+            {
+              "name": "cyclotron_scale",
+              "expression": "particle_charge*magnetic_field_z/particle_mass",
+              "role": "magnetic turning-rate scale that sets transverse acceleration magnitude"
+            }
+          ],
+          "activation_condition": "Observable when the particle experiences sustained transverse acceleration in sufficiently strong electric and/or magnetic fields so radiation losses are not negligible over the modeled time window, while still remaining below signal_speed.",
+          "train_hidden_contrast": "Across trajectories with the same initial conditions and particle constants but different field amplitudes, training already shows that stronger forcing produces extra downward bending of dv_x_dt versus speed; in holdout at larger field magnitudes this curvature enhancement becomes more pronounced rather than remaining a simple rescaling.",
+          "continuation_path": "In the weak-radiation limit, equivalently over short times or low acceleration where the damping coefficient tends to zero, the successor reduces continuously to the parent relativistic Lorentz-force law.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "v_x",
+            "v_y",
+            "electric_field_x",
+            "magnetic_field_z"
+          ],
+          "structural_role": "contribution",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "saturating radiation-reaction damping driven by instantaneous Lorentz acceleration scale",
+          "scientific_mechanism": "Radiative energy loss from accelerated charged-particle motion in crossed electric and magnetic fields introduces self-damping that opposes the Lorentz-driven acceleration.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "The added term creates a new nonlinear dependence on the instantaneous Lorentz drive through a saturating denominator, so the field dependence of dv_x_dt changes shape rather than merely scale. This cannot be mimicked by adjusting one existing gain because the suppression grows with forcing and then saturates, altering curvature across field amplitudes at fixed speed.",
+          "taxonomy_match": "provisional",
+          "assumption_before": "Collisions, radiation reaction, gravity, and field back-reaction are neglected.",
+          "assumption_after": "Radiation losses are retained through a finite-capacity self-damping term that opposes transverse motion under strong Lorentz drive.",
+          "before_fragment": "(particle_charge/(particle_mass*sqrt(1 - (v_x**2 + v_y**2)/signal_speed**2)))*(electric_field_x + magnetic_field_z*v_y)",
+          "after_fragment": "(particle_charge/(particle_mass*sqrt(1 - (v_x**2 + v_y**2)/signal_speed**2)))*(electric_field_x + magnetic_field_z*v_y) - radiation_damping_strength*((electric_field_x + magnetic_field_z*v_y)**2/(1 + ((electric_field_x + magnetic_field_z*v_y)/radiation_field_scale)**2))*v_x",
+          "parent_reduction": "radiation_damping_strength -> 0",
+          "observable_signature": "For stronger electric_field_x and/or magnetic_field_z, dv_x_dt at the same speed is suppressed more than in the parent, with extra downward curvature that eventually saturates instead of remaining a pure relativistic rescaling.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce this contrast because the parent ties dv_x_dt to field strength only through the Lorentz prefactor and relativistic inertia, giving one shared functional shape across field amplitudes. The child adds field-dependent damping that is weak at low drive, stronger at intermediate drive, and saturating at high drive, so no refit of particle_charge, particle_mass, magnetic_field_z, electric_field_x, or signal_speed within the parent can match all these regimes simultaneously with one common parameter set."
+        },
+        "range_suggestions": {
+          "radiation_damping_strength": "positive; small-to-moderate so weak-loss trajectories remain admissible but strong-field damping can be observable",
+          "radiation_field_scale": "positive; comparable to or larger than typical |electric_field_x + magnetic_field_z*v_y| over the experiment"
+        }
+      },
+      {
+        "generation": 3,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The target acceleration dv_x_dt depends on the instantaneous Lorentz drive electric_field_x + magnetic_field_z*v_y through a relativistic factor and a saturating radiation-damping term with one fixed damping strength over the whole trajectory.",
+            "child_relation": "Make the already-present radiation reaction environment-dependent by allowing the damping strength to evolve as a state under self-heating/relaxation, so dv_x_dt acquires history-dependent curvature even at the same instantaneous v_x, v_y, electric_field_x, and magnetic_field_z.",
+            "affected_inputs": [
+              "v_x",
+              "v_y",
+              "electric_field_x",
+              "magnetic_field_z",
+              "radiation_damping_strength"
+            ],
+            "observable_effect": "At fixed fields, runs that spend longer in strong-drive conditions show progressively stronger late-time suppression of dv_x_dt than early-time suppression at the same velocity scale; a parent with one constant damping strength cannot match both the weak initial loss and stronger accumulated damping within one shared parameter set."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "lorentz_drive_x",
+              "expression": "electric_field_x + magnetic_field_z*v_y",
+              "role": "Instantaneous transverse x-directed electromagnetic drive already used by the parent"
+            },
+            {
+              "name": "speed_ratio_sq",
+              "expression": "(v_x**2 + v_y**2)/signal_speed**2",
+              "role": "Relativistic activity level controlling inertial softening"
+            },
+            {
+              "name": "radiative_load_proxy",
+              "expression": "((electric_field_x + magnetic_field_z*v_y)**2/(1 + ((electric_field_x + magnetic_field_z*v_y)/radiation_field_scale)**2))*v_x**2",
+              "role": "Proxy for cumulative radiation-loss-induced heating or environmental activation that can make damping strength history dependent"
+            }
+          ],
+          "activation_condition": "Observable when the Lorentz drive magnitude |electric_field_x + magnetic_field_z*v_y| reaches a non-negligible fraction of radiation_field_scale for long enough that cumulative radiative load is appreciable over the observation window; negligible in short-time or weak-drive trajectories.",
+          "train_hidden_contrast": "In training, modest variation in field strength or window length can already show mild time-asymmetric damping buildup; in holdout, stronger or longer sustained drive amplifies the same mechanism into a clearer late-time curvature change of dv_x_dt versus state, without changing the underlying Lorentz structure.",
+          "continuation_path": "Recover the parent by taking the relaxation rate of the promoted damping state to infinity toward a constant value, or by taking the radiative-load coupling to zero so radiation_damping_strength remains fixed.",
+          "freedom_change": "parameter_to_state",
+          "promoted_symbol": "radiation_damping_strength",
+          "promotion_reason": "A fixed scalar damping coefficient cannot represent cumulative activation or relaxation of the radiative-loss environment. Capturing trajectory-history dependence while preserving the existing physical damping channel requires releasing the existing damping-strength parameter into a dynamical state.",
+          "gap_statement": "The model includes radiation damping but assumes its strength is fixed in time, omitting physically plausible buildup/relaxation of the effective loss environment under sustained strong acceleration.",
+          "baseline_assumption": "The coefficient setting radiation-reaction damping strength is constant over the experiment.",
+          "scientific_mechanism": "Effective radiative-loss strength evolves due to cumulative self-heating or environmental activation under sustained strong electromagnetic driving, then relaxes when the drive weakens.",
+          "affected_symbols": [
+            "v_x",
+            "v_y",
+            "electric_field_x",
+            "magnetic_field_z",
+            "radiation_damping_strength"
+          ],
+          "rationale": "A natural next refinement is to relax the fixed-environment assumption inside the already-present radiation-loss mechanism rather than adding an unrelated force. The parent target mapping has a fixed_environment shortcut: for any instantaneous state and fields, the damping contribution is governed by one shared constant radiation_damping_strength, so the dv_x_dt response to the same instantaneous Lorentz drive has the same loss prefactor regardless of prior exposure. Vary the sustained drive level or observation duration while holding particle_charge, particle_mass, magnetic_field_z, signal_speed, radiation_field_scale, and initial velocities fixed. Under strong enough drive, the child predicts that prolonged exposure increases the effective damping strength, so late-time dv_x_dt bends downward more strongly than early-time dv_x_dt even if the instantaneous velocities revisit similar magnitudes. This is a target-mapping change, not merely an auxiliary-trajectory change, because dv_x_dt itself becomes history dependent through the evolved damping strength. The contrast is admissible when the radiative channel is already observable but not overwhelming, roughly when |electric_field_x + magnetic_field_z*v_y| is comparable to or below radiation_field_scale yet sustained long enough to accumulate load. If the experiment remains in weak-field or very short-time regimes, the effect may be too small to distinguish, and the parent is then an adequate approximation."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The target acceleration dv_x_dt depends on the instantaneous Lorentz drive electric_field_x + magnetic_field_z*v_y through a relativistic factor and a saturating radiation-damping term with one fixed damping strength over the whole trajectory.",
+            "child_relation": "Make the already-present radiation reaction environment-dependent by allowing the damping strength to evolve as a state under self-heating/relaxation, so dv_x_dt acquires history-dependent curvature even at the same instantaneous v_x, v_y, electric_field_x, and magnetic_field_z.",
+            "affected_inputs": [
+              "v_x",
+              "v_y",
+              "electric_field_x",
+              "magnetic_field_z",
+              "radiation_damping_strength"
+            ],
+            "observable_effect": "At fixed fields, runs that spend longer in strong-drive conditions show progressively stronger late-time suppression of dv_x_dt than early-time suppression at the same velocity scale; a parent with one constant damping strength cannot match both the weak initial loss and stronger accumulated damping within one shared parameter set."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "lorentz_drive_x",
+              "expression": "electric_field_x + magnetic_field_z*v_y",
+              "role": "Instantaneous transverse x-directed electromagnetic drive already used by the parent"
+            },
+            {
+              "name": "speed_ratio_sq",
+              "expression": "(v_x**2 + v_y**2)/signal_speed**2",
+              "role": "Relativistic activity level controlling inertial softening"
+            },
+            {
+              "name": "radiative_load_proxy",
+              "expression": "((electric_field_x + magnetic_field_z*v_y)**2/(1 + ((electric_field_x + magnetic_field_z*v_y)/radiation_field_scale)**2))*v_x**2",
+              "role": "Proxy for cumulative radiation-loss-induced heating or environmental activation that can make damping strength history dependent"
+            }
+          ],
+          "activation_condition": "Observable when the Lorentz drive magnitude |electric_field_x + magnetic_field_z*v_y| reaches a non-negligible fraction of radiation_field_scale for long enough that cumulative radiative load is appreciable over the observation window; negligible in short-time or weak-drive trajectories.",
+          "train_hidden_contrast": "In training, modest variation in field strength or window length can already show mild time-asymmetric damping buildup; in holdout, stronger or longer sustained drive amplifies the same mechanism into a clearer late-time curvature change of dv_x_dt versus state, without changing the underlying Lorentz structure.",
+          "continuation_path": "Recover the parent by taking the relaxation rate of the promoted damping state to infinity toward a constant value, or by taking the radiative-load coupling to zero so radiation_damping_strength remains fixed.",
+          "freedom_change": "parameter_to_state",
+          "promoted_symbol": "radiation_damping_strength",
+          "promotion_reason": "A fixed scalar damping coefficient cannot represent cumulative activation or relaxation of the radiative-loss environment. Capturing trajectory-history dependence while preserving the existing physical damping channel requires releasing the existing damping-strength parameter into a dynamical state.",
+          "scope_kind": "memory",
+          "scope_symbols": [
+            "v_x",
+            "v_y",
+            "radiation_damping_strength"
+          ],
+          "structural_role": "feedback",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Saturating activation and relaxation of the effective radiation-loss environment",
+          "scientific_mechanism": "Effective radiative-loss strength evolves due to cumulative self-heating or environmental activation under sustained strong electromagnetic driving, then relaxes when the drive weakens.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "This embedding is structurally harder than a coefficient-only correction because the target RHS now depends on trajectory history through a bounded internal damping state governed by competing activation and relaxation, creating time-asymmetric curvature at fixed instantaneous kinematic state.",
+          "taxonomy_match": "provisional",
+          "assumption_before": "The coefficient setting radiation-reaction damping strength is constant over the experiment.",
+          "assumption_after": "The effective radiation-damping strength can build up under sustained radiative load with finite capacity and relax back when the load weakens.",
+          "before_fragment": "(particle_charge/(particle_mass*sqrt(1 - (v_x**2 + v_y**2)/signal_speed**2)))*(electric_field_x + magnetic_field_z*v_y) - radiation_damping_strength*((electric_field_x + magnetic_field_z*v_y)**2/(1 + ((electric_field_x + magnetic_field_z*v_y)/radiation_field_scale)**2))*v_x",
+          "after_fragment": "(particle_charge/(particle_mass*sqrt(1 - (v_x**2 + v_y**2)/signal_speed**2)))*(electric_field_x + magnetic_field_z*v_y) - radiation_damping_strength*((electric_field_x + magnetic_field_z*v_y)**2/(1 + ((electric_field_x + magnetic_field_z*v_y)/radiation_field_scale)**2))*v_x",
+          "parent_reduction": "Set radiation_activation_rate to zero so the promoted damping state remains at its initial value, or take fast relaxation so deviations from baseline are negligible.",
+          "observable_signature": "Relative to the parent's single fixed loss prefactor, the child predicts that dv_x_dt versus instantaneous state bends more strongly downward later in trajectories that remain under appreciable |electric_field_x + magnetic_field_z*v_y|, with the effect saturating as radiation_damping_strength approaches radiation_damping_capacity. This changes the scored target mapping itself, not just auxiliary trajectories, because the target RHS directly uses the evolved damping state.",
+          "shortcut_blocked": "No single constant value of radiation_damping_strength in the parent can simultaneously fit both early weak damping and later stronger damping across trajectories with different sustained-drive exposure, because the child introduces genuine memory through state evolution. Refitting all parent constants only rescales instantaneous response; it cannot generate exposure-duration-dependent suppression at the same instantaneous v_x and v_y within one shared parameter set."
+        },
+        "range_suggestions": {
+          "radiation_damping_strength": "initial state nonnegative; typically small-to-moderate relative to the inverse drive scale, and not exceeding radiation_damping_capacity in bounded trajectories",
+          "radiation_activation_rate": "positive; small-to-moderate so damping buildup is observable over the trajectory without instant saturation",
+          "radiation_relaxation_rate": "positive; comparable to inverse observation time when recovery is measurable, larger for near-parent behavior",
+          "radiation_damping_capacity": "positive; larger than or equal to the initial radiation_damping_strength so buildup is possible but bounded"
+        }
+      },
+      {
+        "generation": 4,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The target mapping uses a fixed magnetic field, so at fixed electric_field_x and radiation state the Lorentz drive in dv_x_dt depends on v_y only through the linear combination electric_field_x + magnetic_field_z*v_y, giving one shared curvature pattern across all times and amplitudes apart from the existing relativistic and damping factors.",
+            "child_relation": "Release magnetic_field_z into a slowly evolving state to represent self-consistent field screening or inductive relaxation by the driven current; then dv_x_dt depends on v_y through electric_field_x + B_eff(t)*v_y with B_eff itself altered by the trajectory, producing history-dependent curvature in the v_y-to-dv_x_dt mapping.",
+            "affected_inputs": [
+              "v_y",
+              "magnetic_field_z",
+              "v_x"
+            ],
+            "observable_effect": "Under sustained strong transverse current buildup, the x-acceleration weakens its magnetic-turning contribution over time relative to early-time behavior at the same instantaneous v_y, whereas weak-drive trajectories remain close to the parent."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "gamma_inv",
+              "expression": "sqrt(1 - (v_x**2 + v_y**2)/signal_speed**2)",
+              "role": "available relativistic inertial factor separating speed saturation from the proposed field-environment effect"
+            },
+            {
+              "name": "lorentz_drive_x",
+              "expression": "electric_field_x + magnetic_field_z*v_y",
+              "role": "parent effective x-directed electromagnetic drive whose curvature is altered when the magnetic environment is no longer fixed"
+            },
+            {
+              "name": "transverse_current_scale",
+              "expression": "v_x**2 + v_y**2",
+              "role": "proxy for driven motion intensity that can activate magnetic screening or inductive relaxation"
+            }
+          ],
+          "activation_condition": "Observable when the particle sustains non-negligible transverse motion for long enough that the magnetic environment can relax on the observation timescale; specifically, trajectories with moderate-to-large v_x^2+v_y^2 and magnetic relaxation rate comparable to inverse run time show the effect, while fast-relaxation-to-fixed-field or vanishing-motion limits recover the parent.",
+          "train_hidden_contrast": "In training, varying field strength and observation window already changes how much transverse current accumulates; in holdout, stronger or longer-lasting driven motion extends the same trend so that later-time dv_x_dt at the same instantaneous v_y differs from early-time dv_x_dt, revealing the non-fixed magnetic environment.",
+          "continuation_path": "Set the magnetic-environment evolution rate to zero, or its equilibrium exactly equal to the original constant magnetic_field_z, so the promoted field remains constant and the parent law is recovered.",
+          "freedom_change": "parameter_to_state",
+          "promoted_symbol": "magnetic_field_z",
+          "promotion_reason": "A fixed parameter cannot represent trajectory-dependent magnetic screening or inductive relaxation. Capturing a history-dependent magnetic environment requires magnetic_field_z itself to evolve as an ODE state while still entering the Lorentz force directly.",
+          "gap_statement": "The current model assumes the perpendicular magnetic field is an immutable external constant even during sustained charged motion, omitting a natural slow magnetic-environment response that can feed back on transverse turning.",
+          "baseline_assumption": "The magnetic_field_z entering the Lorentz force is uniform and time-independent.",
+          "scientific_mechanism": "Slow self-consistent magnetic-field relaxation or screening induced by the driven transverse current, causing an effective magnetic field seen by the particle to evolve during the trajectory.",
+          "affected_symbols": [
+            "magnetic_field_z",
+            "v_x",
+            "v_y",
+            "electric_field_x"
+          ],
+          "rationale": "A realistic next refinement is to relax the parent's fixed-environment shortcut for the magnetic field rather than adding a wholly new force. The parent target mapping is constrained to one shared magnetic-turning law because magnetic_field_z is constant. Varying sustained drive strength through electric_field_x while holding particle_charge, particle_mass, signal_speed, and initial conditions fixed can produce trajectories with similar instantaneous v_y at different times but different cumulative transverse current. In the child, those cases can yield different dv_x_dt because the effective magnetic field has relaxed or screened, changing the slope/curvature of the magnetic contribution at the same observed v_y. This is a genuine target-mapping change, not merely an auxiliary-state change, because magnetic_field_z enters dv_x_dt directly. The effect is scientifically admissible when the magnetic-environment timescale is comparable to the observation window and the motion is strong enough to induce a measurable response; it will be weak for very short runs or tiny velocities. A single refitted parent parameter set cannot reproduce both early-time strong-turning behavior and later-time weakened-turning behavior at the same instantaneous v_y across such conditions, because its magnetic coefficient is fixed and cannot encode accumulated history."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The target mapping uses a fixed magnetic field, so at fixed electric_field_x and radiation state the Lorentz drive in dv_x_dt depends on v_y only through the linear combination electric_field_x + magnetic_field_z*v_y, giving one shared curvature pattern across all times and amplitudes apart from the existing relativistic and damping factors.",
+            "child_relation": "Release magnetic_field_z into a slowly evolving state to represent self-consistent field screening or inductive relaxation by the driven current; then dv_x_dt depends on v_y through electric_field_x + B_eff(t)*v_y with B_eff itself altered by the trajectory, producing history-dependent curvature in the v_y-to-dv_x_dt mapping.",
+            "affected_inputs": [
+              "v_y",
+              "magnetic_field_z",
+              "v_x"
+            ],
+            "observable_effect": "Under sustained strong transverse current buildup, the x-acceleration weakens its magnetic-turning contribution over time relative to early-time behavior at the same instantaneous v_y, whereas weak-drive trajectories remain close to the parent."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "gamma_inv",
+              "expression": "sqrt(1 - (v_x**2 + v_y**2)/signal_speed**2)",
+              "role": "available relativistic inertial factor separating speed saturation from the proposed field-environment effect"
+            },
+            {
+              "name": "lorentz_drive_x",
+              "expression": "electric_field_x + magnetic_field_z*v_y",
+              "role": "parent effective x-directed electromagnetic drive whose curvature is altered when the magnetic environment is no longer fixed"
+            },
+            {
+              "name": "transverse_current_scale",
+              "expression": "v_x**2 + v_y**2",
+              "role": "proxy for driven motion intensity that can activate magnetic screening or inductive relaxation"
+            }
+          ],
+          "activation_condition": "Observable when the particle sustains non-negligible transverse motion for long enough that the magnetic environment can relax on the observation timescale; specifically, trajectories with moderate-to-large v_x^2+v_y^2 and magnetic relaxation rate comparable to inverse run time show the effect, while fast-relaxation-to-fixed-field or vanishing-motion limits recover the parent.",
+          "train_hidden_contrast": "In training, varying field strength and observation window already changes how much transverse current accumulates; in holdout, stronger or longer-lasting driven motion extends the same trend so that later-time dv_x_dt at the same instantaneous v_y differs from early-time dv_x_dt, revealing the non-fixed magnetic environment.",
+          "continuation_path": "Set the magnetic-environment evolution rate to zero, or its equilibrium exactly equal to the original constant magnetic_field_z, so the promoted field remains constant and the parent law is recovered.",
+          "freedom_change": "parameter_to_state",
+          "promoted_symbol": "magnetic_field_z",
+          "promotion_reason": "A fixed parameter cannot represent trajectory-dependent magnetic screening or inductive relaxation. Capturing a history-dependent magnetic environment requires magnetic_field_z itself to evolve as an ODE state while still entering the Lorentz force directly.",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "magnetic_field_z",
+            "v_x",
+            "v_y"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "trajectory-driven magnetic-environment relaxation",
+          "scientific_mechanism": "Slow self-consistent magnetic-field relaxation or screening induced by the driven transverse current, causing an effective magnetic field seen by the particle to evolve during the trajectory.",
+          "embedding_pattern": "state_dependent_coefficient",
+          "difficulty_rationale": "The scored target keeps the same Lorentz-force structure but its magnetic coefficient is now a dynamically evolving state set by accumulated motion intensity, so the same instantaneous v_y can map to different dv_x_dt at different times. This is structurally harder than a coefficient-only correction because the response change depends on trajectory history through the evolving field state.",
+          "taxonomy_match": "known",
+          "assumption_before": "The magnetic_field_z entering the Lorentz force is uniform and time-independent.",
+          "assumption_after": "The effective perpendicular magnetic field relaxes slowly and is screened by sustained transverse motion, so magnetic_field_z evolves during the trajectory.",
+          "before_fragment": "(particle_charge/(particle_mass*sqrt(1 - (v_x**2 + v_y**2)/signal_speed**2)))*(electric_field_x + magnetic_field_z*v_y) - radiation_damping_strength*((electric_field_x + magnetic_field_z*v_y)**2/(1 + ((electric_field_x + magnetic_field_z*v_y)/radiation_field_scale)**2))*v_x",
+          "after_fragment": "(particle_charge/(particle_mass*sqrt(1 - (v_x**2 + v_y**2)/signal_speed**2)))*(electric_field_x + magnetic_field_z*v_y) - radiation_damping_strength*((electric_field_x + magnetic_field_z*v_y)**2/(1 + ((electric_field_x + magnetic_field_z*v_y)/radiation_field_scale)**2))*v_x",
+          "parent_reduction": "When magnetic_screening_strength = 0 and magnetic_field_z starts at magnetic_field_equilibrium equal to the original fixed field, the magnetic-field state is constant and the parent target law is exactly recovered.",
+          "observable_signature": "Hold particle_charge, particle_mass, signal_speed, and initial conditions fixed while varying electric_field_x enough to change cumulative transverse motion. In the parent, one refitted constant magnetic field gives one shared mapping from instantaneous v_y to dv_x_dt after accounting for gamma and radiation state. In the child, trajectories with stronger or longer sustained motion show a later-time reduction of the magnetic-turning contribution at the same instantaneous v_y because magnetic_field_z has screened downward, whereas weak or short trajectories remain near the original curve.",
+          "shortcut_blocked": "Refitting all parent parameters still leaves magnetic_field_z fixed across the whole trajectory, so the parent can only supply one time-independent magnetic coefficient. It therefore cannot reproduce both early-time strong-turning and later-time weakened-turning behavior at the same instantaneous v_y across conditions with different accumulated motion using a single shared parameter set; the child requires history through the evolving magnetic_field_z state."
+        },
+        "range_suggestions": {
+          "magnetic_field_z": "finite internal state; initialize at or near magnetic_field_equilibrium, typically with the same sign and order of magnitude as the original fixed magnetic field so screening can evolve without starting on a trivial zero-field branch",
+          "magnetic_relaxation_rate": "positive; comparable to inverse observation time when magnetic-environment evolution is observable, larger for near-parent fixed-field behavior",
+          "magnetic_screening_strength": "nonnegative; small-to-moderate so screening is visible under sustained motion without instantly collapsing the effective field",
+          "magnetic_field_equilibrium": "finite; typically equal to or near the original fixed magnetic_field_z scale so the parent is recovered when screening is absent or relaxation dominates"
+        }
+      },
+      {
+        "generation": 5,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "With electric_field_x and magnetic_field_z fixed through a trajectory, the Lorentz-drive part of dv_x_dt depends on v_y through the single combination electric_field_x + magnetic_field_z*v_y, so at fixed radiation_damping_strength the target response has one fixed curvature scale set by radiation_field_scale.",
+            "child_relation": "Replace the isotropic relativistic inertia factor with the correct longitudinal-transverse response for acceleration parallel to the x-directed force, so the x acceleration is suppressed more strongly when v_x is already large than when the same speed is carried mostly in v_y.",
+            "affected_inputs": [
+              "v_x",
+              "v_y",
+              "particle_charge",
+              "particle_mass",
+              "electric_field_x",
+              "magnetic_field_z",
+              "signal_speed"
+            ],
+            "observable_effect": "For trajectories reaching the same total speed but different velocity partition between v_x and v_y, the child predicts different dv_x_dt; specifically, acceleration rolls off earlier along states with larger |v_x|, producing stronger anisotropic bending of the target surface than the parent."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "beta2",
+              "expression": "(v_x**2 + v_y**2)/signal_speed**2",
+              "role": "total relativistic speed fraction controlling overall approach to the signal-speed limit"
+            },
+            {
+              "name": "parallel_fraction",
+              "expression": "v_x**2/(v_x**2 + v_y**2 + 1.0e-12)",
+              "role": "fraction of motion aligned with the x-directed electric acceleration, distinguishing longitudinal from transverse response"
+            },
+            {
+              "name": "lorentz_drive_x",
+              "expression": "electric_field_x + magnetic_field_z*v_y",
+              "role": "instantaneous x-directed electromagnetic drive before damping"
+            }
+          ],
+          "activation_condition": "Observable when (v_x**2 + v_y**2)/signal_speed**2 is not negligible and the trajectory samples states with different v_x-to-v_y partitions at comparable total speed; weak in the nonrelativistic regime beta2 << 1.",
+          "train_hidden_contrast": "In training, moderate-speed states already show small but systematic dependence of dv_x_dt on whether speed resides in v_x or v_y; in holdout at higher reachable beta2 the same anisotropic inertia produces a larger curvature contrast in the target mapping.",
+          "continuation_path": "The parent law is recovered in the nonrelativistic limit (v_x**2 + v_y**2)/signal_speed**2 -> 0, where longitudinal and transverse inertial responses coincide.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The current model includes relativistic slowdown only through a single isotropic gamma factor, but for x-directed acceleration the exact relativistic equation distinguishes longitudinal response along v_x from transverse response associated with v_y.",
+          "baseline_assumption": "Acceleration reduction from relativity is isotropic and depends only on total speed through one shared sqrt(1 - (v_x**2 + v_y**2)/signal_speed**2) factor.",
+          "scientific_mechanism": "Relativistic longitudinal inertia: acceleration parallel to an existing velocity component is reduced more strongly than acceleration perpendicular to it, even under the same total speed.",
+          "affected_symbols": [
+            "v_x",
+            "v_y",
+            "particle_charge",
+            "particle_mass",
+            "electric_field_x",
+            "magnetic_field_z",
+            "signal_speed"
+          ],
+          "rationale": "A realistic next refinement is to relax the parent's isotropic relativistic-inertia assumption rather than add a new process. Hold particle_charge, particle_mass, electric_field_x, radiation parameters, and magnetic-field evolution law fixed, and compare states or trajectories that reach similar total speed sqrt(v_x**2 + v_y**2) but with different partition between v_x and v_y. The parent target mapping dv_x_dt treats relativistic weakening through total speed alone, so after refitting one shared parameter set it cannot create an additional dependence on the direction of the existing velocity relative to the x-directed force beyond what already enters through the magnetic term electric_field_x + magnetic_field_z*v_y. The child changes the target mapping itself: at the same total speed and same instantaneous x-drive, states with larger |v_x| experience stronger suppression of dv_x_dt than states with speed stored mostly in v_y. This is scientifically admissible whenever the observation window reaches mildly relativistic speeds; it is limited in near-nonrelativistic data where the refinement collapses back toward the parent."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "With electric_field_x and magnetic_field_z fixed through a trajectory, the Lorentz-drive part of dv_x_dt depends on v_y through the single combination electric_field_x + magnetic_field_z*v_y, so at fixed radiation_damping_strength the target response has one fixed curvature scale set by radiation_field_scale.",
+            "child_relation": "Replace the isotropic relativistic inertia factor with the correct longitudinal-transverse response for acceleration parallel to the x-directed force, so the x acceleration is suppressed more strongly when v_x is already large than when the same speed is carried mostly in v_y.",
+            "affected_inputs": [
+              "v_x",
+              "v_y",
+              "particle_charge",
+              "particle_mass",
+              "electric_field_x",
+              "magnetic_field_z",
+              "signal_speed"
+            ],
+            "observable_effect": "For trajectories reaching the same total speed but different velocity partition between v_x and v_y, the child predicts different dv_x_dt; specifically, acceleration rolls off earlier along states with larger |v_x|, producing stronger anisotropic bending of the target surface than the parent."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "beta2",
+              "expression": "(v_x**2 + v_y**2)/signal_speed**2",
+              "role": "total relativistic speed fraction controlling overall approach to the signal-speed limit"
+            },
+            {
+              "name": "parallel_fraction",
+              "expression": "v_x**2/(v_x**2 + v_y**2 + 1.0e-12)",
+              "role": "fraction of motion aligned with the x-directed electric acceleration, distinguishing longitudinal from transverse response"
+            },
+            {
+              "name": "lorentz_drive_x",
+              "expression": "electric_field_x + magnetic_field_z*v_y",
+              "role": "instantaneous x-directed electromagnetic drive before damping"
+            }
+          ],
+          "activation_condition": "Observable when (v_x**2 + v_y**2)/signal_speed**2 is not negligible and the trajectory samples states with different v_x-to-v_y partitions at comparable total speed; weak in the nonrelativistic regime beta2 << 1.",
+          "train_hidden_contrast": "In training, moderate-speed states already show small but systematic dependence of dv_x_dt on whether speed resides in v_x or v_y; in holdout at higher reachable beta2 the same anisotropic inertia produces a larger curvature contrast in the target mapping.",
+          "continuation_path": "The parent law is recovered in the nonrelativistic limit (v_x**2 + v_y**2)/signal_speed**2 -> 0, where longitudinal and transverse inertial responses coincide.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "v_x",
+            "v_y",
+            "signal_speed",
+            "electric_field_x",
+            "magnetic_field_z"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "anisotropic relativistic inertia in the x-directed force response",
+          "scientific_mechanism": "Relativistic longitudinal inertia: acceleration parallel to an existing velocity component is reduced more strongly than acceleration perpendicular to it, even under the same total speed.",
+          "embedding_pattern": "state_coupling",
+          "difficulty_rationale": "This is harder than a coefficient-only correction because the Lorentz-drive contribution now depends jointly on total speed and the directional partition of that speed, creating a new anisotropic curvature in the target mapping rather than a uniform rescaling.",
+          "taxonomy_match": "known",
+          "assumption_before": "Acceleration reduction from relativity is isotropic and depends only on total speed through one shared sqrt(1 - (v_x**2 + v_y**2)/signal_speed**2) factor.",
+          "assumption_after": "The x-acceleration follows relativistic longitudinal inertia, so suppression depends jointly on total speed and on the component v_x aligned with the x-directed force.",
+          "before_fragment": "(particle_charge/(particle_mass*sqrt(1 - (v_x**2 + v_y**2)/signal_speed**2)))*(electric_field_x + magnetic_field_z*v_y) - radiation_damping_strength*((electric_field_x + magnetic_field_z*v_y)**2/(1 + ((electric_field_x + magnetic_field_z*v_y)/radiation_field_scale)**2))*v_x",
+          "after_fragment": "(particle_charge*(1 - v_x**2/signal_speed**2)/(particle_mass*(1 - (v_x**2 + v_y**2)/signal_speed**2)**(3/2)))*(electric_field_x + magnetic_field_z*v_y) - radiation_damping_strength*((electric_field_x + magnetic_field_z*v_y)**2/(1 + ((electric_field_x + magnetic_field_z*v_y)/radiation_field_scale)**2))*v_x",
+          "parent_reduction": "In the limit (v_x**2 + v_y**2)/signal_speed**2 -> 0, the modified prefactor approaches particle_charge/particle_mass and the difference from the parent's isotropic relativistic correction vanishes to leading order.",
+          "observable_signature": "Holding electric_field_x, particle_charge, particle_mass, signal_speed, and instantaneous lorentz_drive_x fixed, compare states with similar beta2 but different parallel_fraction: the child predicts smaller dv_x_dt for larger parallel_fraction, whereas the parent depends on beta2 alone apart from the explicit v_y entry already inside lorentz_drive_x. This changes the scored target mapping itself, not only auxiliary state trajectories.",
+          "shortcut_blocked": "A single refit of the parent parameters cannot reproduce this contrast across states with matched total speed and matched instantaneous x-drive because the parent Lorentz-drive factor is a function of beta2 only, while the child introduces an additional dependence on v_x**2/signal_speed**2. Retuning particle_mass, signal_speed, or radiation parameters can shift one common curvature scale but cannot create the required directional split between large-|v_x| and large-|v_y| cases with one shared parameter set."
+        },
+        "range_suggestions": {}
+      }
+    ],
+    "evolution_provenance": {
+      "dimension_track": null,
+      "mechanism_profile": {
+        "allowed_structural_roles": [
+          "contribution",
+          "response_law",
+          "modulation",
+          "interaction",
+          "constraint",
+          "transition",
+          "feedback",
+          "heterogeneity",
+          "timescale",
+          "transport_balance"
+        ],
+        "preferred_scopes": [
+          "unary",
+          "pairwise",
+          "state_coupling",
+          "time_forcing"
+        ],
+        "domain_mechanisms": [
+          {
+            "id": "nonlinear_constitutive_response",
+            "description": "nonlinear constitutive or response law",
+            "operations": [
+              "add_term",
+              "change_assumption"
+            ]
+          },
+          {
+            "id": "coupled_field_or_force",
+            "description": "coupling to an already declared field, force, or state",
+            "operations": [
+              "add_term"
+            ]
+          },
+          {
+            "id": "finite_relaxation_or_threshold",
+            "description": "finite response time or physical threshold",
+            "operations": [
+              "change_assumption"
+            ]
+          }
+        ],
+        "profile_source": "subject_fallback",
+        "ontology_schema_version": "1.0",
+        "taxonomy_schema_version": "1.0"
+      },
+      "baseline_mechanisms": [
+        "Electric acceleration of a charged particle.",
+        "Magnetic deflection of moving charge.",
+        "Coupled evolution of transverse velocity components."
+      ],
+      "baseline_assumptions": [
+        "The electric and magnetic fields are uniform and time-independent.",
+        "The particle charge and mass are constant.",
+        "The particle remains nonrelativistic.",
+        "Collisions, radiation reaction, gravity, and field back-reaction are neglected."
+      ],
+      "scientific_constraints": [
+        "Particle speed remains finite over the modeled interval.",
+        "The magnetic field alone cannot change kinetic energy.",
+        "The charge and mass are nonzero constants.",
+        "Velocity components evolve continuously."
+      ],
+      "refinement_agenda": [
+        "Add collisions with a background medium.",
+        "Allow electric and magnetic fields to vary in space or time.",
+        "Include radiation losses at high acceleration.",
+        "Extend the model to relativistic particle speeds."
+      ],
+      "evolution_contracts": [
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "With fixed electric_field_x and magnetic_field_z, dv_x_dt depends linearly on v_y with constant cyclotron factor (particle_charge/particle_mass)*magnetic_field_z, so the transverse response is harmonic drift/rotation at one field-independent frequency for a given charge-to-mass ratio.",
+            "child_relation": "Relax the nonrelativistic assumption so the effective inertial response increases with speed; then dv_x_dt still couples to electric_field_x and magnetic_field_z*v_y, but through a speed-dependent factor, making the target mapping from observed velocities to acceleration state-dependent and nonlinear.",
+            "affected_inputs": [
+              "v_x",
+              "v_y",
+              "particle_mass",
+              "particle_charge",
+              "electric_field_x",
+              "magnetic_field_z"
+            ],
+            "observable_effect": "Across trajectories reaching different speeds under different electric forcing while magnetic_field_z is held fixed, the child shows reduced acceleration magnitude and slower transverse turning at higher speed; the parent with one shared parameter set predicts the same curvature/frequency regardless of attained speed."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "speed_sq",
+              "expression": "v_x**2 + v_y**2",
+              "role": "tracks whether the trajectory enters a regime where inertial response becomes speed dependent"
+            },
+            {
+              "name": "lorentz_drive_x",
+              "expression": "(particle_charge/particle_mass)*(electric_field_x + magnetic_field_z*v_y)",
+              "role": "parent x-acceleration law used as the low-speed reference"
+            },
+            {
+              "name": "magnetic_turning_scale",
+              "expression": "(particle_charge/particle_mass)*magnetic_field_z",
+              "role": "parent constant cyclotron turning scale to compare against speed-dependent turning"
+            }
+          ],
+          "activation_condition": "Observable when the electric acceleration drives speeds out of the strictly nonrelativistic regime, i.e. speed becomes a non-negligible fraction of the relevant signal-speed scale so that inertial response measurably departs from the constant-mass law; negligible in the low-speed limit.",
+          "train_hidden_contrast": "In training, modest speed variation already produces small but systematic reduction of turning/acceleration at larger |v|; in holdout, stronger electric forcing extends the same trend to higher speeds, increasing the curvature difference from the parent while preserving the same low-speed limit.",
+          "continuation_path": "Recover the parent law in the low-speed limit where speed-dependent inertial corrections vanish and the effective response reduces to the constant particle_mass formulation.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "v_x",
+            "v_y"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "relativistic inertia in Lorentz-force motion",
+          "scientific_mechanism": "Relativistic increase of effective inertia causes the Lorentz-force-driven acceleration and magnetic turning to weaken as speed rises.",
+          "embedding_pattern": "state_coupling",
+          "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the target RHS now depends jointly on two declared states through the speed magnitude, so one shared parameter set cannot reproduce the speed-conditioned curvature change by merely rescaling electric or magnetic gains.",
+          "taxonomy_match": "known",
+          "assumption_before": "The particle remains nonrelativistic.",
+          "assumption_after": "The particle can enter a relativistic regime where inertial response depends on total transverse speed.",
+          "before_fragment": "(particle_charge/particle_mass)*(electric_field_x + magnetic_field_z*v_y)",
+          "after_fragment": "(particle_charge/(particle_mass*sqrt(1 - (v_x**2 + v_y**2)/signal_speed**2)))*(electric_field_x + magnetic_field_z*v_y)",
+          "parent_reduction": "In the low-speed limit (v_x**2 + v_y**2)/signal_speed**2 << 1, sqrt(1 - (v_x**2 + v_y**2)/signal_speed**2) -> 1, recovering the parent law.",
+          "observable_signature": "Holding particle_charge, particle_mass, magnetic_field_z, and initial conditions fixed while varying electric_field_x across runs, low-speed segments follow the parent approximately, but higher-speed segments show systematically smaller |dv_x_dt| than the parent predicts at the same v_y because the RHS now also depends on v_x**2 + v_y**2. This changes the scored target mapping itself, not just auxiliary trajectories.",
+          "shortcut_blocked": "A single refit of particle_charge/particle_mass or magnetic_field_z can only change the global gain of the parent law. It cannot make two trajectory segments with the same v_y but different speed magnitude produce different dv_x_dt values, nor can it reproduce the progressive slowing of turning with increasing |v| across multiple electric_field_x conditions using one shared parameter set."
+        },
+        {
+          "operation": "add_term",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "With uniform fields and no dissipation, dv_x_dt depends only on the instantaneous Lorentz-force factor q/(m*sqrt(1-(v_x**2+v_y**2)/signal_speed**2)) multiplying electric_field_x + magnetic_field_z*v_y, so at fixed fields the target acceleration is set solely by the current transverse velocity state.",
+            "child_relation": "Add radiation-reaction damping from accelerated charge motion in crossed fields, so dv_x_dt gains a speed- and field-dependent opposing contribution. The target mapping then depends not only on the Lorentz drive but also on the acceleration-induced energy-loss scale, bending the approach to high-speed motion and reducing late-time acceleration more strongly when electric_field_x and magnetic_field_z are larger.",
+            "affected_inputs": [
+              "v_x",
+              "v_y",
+              "electric_field_x",
+              "magnetic_field_z",
+              "signal_speed",
+              "particle_charge",
+              "particle_mass"
+            ],
+            "observable_effect": "Holding particle_charge, particle_mass, and signal_speed fixed while varying field strength, the child predicts stronger late-time flattening and lower attainable transverse speed under stronger fields than the parent, beyond the parent's relativistic saturation alone."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "beta2",
+              "expression": "(v_x**2 + v_y**2)/signal_speed**2",
+              "role": "dimensionless relativistic speed controlling inertial enhancement"
+            },
+            {
+              "name": "lorentz_drive_x",
+              "expression": "electric_field_x + magnetic_field_z*v_y",
+              "role": "instantaneous transverse x Lorentz driving term"
+            },
+            {
+              "name": "cyclotron_scale",
+              "expression": "particle_charge*magnetic_field_z/particle_mass",
+              "role": "magnetic turning-rate scale that sets transverse acceleration magnitude"
+            }
+          ],
+          "activation_condition": "Observable when the particle experiences sustained transverse acceleration in sufficiently strong electric and/or magnetic fields so radiation losses are not negligible over the modeled time window, while still remaining below signal_speed.",
+          "train_hidden_contrast": "Across trajectories with the same initial conditions and particle constants but different field amplitudes, training already shows that stronger forcing produces extra downward bending of dv_x_dt versus speed; in holdout at larger field magnitudes this curvature enhancement becomes more pronounced rather than remaining a simple rescaling.",
+          "continuation_path": "In the weak-radiation limit, equivalently over short times or low acceleration where the damping coefficient tends to zero, the successor reduces continuously to the parent relativistic Lorentz-force law.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "v_x",
+            "v_y",
+            "electric_field_x",
+            "magnetic_field_z"
+          ],
+          "structural_role": "contribution",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "saturating radiation-reaction damping driven by instantaneous Lorentz acceleration scale",
+          "scientific_mechanism": "Radiative energy loss from accelerated charged-particle motion in crossed electric and magnetic fields introduces self-damping that opposes the Lorentz-driven acceleration.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "The added term creates a new nonlinear dependence on the instantaneous Lorentz drive through a saturating denominator, so the field dependence of dv_x_dt changes shape rather than merely scale. This cannot be mimicked by adjusting one existing gain because the suppression grows with forcing and then saturates, altering curvature across field amplitudes at fixed speed.",
+          "taxonomy_match": "provisional",
+          "assumption_before": "Collisions, radiation reaction, gravity, and field back-reaction are neglected.",
+          "assumption_after": "Radiation losses are retained through a finite-capacity self-damping term that opposes transverse motion under strong Lorentz drive.",
+          "before_fragment": "(particle_charge/(particle_mass*sqrt(1 - (v_x**2 + v_y**2)/signal_speed**2)))*(electric_field_x + magnetic_field_z*v_y)",
+          "after_fragment": "(particle_charge/(particle_mass*sqrt(1 - (v_x**2 + v_y**2)/signal_speed**2)))*(electric_field_x + magnetic_field_z*v_y) - radiation_damping_strength*((electric_field_x + magnetic_field_z*v_y)**2/(1 + ((electric_field_x + magnetic_field_z*v_y)/radiation_field_scale)**2))*v_x",
+          "parent_reduction": "radiation_damping_strength -> 0",
+          "observable_signature": "For stronger electric_field_x and/or magnetic_field_z, dv_x_dt at the same speed is suppressed more than in the parent, with extra downward curvature that eventually saturates instead of remaining a pure relativistic rescaling.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce this contrast because the parent ties dv_x_dt to field strength only through the Lorentz prefactor and relativistic inertia, giving one shared functional shape across field amplitudes. The child adds field-dependent damping that is weak at low drive, stronger at intermediate drive, and saturating at high drive, so no refit of particle_charge, particle_mass, magnetic_field_z, electric_field_x, or signal_speed within the parent can match all these regimes simultaneously with one common parameter set."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The target acceleration dv_x_dt depends on the instantaneous Lorentz drive electric_field_x + magnetic_field_z*v_y through a relativistic factor and a saturating radiation-damping term with one fixed damping strength over the whole trajectory.",
+            "child_relation": "Make the already-present radiation reaction environment-dependent by allowing the damping strength to evolve as a state under self-heating/relaxation, so dv_x_dt acquires history-dependent curvature even at the same instantaneous v_x, v_y, electric_field_x, and magnetic_field_z.",
+            "affected_inputs": [
+              "v_x",
+              "v_y",
+              "electric_field_x",
+              "magnetic_field_z",
+              "radiation_damping_strength"
+            ],
+            "observable_effect": "At fixed fields, runs that spend longer in strong-drive conditions show progressively stronger late-time suppression of dv_x_dt than early-time suppression at the same velocity scale; a parent with one constant damping strength cannot match both the weak initial loss and stronger accumulated damping within one shared parameter set."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "lorentz_drive_x",
+              "expression": "electric_field_x + magnetic_field_z*v_y",
+              "role": "Instantaneous transverse x-directed electromagnetic drive already used by the parent"
+            },
+            {
+              "name": "speed_ratio_sq",
+              "expression": "(v_x**2 + v_y**2)/signal_speed**2",
+              "role": "Relativistic activity level controlling inertial softening"
+            },
+            {
+              "name": "radiative_load_proxy",
+              "expression": "((electric_field_x + magnetic_field_z*v_y)**2/(1 + ((electric_field_x + magnetic_field_z*v_y)/radiation_field_scale)**2))*v_x**2",
+              "role": "Proxy for cumulative radiation-loss-induced heating or environmental activation that can make damping strength history dependent"
+            }
+          ],
+          "activation_condition": "Observable when the Lorentz drive magnitude |electric_field_x + magnetic_field_z*v_y| reaches a non-negligible fraction of radiation_field_scale for long enough that cumulative radiative load is appreciable over the observation window; negligible in short-time or weak-drive trajectories.",
+          "train_hidden_contrast": "In training, modest variation in field strength or window length can already show mild time-asymmetric damping buildup; in holdout, stronger or longer sustained drive amplifies the same mechanism into a clearer late-time curvature change of dv_x_dt versus state, without changing the underlying Lorentz structure.",
+          "continuation_path": "Recover the parent by taking the relaxation rate of the promoted damping state to infinity toward a constant value, or by taking the radiative-load coupling to zero so radiation_damping_strength remains fixed.",
+          "freedom_change": "parameter_to_state",
+          "promoted_symbol": "radiation_damping_strength",
+          "promotion_reason": "A fixed scalar damping coefficient cannot represent cumulative activation or relaxation of the radiative-loss environment. Capturing trajectory-history dependence while preserving the existing physical damping channel requires releasing the existing damping-strength parameter into a dynamical state.",
+          "scope_kind": "memory",
+          "scope_symbols": [
+            "v_x",
+            "v_y",
+            "radiation_damping_strength"
+          ],
+          "structural_role": "feedback",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Saturating activation and relaxation of the effective radiation-loss environment",
+          "scientific_mechanism": "Effective radiative-loss strength evolves due to cumulative self-heating or environmental activation under sustained strong electromagnetic driving, then relaxes when the drive weakens.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "This embedding is structurally harder than a coefficient-only correction because the target RHS now depends on trajectory history through a bounded internal damping state governed by competing activation and relaxation, creating time-asymmetric curvature at fixed instantaneous kinematic state.",
+          "taxonomy_match": "provisional",
+          "assumption_before": "The coefficient setting radiation-reaction damping strength is constant over the experiment.",
+          "assumption_after": "The effective radiation-damping strength can build up under sustained radiative load with finite capacity and relax back when the load weakens.",
+          "before_fragment": "(particle_charge/(particle_mass*sqrt(1 - (v_x**2 + v_y**2)/signal_speed**2)))*(electric_field_x + magnetic_field_z*v_y) - radiation_damping_strength*((electric_field_x + magnetic_field_z*v_y)**2/(1 + ((electric_field_x + magnetic_field_z*v_y)/radiation_field_scale)**2))*v_x",
+          "after_fragment": "(particle_charge/(particle_mass*sqrt(1 - (v_x**2 + v_y**2)/signal_speed**2)))*(electric_field_x + magnetic_field_z*v_y) - radiation_damping_strength*((electric_field_x + magnetic_field_z*v_y)**2/(1 + ((electric_field_x + magnetic_field_z*v_y)/radiation_field_scale)**2))*v_x",
+          "parent_reduction": "Set radiation_activation_rate to zero so the promoted damping state remains at its initial value, or take fast relaxation so deviations from baseline are negligible.",
+          "observable_signature": "Relative to the parent's single fixed loss prefactor, the child predicts that dv_x_dt versus instantaneous state bends more strongly downward later in trajectories that remain under appreciable |electric_field_x + magnetic_field_z*v_y|, with the effect saturating as radiation_damping_strength approaches radiation_damping_capacity. This changes the scored target mapping itself, not just auxiliary trajectories, because the target RHS directly uses the evolved damping state.",
+          "shortcut_blocked": "No single constant value of radiation_damping_strength in the parent can simultaneously fit both early weak damping and later stronger damping across trajectories with different sustained-drive exposure, because the child introduces genuine memory through state evolution. Refitting all parent constants only rescales instantaneous response; it cannot generate exposure-duration-dependent suppression at the same instantaneous v_x and v_y within one shared parameter set."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The target mapping uses a fixed magnetic field, so at fixed electric_field_x and radiation state the Lorentz drive in dv_x_dt depends on v_y only through the linear combination electric_field_x + magnetic_field_z*v_y, giving one shared curvature pattern across all times and amplitudes apart from the existing relativistic and damping factors.",
+            "child_relation": "Release magnetic_field_z into a slowly evolving state to represent self-consistent field screening or inductive relaxation by the driven current; then dv_x_dt depends on v_y through electric_field_x + B_eff(t)*v_y with B_eff itself altered by the trajectory, producing history-dependent curvature in the v_y-to-dv_x_dt mapping.",
+            "affected_inputs": [
+              "v_y",
+              "magnetic_field_z",
+              "v_x"
+            ],
+            "observable_effect": "Under sustained strong transverse current buildup, the x-acceleration weakens its magnetic-turning contribution over time relative to early-time behavior at the same instantaneous v_y, whereas weak-drive trajectories remain close to the parent."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "gamma_inv",
+              "expression": "sqrt(1 - (v_x**2 + v_y**2)/signal_speed**2)",
+              "role": "available relativistic inertial factor separating speed saturation from the proposed field-environment effect"
+            },
+            {
+              "name": "lorentz_drive_x",
+              "expression": "electric_field_x + magnetic_field_z*v_y",
+              "role": "parent effective x-directed electromagnetic drive whose curvature is altered when the magnetic environment is no longer fixed"
+            },
+            {
+              "name": "transverse_current_scale",
+              "expression": "v_x**2 + v_y**2",
+              "role": "proxy for driven motion intensity that can activate magnetic screening or inductive relaxation"
+            }
+          ],
+          "activation_condition": "Observable when the particle sustains non-negligible transverse motion for long enough that the magnetic environment can relax on the observation timescale; specifically, trajectories with moderate-to-large v_x^2+v_y^2 and magnetic relaxation rate comparable to inverse run time show the effect, while fast-relaxation-to-fixed-field or vanishing-motion limits recover the parent.",
+          "train_hidden_contrast": "In training, varying field strength and observation window already changes how much transverse current accumulates; in holdout, stronger or longer-lasting driven motion extends the same trend so that later-time dv_x_dt at the same instantaneous v_y differs from early-time dv_x_dt, revealing the non-fixed magnetic environment.",
+          "continuation_path": "Set the magnetic-environment evolution rate to zero, or its equilibrium exactly equal to the original constant magnetic_field_z, so the promoted field remains constant and the parent law is recovered.",
+          "freedom_change": "parameter_to_state",
+          "promoted_symbol": "magnetic_field_z",
+          "promotion_reason": "A fixed parameter cannot represent trajectory-dependent magnetic screening or inductive relaxation. Capturing a history-dependent magnetic environment requires magnetic_field_z itself to evolve as an ODE state while still entering the Lorentz force directly.",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "magnetic_field_z",
+            "v_x",
+            "v_y"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "trajectory-driven magnetic-environment relaxation",
+          "scientific_mechanism": "Slow self-consistent magnetic-field relaxation or screening induced by the driven transverse current, causing an effective magnetic field seen by the particle to evolve during the trajectory.",
+          "embedding_pattern": "state_dependent_coefficient",
+          "difficulty_rationale": "The scored target keeps the same Lorentz-force structure but its magnetic coefficient is now a dynamically evolving state set by accumulated motion intensity, so the same instantaneous v_y can map to different dv_x_dt at different times. This is structurally harder than a coefficient-only correction because the response change depends on trajectory history through the evolving field state.",
+          "taxonomy_match": "known",
+          "assumption_before": "The magnetic_field_z entering the Lorentz force is uniform and time-independent.",
+          "assumption_after": "The effective perpendicular magnetic field relaxes slowly and is screened by sustained transverse motion, so magnetic_field_z evolves during the trajectory.",
+          "before_fragment": "(particle_charge/(particle_mass*sqrt(1 - (v_x**2 + v_y**2)/signal_speed**2)))*(electric_field_x + magnetic_field_z*v_y) - radiation_damping_strength*((electric_field_x + magnetic_field_z*v_y)**2/(1 + ((electric_field_x + magnetic_field_z*v_y)/radiation_field_scale)**2))*v_x",
+          "after_fragment": "(particle_charge/(particle_mass*sqrt(1 - (v_x**2 + v_y**2)/signal_speed**2)))*(electric_field_x + magnetic_field_z*v_y) - radiation_damping_strength*((electric_field_x + magnetic_field_z*v_y)**2/(1 + ((electric_field_x + magnetic_field_z*v_y)/radiation_field_scale)**2))*v_x",
+          "parent_reduction": "When magnetic_screening_strength = 0 and magnetic_field_z starts at magnetic_field_equilibrium equal to the original fixed field, the magnetic-field state is constant and the parent target law is exactly recovered.",
+          "observable_signature": "Hold particle_charge, particle_mass, signal_speed, and initial conditions fixed while varying electric_field_x enough to change cumulative transverse motion. In the parent, one refitted constant magnetic field gives one shared mapping from instantaneous v_y to dv_x_dt after accounting for gamma and radiation state. In the child, trajectories with stronger or longer sustained motion show a later-time reduction of the magnetic-turning contribution at the same instantaneous v_y because magnetic_field_z has screened downward, whereas weak or short trajectories remain near the original curve.",
+          "shortcut_blocked": "Refitting all parent parameters still leaves magnetic_field_z fixed across the whole trajectory, so the parent can only supply one time-independent magnetic coefficient. It therefore cannot reproduce both early-time strong-turning and later-time weakened-turning behavior at the same instantaneous v_y across conditions with different accumulated motion using a single shared parameter set; the child requires history through the evolving magnetic_field_z state."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "With electric_field_x and magnetic_field_z fixed through a trajectory, the Lorentz-drive part of dv_x_dt depends on v_y through the single combination electric_field_x + magnetic_field_z*v_y, so at fixed radiation_damping_strength the target response has one fixed curvature scale set by radiation_field_scale.",
+            "child_relation": "Replace the isotropic relativistic inertia factor with the correct longitudinal-transverse response for acceleration parallel to the x-directed force, so the x acceleration is suppressed more strongly when v_x is already large than when the same speed is carried mostly in v_y.",
+            "affected_inputs": [
+              "v_x",
+              "v_y",
+              "particle_charge",
+              "particle_mass",
+              "electric_field_x",
+              "magnetic_field_z",
+              "signal_speed"
+            ],
+            "observable_effect": "For trajectories reaching the same total speed but different velocity partition between v_x and v_y, the child predicts different dv_x_dt; specifically, acceleration rolls off earlier along states with larger |v_x|, producing stronger anisotropic bending of the target surface than the parent."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "beta2",
+              "expression": "(v_x**2 + v_y**2)/signal_speed**2",
+              "role": "total relativistic speed fraction controlling overall approach to the signal-speed limit"
+            },
+            {
+              "name": "parallel_fraction",
+              "expression": "v_x**2/(v_x**2 + v_y**2 + 1.0e-12)",
+              "role": "fraction of motion aligned with the x-directed electric acceleration, distinguishing longitudinal from transverse response"
+            },
+            {
+              "name": "lorentz_drive_x",
+              "expression": "electric_field_x + magnetic_field_z*v_y",
+              "role": "instantaneous x-directed electromagnetic drive before damping"
+            }
+          ],
+          "activation_condition": "Observable when (v_x**2 + v_y**2)/signal_speed**2 is not negligible and the trajectory samples states with different v_x-to-v_y partitions at comparable total speed; weak in the nonrelativistic regime beta2 << 1.",
+          "train_hidden_contrast": "In training, moderate-speed states already show small but systematic dependence of dv_x_dt on whether speed resides in v_x or v_y; in holdout at higher reachable beta2 the same anisotropic inertia produces a larger curvature contrast in the target mapping.",
+          "continuation_path": "The parent law is recovered in the nonrelativistic limit (v_x**2 + v_y**2)/signal_speed**2 -> 0, where longitudinal and transverse inertial responses coincide.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "v_x",
+            "v_y",
+            "signal_speed",
+            "electric_field_x",
+            "magnetic_field_z"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "anisotropic relativistic inertia in the x-directed force response",
+          "scientific_mechanism": "Relativistic longitudinal inertia: acceleration parallel to an existing velocity component is reduced more strongly than acceleration perpendicular to it, even under the same total speed.",
+          "embedding_pattern": "state_coupling",
+          "difficulty_rationale": "This is harder than a coefficient-only correction because the Lorentz-drive contribution now depends jointly on total speed and the directional partition of that speed, creating a new anisotropic curvature in the target mapping rather than a uniform rescaling.",
+          "taxonomy_match": "known",
+          "assumption_before": "Acceleration reduction from relativity is isotropic and depends only on total speed through one shared sqrt(1 - (v_x**2 + v_y**2)/signal_speed**2) factor.",
+          "assumption_after": "The x-acceleration follows relativistic longitudinal inertia, so suppression depends jointly on total speed and on the component v_x aligned with the x-directed force.",
+          "before_fragment": "(particle_charge/(particle_mass*sqrt(1 - (v_x**2 + v_y**2)/signal_speed**2)))*(electric_field_x + magnetic_field_z*v_y) - radiation_damping_strength*((electric_field_x + magnetic_field_z*v_y)**2/(1 + ((electric_field_x + magnetic_field_z*v_y)/radiation_field_scale)**2))*v_x",
+          "after_fragment": "(particle_charge*(1 - v_x**2/signal_speed**2)/(particle_mass*(1 - (v_x**2 + v_y**2)/signal_speed**2)**(3/2)))*(electric_field_x + magnetic_field_z*v_y) - radiation_damping_strength*((electric_field_x + magnetic_field_z*v_y)**2/(1 + ((electric_field_x + magnetic_field_z*v_y)/radiation_field_scale)**2))*v_x",
+          "parent_reduction": "In the limit (v_x**2 + v_y**2)/signal_speed**2 -> 0, the modified prefactor approaches particle_charge/particle_mass and the difference from the parent's isotropic relativistic correction vanishes to leading order.",
+          "observable_signature": "Holding electric_field_x, particle_charge, particle_mass, signal_speed, and instantaneous lorentz_drive_x fixed, compare states with similar beta2 but different parallel_fraction: the child predicts smaller dv_x_dt for larger parallel_fraction, whereas the parent depends on beta2 alone apart from the explicit v_y entry already inside lorentz_drive_x. This changes the scored target mapping itself, not only auxiliary state trajectories.",
+          "shortcut_blocked": "A single refit of the parent parameters cannot reproduce this contrast across states with matched total speed and matched instantaneous x-drive because the parent Lorentz-drive factor is a function of beta2 only, while the child introduces an additional dependence on v_x**2/signal_speed**2. Retuning particle_mass, signal_speed, or radiation parameters can shift one common curvature scale but cannot create the required directional split between large-|v_x| and large-|v_y| cases with one shared parameter set."
+        }
+      ]
+    },
+    "finalization": {
+      "mode": "candidate",
+      "accepted_generations": 5,
+      "novelty": {
+        "answer": "NOT_EVALUATED"
+      },
+      "total_points": 5000,
+      "evaluation_status": "not_evaluated"
+    }
+  },
+  "contract": {
+    "features": [
+      "t",
+      "v_x",
+      "v_y",
+      "radiation_damping_strength",
+      "magnetic_field_z"
+    ],
+    "target": "dv_x_dt",
+    "family": "ode",
+    "expression": "(particle_charge*(1 - v_x**2/signal_speed**2)/(particle_mass*(1 - (v_x**2 + v_y**2)/signal_speed**2)**(3/2)))*(electric_field_x + magnetic_field_z*v_y) - radiation_damping_strength*((electric_field_x + magnetic_field_z*v_y)**2/(1 + ((electric_field_x + magnetic_field_z*v_y)/radiation_field_scale)**2))*v_x",
+    "parameters": {
+      "particle_charge": 1.0,
+      "particle_mass": 1.0,
+      "electric_field_x": 0.35,
+      "signal_speed": 3.0,
+      "radiation_field_scale": 0.8,
+      "radiation_activation_rate": 0.12,
+      "radiation_relaxation_rate": 0.05,
+      "radiation_damping_capacity": 2.5,
+      "magnetic_relaxation_rate": 0.08,
+      "magnetic_screening_strength": 0.03,
+      "magnetic_field_equilibrium": 1.0
+    },
+    "implicit_branch": null
+  }
+}

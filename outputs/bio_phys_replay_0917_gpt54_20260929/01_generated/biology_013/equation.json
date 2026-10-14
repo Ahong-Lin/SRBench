@@ -1,0 +1,359 @@
+{
+  "base_id": "m2_physiology_and_homeostasis_20260917_001",
+  "generation": 5,
+  "operation": "change_assumption",
+  "model_family": "ode",
+  "equation_type": "ode_system",
+  "target_symbol": "dT_c_dt",
+  "expression": "(basal_heat_production - environmental_heat_transfer_coefficient*(T_c - ambient_temperature) - thermoregulatory_feedback_gain*effector_recruitment_state*(feedback_recruitment_temperature_scale*tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)))/(effective_heat_capacity*(1 + heat_capacity_temperature_sensitivity*((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)**2))",
+  "symbols": [
+    "dT_c_dt",
+    "t",
+    "T_c",
+    "effector_recruitment_state",
+    "basal_heat_production",
+    "environmental_heat_transfer_coefficient",
+    "ambient_temperature",
+    "thermoregulatory_feedback_gain",
+    "core_temperature_set_point",
+    "effective_heat_capacity",
+    "feedback_recruitment_temperature_scale",
+    "heat_capacity_temperature_sensitivity",
+    "effector_adjustment_time_constant",
+    "effector_kinetic_asymmetry"
+  ],
+  "symbol_descriptions": [
+    "Rate of change of core body temperature in degrees Celsius per minute",
+    "Time in minutes",
+    "Core body temperature in degrees Celsius",
+    "Dimensionless lagged thermoeffector recruitment state that relaxes toward the static temperature-dependent recruitment signal with sign-dependent kinetics",
+    "Constant basal internal heat production in heat units per minute; nonnegative",
+    "Heat-transfer coefficient between the core compartment and fixed ambient environment in heat units per minute per degree Celsius; positive",
+    "Fixed ambient temperature in degrees Celsius; physically positive",
+    "Maximum thermoregulatory feedback gain scale in heat units per minute per degree Celsius; positive",
+    "Core-temperature set point for thermoregulatory feedback in degrees Celsius; physically positive",
+    "Baseline effective heat capacity at the core-temperature set point in heat units per degree Celsius; positive",
+    "Temperature-error scale over which thermoeffector recruitment transitions from weak near-set-point response to stronger feedback and also sets the saturation scale of delivered corrective heat flux; positive",
+    "Dimensionless curvature parameter controlling how effective heat capacity increases with squared normalized deviation from the set point",
+    "Baseline effector adjustment time constant for thermoregulatory recruitment; positive",
+    "Dimensionless factor setting how strongly effective effector recruitment kinetics differ for positive versus negative thermal error"
+  ],
+  "symbol_properties": [
+    "O",
+    "V",
+    "S",
+    "S",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P",
+    "P"
+  ],
+  "new_symbol_range_suggestions": {
+    "effector_kinetic_asymmetry": "-0.9 to 0.9"
+  },
+  "derivation_notes": "The thermal balance for T_c is preserved, but the symmetric first-order effector recruitment law is relaxed so that the same recruitment drive is followed with an effective time constant that depends on the sign of normalized temperature error. This captures physiologically plausible direction-dependent recruitment timing while reducing exactly to the parent when effector_kinetic_asymmetry = 0.",
+  "change_summary": "The target equation form is unchanged, but the existing effector_recruitment_state now evolves with sign-dependent kinetics, creating asymmetric temporal phase between warming and cooling corrections. This changes the scored T_c dynamics when trajectories sample both sides of the set point, because delivered feedback flux arrives earlier for one sign of thermal error than the other.",
+  "assumption_audit": {
+    "released_assumption": "Thermoregulatory effectors respond with one symmetric first-order lag regardless of whether core temperature is above or below the set point.",
+    "outcome": "law_refinement",
+    "quantity": "effector_recruitment_state",
+    "quantity_role": "internal_state",
+    "mechanism": "Direction-dependent thermoeffector recruitment kinetics arising from different physiological pathways for heat-loss versus heat-conservation/production responses.",
+    "reference_condition": {},
+    "parent_reduction": "Set effector_kinetic_asymmetry = 0 so the effective relaxation time becomes effector_adjustment_time_constant for all thermal deviations, recovering the parent ODE system."
+  },
+  "add_term_audit": null,
+  "evolution_contract": {
+    "operation": "change_assumption",
+    "parent_shortcut": "single_phase",
+    "response_change": {
+      "type": "phase_shift",
+      "parent_relation": "The target dT_c_dt depends on temperature error through one lagged effector state with a single adjustment time constant, so cooling and warming corrections share the same temporal phase relative to T_c deviation.",
+      "child_relation": "Allow the existing effector_recruitment_state pathway to adapt with different effective kinetics for heating versus cooling recruitment, so the target mapping from current T_c and effector_recruitment_state to dT_c_dt acquires sign-dependent temporal phase in the corrective flux.",
+      "affected_inputs": [
+        "T_c",
+        "effector_recruitment_state",
+        "effector_adjustment_time_constant",
+        "core_temperature_set_point",
+        "feedback_recruitment_temperature_scale"
+      ],
+      "observable_effect": "For comparable positive versus negative core-temperature deviations from set point under the same ambient condition, the onset and relaxation of corrective heat flux become asymmetrically delayed, producing faster recovery on one side of set point and slower on the other even when steady recruitment magnitude is similar."
+    },
+    "diagnostic_groups": [
+      {
+        "name": "temp_error",
+        "expression": "(T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale",
+        "role": "Normalized signed thermal deviation that determines whether warming or cooling effectors dominate"
+      },
+      {
+        "name": "recruitment_gap",
+        "expression": "tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale) - effector_recruitment_state",
+        "role": "Distance between instantaneous drive and realized effector recruitment, which controls dynamic phase lag"
+      },
+      {
+        "name": "delivered_feedback_flux",
+        "expression": "thermoregulatory_feedback_gain*effector_recruitment_state*(feedback_recruitment_temperature_scale*tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale))",
+        "role": "Current corrective heat-flux contribution delivered by the lagged effector pathway"
+      }
+    ],
+    "activation_condition": "Observable when initial perturbations or subsequent trajectories cross enough above and below the set point that normalized temperature error has both signs and magnitude not negligible relative to 1, while ambient temperature and activity remain fixed.",
+    "train_hidden_contrast": "In training, same-sign mild perturbations show a common apparent lag; in holdout with both warming and cooling excursions or larger cross-set-point relaxations, the sign-dependent lag produces asymmetric recovery timing not captured by one shared effector time constant.",
+    "continuation_path": "Recover the parent law when heating and cooling recruitment kinetics are equal, reducing the sign-dependent adjustment back to the original single effector_adjustment_time_constant.",
+    "freedom_change": "none",
+    "promoted_symbol": null,
+    "promotion_reason": "",
+    "scope_kind": "state_coupling",
+    "scope_symbols": [
+      "T_c",
+      "effector_recruitment_state"
+    ],
+    "structural_role": "timescale",
+    "domain_mechanism_id": "",
+    "domain_mechanism": "Direction-dependent recruitment timing in thermoregulatory effectors",
+    "scientific_mechanism": "Direction-dependent thermoeffector recruitment kinetics arising from different physiological pathways for heat-loss versus heat-conservation/production responses.",
+    "embedding_pattern": "multi_timescale",
+    "difficulty_rationale": "This embedding is harder than a coefficient correction because it changes the effective lag timescale as a function of signed thermal deviation, so one shared parameter set can no longer impose a single phase relation across both warming and cooling trajectories.",
+    "taxonomy_match": "known",
+    "assumption_before": "A single symmetric first-order effector adjustment time constant governs all thermoregulatory recruitment directions.",
+    "assumption_after": "The effective effector recruitment timescale depends on the sign of normalized temperature error, creating asymmetric temporal phase for warming versus cooling corrections.",
+    "before_fragment": "(basal_heat_production - environmental_heat_transfer_coefficient*(T_c - ambient_temperature) - thermoregulatory_feedback_gain*effector_recruitment_state*(feedback_recruitment_temperature_scale*tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)))/(effective_heat_capacity*(1 + heat_capacity_temperature_sensitivity*((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)**2))",
+    "after_fragment": "(basal_heat_production - environmental_heat_transfer_coefficient*(T_c - ambient_temperature) - thermoregulatory_feedback_gain*effector_recruitment_state*(feedback_recruitment_temperature_scale*tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)))/(effective_heat_capacity*(1 + heat_capacity_temperature_sensitivity*((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)**2))",
+    "parent_reduction": "Set effector_kinetic_asymmetry = 0.",
+    "observable_signature": "Under fixed ambient temperature and activity, trajectories that sample both T_c > core_temperature_set_point and T_c < core_temperature_set_point show different early-time dT_c_dt-versus-temperature hysteresis and recovery timing at matched absolute temperature error because the same effector pathway now relaxes faster for one sign of error than the other; this changes the target mapping, not only the hidden state path, through the delivered corrective flux term.",
+    "shortcut_blocked": "Retuning a single parent effector_adjustment_time_constant can only choose one compromise lag, so with one shared parameter set it cannot match both faster-above-set-point and slower-below-set-point recruitment timing across the same admissible fixed-environment protocol. The child introduces a sign-dependent phase law in the existing feedback branch, which cannot be absorbed by refitting the parent's symmetric kinetics unless observations remain entirely on one side of the set point."
+  },
+  "dimension_track": null,
+  "mechanism_profile": {
+    "allowed_structural_roles": [
+      "response_law",
+      "modulation",
+      "constraint",
+      "feedback",
+      "timescale",
+      "transport_balance"
+    ],
+    "preferred_scopes": [
+      "unary",
+      "pairwise",
+      "state_coupling",
+      "memory"
+    ],
+    "domain_mechanisms": [
+      {
+        "id": "homeostatic_feedback",
+        "description": "negative feedback around a physiological set point",
+        "operations": [
+          "add_term"
+        ]
+      },
+      {
+        "id": "finite_reserve_capacity",
+        "description": "finite storage, transport, or organ capacity",
+        "operations": [
+          "add_term",
+          "change_assumption"
+        ]
+      },
+      {
+        "id": "delayed_regulatory_response",
+        "description": "finite regulatory response time",
+        "operations": [
+          "change_assumption"
+        ]
+      }
+    ],
+    "profile_source": "subfield",
+    "ontology_schema_version": "1.0",
+    "taxonomy_schema_version": "1.0"
+  },
+  "evolution_plan": {
+    "operation": "change_assumption",
+    "parent_shortcut": "single_phase",
+    "response_change": {
+      "type": "phase_shift",
+      "parent_relation": "The target dT_c_dt depends on temperature error through one lagged effector state with a single adjustment time constant, so cooling and warming corrections share the same temporal phase relative to T_c deviation.",
+      "child_relation": "Allow the existing effector_recruitment_state pathway to adapt with different effective kinetics for heating versus cooling recruitment, so the target mapping from current T_c and effector_recruitment_state to dT_c_dt acquires sign-dependent temporal phase in the corrective flux.",
+      "affected_inputs": [
+        "T_c",
+        "effector_recruitment_state",
+        "effector_adjustment_time_constant",
+        "core_temperature_set_point",
+        "feedback_recruitment_temperature_scale"
+      ],
+      "observable_effect": "For comparable positive versus negative core-temperature deviations from set point under the same ambient condition, the onset and relaxation of corrective heat flux become asymmetrically delayed, producing faster recovery on one side of set point and slower on the other even when steady recruitment magnitude is similar."
+    },
+    "diagnostic_groups": [
+      {
+        "name": "temp_error",
+        "expression": "(T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale",
+        "role": "Normalized signed thermal deviation that determines whether warming or cooling effectors dominate"
+      },
+      {
+        "name": "recruitment_gap",
+        "expression": "tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale) - effector_recruitment_state",
+        "role": "Distance between instantaneous drive and realized effector recruitment, which controls dynamic phase lag"
+      },
+      {
+        "name": "delivered_feedback_flux",
+        "expression": "thermoregulatory_feedback_gain*effector_recruitment_state*(feedback_recruitment_temperature_scale*tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale))",
+        "role": "Current corrective heat-flux contribution delivered by the lagged effector pathway"
+      }
+    ],
+    "activation_condition": "Observable when initial perturbations or subsequent trajectories cross enough above and below the set point that normalized temperature error has both signs and magnitude not negligible relative to 1, while ambient temperature and activity remain fixed.",
+    "train_hidden_contrast": "In training, same-sign mild perturbations show a common apparent lag; in holdout with both warming and cooling excursions or larger cross-set-point relaxations, the sign-dependent lag produces asymmetric recovery timing not captured by one shared effector time constant.",
+    "continuation_path": "Recover the parent law when heating and cooling recruitment kinetics are equal, reducing the sign-dependent adjustment back to the original single effector_adjustment_time_constant.",
+    "freedom_change": "none",
+    "promoted_symbol": null,
+    "promotion_reason": "",
+    "gap_statement": "The current model assumes a single autonomic/vascular recruitment timescale for all thermoegulatory directions, ignoring that effector engagement and withdrawal are often faster for one sign of thermal error than the other.",
+    "baseline_assumption": "Thermoregulatory effectors respond with one symmetric first-order lag regardless of whether core temperature is above or below the set point.",
+    "scientific_mechanism": "Direction-dependent thermoeffector recruitment kinetics arising from different physiological pathways for heat-loss versus heat-conservation/production responses.",
+    "affected_symbols": [
+      "T_c",
+      "effector_recruitment_state",
+      "effector_adjustment_time_constant",
+      "core_temperature_set_point",
+      "feedback_recruitment_temperature_scale"
+    ],
+    "rationale": "A realistic next refinement is to relax the symmetric-lag assumption already present in the effector pathway rather than adding an unrelated process. The parent target mapping uses one shared effector_adjustment_time_constant, so after refitting it can only impose one compromise phase lag between T_c deviation and delivered corrective heat flux across both warming and cooling trajectories. Under fixed ambient temperature and activity, if one compares recovery from a small positive temperature perturbation versus a small negative perturbation of similar magnitude, the parent predicts the same recruitment timing up to sign reversal, whereas the child allows asymmetric delay and therefore different early-time slopes and hysteresis in dT_c_dt at matched |T_c-core_temperature_set_point|. This is observable only when the sampled trajectory includes both signs of thermal deviation or crosses the set point; if all observations stay on one side, the refinement may be weakly identifiable and effectively collapse to the parent. Because the omitted feature changes the scored T_c dynamics through the timing of corrective heat flux, not merely an unobserved auxiliary path, it is a consequential target-mapping refinement."
+  },
+  "selected_embedding_pattern": {
+    "description": "Introduce a distinct relaxation, transient, oscillation, or frequency scale.",
+    "difficulty_level": 9,
+    "operations": [
+      "add_term",
+      "change_assumption"
+    ],
+    "model_families": [
+      "static",
+      "ode"
+    ],
+    "minimum_active_quantities": 1,
+    "weight": 5,
+    "id": "multi_timescale"
+  },
+  "ode_system": {
+    "time_symbol": "t",
+    "target_state": "T_c",
+    "states": [
+      {
+        "symbol": "T_c",
+        "rhs": "(basal_heat_production - environmental_heat_transfer_coefficient*(T_c - ambient_temperature) - thermoregulatory_feedback_gain*effector_recruitment_state*(feedback_recruitment_temperature_scale*tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)))/(effective_heat_capacity*(1 + heat_capacity_temperature_sensitivity*((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)**2))",
+        "initial_condition": 37.0,
+        "description": "Core body temperature in degrees Celsius"
+      },
+      {
+        "symbol": "effector_recruitment_state",
+        "rhs": "(tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale) - effector_recruitment_state)/(effector_adjustment_time_constant*(1 - effector_kinetic_asymmetry*tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale)))",
+        "initial_condition": 0.0,
+        "description": "Dimensionless lagged thermoeffector recruitment state that relaxes toward the static temperature-dependent recruitment signal with sign-dependent effective kinetics"
+      }
+    ]
+  },
+  "scenario_text": "Core body temperature is followed after a small thermal perturbation while ambient conditions and activity remain fixed. The target is the instantaneous rate of change of core temperature as metabolic heat production and thermoregulatory heat loss restore a stable operating temperature. The baseline response treats heat-storage capacity as constant and thermoeffector output as an immediate negative-feedback response. This produces a smooth relaxation without requiring skin temperature or effector activity as additional dynamic states.",
+  "freedom_change": "none",
+  "promoted_symbol": null,
+  "promotion_reason": "",
+  "parent_shortcut": "single_phase",
+  "response_change": {
+    "type": "phase_shift",
+    "parent_relation": "The target dT_c_dt depends on temperature error through one lagged effector state with a single adjustment time constant, so cooling and warming corrections share the same temporal phase relative to T_c deviation.",
+    "child_relation": "Allow the existing effector_recruitment_state pathway to adapt with different effective kinetics for heating versus cooling recruitment, so the target mapping from current T_c and effector_recruitment_state to dT_c_dt acquires sign-dependent temporal phase in the corrective flux.",
+    "affected_inputs": [
+      "T_c",
+      "effector_recruitment_state",
+      "effector_adjustment_time_constant",
+      "core_temperature_set_point",
+      "feedback_recruitment_temperature_scale"
+    ],
+    "observable_effect": "For comparable positive versus negative core-temperature deviations from set point under the same ambient condition, the onset and relaxation of corrective heat flux become asymmetrically delayed, producing faster recovery on one side of set point and slower on the other even when steady recruitment magnitude is similar."
+  },
+  "diagnostic_groups": [
+    {
+      "name": "temp_error",
+      "expression": "(T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale",
+      "role": "Normalized signed thermal deviation that determines whether warming or cooling effectors dominate"
+    },
+    {
+      "name": "recruitment_gap",
+      "expression": "tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale) - effector_recruitment_state",
+      "role": "Distance between instantaneous drive and realized effector recruitment, which controls dynamic phase lag"
+    },
+    {
+      "name": "delivered_feedback_flux",
+      "expression": "thermoregulatory_feedback_gain*effector_recruitment_state*(feedback_recruitment_temperature_scale*tanh((T_c - core_temperature_set_point)/feedback_recruitment_temperature_scale))",
+      "role": "Current corrective heat-flux contribution delivered by the lagged effector pathway"
+    }
+  ],
+  "activation_condition": "Observable when initial perturbations or subsequent trajectories cross enough above and below the set point that normalized temperature error has both signs and magnitude not negligible relative to 1, while ambient temperature and activity remain fixed.",
+  "train_hidden_contrast": "In training, same-sign mild perturbations show a common apparent lag; in holdout with both warming and cooling excursions or larger cross-set-point relaxations, the sign-dependent lag produces asymmetric recovery timing not captured by one shared effector time constant.",
+  "continuation_path": "Recover the parent law when heating and cooling recruitment kinetics are equal, reducing the sign-dependent adjustment back to the original single effector_adjustment_time_constant.",
+  "dependent_variable": {
+    "symbol": "dT_c_dt",
+    "description": "Rate of change of core body temperature in degrees Celsius per minute"
+  },
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "description": "Time in minutes"
+    }
+  ],
+  "state_variables": [
+    {
+      "symbol": "T_c",
+      "description": "Core body temperature in degrees Celsius"
+    },
+    {
+      "symbol": "effector_recruitment_state",
+      "description": "Dimensionless lagged thermoeffector recruitment state that relaxes toward the static temperature-dependent recruitment signal with sign-dependent kinetics"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "basal_heat_production",
+      "description": "Constant basal internal heat production in heat units per minute; nonnegative"
+    },
+    {
+      "symbol": "environmental_heat_transfer_coefficient",
+      "description": "Heat-transfer coefficient between the core compartment and fixed ambient environment in heat units per minute per degree Celsius; positive"
+    },
+    {
+      "symbol": "ambient_temperature",
+      "description": "Fixed ambient temperature in degrees Celsius; physically positive"
+    },
+    {
+      "symbol": "thermoregulatory_feedback_gain",
+      "description": "Maximum thermoregulatory feedback gain scale in heat units per minute per degree Celsius; positive"
+    },
+    {
+      "symbol": "core_temperature_set_point",
+      "description": "Core-temperature set point for thermoregulatory feedback in degrees Celsius; physically positive"
+    },
+    {
+      "symbol": "effective_heat_capacity",
+      "description": "Baseline effective heat capacity at the core-temperature set point in heat units per degree Celsius; positive"
+    },
+    {
+      "symbol": "feedback_recruitment_temperature_scale",
+      "description": "Temperature-error scale over which thermoeffector recruitment transitions from weak near-set-point response to stronger feedback and also sets the saturation scale of delivered corrective heat flux; positive"
+    },
+    {
+      "symbol": "heat_capacity_temperature_sensitivity",
+      "description": "Dimensionless curvature parameter controlling how effective heat capacity increases with squared normalized deviation from the set point"
+    },
+    {
+      "symbol": "effector_adjustment_time_constant",
+      "description": "Baseline effector adjustment time constant for thermoregulatory recruitment; positive"
+    },
+    {
+      "symbol": "effector_kinetic_asymmetry",
+      "description": "Dimensionless factor setting how strongly effective effector recruitment kinetics differ for positive versus negative thermal error"
+    }
+  ]
+}

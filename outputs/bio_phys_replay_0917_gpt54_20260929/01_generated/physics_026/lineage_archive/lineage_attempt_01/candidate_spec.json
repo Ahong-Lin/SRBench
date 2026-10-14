@@ -1,0 +1,1800 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "i",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        0.08
+      ],
+      "n_points": 401,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "C",
+      "value": 0.0001
+    },
+    {
+      "symbol": "L",
+      "value": 0.01
+    },
+    {
+      "symbol": "R",
+      "value": 8.0
+    },
+    {
+      "symbol": "alpha_T",
+      "value": 0.1
+    },
+    {
+      "symbol": "C_th",
+      "value": 5.0
+    },
+    {
+      "symbol": "tau_th",
+      "value": 0.2
+    },
+    {
+      "symbol": "beta_C",
+      "value": 0.3
+    },
+    {
+      "symbol": "gamma_RT",
+      "value": 0.4
+    },
+    {
+      "symbol": "tau_mem",
+      "value": 0.3
+    },
+    {
+      "symbol": "k_mem",
+      "value": 0.6
+    },
+    {
+      "symbol": "eta_mem",
+      "value": 0.5
+    }
+  ],
+  "benchmark_output": "di_dt",
+  "benchmark_target_state": "i",
+  "observed_variables": [
+    "t",
+    "q",
+    "i",
+    "T_res",
+    "T_mem"
+  ],
+  "rhs_for_integrator": "(q/(C*(1 + beta_C*tanh(alpha_T*T_res))) - R*(1 + tanh(alpha_T*T_res) + gamma_RT*tanh(alpha_T*T_res)**2 + eta_mem*tanh(alpha_T*T_mem)*tanh(alpha_T*T_res))*i)/L",
+  "state_variables": [
+    "q",
+    "i",
+    "T_res",
+    "T_mem"
+  ],
+  "state_rhs": [
+    "-i",
+    "(q/(C*(1 + beta_C*tanh(alpha_T*T_res))) - R*(1 + tanh(alpha_T*T_res) + gamma_RT*tanh(alpha_T*T_res)**2 + eta_mem*tanh(alpha_T*T_mem)*tanh(alpha_T*T_res))*i)/L",
+    "(R*i**2)/C_th - T_res/tau_th",
+    "k_mem*(R*i**2)/C_th - (T_mem - T_res)/tau_mem"
+  ],
+  "initial_conditions": {
+    "q": 0.0005,
+    "i": 0.0,
+    "T_res": 0.0,
+    "T_mem": 0.0
+  },
+  "sanity_expectations": [
+    "At t = 0, i = 0 and T_res = T_mem = 0, so di/dt = q/(L*C) = 500 s^-2 and current initially increases from zero.",
+    "dq/dt = -i, so once i becomes positive, q begins decreasing from its initial positive value.",
+    "T_res and T_mem start exactly at zero, so the thermal-memory correction is initially inactive and only turns on after Joule heating accumulates.",
+    "The current should exhibit damped oscillation rather than monotone decay for the chosen L, C, R values.",
+    "The oscillation envelope should decay faster at later times than a purely constant-R law would predict because T_res-dependent damping grows with accumulated dissipation.",
+    "Because tau_mem is comparable to but slightly larger than tau_th and k_mem, eta_mem are nonzero, T_mem should lag bulk thermal evolution and create measurable history dependence in di/dt once both thermal states are appreciable.",
+    "The factor 1 + beta_C*tanh(alpha_T*T_res) should remain positive over the sampled trajectory with the chosen parameters, keeping the RHS finite and real."
+  ],
+  "role_corrections": [
+    "di_dt: claimed-output/target derivative -> RHS governing target state i in inherited ode_system (overridden from standalone explicit target to system RHS)",
+    "t: claimed-input/time axis -> independent variable/time axis (confirmed)",
+    "q: claimed-dynamic state -> dynamic state variable (confirmed)",
+    "i: claimed-dynamic state -> dependent variable and dynamic state variable (confirmed)",
+    "T_res: claimed-dynamic state -> dynamic state variable (confirmed)",
+    "T_mem: claimed-dynamic state -> dynamic state variable (confirmed)",
+    "C: claimed-parameter -> parameter (confirmed)",
+    "L: claimed-parameter -> parameter (confirmed)",
+    "R: claimed-parameter -> parameter (confirmed)",
+    "alpha_T: claimed-parameter -> parameter (confirmed)",
+    "C_th: claimed-parameter -> parameter (confirmed)",
+    "tau_th: claimed-parameter -> parameter (confirmed)",
+    "beta_C: claimed-parameter -> parameter (confirmed)",
+    "gamma_RT: claimed-parameter -> parameter (confirmed)",
+    "tau_mem: claimed-parameter -> parameter (confirmed)",
+    "k_mem: claimed-parameter -> parameter (confirmed)",
+    "eta_mem: claimed-parameter -> parameter (confirmed)"
+  ],
+  "rationale": "The provided typed contract is structurally consistent and is preserved exactly: this is an ode_system with time t as the only sampled axis, target state i, and state variables q, i, T_res, T_mem. The chosen electrical values give an underdamped ring-down with natural timescale sqrt(L*C) ≈ 1 ms and baseline damping ratio about 0.4, so oscillatory discharge is visible while resistance still removes energy. The time window 0 to 0.08 s spans many electrical cycles and enough envelope decay to reveal gradual electro-thermal feedback without pushing the whole sampled segment deep into a flat tail. Thermal parameters are intentionally slower than the electrical oscillation but active on the recording horizon: C_th = 5 and tau_th = 0.2 s make bulk heating accumulate over the discharge, and tau_mem = 0.3 s makes the internal memory mode comparably slow and slightly more persistent than bulk relaxation. Nonlinear coefficients are moderate: beta_C = 0.3 keeps the capacitance factor safely positive while allowing visible restoring-term drift, gamma_RT = 0.4 adds curvature to the T_res-dependent damping, and k_mem = 0.6 with eta_mem = 0.5 gives a noticeable but not overwhelming thermal-memory correction. This directly addresses the intended distinguishing condition within the reachable state trajectory: early motion is near the parent law because T_res and T_mem start at zero, then accumulated Joule heating creates nonzero T_res and lagged T_mem so later segments can show stronger or history-shifted damping than a T_res-only law. No observation noise is added.",
+  "coverage_report": {
+    "groups": [
+      {
+        "generation": 1,
+        "name": "emf_balance",
+        "expression": "q/C - R*i",
+        "role": "parent loop-voltage balance before thermal feedback",
+        "train_range": [
+          -1.8107369110387297,
+          5.0
+        ],
+        "hidden_range": [
+          -3.2427224531721993e-09,
+          2.134430074901831e-09
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": -1.8107369110387297,
+          "max": 5.0,
+          "q05": -0.11518212798485611,
+          "median": 5.231277244203831e-11,
+          "q95": 0.18453678761013298,
+          "range": 6.810736911038729,
+          "robust_range": 0.2997189155949891
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": -3.2427224531721993e-09,
+          "max": 2.134430074901831e-09,
+          "q05": -3.092126740496879e-09,
+          "median": -1.3829395913226655e-10,
+          "q95": 2.0219295250156566e-09,
+          "range": 5.37715252807403e-09,
+          "robust_range": 5.114056265512536e-09
+        }
+      },
+      {
+        "generation": 1,
+        "name": "joule_power",
+        "expression": "R*i**2",
+        "role": "instantaneous heating rate that can drive resistance change",
+        "train_range": [
+          0.0,
+          0.7251808843840988
+        ],
+        "hidden_range": [
+          1.6577304004793602e-23,
+          7.337760134349596e-19
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 0.7251808843840988,
+          "q05": 4.987908798726898e-21,
+          "median": 1.847257640819629e-13,
+          "q95": 0.0393409289572826,
+          "range": 0.7251808843840988,
+          "robust_range": 0.0393409289572826
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 1.6577304004793602e-23,
+          "max": 7.337760134349596e-19,
+          "q05": 6.322717380425877e-22,
+          "median": 9.687638101255508e-20,
+          "q95": 6.763164953106875e-19,
+          "range": 7.337594361309548e-19,
+          "robust_range": 6.756842235726449e-19
+        }
+      },
+      {
+        "generation": 1,
+        "name": "magnetic_to_ohmic",
+        "expression": "L*Abs(i)/(R + 1e-30)",
+        "role": "proxy for whether appreciable current persists long enough for self-heating to matter",
+        "train_range": [
+          0.0,
+          0.0003763467702548665
+        ],
+        "hidden_range": [
+          1.7993761942507328e-15,
+          3.7857050548611886e-13
+        ],
+        "train_status": "inactive",
+        "hidden_status": "inactive",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 0.0003763467702548665,
+          "q05": 3.120583488236295e-14,
+          "median": 1.8993873527390294e-10,
+          "q95": 8.763093073859508e-05,
+          "range": 0.0003763467702548665,
+          "robust_range": 8.763093070738925e-05
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 1.7993761942507328e-15,
+          "max": 3.7857050548611886e-13,
+          "q05": 1.1111689189143251e-14,
+          "median": 1.3755423489750024e-13,
+          "q95": 3.634263991179848e-13,
+          "range": 3.767711292918681e-13,
+          "robust_range": 3.5231470992884153e-13
+        }
+      },
+      {
+        "generation": 2,
+        "name": "electrical_drive",
+        "expression": "q/C",
+        "role": "capacitor voltage driving the loop",
+        "train_range": [
+          -1.2678618144961875,
+          5.0
+        ],
+        "hidden_range": [
+          -3.0611866405267273e-09,
+          2.1342808375304608e-09
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": -1.2678618144961875,
+          "max": 5.0,
+          "q05": -0.07930523266467017,
+          "median": 4.715794812919816e-11,
+          "q95": 0.22925310706770355,
+          "range": 6.267861814496188,
+          "robust_range": 0.30855833973237373
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": -3.0611866405267273e-09,
+          "max": 2.1342808375304608e-09,
+          "q05": -2.9449805150253455e-09,
+          "median": 1.0992427628040383e-10,
+          "q95": 2.0735453301607074e-09,
+          "range": 5.195467478057188e-09,
+          "robust_range": 5.018525845186052e-09
+        }
+      },
+      {
+        "generation": 2,
+        "name": "heated_ohmic_drop",
+        "expression": "R*(1 + alpha_T*T_res)*i",
+        "role": "parent linear-temperature resistive voltage drop to compare against nonlinear refinement",
+        "train_range": [
+          -0.6121358289362391,
+          2.4086453767035167
+        ],
+        "hidden_range": [
+          -2.4228928313321277e-09,
+          1.60279454392372e-09
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": -0.6121358289362391,
+          "max": 2.4086453767035167,
+          "q05": -0.03790416476255226,
+          "median": 1.0807762305039712e-10,
+          "q95": 0.15062481306949438,
+          "range": 3.020781205639756,
+          "robust_range": 0.18852897783204664
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": -2.4228928313321277e-09,
+          "max": 1.60279454392372e-09,
+          "q05": -2.3259688793110234e-09,
+          "median": 4.4967036980591117e-10,
+          "q95": 1.4500190602987244e-09,
+          "range": 4.025687375255848e-09,
+          "robust_range": 3.775987939609748e-09
+        }
+      },
+      {
+        "generation": 2,
+        "name": "heating_level",
+        "expression": "alpha_T*T_res",
+        "role": "dimensionless temperature-rise scale controlling departure from strict linear resistance law",
+        "train_range": [
+          0.0,
+          2.4311127288774584e-05
+        ],
+        "hidden_range": [
+          1.6896842633175396e-05,
+          1.7580920966083653e-05
+        ],
+        "train_status": "inactive",
+        "hidden_status": "inactive",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 2.4311127288774584e-05,
+          "q05": 1.7738321514982185e-05,
+          "median": 2.0818614515035167e-05,
+          "q95": 2.4076589662507005e-05,
+          "range": 2.4311127288774584e-05,
+          "robust_range": 6.3382681475248205e-06
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 1.6896842633175396e-05,
+          "max": 1.7580920966083653e-05,
+          "q05": 1.6930405783088817e-05,
+          "median": 1.723548845153625e-05,
+          "q95": 1.7546068612635367e-05,
+          "range": 6.84078332908257e-07,
+          "robust_range": 6.156628295465493e-07
+        }
+      },
+      {
+        "generation": 3,
+        "name": "restoring_ratio",
+        "expression": "q/C",
+        "role": "baseline capacitor restoring contribution to current acceleration",
+        "train_range": [
+          -1.2678618144961875,
+          5.0
+        ],
+        "hidden_range": [
+          -3.0611866405267273e-09,
+          2.1342808375304608e-09
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": -1.2678618144961875,
+          "max": 5.0,
+          "q05": -0.07930523266467017,
+          "median": 4.715794812919816e-11,
+          "q95": 0.22925310706770355,
+          "range": 6.267861814496188,
+          "robust_range": 0.30855833973237373
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": -3.0611866405267273e-09,
+          "max": 2.1342808375304608e-09,
+          "q05": -2.9449805150253455e-09,
+          "median": 1.0992427628040383e-10,
+          "q95": 2.0735453301607074e-09,
+          "range": 5.195467478057188e-09,
+          "robust_range": 5.018525845186052e-09
+        }
+      },
+      {
+        "generation": 3,
+        "name": "thermal_damping",
+        "expression": "R*(1 + tanh(alpha_T*T_res))*i",
+        "role": "existing temperature-dependent resistive voltage drop",
+        "train_range": [
+          -0.6121358289362364,
+          2.4086453767035154
+        ],
+        "hidden_range": [
+          -2.422892831332124e-09,
+          1.6027945439237175e-09
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": -0.6121358289362364,
+          "max": 2.4086453767035154,
+          "q05": -0.037904164762552095,
+          "median": 1.0807762305039692e-10,
+          "q95": 0.15062481306949366,
+          "range": 3.020781205639752,
+          "robust_range": 0.18852897783204575
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": -2.422892831332124e-09,
+          "max": 1.6027945439237175e-09,
+          "q05": -2.3259688793110193e-09,
+          "median": 4.496703698059104e-10,
+          "q95": 1.4500190602987219e-09,
+          "range": 4.025687375255842e-09,
+          "robust_range": 3.775987939609741e-09
+        }
+      },
+      {
+        "generation": 4,
+        "name": "thermal_level",
+        "expression": "alpha_T*T_res",
+        "role": "dimensionless resistor-temperature excursion controlling activation of thermal nonlinearity",
+        "train_range": [
+          0.0,
+          2.4311127288774584e-05
+        ],
+        "hidden_range": [
+          1.6896842633175396e-05,
+          1.7580920966083653e-05
+        ],
+        "train_status": "inactive",
+        "hidden_status": "inactive",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 2.4311127288774584e-05,
+          "q05": 1.7738321514982185e-05,
+          "median": 2.0818614515035167e-05,
+          "q95": 2.4076589662507005e-05,
+          "range": 2.4311127288774584e-05,
+          "robust_range": 6.3382681475248205e-06
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 1.6896842633175396e-05,
+          "max": 1.7580920966083653e-05,
+          "q05": 1.6930405783088817e-05,
+          "median": 1.723548845153625e-05,
+          "q95": 1.7546068612635367e-05,
+          "range": 6.84078332908257e-07,
+          "robust_range": 6.156628295465493e-07
+        }
+      },
+      {
+        "generation": 4,
+        "name": "damping_drop",
+        "expression": "R*(1 + tanh(alpha_T*T_res))*i/L",
+        "role": "parent instantaneous damping contribution to di_dt",
+        "train_range": [
+          -61.21358289362364,
+          240.86453767035152
+        ],
+        "hidden_range": [
+          -2.4228928313321237e-07,
+          1.6027945439237174e-07
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": -61.21358289362364,
+          "max": 240.86453767035152,
+          "q05": -3.7904164762552095,
+          "median": 1.080776230503969e-08,
+          "q95": 15.062481306949364,
+          "range": 302.0781205639752,
+          "robust_range": 18.852897783204572
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": -2.4228928313321237e-07,
+          "max": 1.6027945439237174e-07,
+          "q05": -2.325968879311019e-07,
+          "median": 4.4967036980591044e-08,
+          "q95": 1.450019060298722e-07,
+          "range": 4.025687375255841e-07,
+          "robust_range": 3.775987939609741e-07
+        }
+      },
+      {
+        "generation": 4,
+        "name": "heating_drive",
+        "expression": "R*i**2/C_th",
+        "role": "Joule-heating source that moves the system into the nonlinear thermal regime",
+        "train_range": [
+          0.0,
+          0.14503617687681974
+        ],
+        "hidden_range": [
+          3.31546080095872e-24,
+          1.4675520268699191e-19
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 0.14503617687681974,
+          "q05": 9.975817597453797e-22,
+          "median": 3.694515281639258e-14,
+          "q95": 0.00786818579145652,
+          "range": 0.14503617687681974,
+          "robust_range": 0.00786818579145652
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 3.31546080095872e-24,
+          "max": 1.4675520268699191e-19,
+          "q05": 1.2645434760851754e-22,
+          "median": 1.9375276202511012e-20,
+          "q95": 1.352632990621375e-19,
+          "range": 1.4675188722619096e-19,
+          "robust_range": 1.3513684471452898e-19
+        }
+      },
+      {
+        "generation": 5,
+        "name": "thermal_drive",
+        "expression": "(R*i**2)/C_th",
+        "role": "instantaneous Joule-heating source strength",
+        "train_range": [
+          0.0,
+          0.14503617687681974
+        ],
+        "hidden_range": [
+          3.31546080095872e-24,
+          1.4675520268699191e-19
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 0.14503617687681974,
+          "q05": 9.975817597453797e-22,
+          "median": 3.694515281639258e-14,
+          "q95": 0.00786818579145652,
+          "range": 0.14503617687681974,
+          "robust_range": 0.00786818579145652
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 3.31546080095872e-24,
+          "max": 1.4675520268699191e-19,
+          "q05": 1.2645434760851754e-22,
+          "median": 1.9375276202511012e-20,
+          "q95": 1.352632990621375e-19,
+          "range": 1.4675188722619096e-19,
+          "robust_range": 1.3513684471452898e-19
+        }
+      },
+      {
+        "generation": 5,
+        "name": "thermal_relax",
+        "expression": "T_res/tau_th",
+        "role": "instantaneous environmental cooling strength",
+        "train_range": [
+          0.0,
+          0.001215556364438729
+        ],
+        "hidden_range": [
+          0.0008448421316587697,
+          0.0008790460483041826
+        ],
+        "train_status": "inactive",
+        "hidden_status": "inactive",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 0.001215556364438729,
+          "q05": 0.0008869160757491092,
+          "median": 0.0010409307257517582,
+          "q95": 0.0012038294831253503,
+          "range": 0.001215556364438729,
+          "robust_range": 0.0003169134073762411
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.0008448421316587697,
+          "max": 0.0008790460483041826,
+          "q05": 0.0008465202891544406,
+          "median": 0.0008617744225768126,
+          "q95": 0.0008773034306317682,
+          "range": 3.4203916645412905e-05,
+          "robust_range": 3.0783141477327513e-05
+        }
+      },
+      {
+        "generation": 5,
+        "name": "electro_thermal_ratio",
+        "expression": "((R*i**2)/C_th)/(T_res/tau_th + 1.0e-12)",
+        "role": "heating-versus-cooling regime indicator for whether thermal history effects can separate trajectories",
+        "train_range": [
+          0.0,
+          3060.9199117307944
+        ],
+        "hidden_range": [
+          3.776375220464614e-21,
+          1.7096073412861208e-16
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 3060.9199117307944,
+          "q05": 1.0411644091363373e-18,
+          "median": 3.4797926905890076e-11,
+          "q95": 6.673005330858243,
+          "range": 3060.9199117307944,
+          "robust_range": 6.673005330858243
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 3.776375220464614e-21,
+          "max": 1.7096073412861208e-16,
+          "q05": 1.4398058901800681e-19,
+          "median": 2.2567666359463606e-17,
+          "q95": 1.5760395963649574e-16,
+          "range": 1.7095695775339162e-16,
+          "robust_range": 1.5745997904747775e-16
+        }
+      }
+    ],
+    "inactive_mechanisms": [
+      "magnetic_to_ohmic",
+      "heating_level",
+      "thermal_level",
+      "thermal_relax"
+    ],
+    "visible_mechanisms": [
+      "emf_balance",
+      "joule_power",
+      "electrical_drive",
+      "heated_ohmic_drop",
+      "restoring_ratio",
+      "thermal_damping",
+      "damping_drop",
+      "heating_drive",
+      "thermal_drive",
+      "electro_thermal_ratio"
+    ],
+    "extended_mechanisms": []
+  },
+  "inactive_mechanisms": [
+    "magnetic_to_ohmic",
+    "heating_level",
+    "thermal_level",
+    "thermal_relax"
+  ],
+  "target_variance": {
+    "train": {
+      "n": 384,
+      "variance": 2505.879944369182,
+      "range": 681.0761812220306
+    },
+    "hidden": {
+      "n": 128,
+      "variance": 2.8121427103589194e-14,
+      "range": 5.377174740118555e-07
+    }
+  },
+  "parent_absorption_report": {
+    "status": "ok",
+    "n_points": 512,
+    "fixed_parent_normalized_rmse": 0.0023349908135729997,
+    "refit": {
+      "status": "not_run",
+      "reason": "no free parent parameters"
+    },
+    "interpretation": "<1e-3 nearly absorbed; 1e-3..1e-2 weak; >1e-2 visible structure"
+  },
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_LIRWI7L0FMZYUMahMkhdViSR"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "(q/(C*(1 + beta_C*tanh(alpha_T*T_res))) - R*(1 + tanh(alpha_T*T_res) + gamma_RT*tanh(alpha_T*T_res)**2 + eta_mem*tanh(alpha_T*T_mem)*tanh(alpha_T*T_res))*i)/L",
+        "target_symbol": "di_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "C",
+          "L",
+          "R",
+          "T_mem",
+          "T_res",
+          "alpha_T",
+          "beta_C",
+          "eta_mem",
+          "gamma_RT",
+          "i",
+          "q"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "(-R*i*(eta_mem*tanh(T_mem*alpha_T)*tanh(T_res*alpha_T) + gamma_RT*tanh(T_res*alpha_T)**2 + tanh(T_res*alpha_T) + 1) + q/"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_W4qcwstcrFZe0HlDs9khwwh8"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "(q/(C*(1 + beta_C*tanh(alpha_T*T_res))) - R*(1 + tanh(alpha_T*T_res) + gamma_RT*tanh(alpha_T*T_res)**2 + eta_mem*tanh(alpha_T*T_mem)*tanh(alpha_T*T_res))*i)/L",
+        "target_symbol": "di_dt",
+        "assignments": {
+          "q": 0.0005,
+          "i": 0.0,
+          "T_res": 0.0,
+          "T_mem": 0.0,
+          "C": 0.0001,
+          "L": 0.01,
+          "R": 8.0,
+          "alpha_T": 0.1,
+          "C_th": 5.0,
+          "tau_th": 0.2,
+          "beta_C": 0.3,
+          "gamma_RT": 0.4,
+          "tau_mem": 0.3,
+          "k_mem": 0.6,
+          "eta_mem": 0.5
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": 500.0,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_XSZY1gjmO165V9Juc8Riyk7U"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_c7PTLixtQMFA5ZH6c5qKcXu4"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 4,
+  "discipline": "physics",
+  "scenario_text": "A charged capacitor is connected in series with an ideal inductor and a resistor, then allowed to discharge without an external source. The capacitor charge and loop current evolve together as electric-field energy and magnetic-field energy are exchanged while resistance removes energy from the circuit. The benchmark targets the instantaneous rate of change of current throughout the resulting damped oscillation. Capacitance, inductance, and resistance remain fixed across the recorded trajectory.",
+  "record_id": "m2_electromagnetism_20282741_000",
+  "generation": 5,
+  "_n_total": 5000,
+  "mechanism_observation_history": [
+    {
+      "generation": 1,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "interaction_emergence",
+          "parent_relation": "The target mapping is linear in the observed states: di_dt depends only on q and i through (q/C - R*i)/L with one shared constant resistance R.",
+          "child_relation": "Release the assumption of constant resistance by allowing Joule heating to evolve a temperature-like state that feeds back into the damping, so di_dt depends on q, i, and the resistor state through a temperature-dependent effective resistance.",
+          "affected_inputs": [
+            "q",
+            "i",
+            "R"
+          ],
+          "observable_effect": "Across trajectories that differ in accumulated dissipation during the observed discharge, the later-time current decay becomes stronger than predicted by any single constant-R fit: high-|i| portions acquire extra damping and reduced subsequent peaks compared with low-heating portions at the same q and i."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "emf_balance",
+            "expression": "q/C - R*i",
+            "role": "parent loop-voltage balance before thermal feedback"
+          },
+          {
+            "name": "joule_power",
+            "expression": "R*i**2",
+            "role": "instantaneous heating rate that can drive resistance change"
+          },
+          {
+            "name": "magnetic_to_ohmic",
+            "expression": "L*Abs(i)/(R + 1e-30)",
+            "role": "proxy for whether appreciable current persists long enough for self-heating to matter"
+          }
+        ],
+        "activation_condition": "Observable when Joule heating over the discharge is not negligible compared with ambient thermal buffering, i.e. sustained intervals with R*i**2 large enough that resistor temperature changes on a timescale comparable to the ring-down envelope rather than being effectively instantaneous or zero.",
+        "train_hidden_contrast": "The same self-heating mechanism appears within each training trajectory as stronger damping after earlier high-current segments, and in holdout it extends to trajectories with larger or smaller total dissipated energy where the accumulated damping shift is correspondingly weaker or stronger.",
+        "continuation_path": "Recover the parent law in the isothermal limit: vanishing temperature coefficient, vanishing Joule-heating feedback, or infinitely fast thermal relaxation that pins the resistor state to its baseline value.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A memoryless modification of di_dt using only current q and i cannot represent accumulated self-heating, because the damping change depends on prior dissipation history. One additional thermal state is needed to store that history and feed it back into the effective resistance.",
+        "gap_statement": "The model assumes resistance is constant throughout the discharge, omitting resistor self-heating and the resulting time-varying damping in an otherwise isolated ring-down.",
+        "baseline_assumption": "Capacitance, inductance, and resistance are constant and independent of current, charge, and temperature.",
+        "scientific_mechanism": "Ohmic dissipation heats the resistor; its temperature-dependent resistivity changes the instantaneous voltage drop, modifying the current derivative during the same discharge.",
+        "affected_symbols": [
+          "i",
+          "q",
+          "R"
+        ],
+        "rationale": "A realistic next refinement is to relax the constant-resistance assumption, not to add an unrelated loss channel. In the parent, once q and i are specified, di_dt is fixed by one linear rule with a single shared R; the target mapping has no memory of how much energy has already been dissipated. In the child, accumulated Joule heating creates a state-dependent resistance, so the same observed q and i reached after stronger prior currents can produce a more negative di_dt than when reached with less heating. The varied condition is the amount of prior dissipation along the observed ring-down, while L and C remain fixed and the circuit remains source-free and lumped. The contrast is experimentally admissible when thermal evolution is slow enough to persist over the oscillation envelope but fast enough to change appreciably during the recorded discharge. If heating is negligible or the resistor is effectively clamped to ambient, this refinement becomes unobservable and the parent is recovered."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "interaction_emergence",
+          "parent_relation": "The target mapping is linear in the observed states: di_dt depends only on q and i through (q/C - R*i)/L with one shared constant resistance R.",
+          "child_relation": "Release the assumption of constant resistance by allowing Joule heating to evolve a temperature-like state that feeds back into the damping, so di_dt depends on q, i, and the resistor state through a temperature-dependent effective resistance.",
+          "affected_inputs": [
+            "q",
+            "i",
+            "R"
+          ],
+          "observable_effect": "Across trajectories that differ in accumulated dissipation during the observed discharge, the later-time current decay becomes stronger than predicted by any single constant-R fit: high-|i| portions acquire extra damping and reduced subsequent peaks compared with low-heating portions at the same q and i."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "emf_balance",
+            "expression": "q/C - R*i",
+            "role": "parent loop-voltage balance before thermal feedback"
+          },
+          {
+            "name": "joule_power",
+            "expression": "R*i**2",
+            "role": "instantaneous heating rate that can drive resistance change"
+          },
+          {
+            "name": "magnetic_to_ohmic",
+            "expression": "L*Abs(i)/(R + 1e-30)",
+            "role": "proxy for whether appreciable current persists long enough for self-heating to matter"
+          }
+        ],
+        "activation_condition": "Observable when Joule heating over the discharge is not negligible compared with ambient thermal buffering, i.e. sustained intervals with R*i**2 large enough that resistor temperature changes on a timescale comparable to the ring-down envelope rather than being effectively instantaneous or zero.",
+        "train_hidden_contrast": "The same self-heating mechanism appears within each training trajectory as stronger damping after earlier high-current segments, and in holdout it extends to trajectories with larger or smaller total dissipated energy where the accumulated damping shift is correspondingly weaker or stronger.",
+        "continuation_path": "Recover the parent law in the isothermal limit: vanishing temperature coefficient, vanishing Joule-heating feedback, or infinitely fast thermal relaxation that pins the resistor state to its baseline value.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A memoryless modification of di_dt using only current q and i cannot represent accumulated self-heating, because the damping change depends on prior dissipation history. One additional thermal state is needed to store that history and feed it back into the effective resistance.",
+        "scope_kind": "memory",
+        "scope_symbols": [
+          "q",
+          "i",
+          "T_res"
+        ],
+        "structural_role": "feedback",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "resistor self-heating with temperature-dependent resistance",
+        "scientific_mechanism": "Ohmic dissipation heats the resistor; its temperature-dependent resistivity changes the instantaneous voltage drop, modifying the current derivative during the same discharge.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the damping coefficient now depends on an internal state that integrates past Joule dissipation, so the same present q and i can map to different di_dt depending on trajectory history.",
+        "taxonomy_match": "known",
+        "assumption_before": "Capacitance, inductance, and resistance are constant and independent of current, charge, and temperature.",
+        "assumption_after": "Resistance varies during the discharge because Joule heating creates a thermal state whose temperature rise modulates the ohmic voltage drop.",
+        "before_fragment": "(q/C - R*i)/L",
+        "after_fragment": "(q/C - R*(1 + alpha_T*T_res)*i)/L",
+        "parent_reduction": "Set alpha_T = 0, or hold T_res = 0, or take negligible heating / sufficiently fast thermal clamping so T_res remains near zero.",
+        "observable_signature": "Parent: at fixed q and i, di_dt is uniquely determined by one constant-R linear rule. Child: at the same q and i, later portions of trajectories that experienced larger earlier R*i**2 have hotter T_res, larger effective resistance, and therefore more negative di_dt, with reduced later peaks and stronger envelope decay when tau_th is comparable to the discharge timescale.",
+        "shortcut_blocked": "Refitting a single constant R cannot reproduce history-dependent damping across these conditions because the parent has no state that stores accumulated dissipation. A larger R can match hotter late-time segments only by over-damping early low-heating segments, while a smaller R matches early motion but misses the extra late-time decay; one shared parent parameter set cannot satisfy both within the same admissible thermal-feedback regime."
+      },
+      "range_suggestions": {
+        "T_res": "0 to a temperature rise scale where linear resistance-temperature dependence remains valid",
+        "alpha_T": "nonnegative, small enough that 1 + alpha_T*T_res stays positive over the trajectory",
+        "C_th": "positive thermal capacitance scale",
+        "tau_th": "positive and comparable to or larger than part of the ring-down envelope for observable feedback"
+      }
+    },
+    {
+      "generation": 2,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The target mapping is affine in q and i at fixed T_res: di_dt = q/(L*C) - [R*(1 + alpha_T*T_res)/L]*i, so temperature only rescales the instantaneous damping gain on i linearly.",
+          "child_relation": "Replace the linear resistance-temperature law with a saturating nonlinear dependence on T_res, so the damping contribution bends with T_res and the i-to-di_dt slope changes sublinearly at larger resistor heating.",
+          "affected_inputs": [
+            "i",
+            "q",
+            "T_res",
+            "alpha_T",
+            "R"
+          ],
+          "observable_effect": "Across trajectories with weak versus appreciable self-heating, the decay-envelope distortion and instantaneous di_dt versus i slope no longer increase proportionally with T_res; instead the added damping growth softens at higher T_res."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "electrical_drive",
+            "expression": "q/C",
+            "role": "capacitor voltage driving the loop"
+          },
+          {
+            "name": "heated_ohmic_drop",
+            "expression": "R*(1 + alpha_T*T_res)*i",
+            "role": "parent linear-temperature resistive voltage drop to compare against nonlinear refinement"
+          },
+          {
+            "name": "heating_level",
+            "expression": "alpha_T*T_res",
+            "role": "dimensionless temperature-rise scale controlling departure from strict linear resistance law"
+          }
+        ],
+        "activation_condition": "Observable when alpha_T*T_res reaches a moderate but still physically admissible level so linearized resistivity is no longer uniformly accurate, while T_res remains within a regime of monotone positive resistance and lumped thermal modeling.",
+        "train_hidden_contrast": "In training, small-to-moderate heating already causes slight bending of the effective damping versus T_res; in holdout, larger but still admissible heating extends that same trend into clearer sublinear curvature rather than introducing a new mechanism.",
+        "continuation_path": "Recover the parent law in the small-heating limit alpha_T*T_res << 1, where the nonlinear temperature dependence reduces to its first-order linear approximation.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The model already includes thermal feedback, but it idealizes resistor resistance as exactly linear in temperature rise over the whole observed discharge.",
+        "baseline_assumption": "Resistance changes linearly with resistor temperature rise through the factor 1 + alpha_T*T_res.",
+        "scientific_mechanism": "Real conductor resistivity is only approximately linear around a reference temperature; over a wider self-heating excursion the resistance-temperature relation acquires measurable curvature, altering the instantaneous damping law.",
+        "affected_symbols": [
+          "i",
+          "q",
+          "T_res",
+          "R",
+          "alpha_T",
+          "L"
+        ],
+        "rationale": "A realistic next refinement is to relax the exact linear resistance-temperature assumption rather than add a new process. The parent target mapping from supplied states to di_dt is linear in i with a slope set by T_res through one shared gain factor, so at fixed q the dependence of damping on heating is constrained to be proportional to alpha_T*T_res. Varying the discharge amplitude or thermal time scales changes how much T_res is visited along observed trajectories while C, L, and baseline R remain fixed. Under those conditions, a child with nonlinear R(T_res) predicts that the i-to-di_dt slope versus T_res bends, typically softening at larger heating, whereas the parent with one shared parameter set can only keep increasing damping linearly with T_res across all trajectories. This is a changed target mapping, not merely an auxiliary thermal-trajectory change, because T_res is already a supplied state in the scored law. The contrast is scientifically admissible when self-heating is strong enough that the linearized resistivity law is imperfect but not so strong that positivity or lumped modeling breaks down. If heating stays tiny for the whole dataset, the refinement would be practically unidentifiable; in that limit the parent remains adequate."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The target mapping is affine in q and i at fixed T_res: di_dt = q/(L*C) - [R*(1 + alpha_T*T_res)/L]*i, so temperature only rescales the instantaneous damping gain on i linearly.",
+          "child_relation": "Replace the linear resistance-temperature law with a saturating nonlinear dependence on T_res, so the damping contribution bends with T_res and the i-to-di_dt slope changes sublinearly at larger resistor heating.",
+          "affected_inputs": [
+            "i",
+            "q",
+            "T_res",
+            "alpha_T",
+            "R"
+          ],
+          "observable_effect": "Across trajectories with weak versus appreciable self-heating, the decay-envelope distortion and instantaneous di_dt versus i slope no longer increase proportionally with T_res; instead the added damping growth softens at higher T_res."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "electrical_drive",
+            "expression": "q/C",
+            "role": "capacitor voltage driving the loop"
+          },
+          {
+            "name": "heated_ohmic_drop",
+            "expression": "R*(1 + alpha_T*T_res)*i",
+            "role": "parent linear-temperature resistive voltage drop to compare against nonlinear refinement"
+          },
+          {
+            "name": "heating_level",
+            "expression": "alpha_T*T_res",
+            "role": "dimensionless temperature-rise scale controlling departure from strict linear resistance law"
+          }
+        ],
+        "activation_condition": "Observable when alpha_T*T_res reaches a moderate but still physically admissible level so linearized resistivity is no longer uniformly accurate, while T_res remains within a regime of monotone positive resistance and lumped thermal modeling.",
+        "train_hidden_contrast": "In training, small-to-moderate heating already causes slight bending of the effective damping versus T_res; in holdout, larger but still admissible heating extends that same trend into clearer sublinear curvature rather than introducing a new mechanism.",
+        "continuation_path": "Recover the parent law in the small-heating limit alpha_T*T_res << 1, where the nonlinear temperature dependence reduces to its first-order linear approximation.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "i",
+          "q",
+          "T_res"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "nonlinear resistance increase with resistor self-heating",
+        "scientific_mechanism": "Real conductor resistivity is only approximately linear around a reference temperature; over a wider self-heating excursion the resistance-temperature relation acquires measurable curvature, altering the instantaneous damping law.",
+        "embedding_pattern": "competing_processes",
+        "difficulty_rationale": "This embedding is harder than a coefficient-only correction because the capacitor drive q/C and the resistive loss R*(1 + tanh(alpha_T*T_res))*i compete differently across heating levels: the loss initially grows like the parent law but then softens, changing curvature of the i-to-di_dt slope as a state-dependent response rather than merely rescaling one constant.",
+        "taxonomy_match": "known",
+        "assumption_before": "Resistance changes linearly with resistor temperature rise through the factor 1 + alpha_T*T_res.",
+        "assumption_after": "Resistance increases monotonically with temperature rise but saturates in its incremental growth, modeled here by 1 + tanh(alpha_T*T_res).",
+        "before_fragment": "(q/C - R*(1 + alpha_T*T_res)*i)/L",
+        "after_fragment": "(q/C - R*(1 + tanh(alpha_T*T_res))*i)/L",
+        "parent_reduction": "For alpha_T*T_res << 1, tanh(alpha_T*T_res) ≈ alpha_T*T_res, recovering the parent expression to first order.",
+        "observable_signature": "Holding C, L, and baseline R fixed while comparing trajectories that visit low versus moderate heating, the parent predicts a di_dt-versus-i slope shift proportional to T_res at fixed q, whereas the child predicts that this slope shift bends and compresses at larger alpha_T*T_res. The effect is visible directly in the scored target mapping because T_res is an observed state already entering di_dt, not only in an auxiliary thermal transient.",
+        "shortcut_blocked": "A single refit of the parent parameters cannot reproduce both the near-reference linear slope change and the softened higher-heating slope with one shared law, because the parent enforces an exactly affine dependence of the damping gain on T_res. Retuning R or alpha_T can match either the small-heating tangent or part of the larger-heating region, but not the systematic sublinear curvature across trajectories that span different self-heating levels."
+      },
+      "range_suggestions": {}
+    },
+    {
+      "generation": 3,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "interaction_emergence",
+          "parent_relation": "The target mapping depends on q and i with temperature only through a self-heated resistor term R*(1+tanh(alpha_T*T_res)); the capacitor branch is assumed temperature-invariant, so heating changes only damping.",
+          "child_relation": "Allow capacitor capacitance to vary with resistor temperature rise, so the restoring term q/C becomes a coupled function of q and T_res as well as the damping term depending on i and T_res.",
+          "affected_inputs": [
+            "q",
+            "i",
+            "T_res",
+            "C"
+          ],
+          "observable_effect": "Across otherwise identical discharges, larger self-heating causes not only stronger damping but also a shifted oscillation timescale/restoring slope, producing a different q-to-di_dt relation at matched i and T_res levels than the parent's damping-only modification."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "restoring_ratio",
+            "expression": "q/C",
+            "role": "baseline capacitor restoring contribution to current acceleration"
+          },
+          {
+            "name": "thermal_damping",
+            "expression": "R*(1 + tanh(alpha_T*T_res))*i",
+            "role": "existing temperature-dependent resistive voltage drop"
+          },
+          {
+            "name": "heating_level",
+            "expression": "alpha_T*T_res",
+            "role": "dimensionless self-heating scale governing when thermal property curvature becomes visible"
+          }
+        ],
+        "activation_condition": "Observable when self-heating is large enough that resistor temperature rise is not negligible and the capacitor's effective capacitance has measurable thermal drift over the same excursion; this is most visible during moderate-to-strong current episodes before oscillations fully decay.",
+        "train_hidden_contrast": "In training, mild heating mainly shows damping growth; in holdout with larger but still admissible heating, the same thermal excursion also shifts the restoring branch, changing oscillation timing and the q-conditioned slope of di_dt beyond what a single damping-only law can match.",
+        "continuation_path": "Recover the parent when the capacitance thermal coefficient tends to zero or when T_res remains near zero throughout the observed trajectory.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The current model treats self-heating as affecting only resistor dissipation, while keeping the capacitor's constitutive relation strictly temperature-invariant during the same thermal excursion.",
+        "baseline_assumption": "Capacitance is constant and independent of temperature during discharge.",
+        "scientific_mechanism": "Dielectric properties in real capacitors can drift with temperature, so resistor self-heating shared by the local component environment can change the effective capacitance and therefore the instantaneous restoring voltage-charge relation.",
+        "affected_symbols": [
+          "q",
+          "i",
+          "T_res",
+          "C"
+        ],
+        "rationale": "A realistic next refinement is to relax the parent's constant-capacitance assumption rather than adding a wholly new process. The parent target mapping has a fixed-environment shortcut: temperature modifies only the resistive branch, so at fixed q and T_res the q contribution to di_dt is always exactly q/(L*C), independent of heating history except through the separately supplied damping term. The child would couple T_res into the capacitor branch too, creating a genuine target-mapping change because the scored di_dt would then vary with T_res even at the same q and i in a way not reducible to damping alone. The concrete distinguishing condition is to compare portions of trajectories with similar q and i magnitudes but different self-heating levels T_res, while holding C, L, R, alpha_T, C_th, and tau_th fixed across the run. The parent can only change the coefficient multiplying i under heating; it cannot simultaneously alter the restoring q slope with one shared parameter set. This effect is scientifically admissible when thermal drift of capacitance is non-negligible over the resistor-heating range experienced in the benchmark; if the capacitor is effectively temperature-stable or thermally isolated, the refinement may be weak, and the parent is then recovered."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "interaction_emergence",
+          "parent_relation": "The target mapping depends on q and i with temperature only through a self-heated resistor term R*(1+tanh(alpha_T*T_res)); the capacitor branch is assumed temperature-invariant, so heating changes only damping.",
+          "child_relation": "Allow capacitor capacitance to vary with resistor temperature rise, so the restoring term q/C becomes a coupled function of q and T_res as well as the damping term depending on i and T_res.",
+          "affected_inputs": [
+            "q",
+            "i",
+            "T_res",
+            "C"
+          ],
+          "observable_effect": "Across otherwise identical discharges, larger self-heating causes not only stronger damping but also a shifted oscillation timescale/restoring slope, producing a different q-to-di_dt relation at matched i and T_res levels than the parent's damping-only modification."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "restoring_ratio",
+            "expression": "q/C",
+            "role": "baseline capacitor restoring contribution to current acceleration"
+          },
+          {
+            "name": "thermal_damping",
+            "expression": "R*(1 + tanh(alpha_T*T_res))*i",
+            "role": "existing temperature-dependent resistive voltage drop"
+          },
+          {
+            "name": "heating_level",
+            "expression": "alpha_T*T_res",
+            "role": "dimensionless self-heating scale governing when thermal property curvature becomes visible"
+          }
+        ],
+        "activation_condition": "Observable when self-heating is large enough that resistor temperature rise is not negligible and the capacitor's effective capacitance has measurable thermal drift over the same excursion; this is most visible during moderate-to-strong current episodes before oscillations fully decay.",
+        "train_hidden_contrast": "In training, mild heating mainly shows damping growth; in holdout with larger but still admissible heating, the same thermal excursion also shifts the restoring branch, changing oscillation timing and the q-conditioned slope of di_dt beyond what a single damping-only law can match.",
+        "continuation_path": "Recover the parent when the capacitance thermal coefficient tends to zero or when T_res remains near zero throughout the observed trajectory.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "q",
+          "i",
+          "T_res",
+          "C"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "temperature-dependent dielectric capacitance modulating the capacitor restoring branch",
+        "scientific_mechanism": "Dielectric properties in real capacitors can drift with temperature, so resistor self-heating shared by the local component environment can change the effective capacitance and therefore the instantaneous restoring voltage-charge relation.",
+        "embedding_pattern": "multiplicative_modulation",
+        "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the same thermal state now modulates two physically distinct branches, creating a nonseparable q-T_res interaction in the target mapping rather than only rescaling the i term.",
+        "taxonomy_match": "known",
+        "assumption_before": "Capacitance is constant and independent of temperature during discharge.",
+        "assumption_after": "Effective capacitance is thermally modulated by the same self-heating environment that already changes resistance.",
+        "before_fragment": "(q/C - R*(1 + tanh(alpha_T*T_res))*i)/L",
+        "after_fragment": "(q/(C*(1 + beta_C*tanh(alpha_T*T_res))) - R*(1 + tanh(alpha_T*T_res))*i)/L",
+        "parent_reduction": "beta_C -> 0 or T_res -> 0",
+        "observable_signature": "Compared at similar q and i but different self-heating levels along admissible trajectories, the child changes the q-conditioned slope of di_dt through q/(C*(1 + beta_C*tanh(alpha_T*T_res))) while the parent can only alter the i-dependent damping term. The effect is visible when T_res excursions are large enough for capacitance drift to matter during the observed discharge, shifting both damping and oscillation timescale.",
+        "shortcut_blocked": "A single parent parameter set cannot reproduce this contrast because refitting R, alpha_T, L, or C only changes a fixed q slope or the temperature-dependent coefficient of i. It cannot make the restoring coefficient vary with T_res while keeping the same damping law across all heating levels, so matching one heating regime forces errors in another when q and i are both observed."
+      },
+      "range_suggestions": {
+        "beta_C": "0 <= beta_C < 1"
+      }
+    },
+    {
+      "generation": 4,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The damping contribution to di_dt is proportional to i with a resistance factor R*(1 + tanh(alpha_T*T_res)), so at fixed q and i the target depends on T_res through one saturating shape.",
+          "child_relation": "Replace the resistor heating law's linear-in-temperature resistance factor with a curved temperature response so that at fixed q and i the damping term changes from a single shared saturation profile to a sharper or softer T_res-dependent curvature across the discharge.",
+          "affected_inputs": [
+            "T_res",
+            "i",
+            "R",
+            "alpha_T"
+          ],
+          "observable_effect": "Across trajectories that reach different self-heating levels, the instantaneous di_dt-versus-(T_res,i) damping slope bends differently at moderate versus large T_res; one shared parent parameter set cannot match both the early mild-heating slope and the later hot-state damping curvature."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "thermal_level",
+            "expression": "alpha_T*T_res",
+            "role": "dimensionless resistor-temperature excursion controlling activation of thermal nonlinearity"
+          },
+          {
+            "name": "damping_drop",
+            "expression": "R*(1 + tanh(alpha_T*T_res))*i/L",
+            "role": "parent instantaneous damping contribution to di_dt"
+          },
+          {
+            "name": "heating_drive",
+            "expression": "R*i**2/C_th",
+            "role": "Joule-heating source that moves the system into the nonlinear thermal regime"
+          }
+        ],
+        "activation_condition": "Observable when self-heating drives |alpha_T*T_res| from small values into order-one values during the recorded discharge, so the resistor leaves the near-linear thermal regime while q and i remain appreciable.",
+        "train_hidden_contrast": "The same self-heating mechanism appears in training at modest temperature rise and extends in holdout to larger excursions, where the changed thermal curvature of the damping law becomes more visible rather than introducing a wholly new regime.",
+        "continuation_path": "Recover the parent by taking the added curvature parameter to zero or to the limit where the refined resistance-temperature law reduces to the current single tanh dependence.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The present model already includes temperature-dependent resistance, but it assumes one fixed tanh-shaped resistance rise with temperature, which is too restrictive for wider self-heating excursions.",
+        "baseline_assumption": "The resistor's temperature dependence is fully captured by a single saturating factor 1 + tanh(alpha_T*T_res).",
+        "scientific_mechanism": "Real resistor resistivity commonly shows higher-order curvature with temperature because material coefficients vary over the heating range, so the effective damping law versus T_res is not exactly one universal tanh profile.",
+        "affected_symbols": [
+          "T_res",
+          "i",
+          "R",
+          "alpha_T"
+        ],
+        "rationale": "A natural next refinement is to relax the idealized mathematical form of the already-present thermal resistance law, not to add a new process. In the parent, with C, L, R, alpha_T fixed, the target mapping from supplied states to di_dt has a single thermal damping profile: for given q and i, changing T_res only moves di_dt along one tanh-shaped curve. Varying condition: the self-consistently reached resistor temperature rise during the discharge, driven by different parts of the same trajectory as Joule heating accumulates. Held fixed: component values C, L, baseline R, thermal parameters, and the initial-condition protocol. Concrete contrast: at low to moderate T_res the parent can be refit to match the local slope of damping versus temperature, but then it cannot simultaneously match stronger or weaker curvature in hotter portions of the same admissible trajectory if the true resistance law departs from that single tanh shape. This changes the scored target mapping directly because T_res is a supplied state inside di_dt, not merely an auxiliary latent. The effect is scientifically admissible once alpha_T*T_res reaches order one; if heating stays asymptotically small, the refinement will be weak and that limitation should be acknowledged."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The damping contribution to di_dt is proportional to i with a resistance factor R*(1 + tanh(alpha_T*T_res)), so at fixed q and i the target depends on T_res through one saturating shape.",
+          "child_relation": "Replace the resistor heating law's linear-in-temperature resistance factor with a curved temperature response so that at fixed q and i the damping term changes from a single shared saturation profile to a sharper or softer T_res-dependent curvature across the discharge.",
+          "affected_inputs": [
+            "T_res",
+            "i",
+            "R",
+            "alpha_T"
+          ],
+          "observable_effect": "Across trajectories that reach different self-heating levels, the instantaneous di_dt-versus-(T_res,i) damping slope bends differently at moderate versus large T_res; one shared parent parameter set cannot match both the early mild-heating slope and the later hot-state damping curvature."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "thermal_level",
+            "expression": "alpha_T*T_res",
+            "role": "dimensionless resistor-temperature excursion controlling activation of thermal nonlinearity"
+          },
+          {
+            "name": "damping_drop",
+            "expression": "R*(1 + tanh(alpha_T*T_res))*i/L",
+            "role": "parent instantaneous damping contribution to di_dt"
+          },
+          {
+            "name": "heating_drive",
+            "expression": "R*i**2/C_th",
+            "role": "Joule-heating source that moves the system into the nonlinear thermal regime"
+          }
+        ],
+        "activation_condition": "Observable when self-heating drives |alpha_T*T_res| from small values into order-one values during the recorded discharge, so the resistor leaves the near-linear thermal regime while q and i remain appreciable.",
+        "train_hidden_contrast": "The same self-heating mechanism appears in training at modest temperature rise and extends in holdout to larger excursions, where the changed thermal curvature of the damping law becomes more visible rather than introducing a wholly new regime.",
+        "continuation_path": "Recover the parent by taking the added curvature parameter to zero or to the limit where the refined resistance-temperature law reduces to the current single tanh dependence.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "T_res",
+          "i"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "state-dependent thermal curvature of resistor damping",
+        "scientific_mechanism": "Real resistor resistivity commonly shows higher-order curvature with temperature because material coefficients vary over the heating range, so the effective damping law versus T_res is not exactly one universal tanh profile.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the damping coefficient now changes shape as a function of the supplied thermal state, altering the local slope and curvature of di_dt with respect to T_res across the same trajectory rather than simply rescaling damping uniformly.",
+        "taxonomy_match": "known",
+        "assumption_before": "The resistor's temperature dependence is fully captured by a single saturating factor 1 + tanh(alpha_T*T_res).",
+        "assumption_after": "The resistor's effective resistance-temperature law has additional curvature over self-heating excursions, represented by a tanh-squared correction.",
+        "before_fragment": "(q/(C*(1 + beta_C*tanh(alpha_T*T_res))) - R*(1 + tanh(alpha_T*T_res))*i)/L",
+        "after_fragment": "(q/(C*(1 + beta_C*tanh(alpha_T*T_res))) - R*(1 + tanh(alpha_T*T_res) + gamma_RT*tanh(alpha_T*T_res)**2)*i)/L",
+        "parent_reduction": "The successor reduces to the parent when gamma_RT = 0.",
+        "observable_signature": "At fixed q and i, the child keeps the same qualitative temperature-activated damping trend but changes its curvature: for order-one alpha_T*T_res, di_dt departs from the parent's single tanh-shaped dependence so moderate-heating and hot-state damping cannot both lie on one shared parent curve. This is directly observable in the scored target mapping because T_res enters the i-equation itself.",
+        "shortcut_blocked": "Refitting only the parent parameters C, L, R, alpha_T, beta_C cannot create an independent tanh-squared curvature contribution in the damping law. A single parent parameter set may match either the mild-heating slope or the hotter-region bend of di_dt versus T_res, but not both across trajectories that span low-to-order-one alpha_T*T_res, because its T_res dependence remains one fixed tanh profile."
+      },
+      "range_suggestions": {
+        "gamma_RT": "-0.5 <= gamma_RT <= 1.5"
+      }
+    },
+    {
+      "generation": 5,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "interaction_emergence",
+          "parent_relation": "The instantaneous damping term depends on resistor temperature rise T_res alone, so for fixed q and i the target mapping di_dt is identical regardless of how quickly heat is removed to the environment except through the already-realized value of T_res.",
+          "child_relation": "Allow the resistor temperature-response law itself to depend on the ongoing cooling state through a dynamic thermal memory, so the same T_res can produce different instantaneous damping depending on whether the resistor is heating into or relaxing out of a hot state.",
+          "affected_inputs": [
+            "T_res",
+            "i",
+            "tau_th"
+          ],
+          "observable_effect": "During matched-current portions of the discharge, late-time damping becomes history-dependent: after a prior high-heating interval the effective resistance remains elevated relative to the parent at the same instantaneous T_res, changing di_dt curvature and envelope decay."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "thermal_drive",
+            "expression": "(R*i**2)/C_th",
+            "role": "instantaneous Joule-heating source strength"
+          },
+          {
+            "name": "thermal_relax",
+            "expression": "T_res/tau_th",
+            "role": "instantaneous environmental cooling strength"
+          },
+          {
+            "name": "electro_thermal_ratio",
+            "expression": "((R*i**2)/C_th)/(T_res/tau_th + 1.0e-12)",
+            "role": "heating-versus-cooling regime indicator for whether thermal history effects can separate trajectories"
+          }
+        ],
+        "activation_condition": "Observable when resistor self-heating is strong enough that T_res reaches the nonlinear tanh regime and thermal relaxation is neither instantaneous nor negligible, i.e. discharge timescale comparable to tau_th so heating and cooling phases both occur within the recorded trajectory.",
+        "train_hidden_contrast": "In training, early high-current segments mainly probe heating-driven growth of T_res; in holdout, later lower-current segments after prior heating probe relaxation-driven memory at similar T_res values, revealing different di_dt at similar q, i, T_res coordinates if thermal history matters.",
+        "continuation_path": "Recover the parent by taking the added thermal-memory effect amplitude to zero or by making thermal equilibration effectively instantaneous so no history-dependent departure from the T_res-only law remains.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A genuine thermal-memory correction cannot be represented from the existing state set if di_dt is constrained to depend only on q, i, and T_res. Distinguishing heating-versus-cooling history at the same T_res requires one additional dynamic state carrying unresolved internal thermal lag.",
+        "gap_statement": "The parent assumes a single lumped resistor temperature completely determines the instantaneous resistance change, ignoring internal thermal lag or subcomponent temperature memory that can persist even when the measured or effective bulk T_res is the same.",
+        "baseline_assumption": "The resistor is thermally well-mixed, so one state T_res suffices and the resistance law is a single-valued function of T_res with no thermal history dependence.",
+        "scientific_mechanism": "Distributed resistor thermal mass can create an internal hotspot or latent temperature mode whose relaxation lags the bulk temperature rise, making resistance depend on both bulk temperature and recent heating history.",
+        "affected_symbols": [
+          "T_res",
+          "i",
+          "tau_th",
+          "C_th",
+          "R",
+          "alpha_T"
+        ],
+        "rationale": "A realistic next refinement is to relax the well-mixed thermal assumption rather than add an unrelated electrical parasitic. The parent target mapping is effectively fixed-environment with respect to thermal structure: once q, i, and T_res are supplied, di_dt is fully determined, so all thermal history enters only through the scalar T_res. In real self-heated resistors, internal hotspots can lag the bulk thermal state because heat diffuses across the component body over a finite time comparable to the discharge and cooling times. Vary the ratio of electrical discharge timescale to tau_th while holding component values and initial charge fixed. Then one can reach segments where q and i are similar and T_res is similar, but one trajectory is still relaxing from earlier stronger heating whereas another is still building heat. The child would allow different di_dt under those matched observed coordinates through a thermal-memory interaction, changing target-function complexity rather than merely altering an auxiliary trajectory. This is admissible when self-heating is appreciable and the trajectory spans both heating and relaxation; if heating is tiny or thermal diffusion is extremely fast, the effect collapses and the parent is recovered. A single refit of the parent parameters cannot reproduce a genuine loop or hysteresis in the mapping from supplied states to di_dt, because the parent remains a single-valued function of q, i, T_res."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "interaction_emergence",
+          "parent_relation": "The instantaneous damping term depends on resistor temperature rise T_res alone, so for fixed q and i the target mapping di_dt is identical regardless of how quickly heat is removed to the environment except through the already-realized value of T_res.",
+          "child_relation": "Allow the resistor temperature-response law itself to depend on the ongoing cooling state through a dynamic thermal memory, so the same T_res can produce different instantaneous damping depending on whether the resistor is heating into or relaxing out of a hot state.",
+          "affected_inputs": [
+            "T_res",
+            "i",
+            "tau_th"
+          ],
+          "observable_effect": "During matched-current portions of the discharge, late-time damping becomes history-dependent: after a prior high-heating interval the effective resistance remains elevated relative to the parent at the same instantaneous T_res, changing di_dt curvature and envelope decay."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "thermal_drive",
+            "expression": "(R*i**2)/C_th",
+            "role": "instantaneous Joule-heating source strength"
+          },
+          {
+            "name": "thermal_relax",
+            "expression": "T_res/tau_th",
+            "role": "instantaneous environmental cooling strength"
+          },
+          {
+            "name": "electro_thermal_ratio",
+            "expression": "((R*i**2)/C_th)/(T_res/tau_th + 1.0e-12)",
+            "role": "heating-versus-cooling regime indicator for whether thermal history effects can separate trajectories"
+          }
+        ],
+        "activation_condition": "Observable when resistor self-heating is strong enough that T_res reaches the nonlinear tanh regime and thermal relaxation is neither instantaneous nor negligible, i.e. discharge timescale comparable to tau_th so heating and cooling phases both occur within the recorded trajectory.",
+        "train_hidden_contrast": "In training, early high-current segments mainly probe heating-driven growth of T_res; in holdout, later lower-current segments after prior heating probe relaxation-driven memory at similar T_res values, revealing different di_dt at similar q, i, T_res coordinates if thermal history matters.",
+        "continuation_path": "Recover the parent by taking the added thermal-memory effect amplitude to zero or by making thermal equilibration effectively instantaneous so no history-dependent departure from the T_res-only law remains.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A genuine thermal-memory correction cannot be represented from the existing state set if di_dt is constrained to depend only on q, i, and T_res. Distinguishing heating-versus-cooling history at the same T_res requires one additional dynamic state carrying unresolved internal thermal lag.",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "T_res",
+          "T_mem",
+          "i"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "internal resistor hotspot memory modulating effective resistance",
+        "scientific_mechanism": "Distributed resistor thermal mass can create an internal hotspot or latent temperature mode whose relaxation lags the bulk temperature rise, making resistance depend on both bulk temperature and recent heating history.",
+        "embedding_pattern": "multiplicative_modulation",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the target mapping is no longer single-valued in q, i, T_res; an added dynamic state multiplicatively modulates an existing damping law, producing history-dependent separation at matched observed bulk temperature.",
+        "taxonomy_match": "known",
+        "assumption_before": "The resistor is thermally well-mixed, so one state T_res suffices and the resistance law is a single-valued function of T_res with no thermal history dependence.",
+        "assumption_after": "A latent internal resistor hotspot mode persists and multiplicatively modulates the temperature-dependent resistance, so damping depends on both bulk temperature and thermal memory.",
+        "before_fragment": "(q/(C*(1 + beta_C*tanh(alpha_T*T_res))) - R*(1 + tanh(alpha_T*T_res) + gamma_RT*tanh(alpha_T*T_res)**2)*i)/L",
+        "after_fragment": "(q/(C*(1 + beta_C*tanh(alpha_T*T_res))) - R*(1 + tanh(alpha_T*T_res) + gamma_RT*tanh(alpha_T*T_res)**2 + eta_mem*tanh(alpha_T*T_mem)*tanh(alpha_T*T_res))*i)/L",
+        "parent_reduction": "Set eta_mem = 0, or k_mem = 0 so T_mem remains on its zero-effect set, or take tau_mem -> 0 with vanishing memory departure to recover the parent law.",
+        "observable_signature": "At similar q, i, and T_res values reached during different parts of the same trajectory, di_dt differs systematically according to whether the resistor is coming off a previously hotter state or still building heat, with the separation strongest when both tanh(alpha_T*T_res) and tanh(alpha_T*T_mem) are appreciable.",
+        "shortcut_blocked": "A single parent parameter set cannot reproduce this effect because the parent makes di_dt a single-valued function of q, i, T_res. Refitting C, R, alpha_T, beta_C, gamma_RT, C_th, or tau_th changes the shared curve but cannot create hysteretic separation where the same supplied q, i, T_res map to different di_dt depending on unresolved thermal history."
+      },
+      "range_suggestions": {
+        "T_mem": "0 <= T_mem <= several times the typical T_res rise during strong self-heating",
+        "tau_mem": "positive and comparable to or modestly larger than the electrical ring-down time and/or tau_th",
+        "k_mem": "0 <= k_mem <= 1",
+        "eta_mem": "Abs(eta_mem) <= 1"
+      }
+    }
+  ],
+  "evolution_provenance": {
+    "dimension_track": null,
+    "mechanism_profile": {
+      "allowed_structural_roles": [
+        "contribution",
+        "response_law",
+        "modulation",
+        "interaction",
+        "constraint",
+        "transition",
+        "feedback",
+        "heterogeneity",
+        "timescale",
+        "transport_balance"
+      ],
+      "preferred_scopes": [
+        "unary",
+        "pairwise",
+        "state_coupling",
+        "time_forcing"
+      ],
+      "domain_mechanisms": [
+        {
+          "id": "nonlinear_constitutive_response",
+          "description": "nonlinear constitutive or response law",
+          "operations": [
+            "add_term",
+            "change_assumption"
+          ]
+        },
+        {
+          "id": "coupled_field_or_force",
+          "description": "coupling to an already declared field, force, or state",
+          "operations": [
+            "add_term"
+          ]
+        },
+        {
+          "id": "finite_relaxation_or_threshold",
+          "description": "finite response time or physical threshold",
+          "operations": [
+            "change_assumption"
+          ]
+        }
+      ],
+      "profile_source": "subject_fallback",
+      "ontology_schema_version": "1.0",
+      "taxonomy_schema_version": "1.0"
+    },
+    "baseline_mechanisms": [
+      "Electric-field energy storage by the capacitor.",
+      "Magnetic-field energy storage by the inductor.",
+      "Ohmic energy dissipation in the resistor.",
+      "Series-loop coupling between capacitor charge and current."
+    ],
+    "baseline_assumptions": [
+      "Capacitance, inductance, and resistance are constant and independent of current, charge, and temperature.",
+      "The circuit is spatially lumped, with negligible propagation delay along the conductors.",
+      "No external voltage or current source acts after the initial condition is set.",
+      "Radiative losses and parasitic coupling are negligible."
+    ],
+    "scientific_constraints": [
+      "Stored electric and magnetic energies are nonnegative.",
+      "Resistance can only remove electromagnetic energy from the isolated circuit.",
+      "The current direction determines the direction of capacitor charge transfer.",
+      "Charge and current remain finite for finite initial conditions and positive component values."
+    ],
+    "refinement_agenda": [
+      "Add electromagnetic radiation loss at high oscillation frequency.",
+      "Include parasitic capacitance and inductance from the physical conductors.",
+      "Allow resistance to depend on current through fixed-background heating effects.",
+      "Replace the ideal capacitor with a voltage-dependent capacitance.",
+      "Add a periodic external electromotive drive."
+    ],
+    "evolution_contracts": [
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "interaction_emergence",
+          "parent_relation": "The target mapping is linear in the observed states: di_dt depends only on q and i through (q/C - R*i)/L with one shared constant resistance R.",
+          "child_relation": "Release the assumption of constant resistance by allowing Joule heating to evolve a temperature-like state that feeds back into the damping, so di_dt depends on q, i, and the resistor state through a temperature-dependent effective resistance.",
+          "affected_inputs": [
+            "q",
+            "i",
+            "R"
+          ],
+          "observable_effect": "Across trajectories that differ in accumulated dissipation during the observed discharge, the later-time current decay becomes stronger than predicted by any single constant-R fit: high-|i| portions acquire extra damping and reduced subsequent peaks compared with low-heating portions at the same q and i."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "emf_balance",
+            "expression": "q/C - R*i",
+            "role": "parent loop-voltage balance before thermal feedback"
+          },
+          {
+            "name": "joule_power",
+            "expression": "R*i**2",
+            "role": "instantaneous heating rate that can drive resistance change"
+          },
+          {
+            "name": "magnetic_to_ohmic",
+            "expression": "L*Abs(i)/(R + 1e-30)",
+            "role": "proxy for whether appreciable current persists long enough for self-heating to matter"
+          }
+        ],
+        "activation_condition": "Observable when Joule heating over the discharge is not negligible compared with ambient thermal buffering, i.e. sustained intervals with R*i**2 large enough that resistor temperature changes on a timescale comparable to the ring-down envelope rather than being effectively instantaneous or zero.",
+        "train_hidden_contrast": "The same self-heating mechanism appears within each training trajectory as stronger damping after earlier high-current segments, and in holdout it extends to trajectories with larger or smaller total dissipated energy where the accumulated damping shift is correspondingly weaker or stronger.",
+        "continuation_path": "Recover the parent law in the isothermal limit: vanishing temperature coefficient, vanishing Joule-heating feedback, or infinitely fast thermal relaxation that pins the resistor state to its baseline value.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A memoryless modification of di_dt using only current q and i cannot represent accumulated self-heating, because the damping change depends on prior dissipation history. One additional thermal state is needed to store that history and feed it back into the effective resistance.",
+        "scope_kind": "memory",
+        "scope_symbols": [
+          "q",
+          "i",
+          "T_res"
+        ],
+        "structural_role": "feedback",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "resistor self-heating with temperature-dependent resistance",
+        "scientific_mechanism": "Ohmic dissipation heats the resistor; its temperature-dependent resistivity changes the instantaneous voltage drop, modifying the current derivative during the same discharge.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the damping coefficient now depends on an internal state that integrates past Joule dissipation, so the same present q and i can map to different di_dt depending on trajectory history.",
+        "taxonomy_match": "known",
+        "assumption_before": "Capacitance, inductance, and resistance are constant and independent of current, charge, and temperature.",
+        "assumption_after": "Resistance varies during the discharge because Joule heating creates a thermal state whose temperature rise modulates the ohmic voltage drop.",
+        "before_fragment": "(q/C - R*i)/L",
+        "after_fragment": "(q/C - R*(1 + alpha_T*T_res)*i)/L",
+        "parent_reduction": "Set alpha_T = 0, or hold T_res = 0, or take negligible heating / sufficiently fast thermal clamping so T_res remains near zero.",
+        "observable_signature": "Parent: at fixed q and i, di_dt is uniquely determined by one constant-R linear rule. Child: at the same q and i, later portions of trajectories that experienced larger earlier R*i**2 have hotter T_res, larger effective resistance, and therefore more negative di_dt, with reduced later peaks and stronger envelope decay when tau_th is comparable to the discharge timescale.",
+        "shortcut_blocked": "Refitting a single constant R cannot reproduce history-dependent damping across these conditions because the parent has no state that stores accumulated dissipation. A larger R can match hotter late-time segments only by over-damping early low-heating segments, while a smaller R matches early motion but misses the extra late-time decay; one shared parent parameter set cannot satisfy both within the same admissible thermal-feedback regime."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The target mapping is affine in q and i at fixed T_res: di_dt = q/(L*C) - [R*(1 + alpha_T*T_res)/L]*i, so temperature only rescales the instantaneous damping gain on i linearly.",
+          "child_relation": "Replace the linear resistance-temperature law with a saturating nonlinear dependence on T_res, so the damping contribution bends with T_res and the i-to-di_dt slope changes sublinearly at larger resistor heating.",
+          "affected_inputs": [
+            "i",
+            "q",
+            "T_res",
+            "alpha_T",
+            "R"
+          ],
+          "observable_effect": "Across trajectories with weak versus appreciable self-heating, the decay-envelope distortion and instantaneous di_dt versus i slope no longer increase proportionally with T_res; instead the added damping growth softens at higher T_res."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "electrical_drive",
+            "expression": "q/C",
+            "role": "capacitor voltage driving the loop"
+          },
+          {
+            "name": "heated_ohmic_drop",
+            "expression": "R*(1 + alpha_T*T_res)*i",
+            "role": "parent linear-temperature resistive voltage drop to compare against nonlinear refinement"
+          },
+          {
+            "name": "heating_level",
+            "expression": "alpha_T*T_res",
+            "role": "dimensionless temperature-rise scale controlling departure from strict linear resistance law"
+          }
+        ],
+        "activation_condition": "Observable when alpha_T*T_res reaches a moderate but still physically admissible level so linearized resistivity is no longer uniformly accurate, while T_res remains within a regime of monotone positive resistance and lumped thermal modeling.",
+        "train_hidden_contrast": "In training, small-to-moderate heating already causes slight bending of the effective damping versus T_res; in holdout, larger but still admissible heating extends that same trend into clearer sublinear curvature rather than introducing a new mechanism.",
+        "continuation_path": "Recover the parent law in the small-heating limit alpha_T*T_res << 1, where the nonlinear temperature dependence reduces to its first-order linear approximation.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "i",
+          "q",
+          "T_res"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "nonlinear resistance increase with resistor self-heating",
+        "scientific_mechanism": "Real conductor resistivity is only approximately linear around a reference temperature; over a wider self-heating excursion the resistance-temperature relation acquires measurable curvature, altering the instantaneous damping law.",
+        "embedding_pattern": "competing_processes",
+        "difficulty_rationale": "This embedding is harder than a coefficient-only correction because the capacitor drive q/C and the resistive loss R*(1 + tanh(alpha_T*T_res))*i compete differently across heating levels: the loss initially grows like the parent law but then softens, changing curvature of the i-to-di_dt slope as a state-dependent response rather than merely rescaling one constant.",
+        "taxonomy_match": "known",
+        "assumption_before": "Resistance changes linearly with resistor temperature rise through the factor 1 + alpha_T*T_res.",
+        "assumption_after": "Resistance increases monotonically with temperature rise but saturates in its incremental growth, modeled here by 1 + tanh(alpha_T*T_res).",
+        "before_fragment": "(q/C - R*(1 + alpha_T*T_res)*i)/L",
+        "after_fragment": "(q/C - R*(1 + tanh(alpha_T*T_res))*i)/L",
+        "parent_reduction": "For alpha_T*T_res << 1, tanh(alpha_T*T_res) ≈ alpha_T*T_res, recovering the parent expression to first order.",
+        "observable_signature": "Holding C, L, and baseline R fixed while comparing trajectories that visit low versus moderate heating, the parent predicts a di_dt-versus-i slope shift proportional to T_res at fixed q, whereas the child predicts that this slope shift bends and compresses at larger alpha_T*T_res. The effect is visible directly in the scored target mapping because T_res is an observed state already entering di_dt, not only in an auxiliary thermal transient.",
+        "shortcut_blocked": "A single refit of the parent parameters cannot reproduce both the near-reference linear slope change and the softened higher-heating slope with one shared law, because the parent enforces an exactly affine dependence of the damping gain on T_res. Retuning R or alpha_T can match either the small-heating tangent or part of the larger-heating region, but not the systematic sublinear curvature across trajectories that span different self-heating levels."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "interaction_emergence",
+          "parent_relation": "The target mapping depends on q and i with temperature only through a self-heated resistor term R*(1+tanh(alpha_T*T_res)); the capacitor branch is assumed temperature-invariant, so heating changes only damping.",
+          "child_relation": "Allow capacitor capacitance to vary with resistor temperature rise, so the restoring term q/C becomes a coupled function of q and T_res as well as the damping term depending on i and T_res.",
+          "affected_inputs": [
+            "q",
+            "i",
+            "T_res",
+            "C"
+          ],
+          "observable_effect": "Across otherwise identical discharges, larger self-heating causes not only stronger damping but also a shifted oscillation timescale/restoring slope, producing a different q-to-di_dt relation at matched i and T_res levels than the parent's damping-only modification."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "restoring_ratio",
+            "expression": "q/C",
+            "role": "baseline capacitor restoring contribution to current acceleration"
+          },
+          {
+            "name": "thermal_damping",
+            "expression": "R*(1 + tanh(alpha_T*T_res))*i",
+            "role": "existing temperature-dependent resistive voltage drop"
+          },
+          {
+            "name": "heating_level",
+            "expression": "alpha_T*T_res",
+            "role": "dimensionless self-heating scale governing when thermal property curvature becomes visible"
+          }
+        ],
+        "activation_condition": "Observable when self-heating is large enough that resistor temperature rise is not negligible and the capacitor's effective capacitance has measurable thermal drift over the same excursion; this is most visible during moderate-to-strong current episodes before oscillations fully decay.",
+        "train_hidden_contrast": "In training, mild heating mainly shows damping growth; in holdout with larger but still admissible heating, the same thermal excursion also shifts the restoring branch, changing oscillation timing and the q-conditioned slope of di_dt beyond what a single damping-only law can match.",
+        "continuation_path": "Recover the parent when the capacitance thermal coefficient tends to zero or when T_res remains near zero throughout the observed trajectory.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "q",
+          "i",
+          "T_res",
+          "C"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "temperature-dependent dielectric capacitance modulating the capacitor restoring branch",
+        "scientific_mechanism": "Dielectric properties in real capacitors can drift with temperature, so resistor self-heating shared by the local component environment can change the effective capacitance and therefore the instantaneous restoring voltage-charge relation.",
+        "embedding_pattern": "multiplicative_modulation",
+        "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the same thermal state now modulates two physically distinct branches, creating a nonseparable q-T_res interaction in the target mapping rather than only rescaling the i term.",
+        "taxonomy_match": "known",
+        "assumption_before": "Capacitance is constant and independent of temperature during discharge.",
+        "assumption_after": "Effective capacitance is thermally modulated by the same self-heating environment that already changes resistance.",
+        "before_fragment": "(q/C - R*(1 + tanh(alpha_T*T_res))*i)/L",
+        "after_fragment": "(q/(C*(1 + beta_C*tanh(alpha_T*T_res))) - R*(1 + tanh(alpha_T*T_res))*i)/L",
+        "parent_reduction": "beta_C -> 0 or T_res -> 0",
+        "observable_signature": "Compared at similar q and i but different self-heating levels along admissible trajectories, the child changes the q-conditioned slope of di_dt through q/(C*(1 + beta_C*tanh(alpha_T*T_res))) while the parent can only alter the i-dependent damping term. The effect is visible when T_res excursions are large enough for capacitance drift to matter during the observed discharge, shifting both damping and oscillation timescale.",
+        "shortcut_blocked": "A single parent parameter set cannot reproduce this contrast because refitting R, alpha_T, L, or C only changes a fixed q slope or the temperature-dependent coefficient of i. It cannot make the restoring coefficient vary with T_res while keeping the same damping law across all heating levels, so matching one heating regime forces errors in another when q and i are both observed."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The damping contribution to di_dt is proportional to i with a resistance factor R*(1 + tanh(alpha_T*T_res)), so at fixed q and i the target depends on T_res through one saturating shape.",
+          "child_relation": "Replace the resistor heating law's linear-in-temperature resistance factor with a curved temperature response so that at fixed q and i the damping term changes from a single shared saturation profile to a sharper or softer T_res-dependent curvature across the discharge.",
+          "affected_inputs": [
+            "T_res",
+            "i",
+            "R",
+            "alpha_T"
+          ],
+          "observable_effect": "Across trajectories that reach different self-heating levels, the instantaneous di_dt-versus-(T_res,i) damping slope bends differently at moderate versus large T_res; one shared parent parameter set cannot match both the early mild-heating slope and the later hot-state damping curvature."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "thermal_level",
+            "expression": "alpha_T*T_res",
+            "role": "dimensionless resistor-temperature excursion controlling activation of thermal nonlinearity"
+          },
+          {
+            "name": "damping_drop",
+            "expression": "R*(1 + tanh(alpha_T*T_res))*i/L",
+            "role": "parent instantaneous damping contribution to di_dt"
+          },
+          {
+            "name": "heating_drive",
+            "expression": "R*i**2/C_th",
+            "role": "Joule-heating source that moves the system into the nonlinear thermal regime"
+          }
+        ],
+        "activation_condition": "Observable when self-heating drives |alpha_T*T_res| from small values into order-one values during the recorded discharge, so the resistor leaves the near-linear thermal regime while q and i remain appreciable.",
+        "train_hidden_contrast": "The same self-heating mechanism appears in training at modest temperature rise and extends in holdout to larger excursions, where the changed thermal curvature of the damping law becomes more visible rather than introducing a wholly new regime.",
+        "continuation_path": "Recover the parent by taking the added curvature parameter to zero or to the limit where the refined resistance-temperature law reduces to the current single tanh dependence.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "T_res",
+          "i"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "state-dependent thermal curvature of resistor damping",
+        "scientific_mechanism": "Real resistor resistivity commonly shows higher-order curvature with temperature because material coefficients vary over the heating range, so the effective damping law versus T_res is not exactly one universal tanh profile.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the damping coefficient now changes shape as a function of the supplied thermal state, altering the local slope and curvature of di_dt with respect to T_res across the same trajectory rather than simply rescaling damping uniformly.",
+        "taxonomy_match": "known",
+        "assumption_before": "The resistor's temperature dependence is fully captured by a single saturating factor 1 + tanh(alpha_T*T_res).",
+        "assumption_after": "The resistor's effective resistance-temperature law has additional curvature over self-heating excursions, represented by a tanh-squared correction.",
+        "before_fragment": "(q/(C*(1 + beta_C*tanh(alpha_T*T_res))) - R*(1 + tanh(alpha_T*T_res))*i)/L",
+        "after_fragment": "(q/(C*(1 + beta_C*tanh(alpha_T*T_res))) - R*(1 + tanh(alpha_T*T_res) + gamma_RT*tanh(alpha_T*T_res)**2)*i)/L",
+        "parent_reduction": "The successor reduces to the parent when gamma_RT = 0.",
+        "observable_signature": "At fixed q and i, the child keeps the same qualitative temperature-activated damping trend but changes its curvature: for order-one alpha_T*T_res, di_dt departs from the parent's single tanh-shaped dependence so moderate-heating and hot-state damping cannot both lie on one shared parent curve. This is directly observable in the scored target mapping because T_res enters the i-equation itself.",
+        "shortcut_blocked": "Refitting only the parent parameters C, L, R, alpha_T, beta_C cannot create an independent tanh-squared curvature contribution in the damping law. A single parent parameter set may match either the mild-heating slope or the hotter-region bend of di_dt versus T_res, but not both across trajectories that span low-to-order-one alpha_T*T_res, because its T_res dependence remains one fixed tanh profile."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "fixed_environment",
+        "response_change": {
+          "type": "interaction_emergence",
+          "parent_relation": "The instantaneous damping term depends on resistor temperature rise T_res alone, so for fixed q and i the target mapping di_dt is identical regardless of how quickly heat is removed to the environment except through the already-realized value of T_res.",
+          "child_relation": "Allow the resistor temperature-response law itself to depend on the ongoing cooling state through a dynamic thermal memory, so the same T_res can produce different instantaneous damping depending on whether the resistor is heating into or relaxing out of a hot state.",
+          "affected_inputs": [
+            "T_res",
+            "i",
+            "tau_th"
+          ],
+          "observable_effect": "During matched-current portions of the discharge, late-time damping becomes history-dependent: after a prior high-heating interval the effective resistance remains elevated relative to the parent at the same instantaneous T_res, changing di_dt curvature and envelope decay."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "thermal_drive",
+            "expression": "(R*i**2)/C_th",
+            "role": "instantaneous Joule-heating source strength"
+          },
+          {
+            "name": "thermal_relax",
+            "expression": "T_res/tau_th",
+            "role": "instantaneous environmental cooling strength"
+          },
+          {
+            "name": "electro_thermal_ratio",
+            "expression": "((R*i**2)/C_th)/(T_res/tau_th + 1.0e-12)",
+            "role": "heating-versus-cooling regime indicator for whether thermal history effects can separate trajectories"
+          }
+        ],
+        "activation_condition": "Observable when resistor self-heating is strong enough that T_res reaches the nonlinear tanh regime and thermal relaxation is neither instantaneous nor negligible, i.e. discharge timescale comparable to tau_th so heating and cooling phases both occur within the recorded trajectory.",
+        "train_hidden_contrast": "In training, early high-current segments mainly probe heating-driven growth of T_res; in holdout, later lower-current segments after prior heating probe relaxation-driven memory at similar T_res values, revealing different di_dt at similar q, i, T_res coordinates if thermal history matters.",
+        "continuation_path": "Recover the parent by taking the added thermal-memory effect amplitude to zero or by making thermal equilibration effectively instantaneous so no history-dependent departure from the T_res-only law remains.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A genuine thermal-memory correction cannot be represented from the existing state set if di_dt is constrained to depend only on q, i, and T_res. Distinguishing heating-versus-cooling history at the same T_res requires one additional dynamic state carrying unresolved internal thermal lag.",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "T_res",
+          "T_mem",
+          "i"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "internal resistor hotspot memory modulating effective resistance",
+        "scientific_mechanism": "Distributed resistor thermal mass can create an internal hotspot or latent temperature mode whose relaxation lags the bulk temperature rise, making resistance depend on both bulk temperature and recent heating history.",
+        "embedding_pattern": "multiplicative_modulation",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the target mapping is no longer single-valued in q, i, T_res; an added dynamic state multiplicatively modulates an existing damping law, producing history-dependent separation at matched observed bulk temperature.",
+        "taxonomy_match": "known",
+        "assumption_before": "The resistor is thermally well-mixed, so one state T_res suffices and the resistance law is a single-valued function of T_res with no thermal history dependence.",
+        "assumption_after": "A latent internal resistor hotspot mode persists and multiplicatively modulates the temperature-dependent resistance, so damping depends on both bulk temperature and thermal memory.",
+        "before_fragment": "(q/(C*(1 + beta_C*tanh(alpha_T*T_res))) - R*(1 + tanh(alpha_T*T_res) + gamma_RT*tanh(alpha_T*T_res)**2)*i)/L",
+        "after_fragment": "(q/(C*(1 + beta_C*tanh(alpha_T*T_res))) - R*(1 + tanh(alpha_T*T_res) + gamma_RT*tanh(alpha_T*T_res)**2 + eta_mem*tanh(alpha_T*T_mem)*tanh(alpha_T*T_res))*i)/L",
+        "parent_reduction": "Set eta_mem = 0, or k_mem = 0 so T_mem remains on its zero-effect set, or take tau_mem -> 0 with vanishing memory departure to recover the parent law.",
+        "observable_signature": "At similar q, i, and T_res values reached during different parts of the same trajectory, di_dt differs systematically according to whether the resistor is coming off a previously hotter state or still building heat, with the separation strongest when both tanh(alpha_T*T_res) and tanh(alpha_T*T_mem) are appreciable.",
+        "shortcut_blocked": "A single parent parameter set cannot reproduce this effect because the parent makes di_dt a single-valued function of q, i, T_res. Refitting C, R, alpha_T, beta_C, gamma_RT, C_th, or tau_th changes the shared curve but cannot create hysteretic separation where the same supplied q, i, T_res map to different di_dt depending on unresolved thermal history."
+      }
+    ]
+  },
+  "finalization": {
+    "mode": "candidate",
+    "accepted_generations": 5,
+    "novelty": {
+      "answer": "NOT_EVALUATED"
+    },
+    "total_points": 5000,
+    "evaluation_status": "not_evaluated"
+  }
+}

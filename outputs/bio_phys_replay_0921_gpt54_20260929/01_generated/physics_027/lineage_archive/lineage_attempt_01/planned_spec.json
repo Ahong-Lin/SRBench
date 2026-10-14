@@ -1,0 +1,225 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "v",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        30.0
+      ],
+      "n_points": 400,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "mass",
+      "value": 1.0
+    },
+    {
+      "symbol": "spring_stiffness",
+      "value": 4.0
+    },
+    {
+      "symbol": "damping_coefficient",
+      "value": 0.25
+    },
+    {
+      "symbol": "cubic_stiffness",
+      "value": 1.2
+    },
+    {
+      "symbol": "nonlinear_damping_strength",
+      "value": 0.4
+    },
+    {
+      "symbol": "loss_drive_rate",
+      "value": 0.35
+    },
+    {
+      "symbol": "loss_relaxation_rate",
+      "value": 0.12
+    },
+    {
+      "symbol": "loss_activation_rate",
+      "value": 0.5
+    },
+    {
+      "symbol": "loss_saturation_scale",
+      "value": 0.8
+    }
+  ],
+  "benchmark_output": "dv_dt",
+  "benchmark_target_state": "v",
+  "observed_variables": [
+    "t",
+    "x",
+    "v",
+    "internal_loss_level",
+    "loss_activation_level"
+  ],
+  "rhs_for_integrator": "-(spring_stiffness/mass)*x - (damping_coefficient/mass)*(1 + internal_loss_level)*(1 + nonlinear_damping_strength*v**2/(1 + nonlinear_damping_strength*v**2))*v - (cubic_stiffness/mass)*x**3",
+  "state_variables": [
+    "x",
+    "v",
+    "internal_loss_level",
+    "loss_activation_level"
+  ],
+  "state_rhs": [
+    "v",
+    "-(spring_stiffness/mass)*x - (damping_coefficient/mass)*(1 + internal_loss_level)*(1 + nonlinear_damping_strength*v**2/(1 + nonlinear_damping_strength*v**2))*v - (cubic_stiffness/mass)*x**3",
+    "loss_drive_rate*loss_activation_level - loss_relaxation_rate*internal_loss_level",
+    "loss_activation_rate*v**2/(loss_saturation_scale + v**2) - loss_relaxation_rate*loss_activation_level"
+  ],
+  "initial_conditions": {
+    "x": 1.0,
+    "v": 0.0,
+    "internal_loss_level": 0.0,
+    "loss_activation_level": 0.0
+  },
+  "sanity_expectations": [
+    "At t=0, internal_loss_level=0 and loss_activation_level=0 exactly, so the initial acceleration is governed only by the mechanical restoring and instantaneous damping law; extra history-dependent damping is initially inactive.",
+    "Because spring_stiffness/mass=4 and damping is modest, x and v should exhibit decaying oscillations rather than monotone creep, with several zero crossings before settling near equilibrium.",
+    "The restoring acceleration should be stronger than linear at larger |x| because cubic_stiffness>0, so turning-point inward acceleration grows faster than Hooke's law alone.",
+    "For trajectory segments where internal_loss_level is similar, the velocity-dependent damping increment should bend over once nonlinear_damping_strength*v^2 becomes order 1; compared with the unsaturated parent, high-|v| deceleration should increase less steeply than a pure v+v^3 law.",
+    "loss_activation_level should increase from zero during energetic motion and then relax; internal_loss_level should lag that activation and remain nonnegative for these positive-rate choices.",
+    "The strongest separation from the parent mechanisms should occur on early-to-mid decay segments that reach both v^2 comparable to loss_saturation_scale and nonlinear_damping_strength*v^2 around 1; very late low-speed segments should revert toward the small-velocity, weak-activation limit."
+  ],
+  "role_corrections": [
+    "dv_dt: claimed-output/target derivative -> derivative of dependent state v (confirmed by target meaning; supervised quantity comes from v equation within the provided ODE system)",
+    "t: claimed-input/time axis -> independent variable/time axis (confirmed)",
+    "x: claimed-dynamic state -> dynamic state variable (confirmed from ODE contract)",
+    "v: claimed-dynamic state -> dependent variable / target state and dynamic state variable (confirmed and clarified)",
+    "internal_loss_level: claimed-dynamic state -> dynamic state variable (confirmed)",
+    "loss_activation_level: claimed-dynamic state -> dynamic state variable (confirmed)",
+    "mass: claimed-parameter -> parameter (confirmed)",
+    "spring_stiffness: claimed-parameter -> parameter (confirmed)",
+    "damping_coefficient: claimed-parameter -> parameter (confirmed)",
+    "cubic_stiffness: claimed-parameter -> parameter (confirmed)",
+    "nonlinear_damping_strength: claimed-parameter -> parameter (confirmed)",
+    "loss_drive_rate: claimed-parameter -> parameter (confirmed)",
+    "loss_relaxation_rate: claimed-parameter -> parameter (confirmed)",
+    "loss_activation_rate: claimed-parameter -> parameter (confirmed)",
+    "loss_saturation_scale: claimed-parameter -> parameter (confirmed)",
+    "equation type: prior explicit target expression -> ode_system (overridden by required validated ODE system contract for generation)"
+  ],
+  "rationale": "The typed ODE contract is preserved exactly as required: this is a four-state ODE system with time as the only sampled axis and v as the target state whose time derivative is the supervised quantity. The local target expression is algebraically explicit in dv_dt, but the record explicitly provides a validated dynamical contract and requires ode_system/integrate_system, so the full system is the governing object for data generation. Chosen parameters keep the oscillator underdamped in the small-amplitude limit (natural frequency sqrt(k/m)=2, baseline viscous ratio about 0.0625) while allowing visible but not overwhelming nonlinear effects. Positive cubic_stiffness gives observable Duffing hardening at order-unity displacement. nonlinear_damping_strength=0.4 means the dimensionless speed intensity nonlinear_damping_strength*v^2 is small at low speed but reaches order 1 for |v| around 1.6, so the revised rational damping factor bends away from the unsaturated parent law over reachable parts of the decay rather than staying always linear or fully saturated. The loss subsystem is slower than the mechanical oscillation but not frozen: with relaxation 0.12 and activation/drive rates 0.5 and 0.35, internal loss builds over several oscillations and then relaxes, producing history dependence without destabilizing the decay. loss_saturation_scale=0.8 makes activation approximately linear for small v^2 and visibly bent over once v^2 is around 1, matching the intended finite-capacity channel activation mechanism. The provided inherited initial conditions are kept unchanged, so activation starts from zero and emerges only if trajectories naturally reach sufficient speed; this honestly means the earliest part of any trajectory is close to the parent low-loss limit, while later segments can separate through accumulated loss. The time window 0 to 30 with 400 samples is long enough to capture several oscillations, loss buildup, and decaying approach toward equilibrium without focusing only on the near-flat tail.",
+  "coverage_report": {},
+  "inactive_mechanisms": [],
+  "target_variance": {},
+  "parent_absorption_report": {},
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_kFNIaGl3UCt3iGTTa7I30VhS"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "-(spring_stiffness/mass)*x - (damping_coefficient/mass)*(1 + internal_loss_level)*(1 + nonlinear_damping_strength*v**2/(1 + nonlinear_damping_strength*v**2))*v - (cubic_stiffness/mass)*x**3",
+        "target_symbol": "dv_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "cubic_stiffness",
+          "damping_coefficient",
+          "internal_loss_level",
+          "mass",
+          "nonlinear_damping_strength",
+          "spring_stiffness",
+          "v",
+          "x"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "-cubic_stiffness*x**3/mass - damping_coefficient*v*(internal_loss_level + 1)*(nonlinear_damping_strength*v**2/(nonlinear"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_x6yq2JmsbnCk4QdfUJ6GisBS"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "-(spring_stiffness/mass)*x - (damping_coefficient/mass)*(1 + internal_loss_level)*(1 + nonlinear_damping_strength*v**2/(1 + nonlinear_damping_strength*v**2))*v - (cubic_stiffness/mass)*x**3",
+        "target_symbol": "dv_dt",
+        "assignments": {
+          "mass": 1,
+          "spring_stiffness": 4,
+          "damping_coefficient": 0.25,
+          "cubic_stiffness": 1.2,
+          "nonlinear_damping_strength": 0.4,
+          "x": 1,
+          "v": 1,
+          "internal_loss_level": 0.2
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": -5.585714285714286,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_jJC4HNaVeLO8nsS0zMRGPn0y"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_puDQzHgYtffiLaFa2bIE9Xqu"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 4
+}

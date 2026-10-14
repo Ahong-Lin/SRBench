@@ -1,0 +1,1644 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "C",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        30.0
+      ],
+      "n_points": 301,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "progression_rate",
+      "value": 0.35
+    },
+    {
+      "symbol": "presymptomatic_progression_rate",
+      "value": 0.7
+    },
+    {
+      "symbol": "clearance_rate",
+      "value": 0.2
+    },
+    {
+      "symbol": "maturation_heterogeneity",
+      "value": 0.01
+    },
+    {
+      "symbol": "contagious_feedback",
+      "value": 0.01
+    },
+    {
+      "symbol": "contagious_clearance_burden",
+      "value": 0.03
+    }
+  ],
+  "benchmark_output": "dC_dt",
+  "benchmark_target_state": "C",
+  "observed_variables": [
+    "t",
+    "L",
+    "M",
+    "P",
+    "C"
+  ],
+  "rhs_for_integrator": "presymptomatic_progression_rate*P/(1 + contagious_feedback*C) - clearance_rate*C*(1 + contagious_clearance_burden*C)",
+  "state_variables": [
+    "L",
+    "M",
+    "P",
+    "C"
+  ],
+  "state_rhs": [
+    "-progression_rate*L",
+    "progression_rate*L - progression_rate*M/((1 + maturation_heterogeneity*M)*(1 + contagious_feedback*C))",
+    "progression_rate*M/((1 + maturation_heterogeneity*M)*(1 + contagious_feedback*C)) - presymptomatic_progression_rate*P/(1 + contagious_feedback*C)",
+    "presymptomatic_progression_rate*P/(1 + contagious_feedback*C) - clearance_rate*C*(1 + contagious_clearance_burden*C)"
+  ],
+  "initial_conditions": {
+    "L": 500.0,
+    "M": 0.0,
+    "P": 0.0,
+    "C": 0.0
+  },
+  "sanity_expectations": [
+    "At t=0, dC/dt = 0 exactly because P(0)=0 and C(0)=0 under the inherited initial conditions.",
+    "C(t) should exhibit a delayed rise from zero rather than an immediate jump, because inflow to C must pass through the L -> M -> P chain before entering C.",
+    "For low C, the clearance term is approximately linear in C; at larger C, the extra factor (1 + contagious_clearance_burden*C) should make post-peak decline steeper than a purely linear-clearance version.",
+    "The peak of C should occur later and be flatter/lower than in the parent law without P-stage delay and without C-dependent inflow suppression, because both the finite P residence time and contagious_feedback reduce/retime entry into C.",
+    "All states should remain nonnegative for the chosen positive parameters and nonnegative initial conditions."
+  ],
+  "role_corrections": [
+    "dC_dt: claimed-output/target derivative -> derivative of dependent state C (confirmed within provided ode_system contract; scored quantity is the C-equation RHS, not an independent variable)",
+    "t: V->V (confirmed; sole independent time axis from typed ODE contract)",
+    "L: dynamic state -> dynamic state, not independent sampled axis (confirmed)",
+    "M: dynamic state -> dynamic state, not independent sampled axis (confirmed)",
+    "P: dynamic state -> dynamic state, not independent sampled axis (confirmed)",
+    "C: dynamic state/target_state -> dependent variable of the ODE system (confirmed)",
+    "progression_rate: P->P (confirmed)",
+    "presymptomatic_progression_rate: P->P (confirmed)",
+    "clearance_rate: P->P (confirmed)",
+    "maturation_heterogeneity: P->P (confirmed)",
+    "contagious_feedback: P->P (confirmed)",
+    "contagious_clearance_burden: P->P (confirmed)"
+  ],
+  "rationale": "The provided typed ODE contract is preserved exactly as required: this is a coupled ODE system in time with target state C, and the scored expression is the C-component of that system. The chosen rates keep all hazards positive and on 0-30 day scales that visibly resolve the recorded mechanisms without collapsing to the parent-recovery limits. progression_rate=0.35 moves the initial latent cohort out of L over a few time units, but because M(0)=P(0)=C(0)=0 the inherited serial chain still enforces the intended delayed buildup of C rather than immediate growth. presymptomatic_progression_rate=0.7 makes the added P stage finite but not negligible, so the generation-4 delay/filtering remains visible instead of becoming quasi-instantaneous. clearance_rate=0.2 gives an infectious removal timescale comparable to, but slower than, the P-to-C progression timescale, allowing a clear rise, peak, and decay within t in [0,30]. maturation_heterogeneity=0.01 is strong enough to bend the M-to-P transfer away from a single linear gain over reachable M values (tens to low hundreds) but not so strong that the transfer is saturated for most of the trajectory. contagious_feedback=0.01 provides moderate suppression when C reaches moderate levels, flattening and delaying inflow during high-C phases while leaving early low-C behavior close to the simpler law; this exposes the generation-3 interaction without dominating all dynamics. The suggested bound for contagious_clearance_burden is respected with value 0.03, which makes burden-accelerated clearance negligible near C≈0 yet visibly stronger around moderate/high C, exposing the generation-5 extra downward curvature and sharper post-peak decay. The inherited initial state means the added-stage mechanisms are activated naturally by trajectory evolution, not by altering initial conditions. Weak/inactive limits are avoided: none of maturation_heterogeneity, contagious_feedback, or contagious_clearance_burden is set near zero, but none is pushed so high that denominators become dominated by saturation over the full run. Exact noiseless trajectories should therefore show delayed emergence of C from the latent chain, later and flatter peak timing than simpler parent laws, and faster decline once contagious burden becomes substantial.",
+  "coverage_report": {
+    "groups": [
+      {
+        "generation": 1,
+        "name": "latent_to_contagious_flux_parent",
+        "expression": "progression_rate*L",
+        "role": "Parent's assumed instantaneous inflow from latent to contagious",
+        "train_range": [
+          0.013770674368839789,
+          175.0
+        ],
+        "hidden_range": [
+          0.004818878826045027,
+          0.013658173846401923
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.013770674368839789,
+          "max": 175.0,
+          "q05": 0.022089012605532428,
+          "median": 1.5524930883712678,
+          "q95": 109.10651000778931,
+          "range": 174.98622932563117,
+          "robust_range": 109.08442099518378
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.004818878826045027,
+          "max": 0.013658173846401923,
+          "q05": 0.005076585007724331,
+          "median": 0.00811284117648636,
+          "q95": 0.012965033015512733,
+          "range": 0.008839295020356897,
+          "robust_range": 0.007888448007788401
+        }
+      },
+      {
+        "generation": 1,
+        "name": "contagious_net_balance_parent",
+        "expression": "progression_rate*L - clearance_rate*C",
+        "role": "Parent target mapping combining latent inflow and contagious clearance",
+        "train_range": [
+          -7.550762121802903,
+          175.0
+        ],
+        "hidden_range": [
+          -6.332514400432099,
+          -5.467341273431192
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": -7.550762121802903,
+          "max": 175.0,
+          "q05": -7.5395070366960395,
+          "median": -6.429090107727702,
+          "q95": 108.01081263202536,
+          "range": 182.5507621218029,
+          "robust_range": 115.5503196687214
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": -6.332514400432099,
+          "max": -5.467341273431192,
+          "q05": -6.294436268886703,
+          "median": -5.9267038497193125,
+          "q95": -5.515531655865256,
+          "range": 0.8651731270009071,
+          "robust_range": 0.7789046130214476
+        }
+      },
+      {
+        "generation": 1,
+        "name": "clearance_load",
+        "expression": "clearance_rate*C",
+        "role": "Outflow burden opposing contagious growth",
+        "train_range": [
+          0.0,
+          8.250962316051908
+        ],
+        "hidden_range": [
+          5.472160152257237,
+          6.3461725742785005
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 8.250962316051908,
+          "q05": 1.095697375763936,
+          "median": 7.649925962258157,
+          "q95": 8.245039395656862,
+          "range": 8.250962316051908,
+          "robust_range": 7.149342019892926
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 5.472160152257237,
+          "max": 6.3461725742785005,
+          "q05": 5.5206082408729795,
+          "median": 5.934816690895799,
+          "q95": 6.307401301902216,
+          "range": 0.8740124220212637,
+          "robust_range": 0.7867930610292362
+        }
+      },
+      {
+        "generation": 2,
+        "name": "latent_to_contagious_flux_parent",
+        "expression": "progression_rate*M",
+        "role": "Parent inflow from mature latent to contagious",
+        "train_range": [
+          0.0,
+          113.03408652484497
+        ],
+        "hidden_range": [
+          10.568692743356868,
+          18.69920030203974
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 113.03408652484497,
+          "q05": 21.920539672645475,
+          "median": 73.47285401031861,
+          "q95": 112.50563255519576,
+          "range": 113.03408652484497,
+          "robust_range": 90.58509288255028
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 10.568692743356868,
+          "max": 18.69920030203974,
+          "q05": 10.90414868973842,
+          "median": 14.258725870283453,
+          "q95": 18.22167415963399,
+          "range": 8.13050755868287,
+          "robust_range": 7.317525469895571
+        }
+      },
+      {
+        "generation": 2,
+        "name": "mature_latent_occupancy",
+        "expression": "M",
+        "role": "Available pool eligible to become contagious",
+        "train_range": [
+          0.0,
+          322.9545329281285
+        ],
+        "hidden_range": [
+          30.196264981019624,
+          53.4262865772564
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 322.9545329281285,
+          "q05": 62.63011335041564,
+          "median": 209.92244002948178,
+          "q95": 321.4446644434165,
+          "range": 322.9545329281285,
+          "robust_range": 258.8145510930009
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 30.196264981019624,
+          "max": 53.4262865772564,
+          "q05": 31.154710542109772,
+          "median": 40.73921677223844,
+          "q95": 52.06192617038283,
+          "range": 23.230021596236774,
+          "robust_range": 20.90721562827306
+        }
+      },
+      {
+        "generation": 2,
+        "name": "contagious_net_growth_parent",
+        "expression": "progression_rate*M - clearance_rate*C",
+        "role": "Parent target mapping before refinement",
+        "train_range": [
+          0.0,
+          105.49005387043866
+        ],
+        "hidden_range": [
+          5.096532591099631,
+          12.353027727761237
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 105.49005387043866,
+          "q05": 15.777707955996004,
+          "median": 66.56362384086293,
+          "q95": 104.96658328817,
+          "range": 105.49005387043866,
+          "robust_range": 89.18887533217399
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 5.096532591099631,
+          "max": 12.353027727761237,
+          "q05": 5.38354044886544,
+          "median": 8.323909179387655,
+          "q95": 11.914272857731776,
+          "range": 7.256495136661606,
+          "robust_range": 6.530732408866336
+        }
+      },
+      {
+        "generation": 3,
+        "name": "mature_pressure",
+        "expression": "M",
+        "role": "Current size of the maturation-ready latent pool driving entry into contagiousness",
+        "train_range": [
+          0.0,
+          322.9545329281285
+        ],
+        "hidden_range": [
+          30.196264981019624,
+          53.4262865772564
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 322.9545329281285,
+          "q05": 62.63011335041564,
+          "median": 209.92244002948178,
+          "q95": 321.4446644434165,
+          "range": 322.9545329281285,
+          "robust_range": 258.8145510930009
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 30.196264981019624,
+          "max": 53.4262865772564,
+          "q05": 31.154710542109772,
+          "median": 40.73921677223844,
+          "q95": 52.06192617038283,
+          "range": 23.230021596236774,
+          "robust_range": 20.90721562827306
+        }
+      },
+      {
+        "generation": 3,
+        "name": "contagious_burden",
+        "expression": "C",
+        "role": "Current contagious load that can signal or enforce transient inhibition of further progression",
+        "train_range": [
+          0.0,
+          41.254811580259535
+        ],
+        "hidden_range": [
+          27.360800761286182,
+          31.7308628713925
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 41.254811580259535,
+          "q05": 5.478486878819681,
+          "median": 38.24962981129079,
+          "q95": 41.22519697828431,
+          "range": 41.254811580259535,
+          "robust_range": 35.74671009946463
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 27.360800761286182,
+          "max": 31.7308628713925,
+          "q05": 27.603041204364896,
+          "median": 29.674083454478993,
+          "q95": 31.537006509511077,
+          "range": 4.370062110106318,
+          "robust_range": 3.933965305146181
+        }
+      },
+      {
+        "generation": 4,
+        "name": "latent_to_contagious_balance",
+        "expression": "progression_rate*M/(clearance_rate + progression_rate*(1 + maturation_heterogeneity*M)*(1 + contagious_feedback*C))",
+        "role": "Compares the available mature-latent supply to the characteristic removal and transition timescale, indicating when an added pre-contagious phase can visibly delay C buildup.",
+        "train_range": [
+          0.0,
+          53.48150018343119
+        ],
+        "hidden_range": [
+          13.5432421509131,
+          20.607809040521293
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 53.48150018343119,
+          "q05": 23.08706342221757,
+          "median": 43.70985030372381,
+          "q95": 52.95782874773496,
+          "range": 53.48150018343119,
+          "robust_range": 29.870765325517386
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 13.5432421509131,
+          "max": 20.607809040521293,
+          "q05": 13.877346860527826,
+          "median": 16.999790997838176,
+          "q95": 20.244892935553544,
+          "range": 7.064566889608193,
+          "robust_range": 6.367546075025718
+        }
+      },
+      {
+        "generation": 4,
+        "name": "feedback_load",
+        "expression": "contagious_feedback*C",
+        "role": "Dimensionless strength of contemporaneous suppression of progression, useful for separating delay-induced timing shifts from direct feedback suppression.",
+        "train_range": [
+          0.0,
+          0.41254811580259537
+        ],
+        "hidden_range": [
+          0.2736080076128618,
+          0.317308628713925
+        ],
+        "train_status": "visible",
+        "hidden_status": "visible",
+        "crosses_boundary": false,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 0.41254811580259537,
+          "q05": 0.05478486878819681,
+          "median": 0.38249629811290786,
+          "q95": 0.41225196978284306,
+          "range": 0.41254811580259537,
+          "robust_range": 0.35746710099464624
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.2736080076128618,
+          "max": 0.317308628713925,
+          "q05": 0.276030412043649,
+          "median": 0.29674083454478994,
+          "q95": 0.3153700650951108,
+          "range": 0.04370062110106321,
+          "robust_range": 0.03933965305146181
+        }
+      },
+      {
+        "generation": 5,
+        "name": "inflow_pressure",
+        "expression": "presymptomatic_progression_rate*P/(1 + contagious_feedback*C)",
+        "role": "Current entry flux from presymptomatic shedding into contagiousness",
+        "train_range": [
+          0.0,
+          18.616572263904157
+        ],
+        "hidden_range": [
+          8.328400778484607,
+          11.093566991856022
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 18.616572263904157,
+          "q05": 9.647329165751476,
+          "median": 16.93037766181228,
+          "q95": 18.600080701246444,
+          "range": 18.616572263904157,
+          "robust_range": 8.952751535494968
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 8.328400778484607,
+          "max": 11.093566991856022,
+          "q05": 8.472272540537896,
+          "median": 9.7482139705481,
+          "q95": 10.96357921093838,
+          "range": 2.7651662133714154,
+          "robust_range": 2.491306670400485
+        }
+      },
+      {
+        "generation": 5,
+        "name": "net_parent_target",
+        "expression": "presymptomatic_progression_rate*P/(1 + contagious_feedback*C) - clearance_rate*C",
+        "role": "Parent scored target mapping for comparison against burden-curved clearance",
+        "train_range": [
+          0.0,
+          11.635145640589673
+        ],
+        "hidden_range": [
+          2.85624062622737,
+          4.747394417577522
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0,
+          "max": 11.635145640589673,
+          "q05": 5.065651413033429,
+          "median": 9.5292233880746,
+          "q95": 11.43611895039505,
+          "range": 11.635145640589673,
+          "robust_range": 6.3704675373616215
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 2.85624062622737,
+          "max": 4.747394417577522,
+          "q05": 2.9516642996649156,
+          "median": 3.8133972796523015,
+          "q95": 4.656177909036165,
+          "range": 1.8911537913501517,
+          "robust_range": 1.7045136093712494
+        }
+      }
+    ],
+    "inactive_mechanisms": [],
+    "visible_mechanisms": [
+      "latent_to_contagious_flux_parent",
+      "contagious_net_balance_parent",
+      "clearance_load",
+      "latent_to_contagious_flux_parent",
+      "mature_latent_occupancy",
+      "contagious_net_growth_parent",
+      "mature_pressure",
+      "contagious_burden",
+      "latent_to_contagious_balance",
+      "feedback_load",
+      "inflow_pressure",
+      "net_parent_target"
+    ],
+    "extended_mechanisms": [
+      "latent_to_contagious_flux_parent",
+      "latent_to_contagious_flux_parent",
+      "mature_latent_occupancy",
+      "contagious_net_growth_parent",
+      "mature_pressure",
+      "latent_to_contagious_balance",
+      "inflow_pressure",
+      "net_parent_target"
+    ]
+  },
+  "inactive_mechanisms": [],
+  "target_variance": {
+    "train": {
+      "n": 384,
+      "variance": 9.45452882169221,
+      "range": 11.324194806948396
+    },
+    "hidden": {
+      "n": 128,
+      "variance": 0.010023357320377131,
+      "range": 0.34174834976425217
+    }
+  },
+  "parent_absorption_report": {
+    "status": "ok",
+    "n_points": 512,
+    "fixed_parent_normalized_rmse": 9.388404176421458,
+    "refit": {
+      "status": "not_run",
+      "reason": "no free parent parameters"
+    },
+    "interpretation": "<1e-3 nearly absorbed; 1e-3..1e-2 weak; >1e-2 visible structure"
+  },
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_9K5iIb6VuDVsh4pg2CvlrgBs"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "presymptomatic_progression_rate*P/(1 + contagious_feedback*C) - clearance_rate*C*(1 + contagious_clearance_burden*C)",
+        "target_symbol": "C"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "C",
+          "P",
+          "clearance_rate",
+          "contagious_clearance_burden",
+          "contagious_feedback",
+          "presymptomatic_progression_rate"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "-(-3/(contagious_clearance_burden*contagious_feedback) + (contagious_clearance_burden + contagious_feedback)**2/(contagious_clearance_burden**2*contagious_feedback**2))/(3*(-27*P*presymptomatic_progression_rate/(2*clearance_rate*contagious_clearance_burden*contagious_feedback) + sqrt(-4*(-3/(contagious_clearance_burden*contagious_feedback) + (contagious_clearance_burden + contagious_feedback)**2/(contagious_clearance_burden**2*contagious_feedback**2))**3 + (-27*P*presymptomatic_progression_rate/(clearance_rate*contagious_clearance_burden*contagious_feedback) - 9*(contagious_clearance_burden + contagious_feedback)/(contagious_clearance_burden**2*contagious_feedback**2) + 2*(contagious_clearance_burden + contagious_feedback)**3/(contagious_clearance_burden**3*contagious_feedback**3))**2)/2 - 9*(contagious_clearance_burden + contagious_feedback)/(2*contagious_clearance_burden**2*contagious_feedback**2) + (contagious_clearance_burden + contagious_feedback)**3/(contagious_clearance_burden**3*contagious_feedback**3))**(1/3)) - (-27*P*presymptomatic_progression_rate/(2*clearance_rate*contagious_clearance_burden*contagious_feedback) + sqrt(-4*(-3/(contagious_clearance_burden*contagious_feedback) + (contagious_clearance_burden + contagious_feedback)**2/(contagious_clearance_burden**2*contagious_feedback**2))**3 + (-27*P*presymptomatic_progression_rate/(clearance_rate*contagious_clearance_burden*contagious_feedback) - 9*(contagious_clearance_burden + contagious_feedback)/(contagious_clearance_burden**2*contagious_feedback**2) + 2*(contagious_clearance_burden + contagious_feedback)**3/(contagious_clearance_burden**3*contagious_feedback**3))**2)/2 - 9*(contagious_clearance_burden + contagious_feedback)/(2*contagious_clearance_burden**2*contagious_feedback**2) + (contagious_clearance_burden + contagious_feedback)**3/(contagious_clearance_burden**3*contagious_feedback**3))**(1/3)/3 - (contagious_clearance_burden + contagious_feedback)/(3*contagious_clearance_burden*contagious_feedback)",
+          "-(-3/(contagious_clearance_burden*contagious_feedback) + (contagious_clearance_burden + contagious_feedback)**2/(contagious_clearance_burden**2*contagious_feedback**2))/(3*(-1/2 - sqrt(3)*I/2)*(-27*P*presymptomatic_progression_rate/(2*clearance_rate*contagious_clearance_burden*contagious_feedback) + sqrt(-4*(-3/(contagious_clearance_burden*contagious_feedback) + (contagious_clearance_burden + contagious_feedback)**2/(contagious_clearance_burden**2*contagious_feedback**2))**3 + (-27*P*presymptomatic_progression_rate/(clearance_rate*contagious_clearance_burden*contagious_feedback) - 9*(contagious_clearance_burden + contagious_feedback)/(contagious_clearance_burden**2*contagious_feedback**2) + 2*(contagious_clearance_burden + contagious_feedback)**3/(contagious_clearance_burden**3*contagious_feedback**3))**2)/2 - 9*(contagious_clearance_burden + contagious_feedback)/(2*contagious_clearance_burden**2*contagious_feedback**2) + (contagious_clearance_burden + contagious_feedback)**3/(contagious_clearance_burden**3*contagious_feedback**3))**(1/3)) - (-1/2 - sqrt(3)*I/2)*(-27*P*presymptomatic_progression_rate/(2*clearance_rate*contagious_clearance_burden*contagious_feedback) + sqrt(-4*(-3/(contagious_clearance_burden*contagious_feedback) + (contagious_clearance_burden + contagious_feedback)**2/(contagious_clearance_burden**2*contagious_feedback**2))**3 + (-27*P*presymptomatic_progression_rate/(clearance_rate*contagious_clearance_burden*contagious_feedback) - 9*(contagious_clearance_burden + contagious_feedback)/(contagious_clearance_burden**2*contagious_feedback**2) + 2*(contagious_clearance_burden + contagious_feedback)**3/(contagious_clearance_burden**3*contagious_feedback**3))**2)/2 - 9*(contagious_clearance_burden + contagious_feedback)/(2*contagious_clearance_burden**2*contagious_feedback**2) + (contagious_clearance_burden + contagious_feedback)**3/(contagious_clearance_burden**3*contagious_feedback**3))**(1/3)/3 - (contagious_clearance_burden + contagious_feedback)/(3*contagious_clearance_burden*contagious_feedback)",
+          "-(-3/(contagious_clearance_burden*contagious_feedback) + (contagious_clearance_burden + contagious_feedback)**2/(contagious_clearance_burden**2*contagious_feedback**2))/(3*(-1/2 + sqrt(3)*I/2)*(-27*P*presymptomatic_progression_rate/(2*clearance_rate*contagious_clearance_burden*contagious_feedback) + sqrt(-4*(-3/(contagious_clearance_burden*contagious_feedback) + (contagious_clearance_burden + contagious_feedback)**2/(contagious_clearance_burden**2*contagious_feedback**2))**3 + (-27*P*presymptomatic_progression_rate/(clearance_rate*contagious_clearance_burden*contagious_feedback) - 9*(contagious_clearance_burden + contagious_feedback)/(contagious_clearance_burden**2*contagious_feedback**2) + 2*(contagious_clearance_burden + contagious_feedback)**3/(contagious_clearance_burden**3*contagious_feedback**3))**2)/2 - 9*(contagious_clearance_burden + contagious_feedback)/(2*contagious_clearance_burden**2*contagious_feedback**2) + (contagious_clearance_burden + contagious_feedback)**3/(contagious_clearance_burden**3*contagious_feedback**3))**(1/3)) - (-1/2 + sqrt(3)*I/2)*(-27*P*presymptomatic_progression_rate/(2*clearance_rate*contagious_clearance_burden*contagious_feedback) + sqrt(-4*(-3/(contagious_clearance_burden*contagious_feedback) + (contagious_clearance_burden + contagious_feedback)**2/(contagious_clearance_burden**2*contagious_feedback**2))**3 + (-27*P*presymptomatic_progression_rate/(clearance_rate*contagious_clearance_burden*contagious_feedback) - 9*(contagious_clearance_burden + contagious_feedback)/(contagious_clearance_burden**2*contagious_feedback**2) + 2*(contagious_clearance_burden + contagious_feedback)**3/(contagious_clearance_burden**3*contagious_feedback**3))**2)/2 - 9*(contagious_clearance_burden + contagious_feedback)/(2*contagious_clearance_burden**2*contagious_feedback**2) + (contagious_clearance_burden + contagious_feedback)**3/(contagious_clearance_burden**3*contagious_feedback**3))**(1/3)/3 - (contagious_clearance_burden + contagious_feedback)/(3*contagious_clearance_burden*contagious_feedback)"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_mov7ebJHleTCAI3QexVeisA0"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "presymptomatic_progression_rate*P/(1 + contagious_feedback*C) - clearance_rate*C*(1 + contagious_clearance_burden*C)",
+        "target_symbol": "C",
+        "assignments": {
+          "P": 80,
+          "C": 60,
+          "presymptomatic_progression_rate": 0.7,
+          "clearance_rate": 0.2,
+          "contagious_feedback": 0.01,
+          "contagious_clearance_burden": 0.03
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": 1.4000000000000057,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_6CGCXUQiYiraGig70FrieIZe"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_bQHPRSeyuUeavZDXpkgslBM5"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 4,
+  "discipline": "biology",
+  "scenario_text": "Track a cohort of already infected people as they pass from a latent state into a contagious state and then cease being contagious. No new infections enter the cohort during observation, so the dynamics isolate disease-stage progression from transmission. The target is the rate of change of the contagious group, which reflects both arrivals from latency and departures from contagiousness. Constant progression and clearance hazards produce a delayed peak in contagious prevalence.",
+  "record_id": "m2_epidemiology_and_disease_dynamics_20260917_002",
+  "generation": 5,
+  "_n_total": 5000,
+  "mechanism_observation_history": [
+    {
+      "generation": 1,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The inflow to the contagious class is proportional to latent occupancy alone, dC_dt = progression_rate*L - clearance_rate*C, so for fixed progression_rate and clearance_rate the rise and fall of C are governed by a single exponential latent-to-contagious progression timescale.",
+          "child_relation": "Replace the memoryless latent progression assumption with staged latent maturation, so the effective inflow into C depends on where the cohort sits within latent residence time, not only on total L. Then dC_dt is no longer determined by L alone at a single proportional gain; its trajectory shows a different early-time curvature and delayed buildup before contagious prevalence peaks.",
+          "affected_inputs": [
+            "L",
+            "progression_rate",
+            "clearance_rate"
+          ],
+          "observable_effect": "For cohorts with the same initial latent count and same clearance setting, the child predicts weaker initial growth of C and a more delayed, sharper transfer into C than the parent; one shared parent parameter set cannot match both the near-zero early slope and the later mid-trajectory rise under this observation protocol."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "latent_to_contagious_flux_parent",
+            "expression": "progression_rate*L",
+            "role": "Parent's assumed instantaneous inflow from latent to contagious"
+          },
+          {
+            "name": "contagious_net_balance_parent",
+            "expression": "progression_rate*L - clearance_rate*C",
+            "role": "Parent target mapping combining latent inflow and contagious clearance"
+          },
+          {
+            "name": "clearance_load",
+            "expression": "clearance_rate*C",
+            "role": "Outflow burden opposing contagious growth"
+          }
+        ],
+        "activation_condition": "Observable when the latent residence-time distribution is narrower than exponential, so newly infected latent individuals do not immediately progress in appreciable numbers during the early observation window; strongest when progression and clearance timescales are both resolved over t in [0,30].",
+        "train_hidden_contrast": "In training, the mechanism appears as systematically reduced early contagious growth and delayed peak timing relative to total latent occupancy; in holdout, the same staged-latency mechanism extends to stronger differences in trajectory curvature and peak delay without changing the no-new-infections cohort setup.",
+        "continuation_path": "Recover the parent by collapsing latent maturation back to a memoryless single latent compartment, equivalently taking the added stage structure to its degenerate limit where total latent occupancy alone determines progression flux.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A non-exponential latent residence-time distribution cannot be represented with only the existing total latent state L and fixed rates; one additional latent maturation state is the minimal ODE extension that changes the scored mapping for dC_dt while preserving the cohort-stage interpretation.",
+        "gap_statement": "The model assumes latent individuals progress with a memoryless constant hazard, which unrealistically allows immediate progression from the entire latent pool and fixes the latent residence-time shape to exponential.",
+        "baseline_assumption": "All cohort members share the same progression characteristics in a single latent compartment with time-independent constant per-capita progression hazard.",
+        "scientific_mechanism": "Latent infection often involves internal maturation before contagious shedding begins, producing staged latent progression and a non-exponential waiting-time distribution from infection to contagiousness.",
+        "affected_symbols": [
+          "L",
+          "C",
+          "progression_rate",
+          "clearance_rate"
+        ],
+        "rationale": "A realistic next refinement is to relax the single-compartment latent-stage assumption rather than adding a new unrelated loss term. In the parent, with progression_rate and clearance_rate held fixed and the observed initial conditions preserved, the scored target dC_dt is an affine function of the currently supplied states L and C, with latent inflow determined by one shared gain progression_rate. This creates a single-phase shortcut: any latent individual is treated as immediately eligible to progress with the same hazard, so early contagious growth is tied directly to total L. Under the child mechanism, latent individuals must first mature through an additional latent substage before contributing to contagious inflow. That changes the target mapping itself, not merely an auxiliary trajectory, because the inflow term feeding dC_dt is no longer inferable from total L alone. The observable contrast is reachable under the existing cohort experiment: starting from a fully latent cohort and C(0)=0, the parent predicts an immediate positive contagious slope proportional to progression_rate*L(0), whereas staged latency can produce much smaller early dC_dt and a later acceleration before decline, yielding altered curvature and delayed peak timing of C within the sampled 0-30 interval. This effect is scientifically admissible when latent maturation is not negligible compared with the observation window; if maturation is effectively instantaneous, the refinement collapses back toward the parent and may be hard to distinguish."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The inflow to the contagious class is proportional to latent occupancy alone, dC_dt = progression_rate*L - clearance_rate*C, so for fixed progression_rate and clearance_rate the rise and fall of C are governed by a single exponential latent-to-contagious progression timescale.",
+          "child_relation": "Replace the memoryless latent progression assumption with staged latent maturation, so the effective inflow into C depends on where the cohort sits within latent residence time, not only on total L. Then dC_dt is no longer determined by L alone at a single proportional gain; its trajectory shows a different early-time curvature and delayed buildup before contagious prevalence peaks.",
+          "affected_inputs": [
+            "L",
+            "progression_rate",
+            "clearance_rate"
+          ],
+          "observable_effect": "For cohorts with the same initial latent count and same clearance setting, the child predicts weaker initial growth of C and a more delayed, sharper transfer into C than the parent; one shared parent parameter set cannot match both the near-zero early slope and the later mid-trajectory rise under this observation protocol."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "latent_to_contagious_flux_parent",
+            "expression": "progression_rate*L",
+            "role": "Parent's assumed instantaneous inflow from latent to contagious"
+          },
+          {
+            "name": "contagious_net_balance_parent",
+            "expression": "progression_rate*L - clearance_rate*C",
+            "role": "Parent target mapping combining latent inflow and contagious clearance"
+          },
+          {
+            "name": "clearance_load",
+            "expression": "clearance_rate*C",
+            "role": "Outflow burden opposing contagious growth"
+          }
+        ],
+        "activation_condition": "Observable when the latent residence-time distribution is narrower than exponential, so newly infected latent individuals do not immediately progress in appreciable numbers during the early observation window; strongest when progression and clearance timescales are both resolved over t in [0,30].",
+        "train_hidden_contrast": "In training, the mechanism appears as systematically reduced early contagious growth and delayed peak timing relative to total latent occupancy; in holdout, the same staged-latency mechanism extends to stronger differences in trajectory curvature and peak delay without changing the no-new-infections cohort setup.",
+        "continuation_path": "Recover the parent by collapsing latent maturation back to a memoryless single latent compartment, equivalently taking the added stage structure to its degenerate limit where total latent occupancy alone determines progression flux.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A non-exponential latent residence-time distribution cannot be represented with only the existing total latent state L and fixed rates; one additional latent maturation state is the minimal ODE extension that changes the scored mapping for dC_dt while preserving the cohort-stage interpretation.",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "L",
+          "M",
+          "C"
+        ],
+        "structural_role": "transition",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "staged latent maturation before contagious shedding",
+        "scientific_mechanism": "Latent infection often involves internal maturation before contagious shedding begins, producing staged latent progression and a non-exponential waiting-time distribution from infection to contagiousness.",
+        "embedding_pattern": "nested_nonlinearity",
+        "difficulty_rationale": "The successor is structurally harder because the target derivative now depends on a hidden maturation-stage state that must be dynamically inferred from the coupled latent chain, rather than from a single direct gain on total latent occupancy. This blocks shortcuts based on one-phase proportional inflow and changes trajectory curvature in a way that coefficient-only correction cannot replicate across the full observed window.",
+        "taxonomy_match": "known",
+        "assumption_before": "The latent pool is a single memoryless compartment, so every latent individual is immediately eligible to become contagious at hazard progression_rate.",
+        "assumption_after": "Latent individuals must first mature through an additional latent stage before they can enter the contagious compartment, creating staged progression and a non-exponential waiting time.",
+        "before_fragment": "progression_rate*L - clearance_rate*C",
+        "after_fragment": "progression_rate*M - clearance_rate*C",
+        "parent_reduction": "In the degenerate limit where latent maturation collapses back to one memoryless stage, total latent occupancy alone determines contagious inflow and the parent law is recovered.",
+        "observable_signature": "With the given initial-condition contract L(0)=500, M(0)=0, C(0)=0 and no new infections, the parent gives dC_dt(0)=progression_rate*L(0)>0, while the child gives dC_dt(0)=0 because only M contributes to inflow. As M fills from L and then empties into C, the child shows delayed buildup, altered early curvature, and a later sharper peak in C that is observable when latent maturation is resolved within t in [0,30].",
+        "shortcut_blocked": "A single parent parameter set cannot reproduce both the child's zero initial contagious inflow and its later substantial mid-trajectory rise for the same observed protocol. Lowering progression_rate to suppress the parent’s early slope also suppresses later transfer too much and shifts the whole trajectory, while changing clearance_rate only alters removal from C and cannot create the hidden-stage delay. Thus refitting all parent parameters still leaves the one-phase inflow structure structurally inadequate."
+      },
+      "range_suggestions": {
+        "M": "[0, 500]"
+      }
+    },
+    {
+      "generation": 2,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The inflow to contagiousness is linear in the mature latent pool, dC_dt = progression_rate*M - clearance_rate*C, so each mature latent individual contributes the same per-capita hazard regardless of how many remain in M.",
+          "child_relation": "Replace the constant per-capita progression from M to C with a state-dependent hazard that decreases as M is depleted, so the mapping from M to dC_dt bends away from a single straight line while preserving nonnegative flow.",
+          "affected_inputs": [
+            "M",
+            "progression_rate"
+          ],
+          "observable_effect": "Across trajectories with the same progression_rate and clearance_rate but different realized mature-latent occupancy over time, the contagious rise and peak become more right-skewed and flatten at high M or late-stage depletion in a way a single constant-gain parent law cannot match over the full observation window."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "latent_to_contagious_flux_parent",
+            "expression": "progression_rate*M",
+            "role": "Parent inflow from mature latent to contagious"
+          },
+          {
+            "name": "mature_latent_occupancy",
+            "expression": "M",
+            "role": "Available pool eligible to become contagious"
+          },
+          {
+            "name": "contagious_net_growth_parent",
+            "expression": "progression_rate*M - clearance_rate*C",
+            "role": "Parent target mapping before refinement"
+          }
+        ],
+        "activation_condition": "Observable when the mature latent pool spans a substantial fraction of its admissible range during the 0-30 time window, so that per-capita maturation from M need not remain effectively constant over the whole trajectory.",
+        "train_hidden_contrast": "In training, the same cohort progression already traverses low and moderate M where curvature can be seen in the rise and recession of C; in holdout, longer or more strongly populated mature-latent occupancy extends that same nonlinearity and accentuates the altered peak shape.",
+        "continuation_path": "Recover the parent by taking the added state-dependence strength to zero, giving a constant progression hazard from M to C.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The parent assumes that eligibility-to-contagiousness within the mature latent compartment is perfectly memoryless with a constant per-capita hazard, even though maturation readiness within that compartment can be heterogeneous and change as the compartment is depleted.",
+        "baseline_assumption": "All cohort members in the mature latent stage share the same time-independent progression hazard into contagiousness.",
+        "scientific_mechanism": "Residual within-stage heterogeneity in biological readiness to begin shedding causes the effective progression hazard out of the mature latent compartment to vary with mature-latent occupancy rather than remain constant.",
+        "affected_symbols": [
+          "M",
+          "progression_rate",
+          "C",
+          "clearance_rate"
+        ],
+        "rationale": "A realistic next refinement is to relax the constant-hazard assumption already present in the M->C transition rather than add an unrelated process. The parent target mapping uses a single gain from M to dC_dt: holding C fixed, changing M changes dC_dt with constant slope progression_rate. That is a scientific shortcut because the mature latent stage aggregates individuals with differing readiness to become contagious. Under the same no-new-infections cohort protocol and fixed clearance mechanism, this heterogeneity appears as a changed M-to-dC_dt relationship, not merely altered hidden trajectories: for equal C, the child would predict a smaller or larger incremental inflow from M depending on occupancy within M, changing the curvature of C(t), its ascent, and its peak timing/shape. The contrast is observable when M is appreciably populated and then depleted over the sampled interval; if M stays near zero throughout, the effect is weak and should not be overstated. No new state is necessary because the omitted idealization concerns the mathematical form of an existing transition, and a scientifically meaningful parent limit exists when the occupancy dependence vanishes."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The inflow to contagiousness is linear in the mature latent pool, dC_dt = progression_rate*M - clearance_rate*C, so each mature latent individual contributes the same per-capita hazard regardless of how many remain in M.",
+          "child_relation": "Replace the constant per-capita progression from M to C with a state-dependent hazard that decreases as M is depleted, so the mapping from M to dC_dt bends away from a single straight line while preserving nonnegative flow.",
+          "affected_inputs": [
+            "M",
+            "progression_rate"
+          ],
+          "observable_effect": "Across trajectories with the same progression_rate and clearance_rate but different realized mature-latent occupancy over time, the contagious rise and peak become more right-skewed and flatten at high M or late-stage depletion in a way a single constant-gain parent law cannot match over the full observation window."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "latent_to_contagious_flux_parent",
+            "expression": "progression_rate*M",
+            "role": "Parent inflow from mature latent to contagious"
+          },
+          {
+            "name": "mature_latent_occupancy",
+            "expression": "M",
+            "role": "Available pool eligible to become contagious"
+          },
+          {
+            "name": "contagious_net_growth_parent",
+            "expression": "progression_rate*M - clearance_rate*C",
+            "role": "Parent target mapping before refinement"
+          }
+        ],
+        "activation_condition": "Observable when the mature latent pool spans a substantial fraction of its admissible range during the 0-30 time window, so that per-capita maturation from M need not remain effectively constant over the whole trajectory.",
+        "train_hidden_contrast": "In training, the same cohort progression already traverses low and moderate M where curvature can be seen in the rise and recession of C; in holdout, longer or more strongly populated mature-latent occupancy extends that same nonlinearity and accentuates the altered peak shape.",
+        "continuation_path": "Recover the parent by taking the added state-dependence strength to zero, giving a constant progression hazard from M to C.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "M",
+          "C",
+          "progression_rate",
+          "clearance_rate",
+          "maturation_heterogeneity"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "occupancy-dependent effective maturation within the mature latent compartment",
+        "scientific_mechanism": "Residual within-stage heterogeneity in biological readiness to begin shedding causes the effective progression hazard out of the mature latent compartment to vary with mature-latent occupancy rather than remain constant.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the gain multiplying M now changes with M itself, so the same parameter set induces different local slopes at low and high occupancy and thereby changes the target curvature over a single trajectory.",
+        "taxonomy_match": "known",
+        "assumption_before": "All cohort members in the mature latent stage share the same time-independent progression hazard into contagiousness.",
+        "assumption_after": "The effective progression hazard from mature latent to contagious decreases with mature-latent occupancy because the compartment aggregates individuals with heterogeneous readiness to begin shedding.",
+        "before_fragment": "progression_rate*M - clearance_rate*C",
+        "after_fragment": "progression_rate*M/(1 + maturation_heterogeneity*M) - clearance_rate*C",
+        "parent_reduction": "Setting maturation_heterogeneity to zero gives progression_rate*M - clearance_rate*C.",
+        "observable_signature": "Holding C fixed, the parent predicts dC_dt increases linearly with M with constant slope progression_rate, whereas the child predicts a concave saturating increase progression_rate*M/(1 + maturation_heterogeneity*M). Over the observed cohort trajectories, this produces a flatter contagious inflow when M is large and a different rise-and-fall curvature and peak shape of C that is visible whenever M occupies low through moderate values during the sampled window.",
+        "shortcut_blocked": "A single refit of the parent parameters cannot reproduce both the low-M near-linear gain and the high-M flattened inflow because the parent has one constant slope in M. Retuning progression_rate only rotates that straight-line mapping, and retuning clearance_rate changes departures from C rather than the occupancy-dependent curvature of the inflow term itself."
+      },
+      "range_suggestions": {
+        "maturation_heterogeneity": "[0, 1]"
+      }
+    },
+    {
+      "generation": 3,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "phase_shift",
+          "parent_relation": "The inflow to C depends only on the current mature-latent occupancy M through a time-independent progression law, so for fixed parameters the rise and decline of dC_dt follow a single shared temporal progression phase tied directly to M.",
+          "child_relation": "Allow contagious individuals C to transiently suppress the effective progression of M into C, so the inflow to C depends on both M and contemporaneous C, introducing a state-dependent delay in latent-to-contagious transfer during periods of high contagious burden.",
+          "affected_inputs": [
+            "M",
+            "C"
+          ],
+          "observable_effect": "At similar M levels, dC_dt is lower when C is already large, shifting the contagious peak later and flattening it relative to the parent."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "mature_pressure",
+            "expression": "M",
+            "role": "Current size of the maturation-ready latent pool driving entry into contagiousness"
+          },
+          {
+            "name": "contagious_burden",
+            "expression": "C",
+            "role": "Current contagious load that can signal or enforce transient inhibition of further progression"
+          },
+          {
+            "name": "clearance_load",
+            "expression": "clearance_rate*C",
+            "role": "Instantaneous outflow from contagiousness setting the competing loss timescale"
+          }
+        ],
+        "activation_condition": "Observable when C reaches a non-negligible fraction of the tracked cohort while M remains present, so contemporaneous contagious burden can alter progression before the mature-latent pool is exhausted.",
+        "train_hidden_contrast": "In training, the mechanism appears as a flatter, delayed dC_dt response during intermediate-to-high C episodes; in holdout it extends to stronger peak suppression when the same initial cohort produces larger transient C under admissible parameter settings.",
+        "continuation_path": "Recover the parent by taking the strength of contagious-burden suppression on progression to zero.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The current model assumes that readiness to become contagious depends only on occupancy within the mature latent stage and ignores transient inhibition caused by the current contagious burden itself.",
+        "baseline_assumption": "All cohort members share a time-independent progression law from mature latent to contagious that is unaffected by the current size of the contagious compartment.",
+        "scientific_mechanism": "Contemporaneous contagious burden can reflect host or intervention-linked feedbacks such as early symptom-triggered isolation behavior or within-host/within-cohort inhibitory signaling, reducing effective transition from mature latent to overt contagiousness while many individuals are already contagious.",
+        "affected_symbols": [
+          "M",
+          "C",
+          "progression_rate"
+        ],
+        "rationale": "A realistic next refinement is to relax the parent's single-phase progression assumption without adding a new state. Vary the within-trajectory regime of C that emerges over time, while holding progression_rate, clearance_rate, maturation_heterogeneity, initial conditions, and the no-new-infections protocol fixed. In the parent, the target mapping dC_dt at a given M is independent of C except for the separate linear loss term -clearance_rate*C; specifically, the inflow contribution from M is the same whether C is small or large. In the child, the inflow itself is reduced when C is high, so two times with similar M but different C produce different dC_dt through altered arrival flow, not merely through auxiliary dynamics. This yields an observable phase shift and peak flattening in C under admissible conditions where the contagious compartment becomes appreciable before M is depleted. A single refit of parent parameters cannot reproduce the contrast that the latent-to-contagious inflow is selectively weaker at high C but unchanged at low C, because the parent has no C-dependent modulation of that inflow and can only globally rescale or retime progression for all phases at once. The refinement remains scientifically admissible, preserves nonnegativity when implemented with a bounded inhibitory factor, and vanishes smoothly in the zero-feedback limit."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "phase_shift",
+          "parent_relation": "The inflow to C depends only on the current mature-latent occupancy M through a time-independent progression law, so for fixed parameters the rise and decline of dC_dt follow a single shared temporal progression phase tied directly to M.",
+          "child_relation": "Allow contagious individuals C to transiently suppress the effective progression of M into C, so the inflow to C depends on both M and contemporaneous C, introducing a state-dependent delay in latent-to-contagious transfer during periods of high contagious burden.",
+          "affected_inputs": [
+            "M",
+            "C"
+          ],
+          "observable_effect": "At similar M levels, dC_dt is lower when C is already large, shifting the contagious peak later and flattening it relative to the parent."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "mature_pressure",
+            "expression": "M",
+            "role": "Current size of the maturation-ready latent pool driving entry into contagiousness"
+          },
+          {
+            "name": "contagious_burden",
+            "expression": "C",
+            "role": "Current contagious load that can signal or enforce transient inhibition of further progression"
+          },
+          {
+            "name": "clearance_load",
+            "expression": "clearance_rate*C",
+            "role": "Instantaneous outflow from contagiousness setting the competing loss timescale"
+          }
+        ],
+        "activation_condition": "Observable when C reaches a non-negligible fraction of the tracked cohort while M remains present, so contemporaneous contagious burden can alter progression before the mature-latent pool is exhausted.",
+        "train_hidden_contrast": "In training, the mechanism appears as a flatter, delayed dC_dt response during intermediate-to-high C episodes; in holdout it extends to stronger peak suppression when the same initial cohort produces larger transient C under admissible parameter settings.",
+        "continuation_path": "Recover the parent by taking the strength of contagious-burden suppression on progression to zero.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "M",
+          "C"
+        ],
+        "structural_role": "interaction",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Contagious-burden-dependent inhibition of latent-to-contagious progression",
+        "scientific_mechanism": "Contemporaneous contagious burden can reflect host or intervention-linked feedbacks such as early symptom-triggered isolation behavior or within-host/within-cohort inhibitory signaling, reducing effective transition from mature latent to overt contagiousness while many individuals are already contagious.",
+        "embedding_pattern": "state_coupling",
+        "difficulty_rationale": "This embedding is harder than a coefficient-only correction because the target inflow is no longer a function of M alone: it changes across phases of the same trajectory according to the joint state (M, C), creating a conditional delay and peak flattening that cannot be reproduced by one global progression rescaling.",
+        "taxonomy_match": "known",
+        "assumption_before": "The mature-latent to contagious progression law is unaffected by the current contagious burden.",
+        "assumption_after": "The mature-latent to contagious progression law is multiplicatively suppressed by current contagious burden through a bounded inhibitory factor.",
+        "before_fragment": "progression_rate*M/(1 + maturation_heterogeneity*M) - clearance_rate*C",
+        "after_fragment": "progression_rate*M/((1 + maturation_heterogeneity*M)*(1 + contagious_feedback*C)) - clearance_rate*C",
+        "parent_reduction": "Setting contagious_feedback to zero recovers progression_rate*M/(1 + maturation_heterogeneity*M) - clearance_rate*C.",
+        "observable_signature": "Holding progression_rate, clearance_rate, maturation_heterogeneity, initial conditions, and the no-new-infections protocol fixed, compare times or parameter settings where M is similar but C differs within the same observed trajectory family. The parent predicts the same M-driven inflow at both times, so differences in dC_dt arise only from the separate linear loss -clearance_rate*C. The child predicts an additional selective reduction of the inflow itself at higher C, causing lower dC_dt, delayed rise, and a flatter contagious peak when C becomes appreciable before M is exhausted.",
+        "shortcut_blocked": "A single parent parameter set cannot reproduce this contrast because it has no C-dependent modulation of the M-to-C inflow. Refitting progression_rate or maturation_heterogeneity only rescales or saturates that inflow uniformly across low-C and high-C phases, while refitting clearance_rate changes only the outflow. Therefore the parent cannot keep early low-C progression unchanged yet selectively weaken the inflow during later high-C episodes."
+      },
+      "range_suggestions": {
+        "contagious_feedback": "[0, 1]"
+      }
+    },
+    {
+      "generation": 4,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "phase_shift",
+          "parent_relation": "The inflow to C is an instantaneous function of the current mature-latent pool M and contagious pool C, so for fixed parameters the timing of C growth is tied directly to the contemporaneous M trajectory.",
+          "child_relation": "Introduce a finite-duration intermediate presymptomatic shedding stage between M and fully contagious C, so the contribution of mature latent individuals to the observed C rate is delayed and filtered through an additional stage rather than appearing immediately.",
+          "affected_inputs": [
+            "M",
+            "C",
+            "progression_rate",
+            "clearance_rate"
+          ],
+          "observable_effect": "At fixed initial conditions and progression/clearance scales, the rise of C is delayed and the peak occurs later and can be broader; early-time C growth is weaker even when M is already substantial."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "latent_to_contagious_balance",
+            "expression": "progression_rate*M/(clearance_rate + progression_rate*(1 + maturation_heterogeneity*M)*(1 + contagious_feedback*C))",
+            "role": "Compares the available mature-latent supply to the characteristic removal and transition timescale, indicating when an added pre-contagious phase can visibly delay C buildup."
+          },
+          {
+            "name": "feedback_load",
+            "expression": "contagious_feedback*C",
+            "role": "Dimensionless strength of contemporaneous suppression of progression, useful for separating delay-induced timing shifts from direct feedback suppression."
+          }
+        ],
+        "activation_condition": "Observable when the added intermediate-stage residence time is not negligible relative to 1/clearance_rate and the cohort is observed during the rise and peak of C; especially when M accumulates early from large initial L and then drains into later contagiousness.",
+        "train_hidden_contrast": "Within the observed no-new-infection cohort, training trajectories with different progression_rate and clearance_rate values already vary the latent-to-clearance timescale ratio; adding an intermediate shedding phase produces a systematic later, smoother C response across those conditions and remains visible in holdout on the same observation window.",
+        "continuation_path": "Recover the parent law in the limit that the intermediate-stage residence time tends to zero, collapsing the added phase into instantaneous entry to C.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A genuine delay in appearance of observed contagious individuals cannot be represented by refitting existing fixed hazards alone without introducing memory; one additional state is the minimal ODE embedding of that finite residence-time stage.",
+        "gap_statement": "The current model assumes individuals who leave the mature latent compartment become fully counted in C immediately, omitting a biologically plausible short presymptomatic shedding or partially contagious phase that delays entry into the observed contagious class.",
+        "baseline_assumption": "Progression from mature latent eligibility to the tracked contagious compartment is instantaneous once the M-to-C transition fires.",
+        "scientific_mechanism": "After maturation, infected people may pass through a finite-duration early shedding stage before reaching the fully observable contagious state, creating an additional transit delay and smoothing between latent readiness and counted contagious prevalence.",
+        "affected_symbols": [
+          "M",
+          "C",
+          "progression_rate",
+          "clearance_rate"
+        ],
+        "rationale": "A realistic next refinement is to relax the parent's single-phase assumption for latent-to-contagious progression. Vary progression_rate and clearance_rate across admissible cohort conditions while holding the initial conditions and the no-new-infection protocol fixed. In the parent, once M is present, the same transition term immediately drives C, so one shared parameter set yields a tightly linked M-to-C timing relationship. In the child, a finite intermediate phase shifts and smooths that transfer, so C can rise later and peak later even when the M trajectory is similar. This is a direct change in the scored target mapping dC_dt because the inflow to C is no longer an instantaneous algebraic function of M alone. The contrast is observable when the intermediate residence time is comparable to the contagious clearance timescale and the observation window includes the ascending and peak portions of C. A single parent parameter set cannot generally reproduce both an early buildup of M and a systematically delayed, broadened C response across such conditions, because changing progression_rate only rescales both M production and immediate C inflow together rather than inserting an additional dynamical lag. Limitation: if the intermediate stage is extremely short relative to all sampled timescales, the refinement collapses back to the parent and will not be distinguishable."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "phase_shift",
+          "parent_relation": "The inflow to C is an instantaneous function of the current mature-latent pool M and contagious pool C, so for fixed parameters the timing of C growth is tied directly to the contemporaneous M trajectory.",
+          "child_relation": "Introduce a finite-duration intermediate presymptomatic shedding stage between M and fully contagious C, so the contribution of mature latent individuals to the observed C rate is delayed and filtered through an additional stage rather than appearing immediately.",
+          "affected_inputs": [
+            "M",
+            "C",
+            "progression_rate",
+            "clearance_rate"
+          ],
+          "observable_effect": "At fixed initial conditions and progression/clearance scales, the rise of C is delayed and the peak occurs later and can be broader; early-time C growth is weaker even when M is already substantial."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "latent_to_contagious_balance",
+            "expression": "progression_rate*M/(clearance_rate + progression_rate*(1 + maturation_heterogeneity*M)*(1 + contagious_feedback*C))",
+            "role": "Compares the available mature-latent supply to the characteristic removal and transition timescale, indicating when an added pre-contagious phase can visibly delay C buildup."
+          },
+          {
+            "name": "feedback_load",
+            "expression": "contagious_feedback*C",
+            "role": "Dimensionless strength of contemporaneous suppression of progression, useful for separating delay-induced timing shifts from direct feedback suppression."
+          }
+        ],
+        "activation_condition": "Observable when the added intermediate-stage residence time is not negligible relative to 1/clearance_rate and the cohort is observed during the rise and peak of C; especially when M accumulates early from large initial L and then drains into later contagiousness.",
+        "train_hidden_contrast": "Within the observed no-new-infection cohort, training trajectories with different progression_rate and clearance_rate values already vary the latent-to-clearance timescale ratio; adding an intermediate shedding phase produces a systematic later, smoother C response across those conditions and remains visible in holdout on the same observation window.",
+        "continuation_path": "Recover the parent law in the limit that the intermediate-stage residence time tends to zero, collapsing the added phase into instantaneous entry to C.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A genuine delay in appearance of observed contagious individuals cannot be represented by refitting existing fixed hazards alone without introducing memory; one additional state is the minimal ODE embedding of that finite residence-time stage.",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "P",
+          "C"
+        ],
+        "structural_role": "transition",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "serial presymptomatic infectious progression",
+        "scientific_mechanism": "After maturation, infected people may pass through a finite-duration early shedding stage before reaching the fully observable contagious state, creating an additional transit delay and smoothing between latent readiness and counted contagious prevalence.",
+        "embedding_pattern": "state_coupling",
+        "difficulty_rationale": "This is structurally harder than a coefficient correction because the target inflow depends on a new dynamical state P and jointly on contagious burden C, creating memory and a lagged transfer that cannot be reproduced by rescaling an instantaneous M-to-C flux.",
+        "taxonomy_match": "known",
+        "assumption_before": "Progression from mature latent eligibility to the tracked contagious compartment is instantaneous once the M-to-C transition fires.",
+        "assumption_after": "After leaving M, individuals spend finite time in a presymptomatic shedding state before entering the tracked contagious compartment.",
+        "before_fragment": "progression_rate*M/((1 + maturation_heterogeneity*M)*(1 + contagious_feedback*C)) - clearance_rate*C",
+        "after_fragment": "presymptomatic_progression_rate*P/(1 + contagious_feedback*C) - clearance_rate*C",
+        "parent_reduction": "In the fast-intermediate limit presymptomatic_progression_rate -> oo, the added stage P becomes quasi-steady and the model approaches the parent's direct M-to-C transfer.",
+        "observable_signature": "For trajectories with similar early M accumulation under the same no-new-infection initial-condition protocol, the child shows weaker early dC_dt and later broader C peaks because C is driven by the delayed state P rather than directly by M; this contrast is strongest when 1/presymptomatic_progression_rate is comparable to 1/clearance_rate.",
+        "shortcut_blocked": "A single parent parameter set cannot insert an independent transit lag between M buildup and C appearance: refitting progression_rate changes both M generation and immediate C inflow together, while refitting clearance_rate mainly reshapes C removal after entry. Neither can systematically produce delayed, smoothed C rise across varying progression_rate and clearance_rate conditions without also distorting the contemporaneous M-to-C relationship that the parent hard-codes."
+      },
+      "range_suggestions": {
+        "P": "[0, 500]",
+        "presymptomatic_progression_rate": "[0.01, 5]"
+      }
+    },
+    {
+      "generation": 5,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The inflow to C is proportional to P with a single feedback-suppressed gain, so at fixed C the target mapping dC_dt versus P is linear and the loss term is exactly proportional to C.",
+          "child_relation": "Keep the same stage-flow structure but relax the idealized constant clearance hazard so that departure from C depends nonlinearly on contagious burden, making dC_dt bend downward more strongly at higher C even when P is unchanged.",
+          "affected_inputs": [
+            "P",
+            "C",
+            "clearance_rate"
+          ],
+          "observable_effect": "Across trajectories with similar P but different C, the decline and post-peak decay of C become disproportionately faster at larger C; the parent can only scale this loss linearly with one shared clearance parameter."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "inflow_pressure",
+            "expression": "presymptomatic_progression_rate*P/(1 + contagious_feedback*C)",
+            "role": "Current entry flux from presymptomatic shedding into contagiousness"
+          },
+          {
+            "name": "contagious_burden",
+            "expression": "C",
+            "role": "Current occupancy of the contagious compartment governing burden-dependent departure strength"
+          },
+          {
+            "name": "net_parent_target",
+            "expression": "presymptomatic_progression_rate*P/(1 + contagious_feedback*C) - clearance_rate*C",
+            "role": "Parent scored target mapping for comparison against burden-curved clearance"
+          }
+        ],
+        "activation_condition": "Observable when contagious occupancy reaches moderate to high levels so that burden-dependent departure is non-negligible relative to baseline linear clearance, while P remains positive or recently declining during the peak and decay window.",
+        "train_hidden_contrast": "In training, early growth at low C still resembles the parent because clearance is near-linear; in holdout regimes with larger peak C or slower presymptomatic depletion, the stronger high-C downturn and sharper post-peak decay reveal the changed curvature.",
+        "continuation_path": "Recover the parent in the limit of vanishing burden dependence in contagious departure, where clearance becomes effectively proportional to C over the observed range.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The model assumes each contagious individual leaves the contagious state with the same constant hazard regardless of how crowded the contagious compartment is.",
+        "baseline_assumption": "Departure from contagiousness is a time-independent first-order loss term clearance_rate*C with no occupancy dependence.",
+        "scientific_mechanism": "At high contagious burden, symptom recognition, self-isolation, clinical removal, or rapid depletion of highly shedding individuals can make effective departure from the counted contagious class accelerate with C rather than remain exactly linear.",
+        "affected_symbols": [
+          "P",
+          "C",
+          "clearance_rate"
+        ],
+        "rationale": "A realistic next refinement is to relax the constant-clearance assumption rather than add another hidden stage. The parent target mapping is dC_dt = inflow(P,C) - clearance_rate*C, so for fixed P it has one fixed negative slope in C from the explicit loss term, with only the existing inflow feedback contributing additional curvature. Vary condition by trajectories that reach different contagious burdens because of different admissible parameter settings or observed state combinations, while holding the same model form and one shared parameter set. Then compare times where P is similar but C differs: the child predicts extra downward bending of dC_dt at larger C through burden-accelerated departure, giving a lower and earlier peak and a steeper late decline. The parent cannot reproduce that specific high-C loss curvature with a single shared clearance_rate because changing clearance_rate rescales loss equally at low and high C. This is observable under the existing initial-condition contract because C starts at zero and can rise substantially from the staged latent reservoir; the effect is weak if C stays small throughout observation, in which case the child should reduce continuously back toward the parent."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The inflow to C is proportional to P with a single feedback-suppressed gain, so at fixed C the target mapping dC_dt versus P is linear and the loss term is exactly proportional to C.",
+          "child_relation": "Keep the same stage-flow structure but relax the idealized constant clearance hazard so that departure from C depends nonlinearly on contagious burden, making dC_dt bend downward more strongly at higher C even when P is unchanged.",
+          "affected_inputs": [
+            "P",
+            "C",
+            "clearance_rate"
+          ],
+          "observable_effect": "Across trajectories with similar P but different C, the decline and post-peak decay of C become disproportionately faster at larger C; the parent can only scale this loss linearly with one shared clearance parameter."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "inflow_pressure",
+            "expression": "presymptomatic_progression_rate*P/(1 + contagious_feedback*C)",
+            "role": "Current entry flux from presymptomatic shedding into contagiousness"
+          },
+          {
+            "name": "contagious_burden",
+            "expression": "C",
+            "role": "Current occupancy of the contagious compartment governing burden-dependent departure strength"
+          },
+          {
+            "name": "net_parent_target",
+            "expression": "presymptomatic_progression_rate*P/(1 + contagious_feedback*C) - clearance_rate*C",
+            "role": "Parent scored target mapping for comparison against burden-curved clearance"
+          }
+        ],
+        "activation_condition": "Observable when contagious occupancy reaches moderate to high levels so that burden-dependent departure is non-negligible relative to baseline linear clearance, while P remains positive or recently declining during the peak and decay window.",
+        "train_hidden_contrast": "In training, early growth at low C still resembles the parent because clearance is near-linear; in holdout regimes with larger peak C or slower presymptomatic depletion, the stronger high-C downturn and sharper post-peak decay reveal the changed curvature.",
+        "continuation_path": "Recover the parent in the limit of vanishing burden dependence in contagious departure, where clearance becomes effectively proportional to C over the observed range.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "C",
+          "clearance_rate"
+        ],
+        "structural_role": "feedback",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "burden-accelerated departure from the contagious compartment",
+        "scientific_mechanism": "At high contagious burden, symptom recognition, self-isolation, clinical removal, or rapid depletion of highly shedding individuals can make effective departure from the counted contagious class accelerate with C rather than remain exactly linear.",
+        "embedding_pattern": "state_coupling",
+        "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the loss law now depends jointly on clearance_rate and the state C, changing the shape of the target mapping across occupancy levels rather than merely rescaling it.",
+        "taxonomy_match": "known",
+        "assumption_before": "Departure from contagiousness is a time-independent first-order loss term clearance_rate*C with no occupancy dependence.",
+        "assumption_after": "Departure from contagiousness has a burden-accelerated hazard, with effective loss growing with contagious occupancy.",
+        "before_fragment": "presymptomatic_progression_rate*P/(1 + contagious_feedback*C) - clearance_rate*C",
+        "after_fragment": "presymptomatic_progression_rate*P/(1 + contagious_feedback*C) - clearance_rate*C*(1 + contagious_clearance_burden*C)",
+        "parent_reduction": "Setting contagious_clearance_burden = 0 exactly recovers the parent target equation.",
+        "observable_signature": "Compared at times or parameter settings where presymptomatic inflow pressure is similar but C differs, the child produces nearly parent-like behavior at low C and increasingly stronger negative dC_dt at higher C, yielding a lower earlier peak and sharper post-peak decay. This is a changed target mapping, not only an auxiliary-trajectory change, because the scored C equation itself gains an explicit quadratic-in-C loss contribution.",
+        "shortcut_blocked": "A single refit of the parent clearance_rate cannot reproduce both low-C near-linear clearance and high-C accelerated loss across these conditions, because the parent loss term is strictly proportional to C. Retuning existing parent parameters can shift overall timing and scale, but it cannot create the added high-C downward curvature in the scored mapping without over-altering low-C behavior."
+      },
+      "range_suggestions": {
+        "contagious_clearance_burden": "[0, 0.1]"
+      }
+    }
+  ],
+  "evolution_provenance": {
+    "dimension_track": null,
+    "mechanism_profile": {
+      "allowed_structural_roles": [
+        "contribution",
+        "interaction",
+        "constraint",
+        "feedback",
+        "transition",
+        "timescale"
+      ],
+      "preferred_scopes": [
+        "unary",
+        "pairwise",
+        "state_coupling",
+        "time_forcing"
+      ],
+      "domain_mechanisms": [
+        {
+          "id": "density_dependent_transmission",
+          "description": "contact or transmission response changes with prevalence or density",
+          "operations": [
+            "add_term",
+            "change_assumption"
+          ]
+        },
+        {
+          "id": "behavioral_feedback",
+          "description": "risk response changes contact or control behavior",
+          "operations": [
+            "add_term"
+          ]
+        },
+        {
+          "id": "waning_immunity",
+          "description": "finite immunity duration or recovery transition",
+          "operations": [
+            "change_assumption"
+          ]
+        },
+        {
+          "id": "seasonal_forcing",
+          "description": "seasonally modulated exposure or transmission",
+          "operations": [
+            "change_assumption"
+          ]
+        }
+      ],
+      "profile_source": "subfield",
+      "ontology_schema_version": "1.0",
+      "taxonomy_schema_version": "1.0"
+    },
+    "baseline_mechanisms": [
+      "Constant-rate progression from latent infection to contagiousness.",
+      "Constant-rate departure from the contagious stage through recovery, isolation, or loss of infectiousness."
+    ],
+    "baseline_assumptions": [
+      "The cohort receives no newly infected members after observation begins.",
+      "Progression and clearance rates are time independent.",
+      "All cohort members share the same progression and clearance characteristics.",
+      "Departed individuals do not re-enter either tracked state."
+    ],
+    "scientific_constraints": [
+      "Both tracked states must remain nonnegative.",
+      "Flow from latency into contagiousness cannot exceed the available latent population.",
+      "The total population remaining in the tracked stages must be nonincreasing.",
+      "In the absence of latent individuals, the contagious state cannot gain members."
+    ],
+    "refinement_agenda": [
+      "Replace constant stage hazards with multiple sequential substages.",
+      "Add competing progression pathways for symptomatic and asymptomatic infection.",
+      "Allow treatment to accelerate departure from contagiousness.",
+      "Introduce time-varying ascertainment or isolation intensity."
+    ],
+    "evolution_contracts": [
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The inflow to the contagious class is proportional to latent occupancy alone, dC_dt = progression_rate*L - clearance_rate*C, so for fixed progression_rate and clearance_rate the rise and fall of C are governed by a single exponential latent-to-contagious progression timescale.",
+          "child_relation": "Replace the memoryless latent progression assumption with staged latent maturation, so the effective inflow into C depends on where the cohort sits within latent residence time, not only on total L. Then dC_dt is no longer determined by L alone at a single proportional gain; its trajectory shows a different early-time curvature and delayed buildup before contagious prevalence peaks.",
+          "affected_inputs": [
+            "L",
+            "progression_rate",
+            "clearance_rate"
+          ],
+          "observable_effect": "For cohorts with the same initial latent count and same clearance setting, the child predicts weaker initial growth of C and a more delayed, sharper transfer into C than the parent; one shared parent parameter set cannot match both the near-zero early slope and the later mid-trajectory rise under this observation protocol."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "latent_to_contagious_flux_parent",
+            "expression": "progression_rate*L",
+            "role": "Parent's assumed instantaneous inflow from latent to contagious"
+          },
+          {
+            "name": "contagious_net_balance_parent",
+            "expression": "progression_rate*L - clearance_rate*C",
+            "role": "Parent target mapping combining latent inflow and contagious clearance"
+          },
+          {
+            "name": "clearance_load",
+            "expression": "clearance_rate*C",
+            "role": "Outflow burden opposing contagious growth"
+          }
+        ],
+        "activation_condition": "Observable when the latent residence-time distribution is narrower than exponential, so newly infected latent individuals do not immediately progress in appreciable numbers during the early observation window; strongest when progression and clearance timescales are both resolved over t in [0,30].",
+        "train_hidden_contrast": "In training, the mechanism appears as systematically reduced early contagious growth and delayed peak timing relative to total latent occupancy; in holdout, the same staged-latency mechanism extends to stronger differences in trajectory curvature and peak delay without changing the no-new-infections cohort setup.",
+        "continuation_path": "Recover the parent by collapsing latent maturation back to a memoryless single latent compartment, equivalently taking the added stage structure to its degenerate limit where total latent occupancy alone determines progression flux.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A non-exponential latent residence-time distribution cannot be represented with only the existing total latent state L and fixed rates; one additional latent maturation state is the minimal ODE extension that changes the scored mapping for dC_dt while preserving the cohort-stage interpretation.",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "L",
+          "M",
+          "C"
+        ],
+        "structural_role": "transition",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "staged latent maturation before contagious shedding",
+        "scientific_mechanism": "Latent infection often involves internal maturation before contagious shedding begins, producing staged latent progression and a non-exponential waiting-time distribution from infection to contagiousness.",
+        "embedding_pattern": "nested_nonlinearity",
+        "difficulty_rationale": "The successor is structurally harder because the target derivative now depends on a hidden maturation-stage state that must be dynamically inferred from the coupled latent chain, rather than from a single direct gain on total latent occupancy. This blocks shortcuts based on one-phase proportional inflow and changes trajectory curvature in a way that coefficient-only correction cannot replicate across the full observed window.",
+        "taxonomy_match": "known",
+        "assumption_before": "The latent pool is a single memoryless compartment, so every latent individual is immediately eligible to become contagious at hazard progression_rate.",
+        "assumption_after": "Latent individuals must first mature through an additional latent stage before they can enter the contagious compartment, creating staged progression and a non-exponential waiting time.",
+        "before_fragment": "progression_rate*L - clearance_rate*C",
+        "after_fragment": "progression_rate*M - clearance_rate*C",
+        "parent_reduction": "In the degenerate limit where latent maturation collapses back to one memoryless stage, total latent occupancy alone determines contagious inflow and the parent law is recovered.",
+        "observable_signature": "With the given initial-condition contract L(0)=500, M(0)=0, C(0)=0 and no new infections, the parent gives dC_dt(0)=progression_rate*L(0)>0, while the child gives dC_dt(0)=0 because only M contributes to inflow. As M fills from L and then empties into C, the child shows delayed buildup, altered early curvature, and a later sharper peak in C that is observable when latent maturation is resolved within t in [0,30].",
+        "shortcut_blocked": "A single parent parameter set cannot reproduce both the child's zero initial contagious inflow and its later substantial mid-trajectory rise for the same observed protocol. Lowering progression_rate to suppress the parent’s early slope also suppresses later transfer too much and shifts the whole trajectory, while changing clearance_rate only alters removal from C and cannot create the hidden-stage delay. Thus refitting all parent parameters still leaves the one-phase inflow structure structurally inadequate."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The inflow to contagiousness is linear in the mature latent pool, dC_dt = progression_rate*M - clearance_rate*C, so each mature latent individual contributes the same per-capita hazard regardless of how many remain in M.",
+          "child_relation": "Replace the constant per-capita progression from M to C with a state-dependent hazard that decreases as M is depleted, so the mapping from M to dC_dt bends away from a single straight line while preserving nonnegative flow.",
+          "affected_inputs": [
+            "M",
+            "progression_rate"
+          ],
+          "observable_effect": "Across trajectories with the same progression_rate and clearance_rate but different realized mature-latent occupancy over time, the contagious rise and peak become more right-skewed and flatten at high M or late-stage depletion in a way a single constant-gain parent law cannot match over the full observation window."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "latent_to_contagious_flux_parent",
+            "expression": "progression_rate*M",
+            "role": "Parent inflow from mature latent to contagious"
+          },
+          {
+            "name": "mature_latent_occupancy",
+            "expression": "M",
+            "role": "Available pool eligible to become contagious"
+          },
+          {
+            "name": "contagious_net_growth_parent",
+            "expression": "progression_rate*M - clearance_rate*C",
+            "role": "Parent target mapping before refinement"
+          }
+        ],
+        "activation_condition": "Observable when the mature latent pool spans a substantial fraction of its admissible range during the 0-30 time window, so that per-capita maturation from M need not remain effectively constant over the whole trajectory.",
+        "train_hidden_contrast": "In training, the same cohort progression already traverses low and moderate M where curvature can be seen in the rise and recession of C; in holdout, longer or more strongly populated mature-latent occupancy extends that same nonlinearity and accentuates the altered peak shape.",
+        "continuation_path": "Recover the parent by taking the added state-dependence strength to zero, giving a constant progression hazard from M to C.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "M",
+          "C",
+          "progression_rate",
+          "clearance_rate",
+          "maturation_heterogeneity"
+        ],
+        "structural_role": "response_law",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "occupancy-dependent effective maturation within the mature latent compartment",
+        "scientific_mechanism": "Residual within-stage heterogeneity in biological readiness to begin shedding causes the effective progression hazard out of the mature latent compartment to vary with mature-latent occupancy rather than remain constant.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the gain multiplying M now changes with M itself, so the same parameter set induces different local slopes at low and high occupancy and thereby changes the target curvature over a single trajectory.",
+        "taxonomy_match": "known",
+        "assumption_before": "All cohort members in the mature latent stage share the same time-independent progression hazard into contagiousness.",
+        "assumption_after": "The effective progression hazard from mature latent to contagious decreases with mature-latent occupancy because the compartment aggregates individuals with heterogeneous readiness to begin shedding.",
+        "before_fragment": "progression_rate*M - clearance_rate*C",
+        "after_fragment": "progression_rate*M/(1 + maturation_heterogeneity*M) - clearance_rate*C",
+        "parent_reduction": "Setting maturation_heterogeneity to zero gives progression_rate*M - clearance_rate*C.",
+        "observable_signature": "Holding C fixed, the parent predicts dC_dt increases linearly with M with constant slope progression_rate, whereas the child predicts a concave saturating increase progression_rate*M/(1 + maturation_heterogeneity*M). Over the observed cohort trajectories, this produces a flatter contagious inflow when M is large and a different rise-and-fall curvature and peak shape of C that is visible whenever M occupies low through moderate values during the sampled window.",
+        "shortcut_blocked": "A single refit of the parent parameters cannot reproduce both the low-M near-linear gain and the high-M flattened inflow because the parent has one constant slope in M. Retuning progression_rate only rotates that straight-line mapping, and retuning clearance_rate changes departures from C rather than the occupancy-dependent curvature of the inflow term itself."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "phase_shift",
+          "parent_relation": "The inflow to C depends only on the current mature-latent occupancy M through a time-independent progression law, so for fixed parameters the rise and decline of dC_dt follow a single shared temporal progression phase tied directly to M.",
+          "child_relation": "Allow contagious individuals C to transiently suppress the effective progression of M into C, so the inflow to C depends on both M and contemporaneous C, introducing a state-dependent delay in latent-to-contagious transfer during periods of high contagious burden.",
+          "affected_inputs": [
+            "M",
+            "C"
+          ],
+          "observable_effect": "At similar M levels, dC_dt is lower when C is already large, shifting the contagious peak later and flattening it relative to the parent."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "mature_pressure",
+            "expression": "M",
+            "role": "Current size of the maturation-ready latent pool driving entry into contagiousness"
+          },
+          {
+            "name": "contagious_burden",
+            "expression": "C",
+            "role": "Current contagious load that can signal or enforce transient inhibition of further progression"
+          },
+          {
+            "name": "clearance_load",
+            "expression": "clearance_rate*C",
+            "role": "Instantaneous outflow from contagiousness setting the competing loss timescale"
+          }
+        ],
+        "activation_condition": "Observable when C reaches a non-negligible fraction of the tracked cohort while M remains present, so contemporaneous contagious burden can alter progression before the mature-latent pool is exhausted.",
+        "train_hidden_contrast": "In training, the mechanism appears as a flatter, delayed dC_dt response during intermediate-to-high C episodes; in holdout it extends to stronger peak suppression when the same initial cohort produces larger transient C under admissible parameter settings.",
+        "continuation_path": "Recover the parent by taking the strength of contagious-burden suppression on progression to zero.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "M",
+          "C"
+        ],
+        "structural_role": "interaction",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Contagious-burden-dependent inhibition of latent-to-contagious progression",
+        "scientific_mechanism": "Contemporaneous contagious burden can reflect host or intervention-linked feedbacks such as early symptom-triggered isolation behavior or within-host/within-cohort inhibitory signaling, reducing effective transition from mature latent to overt contagiousness while many individuals are already contagious.",
+        "embedding_pattern": "state_coupling",
+        "difficulty_rationale": "This embedding is harder than a coefficient-only correction because the target inflow is no longer a function of M alone: it changes across phases of the same trajectory according to the joint state (M, C), creating a conditional delay and peak flattening that cannot be reproduced by one global progression rescaling.",
+        "taxonomy_match": "known",
+        "assumption_before": "The mature-latent to contagious progression law is unaffected by the current contagious burden.",
+        "assumption_after": "The mature-latent to contagious progression law is multiplicatively suppressed by current contagious burden through a bounded inhibitory factor.",
+        "before_fragment": "progression_rate*M/(1 + maturation_heterogeneity*M) - clearance_rate*C",
+        "after_fragment": "progression_rate*M/((1 + maturation_heterogeneity*M)*(1 + contagious_feedback*C)) - clearance_rate*C",
+        "parent_reduction": "Setting contagious_feedback to zero recovers progression_rate*M/(1 + maturation_heterogeneity*M) - clearance_rate*C.",
+        "observable_signature": "Holding progression_rate, clearance_rate, maturation_heterogeneity, initial conditions, and the no-new-infections protocol fixed, compare times or parameter settings where M is similar but C differs within the same observed trajectory family. The parent predicts the same M-driven inflow at both times, so differences in dC_dt arise only from the separate linear loss -clearance_rate*C. The child predicts an additional selective reduction of the inflow itself at higher C, causing lower dC_dt, delayed rise, and a flatter contagious peak when C becomes appreciable before M is exhausted.",
+        "shortcut_blocked": "A single parent parameter set cannot reproduce this contrast because it has no C-dependent modulation of the M-to-C inflow. Refitting progression_rate or maturation_heterogeneity only rescales or saturates that inflow uniformly across low-C and high-C phases, while refitting clearance_rate changes only the outflow. Therefore the parent cannot keep early low-C progression unchanged yet selectively weaken the inflow during later high-C episodes."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "phase_shift",
+          "parent_relation": "The inflow to C is an instantaneous function of the current mature-latent pool M and contagious pool C, so for fixed parameters the timing of C growth is tied directly to the contemporaneous M trajectory.",
+          "child_relation": "Introduce a finite-duration intermediate presymptomatic shedding stage between M and fully contagious C, so the contribution of mature latent individuals to the observed C rate is delayed and filtered through an additional stage rather than appearing immediately.",
+          "affected_inputs": [
+            "M",
+            "C",
+            "progression_rate",
+            "clearance_rate"
+          ],
+          "observable_effect": "At fixed initial conditions and progression/clearance scales, the rise of C is delayed and the peak occurs later and can be broader; early-time C growth is weaker even when M is already substantial."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "latent_to_contagious_balance",
+            "expression": "progression_rate*M/(clearance_rate + progression_rate*(1 + maturation_heterogeneity*M)*(1 + contagious_feedback*C))",
+            "role": "Compares the available mature-latent supply to the characteristic removal and transition timescale, indicating when an added pre-contagious phase can visibly delay C buildup."
+          },
+          {
+            "name": "feedback_load",
+            "expression": "contagious_feedback*C",
+            "role": "Dimensionless strength of contemporaneous suppression of progression, useful for separating delay-induced timing shifts from direct feedback suppression."
+          }
+        ],
+        "activation_condition": "Observable when the added intermediate-stage residence time is not negligible relative to 1/clearance_rate and the cohort is observed during the rise and peak of C; especially when M accumulates early from large initial L and then drains into later contagiousness.",
+        "train_hidden_contrast": "Within the observed no-new-infection cohort, training trajectories with different progression_rate and clearance_rate values already vary the latent-to-clearance timescale ratio; adding an intermediate shedding phase produces a systematic later, smoother C response across those conditions and remains visible in holdout on the same observation window.",
+        "continuation_path": "Recover the parent law in the limit that the intermediate-stage residence time tends to zero, collapsing the added phase into instantaneous entry to C.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A genuine delay in appearance of observed contagious individuals cannot be represented by refitting existing fixed hazards alone without introducing memory; one additional state is the minimal ODE embedding of that finite residence-time stage.",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "P",
+          "C"
+        ],
+        "structural_role": "transition",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "serial presymptomatic infectious progression",
+        "scientific_mechanism": "After maturation, infected people may pass through a finite-duration early shedding stage before reaching the fully observable contagious state, creating an additional transit delay and smoothing between latent readiness and counted contagious prevalence.",
+        "embedding_pattern": "state_coupling",
+        "difficulty_rationale": "This is structurally harder than a coefficient correction because the target inflow depends on a new dynamical state P and jointly on contagious burden C, creating memory and a lagged transfer that cannot be reproduced by rescaling an instantaneous M-to-C flux.",
+        "taxonomy_match": "known",
+        "assumption_before": "Progression from mature latent eligibility to the tracked contagious compartment is instantaneous once the M-to-C transition fires.",
+        "assumption_after": "After leaving M, individuals spend finite time in a presymptomatic shedding state before entering the tracked contagious compartment.",
+        "before_fragment": "progression_rate*M/((1 + maturation_heterogeneity*M)*(1 + contagious_feedback*C)) - clearance_rate*C",
+        "after_fragment": "presymptomatic_progression_rate*P/(1 + contagious_feedback*C) - clearance_rate*C",
+        "parent_reduction": "In the fast-intermediate limit presymptomatic_progression_rate -> oo, the added stage P becomes quasi-steady and the model approaches the parent's direct M-to-C transfer.",
+        "observable_signature": "For trajectories with similar early M accumulation under the same no-new-infection initial-condition protocol, the child shows weaker early dC_dt and later broader C peaks because C is driven by the delayed state P rather than directly by M; this contrast is strongest when 1/presymptomatic_progression_rate is comparable to 1/clearance_rate.",
+        "shortcut_blocked": "A single parent parameter set cannot insert an independent transit lag between M buildup and C appearance: refitting progression_rate changes both M generation and immediate C inflow together, while refitting clearance_rate mainly reshapes C removal after entry. Neither can systematically produce delayed, smoothed C rise across varying progression_rate and clearance_rate conditions without also distorting the contemporaneous M-to-C relationship that the parent hard-codes."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The inflow to C is proportional to P with a single feedback-suppressed gain, so at fixed C the target mapping dC_dt versus P is linear and the loss term is exactly proportional to C.",
+          "child_relation": "Keep the same stage-flow structure but relax the idealized constant clearance hazard so that departure from C depends nonlinearly on contagious burden, making dC_dt bend downward more strongly at higher C even when P is unchanged.",
+          "affected_inputs": [
+            "P",
+            "C",
+            "clearance_rate"
+          ],
+          "observable_effect": "Across trajectories with similar P but different C, the decline and post-peak decay of C become disproportionately faster at larger C; the parent can only scale this loss linearly with one shared clearance parameter."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "inflow_pressure",
+            "expression": "presymptomatic_progression_rate*P/(1 + contagious_feedback*C)",
+            "role": "Current entry flux from presymptomatic shedding into contagiousness"
+          },
+          {
+            "name": "contagious_burden",
+            "expression": "C",
+            "role": "Current occupancy of the contagious compartment governing burden-dependent departure strength"
+          },
+          {
+            "name": "net_parent_target",
+            "expression": "presymptomatic_progression_rate*P/(1 + contagious_feedback*C) - clearance_rate*C",
+            "role": "Parent scored target mapping for comparison against burden-curved clearance"
+          }
+        ],
+        "activation_condition": "Observable when contagious occupancy reaches moderate to high levels so that burden-dependent departure is non-negligible relative to baseline linear clearance, while P remains positive or recently declining during the peak and decay window.",
+        "train_hidden_contrast": "In training, early growth at low C still resembles the parent because clearance is near-linear; in holdout regimes with larger peak C or slower presymptomatic depletion, the stronger high-C downturn and sharper post-peak decay reveal the changed curvature.",
+        "continuation_path": "Recover the parent in the limit of vanishing burden dependence in contagious departure, where clearance becomes effectively proportional to C over the observed range.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "C",
+          "clearance_rate"
+        ],
+        "structural_role": "feedback",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "burden-accelerated departure from the contagious compartment",
+        "scientific_mechanism": "At high contagious burden, symptom recognition, self-isolation, clinical removal, or rapid depletion of highly shedding individuals can make effective departure from the counted contagious class accelerate with C rather than remain exactly linear.",
+        "embedding_pattern": "state_coupling",
+        "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the loss law now depends jointly on clearance_rate and the state C, changing the shape of the target mapping across occupancy levels rather than merely rescaling it.",
+        "taxonomy_match": "known",
+        "assumption_before": "Departure from contagiousness is a time-independent first-order loss term clearance_rate*C with no occupancy dependence.",
+        "assumption_after": "Departure from contagiousness has a burden-accelerated hazard, with effective loss growing with contagious occupancy.",
+        "before_fragment": "presymptomatic_progression_rate*P/(1 + contagious_feedback*C) - clearance_rate*C",
+        "after_fragment": "presymptomatic_progression_rate*P/(1 + contagious_feedback*C) - clearance_rate*C*(1 + contagious_clearance_burden*C)",
+        "parent_reduction": "Setting contagious_clearance_burden = 0 exactly recovers the parent target equation.",
+        "observable_signature": "Compared at times or parameter settings where presymptomatic inflow pressure is similar but C differs, the child produces nearly parent-like behavior at low C and increasingly stronger negative dC_dt at higher C, yielding a lower earlier peak and sharper post-peak decay. This is a changed target mapping, not only an auxiliary-trajectory change, because the scored C equation itself gains an explicit quadratic-in-C loss contribution.",
+        "shortcut_blocked": "A single refit of the parent clearance_rate cannot reproduce both low-C near-linear clearance and high-C accelerated loss across these conditions, because the parent loss term is strictly proportional to C. Retuning existing parent parameters can shift overall timing and scale, but it cannot create the added high-C downward curvature in the scored mapping without over-altering low-C behavior."
+      }
+    ]
+  },
+  "finalization": {
+    "mode": "candidate",
+    "accepted_generations": 5,
+    "novelty": {
+      "answer": "NOT_EVALUATED"
+    },
+    "total_points": 5000,
+    "evaluation_status": "not_evaluated"
+  }
+}

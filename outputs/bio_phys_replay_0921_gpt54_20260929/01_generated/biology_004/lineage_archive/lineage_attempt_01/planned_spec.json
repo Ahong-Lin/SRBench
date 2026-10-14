@@ -1,0 +1,252 @@
+{
+  "equation_type": "explicit",
+  "integrator": "evaluate_explicit",
+  "dependent_variable": "m_inf",
+  "independent_variables": [
+    {
+      "symbol": "V",
+      "range": [
+        -100.0,
+        40.0
+      ],
+      "n_points": 181,
+      "scale": "linear"
+    },
+    {
+      "symbol": "S_ext",
+      "range": [
+        0.0,
+        4.0
+      ],
+      "n_points": 9,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "m_lower",
+      "value": 0.02
+    },
+    {
+      "symbol": "m_upper",
+      "value": 0.98
+    },
+    {
+      "symbol": "V_half",
+      "value": -30.0
+    },
+    {
+      "symbol": "k_activation",
+      "value": 8.0
+    },
+    {
+      "symbol": "curvature_scale",
+      "value": 0.003
+    },
+    {
+      "symbol": "threshold_shift_max",
+      "value": 20.0
+    },
+    {
+      "symbol": "S_half",
+      "value": 1.0
+    },
+    {
+      "symbol": "steepness_screening_max",
+      "value": 0.5
+    },
+    {
+      "symbol": "subpopulation_weight",
+      "value": 0.28
+    },
+    {
+      "symbol": "subpopulation_shift_ratio",
+      "value": 0.45
+    },
+    {
+      "symbol": "occupancy_redistribution_max",
+      "value": 1.4
+    }
+  ],
+  "benchmark_output": null,
+  "benchmark_target_state": null,
+  "observed_variables": [],
+  "rhs_for_integrator": "m_lower + (m_upper - m_lower)*((1 - subpopulation_weight*(1 + occupancy_redistribution_max*S_ext/(S_half + S_ext))/(1 + occupancy_redistribution_max*subpopulation_weight*S_ext/(S_half + S_ext)))/(1 + exp(-(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext)))/(k_activation*(1 + steepness_screening_max*S_ext/(S_half + S_ext))*(1 + curvature_scale*(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext))))))) + (subpopulation_weight*(1 + occupancy_redistribution_max*S_ext/(S_half + S_ext))/(1 + occupancy_redistribution_max*subpopulation_weight*S_ext/(S_half + S_ext)))/(1 + exp(-(V - (V_half + subpopulation_shift_ratio*threshold_shift_max*S_ext/(S_half + S_ext)))/(k_activation*(1 + steepness_screening_max*S_ext/(S_half + S_ext))*(1 + curvature_scale*(V - (V_half + subpopulation_shift_ratio*threshold_shift_max*S_ext/(S_half + S_ext))))))))",
+  "state_variables": [],
+  "state_rhs": [],
+  "initial_conditions": {},
+  "sanity_expectations": [
+    "For every fixed S_ext in the sampled set, m_inf remains bounded between m_lower and m_upper, here approximately 0.02 and 0.98.",
+    "At S_ext = 0, the effective secondary weight reduces exactly to subpopulation_weight and the law collapses to the parent two-subpopulation form without occupancy redistribution.",
+    "As S_ext increases from 0 toward 4 with the chosen positive threshold_shift_max, the activation curve shifts to higher V overall; the midpoint region should move rightward by an observable fraction of the total voltage span.",
+    "Because steepness_screening_max > 0, increasing S_ext broadens the transition width in addition to shifting it; after aligning curves by their shifted centers, the high-S_ext curve should be less steep near half-activation than the low-S_ext curve.",
+    "Because subpopulation_shift_ratio = 0.45 differs from 1 and subpopulation_weight is intermediate, nonzero S_ext creates separated branch centers; around intermediate voltages the composite curve should show broader/shouldered curvature than any single-transition shape.",
+    "Because occupancy_redistribution_max > 0, the effective secondary-branch occupancy increases with S_ext; thus the shoulder/skew associated with the secondary branch should become more prominent at intermediate/high S_ext than at S_ext = 0.",
+    "At very low V, all sampled S_ext conditions remain near the lower plateau; at high V, all conditions approach the upper plateau, so the strongest cross-condition differences occur in the central transition region rather than at the extremes."
+  ],
+  "role_corrections": [
+    "m_inf: claimed-output/target derivative -> dependent_variable (confirmed: explicit static target, no derivatives present)",
+    "V: claimed-input/time axis -> independent_variable (confirmed: sampled clamp-voltage axis in explicit relation)",
+    "S_ext: claimed-input/time axis -> independent_variable (confirmed: sampled extracellular-condition axis in explicit relation)",
+    "m_lower: claimed-parameter -> parameter (confirmed)",
+    "m_upper: claimed-parameter -> parameter (confirmed)",
+    "V_half: claimed-parameter -> parameter (confirmed)",
+    "k_activation: claimed-parameter -> parameter (confirmed)",
+    "curvature_scale: claimed-parameter -> parameter (confirmed)",
+    "threshold_shift_max: claimed-parameter -> parameter (confirmed)",
+    "S_half: claimed-parameter -> parameter (confirmed)",
+    "steepness_screening_max: claimed-parameter -> parameter (confirmed)",
+    "subpopulation_weight: claimed-parameter -> parameter (confirmed)",
+    "subpopulation_shift_ratio: claimed-parameter -> parameter (confirmed)",
+    "occupancy_redistribution_max: claimed-parameter -> parameter (confirmed)"
+  ],
+  "rationale": "Structure check shows a static algebraic relation with no derivatives, no integrals, and no hidden state; despite the prior wording 'target derivative', this is an explicit response surface m_inf(V,S_ext). The freedom decision is none, so the declared sampled inputs V and S_ext are preserved and all other symbols are fixed parameters. The chosen voltage range spans well below and above the transition so the lower plateau, central rise, and upper plateau are all represented. The chosen S_ext range starts at the parent reference condition S_ext=0 and extends to several times S_half, so the saturating screening coordinate S_ext/(S_half+S_ext) moves from 0 to 0.8, enough to expose threshold shift, width modulation, and condition-dependent redistribution without pushing entirely into the asymptotic saturation limit. Parameter values are selected to keep the effective width factor positive over the sampled domain: 1 + steepness_screening_max*S_ext/(S_half+S_ext) > 1 and 1 + curvature_scale*(V - shifted_center) stays positive on the chosen V range. threshold_shift_max is comparable to a few k_activation so S_ext visibly moves the transition. subpopulation_shift_ratio < 1 separates the two branch centers at nonzero S_ext, and an intermediate subpopulation_weight with positive occupancy_redistribution_max makes the secondary branch gain occupancy as S_ext rises, strengthening shoulder/skew changes in the mid-activation region. This directly addresses the recorded distinguishing condition: compare m_inf versus V across at least low, intermediate, and high S_ext levels, especially near intermediate activation where the two branch midpoints are separated but overlapping; the effect is weak only near deep plateaus or at S_ext=0 where the child collapses to the parent. Numeric substitution checks at representative interior and high-range points were finite and real.",
+  "coverage_report": {},
+  "inactive_mechanisms": [],
+  "target_variance": {},
+  "parent_absorption_report": {},
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_IGu0H8bXgpWn3pdMwEd0tCF0"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "m_inf - (m_lower + (m_upper - m_lower)*((1 - subpopulation_weight*(1 + occupancy_redistribution_max*S_ext/(S_half + S_ext))/(1 + occupancy_redistribution_max*subpopulation_weight*S_ext/(S_half + S_ext)))/(1 + exp(-(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext)))/(k_activation*(1 + steepness_screening_max*S_ext/(S_half + S_ext))*(1 + curvature_scale*(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext))))))) + (subpopulation_weight*(1 + occupancy_redistribution_max*S_ext/(S_half + S_ext))/(1 + occupancy_redistribution_max*subpopulation_weight*S_ext/(S_half + S_ext)))/(1 + exp(-(V - (V_half + subpopulation_shift_ratio*threshold_shift_max*S_ext/(S_half + S_ext)))/(k_activation*(1 + steepness_screening_max*S_ext/(S_half + S_ext))*(1 + curvature_scale*(V - (V_half + subpopulation_shift_ratio*threshold_shift_max*S_ext/(S_half + S_ext)))))))))",
+        "target_symbol": "m_inf"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "S_ext",
+          "S_half",
+          "V",
+          "V_half",
+          "curvature_scale",
+          "k_activation",
+          "m_inf",
+          "m_lower",
+          "m_upper",
+          "occupancy_redistribution_max",
+          "steepness_screening_max",
+          "subpopulation_shift_ratio",
+          "subpopulation_weight",
+          "threshold_shift_max"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": false,
+        "explicit_solution_preview": null,
+        "classification_hint": "implicit_or_explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_oj9U5lPCyVGOH5UZjBPoHLfS"
+        },
+        {
+          "name": "check_substitution",
+          "id": "call_iGAwD03tjaQf00J0cYq46NNT"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "m_inf - (m_lower + (m_upper - m_lower)*((1 - subpopulation_weight*(1 + occupancy_redistribution_max*S_ext/(S_half + S_ext))/(1 + occupancy_redistribution_max*subpopulation_weight*S_ext/(S_half + S_ext)))/(1 + exp(-(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext)))/(k_activation*(1 + steepness_screening_max*S_ext/(S_half + S_ext))*(1 + curvature_scale*(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext))))))) + (subpopulation_weight*(1 + occupancy_redistribution_max*S_ext/(S_half + S_ext))/(1 + occupancy_redistribution_max*subpopulation_weight*S_ext/(S_half + S_ext)))/(1 + exp(-(V - (V_half + subpopulation_shift_ratio*threshold_shift_max*S_ext/(S_half + S_ext)))/(k_activation*(1 + steepness_screening_max*S_ext/(S_half + S_ext))*(1 + curvature_scale*(V - (V_half + subpopulation_shift_ratio*threshold_shift_max*S_ext/(S_half + S_ext)))))))))",
+        "target_symbol": "m_inf",
+        "assignments": {
+          "m_inf": 0.5,
+          "V": -20,
+          "S_ext": 1,
+          "m_lower": 0.02,
+          "m_upper": 0.98,
+          "V_half": -25,
+          "k_activation": 8,
+          "curvature_scale": 0.003,
+          "threshold_shift_max": 20,
+          "S_half": 1,
+          "steepness_screening_max": 0.5,
+          "subpopulation_weight": 0.3,
+          "subpopulation_shift_ratio": 0.5,
+          "occupancy_redistribution_max": 1.2
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": 0.07075762724470283,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "m_inf - (m_lower + (m_upper - m_lower)*((1 - subpopulation_weight*(1 + occupancy_redistribution_max*S_ext/(S_half + S_ext))/(1 + occupancy_redistribution_max*subpopulation_weight*S_ext/(S_half + S_ext)))/(1 + exp(-(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext)))/(k_activation*(1 + steepness_screening_max*S_ext/(S_half + S_ext))*(1 + curvature_scale*(V - (V_half + threshold_shift_max*S_ext/(S_half + S_ext))))))) + (subpopulation_weight*(1 + occupancy_redistribution_max*S_ext/(S_half + S_ext))/(1 + occupancy_redistribution_max*subpopulation_weight*S_ext/(S_half + S_ext)))/(1 + exp(-(V - (V_half + subpopulation_shift_ratio*threshold_shift_max*S_ext/(S_half + S_ext)))/(k_activation*(1 + steepness_screening_max*S_ext/(S_half + S_ext))*(1 + curvature_scale*(V - (V_half + subpopulation_shift_ratio*threshold_shift_max*S_ext/(S_half + S_ext)))))))))",
+        "target_symbol": "m_inf",
+        "assignments": {
+          "m_inf": 0.5,
+          "V": 40,
+          "S_ext": 4,
+          "m_lower": 0.02,
+          "m_upper": 0.98,
+          "V_half": -25,
+          "k_activation": 8,
+          "curvature_scale": 0.003,
+          "threshold_shift_max": 20,
+          "S_half": 1,
+          "steepness_screening_max": 0.5,
+          "subpopulation_weight": 0.3,
+          "subpopulation_shift_ratio": 0.5,
+          "occupancy_redistribution_max": 1.2
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": -0.46313625501932,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_ywdl6nRi0lhIprGJK0xcHowB"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 3
+}

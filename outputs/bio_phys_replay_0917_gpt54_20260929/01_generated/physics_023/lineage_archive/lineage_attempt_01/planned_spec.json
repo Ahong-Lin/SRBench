@@ -1,0 +1,228 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "V_C",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        0.12
+      ],
+      "n_points": 400,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "source_voltage",
+      "value": 12.0
+    },
+    {
+      "symbol": "resistance",
+      "value": 120.0
+    },
+    {
+      "symbol": "capacitance",
+      "value": 0.001
+    },
+    {
+      "symbol": "leak_conductance",
+      "value": 0.02
+    },
+    {
+      "symbol": "leakage_voltage_scale",
+      "value": 2.5
+    },
+    {
+      "symbol": "capacitance_voltage_nonlinearity",
+      "value": 0.35
+    },
+    {
+      "symbol": "capacitance_voltage_scale",
+      "value": 4.0
+    },
+    {
+      "symbol": "parasitic_inductance",
+      "value": 0.02
+    },
+    {
+      "symbol": "inductive_current_smoothing_scale",
+      "value": 0.12
+    },
+    {
+      "symbol": "thermal_time_constant",
+      "value": 0.25
+    },
+    {
+      "symbol": "thermal_heating_gain",
+      "value": 0.06
+    },
+    {
+      "symbol": "thermal_capacitance_nonlinearity_sensitivity",
+      "value": 0.25
+    },
+    {
+      "symbol": "thermal_leakage_sensitivity",
+      "value": 0.6
+    }
+  ],
+  "benchmark_output": "dV_C_dt",
+  "benchmark_target_state": "V_C",
+  "observed_variables": [
+    "t",
+    "V_C",
+    "I_L",
+    "T_th"
+  ],
+  "rhs_for_integrator": "I_L / (capacitance * (1 + capacitance_voltage_nonlinearity * (1 + thermal_capacitance_nonlinearity_sensitivity * T_th) * tanh(Abs(V_C) / capacitance_voltage_scale))) - leak_conductance * (1 + thermal_leakage_sensitivity * T_th) * V_C * tanh(Abs(V_C) / leakage_voltage_scale) / (capacitance * (1 + capacitance_voltage_nonlinearity * (1 + thermal_capacitance_nonlinearity_sensitivity * T_th) * tanh(Abs(V_C) / capacitance_voltage_scale)))",
+  "state_variables": [
+    "V_C",
+    "I_L",
+    "T_th"
+  ],
+  "state_rhs": [
+    "I_L / (capacitance * (1 + capacitance_voltage_nonlinearity * (1 + thermal_capacitance_nonlinearity_sensitivity * T_th) * tanh(Abs(V_C) / capacitance_voltage_scale))) - leak_conductance * (1 + thermal_leakage_sensitivity * T_th) * V_C * tanh(Abs(V_C) / leakage_voltage_scale) / (capacitance * (1 + capacitance_voltage_nonlinearity * (1 + thermal_capacitance_nonlinearity_sensitivity * T_th) * tanh(Abs(V_C) / capacitance_voltage_scale)))",
+    "(source_voltage - V_C - resistance * I_L * tanh(Abs(I_L) / inductive_current_smoothing_scale)) / parasitic_inductance",
+    "-T_th / thermal_time_constant + thermal_heating_gain * resistance * I_L**2"
+  ],
+  "initial_conditions": {
+    "V_C": 0.0,
+    "I_L": 0.0,
+    "T_th": 0.0
+  },
+  "sanity_expectations": [
+    "At t = 0, V_C(0)=0 and I_L(0)=0 imply dV_C/dt initially equals 0, so the capacitor voltage should start flat and then rise after a short inductive startup rather than jumping immediately into maximal RC slope.",
+    "Because source_voltage > 0 and all initial states are zero, I_L should first increase positive, then later relax as V_C rises and resistive/leakage effects oppose the drive.",
+    "As V_C moves through a few volts, tanh(|V_C|/leakage_voltage_scale) and tanh(|V_C|/capacitance_voltage_scale) should move out of their near-linear regimes, producing visible curvature change beyond a single ideal exponential.",
+    "The trajectory over this window should remain predominantly monotone increasing in V_C, but its late-time slope should be smaller than an ideal leakage-free, temperature-invariant RC charging trace with the same nominal R and C.",
+    "T_th starts at zero and should remain nonnegative, growing only after current flows; thermal effects should therefore be weak very early and more noticeable later in the transient.",
+    "Compared at similar V_C and I_L values reached later in the run, larger T_th should reduce dV_C/dt through both the capacitance denominator and the thermally strengthened leakage factor, giving extra late-time sag rather than an early-time effect."
+  ],
+  "role_corrections": [
+    "dV_C_dt: claimed-output/target derivative -> derivative of dependent state V_C (confirmed by ODE contract context)",
+    "t: claimed-input/time axis -> independent variable/time axis (confirmed)",
+    "V_C: claimed-dynamic state -> dependent variable and dynamic state (confirmed)",
+    "I_L: claimed-dynamic state -> dynamic state, not independent sampled axis (confirmed)",
+    "T_th: claimed-dynamic state -> dynamic state, not independent sampled axis (confirmed)",
+    "source_voltage: claimed-parameter -> parameter (confirmed)",
+    "resistance: claimed-parameter -> parameter (confirmed)",
+    "capacitance: claimed-parameter -> parameter (confirmed)",
+    "leak_conductance: claimed-parameter -> parameter (confirmed)",
+    "leakage_voltage_scale: claimed-parameter -> parameter (confirmed)",
+    "capacitance_voltage_nonlinearity: claimed-parameter -> parameter (confirmed)",
+    "capacitance_voltage_scale: claimed-parameter -> parameter (confirmed)",
+    "parasitic_inductance: claimed-parameter -> parameter (confirmed)",
+    "inductive_current_smoothing_scale: claimed-parameter -> parameter (confirmed)",
+    "thermal_time_constant: claimed-parameter -> parameter (confirmed)",
+    "thermal_heating_gain: claimed-parameter -> parameter (confirmed)",
+    "thermal_capacitance_nonlinearity_sensitivity: claimed-parameter -> parameter (confirmed)",
+    "thermal_leakage_sensitivity: claimed-parameter -> parameter (confirmed)",
+    "equation type prior -> ode_system (confirmed from required ODE system contract; single displayed expression alone is one component RHS, not the full standalone explicit relation)"
+  ],
+  "rationale": "The provided ODE-system contract is preserved exactly as required: time is the sole sampled axis; V_C is the target state; I_L and T_th are additional dynamic states rather than fixed parameters. Parameters are chosen to keep the system finite while making all intended mechanisms visible in one transient. With R*C = 0.12 s, the observation window t in [0, 0.12] spans the nominal RC rise where the capacitor reaches voltages comparable to both leakage_voltage_scale = 2.5 V and capacitance_voltage_scale = 4 V, so the thresholded leakage and voltage-dependent capacitance both activate within the recorded trace instead of staying negligible or fully saturated. The inductive startup timescale L/R ≈ 1.7e-4 s is much shorter than RC but still resolved by 400 points over the full window, giving a rounded initial current build-up rather than an instantaneous jump. The leakage strength satisfies leak_conductance*resistance = 2.4, large enough to lower the late-time approach below the ideal source-driven RC behavior and change curvature in the observable window. Thermal parameters are modest rather than extreme: thermal_time_constant = 0.25 s is comparable to, but somewhat longer than, the electrical window so T_th accumulates during charging without immediately equilibrating; thermal_heating_gain = 0.06 and thermal sensitivities 0.25 and 0.6 make electrothermal drift noticeable only after current has flowed, consistent with the stated hint that leakage sensitivity should remain nonnegative and modest. This setup therefore exposes the recorded contrasts honestly: early-time inductive delay, mid-trajectory voltage-dependent capacitance slowdown, leakage-induced sub-source tendency, and additional late-time thermal enhancement of leakage and capacitance modulation. No noise is added; outputs are exact numerical solutions of the inherited state system.",
+  "coverage_report": {},
+  "inactive_mechanisms": [],
+  "target_variance": {},
+  "parent_absorption_report": {},
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_VcazSspPa3n8gqsw22pI15IB"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "I_L / (capacitance * (1 + capacitance_voltage_nonlinearity * (1 + thermal_capacitance_nonlinearity_sensitivity * T_th) * tanh(Abs(V_C) / capacitance_voltage_scale))) - leak_conductance * (1 + thermal_leakage_sensitivity * T_th) * V_C * tanh(Abs(V_C) / leakage_voltage_scale) / (capacitance * (1 + capacitance_voltage_nonlinearity * (1 + thermal_capacitance_nonlinearity_sensitivity * T_th) * tanh(Abs(V_C) / capacitance_voltage_scale)))",
+        "target_symbol": "V_C"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "I_L",
+          "T_th",
+          "V_C",
+          "capacitance",
+          "capacitance_voltage_nonlinearity",
+          "capacitance_voltage_scale",
+          "leak_conductance",
+          "leakage_voltage_scale",
+          "thermal_capacitance_nonlinearity_sensitivity",
+          "thermal_leakage_sensitivity"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": false,
+        "explicit_solution_preview": null,
+        "classification_hint": "implicit_or_explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_a8tz3LSOH4pa2DpV9GmozUxC"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "I_L / (capacitance * (1 + capacitance_voltage_nonlinearity * (1 + thermal_capacitance_nonlinearity_sensitivity * T_th) * tanh(Abs(V_C) / capacitance_voltage_scale))) - leak_conductance * (1 + thermal_leakage_sensitivity * T_th) * V_C * tanh(Abs(V_C) / leakage_voltage_scale) / (capacitance * (1 + capacitance_voltage_nonlinearity * (1 + thermal_capacitance_nonlinearity_sensitivity * T_th) * tanh(Abs(V_C) / capacitance_voltage_scale)))",
+        "target_symbol": "V_C",
+        "assignments": {
+          "V_C": 6,
+          "I_L": 0.04,
+          "T_th": 0.3,
+          "capacitance": 0.001,
+          "capacitance_voltage_nonlinearity": 0.35,
+          "capacitance_voltage_scale": 4,
+          "leak_conductance": 0.02,
+          "leakage_voltage_scale": 2.5,
+          "thermal_capacitance_nonlinearity_sensitivity": 0.25,
+          "thermal_leakage_sensitivity": 0.6
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": -74.06472628296794,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_zGIY8P8uj4O2pkvRrIPalo5D"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 3
+}

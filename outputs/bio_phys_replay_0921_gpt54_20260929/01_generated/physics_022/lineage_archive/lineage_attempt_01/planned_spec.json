@@ -1,0 +1,251 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "T1",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        1500.0
+      ],
+      "n_points": 400,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "heat_capacity_1",
+      "value": 8000.0
+    },
+    {
+      "symbol": "heat_capacity_2",
+      "value": 12000.0
+    },
+    {
+      "symbol": "contact_conductance",
+      "value": 120.0
+    },
+    {
+      "symbol": "conductance_deltaT_scale",
+      "value": 60.0
+    },
+    {
+      "symbol": "mean_temperature_conductance_coeff",
+      "value": 0.0015
+    },
+    {
+      "symbol": "conductance_reference_temperature",
+      "value": 350.0
+    },
+    {
+      "symbol": "heat_capacity_1_temperature_coeff",
+      "value": 0.001
+    },
+    {
+      "symbol": "heat_capacity_1_reference_temperature",
+      "value": 350.0
+    },
+    {
+      "symbol": "body1_contact_temperature_coeff",
+      "value": 0.0008
+    }
+  ],
+  "benchmark_output": "dT1_dt",
+  "benchmark_target_state": "T1",
+  "observed_variables": [
+    "t",
+    "T1",
+    "T2"
+  ],
+  "rhs_for_integrator": "contact_conductance*(1 + mean_temperature_conductance_coeff*((T1 + T2)/2 - conductance_reference_temperature))*(1 + body1_contact_temperature_coeff*(T1 - heat_capacity_1_reference_temperature))*(tanh(Abs(T2 - T1)/conductance_deltaT_scale))**2*(T2 - T1)/(heat_capacity_1*(1 + heat_capacity_1_temperature_coeff*(T1 - heat_capacity_1_reference_temperature)))",
+  "state_variables": [
+    "T1",
+    "T2"
+  ],
+  "state_rhs": [
+    "contact_conductance*(1 + mean_temperature_conductance_coeff*((T1 + T2)/2 - conductance_reference_temperature))*(1 + body1_contact_temperature_coeff*(T1 - heat_capacity_1_reference_temperature))*(tanh(Abs(T2 - T1)/conductance_deltaT_scale))**2*(T2 - T1)/(heat_capacity_1*(1 + heat_capacity_1_temperature_coeff*(T1 - heat_capacity_1_reference_temperature)))",
+    "contact_conductance*(1 + mean_temperature_conductance_coeff*((T1 + T2)/2 - conductance_reference_temperature))*(1 + body1_contact_temperature_coeff*(T1 - heat_capacity_1_reference_temperature))*(tanh(Abs(T1 - T2)/conductance_deltaT_scale))**2*(T1 - T2)/heat_capacity_2"
+  ],
+  "initial_conditions": {
+    "T1": 420.0,
+    "T2": 280.0
+  },
+  "sanity_expectations": [
+    "At t=0, dT1/dt should be negative and dT2/dt positive because T1>T2, so heat flows from body 1 to body 2.",
+    "The weighted mean temperature (heat_capacity_1*T1 + heat_capacity_2*T2)/(heat_capacity_1 + heat_capacity_2) should remain approximately constant along the numerical trajectory.",
+    "|T2-T1| should decrease toward 0, and the late-time approach should be noticeably slower than a parent model with a single tanh factor because the present law uses tanh(|DeltaT|/conductance_deltaT_scale)^2.",
+    "When |T2-T1| is still well above about 60 K, the squared tanh factor should be close to 1 and exchange should be relatively strong; once |T2-T1| falls below order 60 K, |dT1/dt| should bend downward more sharply.",
+    "The denominator factor 1 + heat_capacity_1_temperature_coeff*(T1 - heat_capacity_1_reference_temperature) and the numerator correction factors should stay positive over the trajectory, so the solution should remain finite and real without sign-flip pathologies."
+  ],
+  "role_corrections": [
+    "dT1_dt: claimed-output/target derivative -> derived target rate for state T1 (confirmed by expression; dataset dependent variable remains T1 under inherited ODE contract)",
+    "t: claimed-input/time axis -> independent variable/time axis (confirmed)",
+    "T1: claimed-dynamic state -> dynamic state and dependent variable target_state (confirmed)",
+    "T2: claimed-dynamic state -> dynamic state in the coupled ODE system, not an independent sampled axis (confirmed)",
+    "heat_capacity_1: claimed-parameter -> parameter (confirmed)",
+    "heat_capacity_2: claimed-parameter -> parameter (confirmed via inherited ODE contract)",
+    "contact_conductance: claimed-parameter -> parameter (confirmed)",
+    "conductance_deltaT_scale: claimed-parameter -> parameter (confirmed)",
+    "mean_temperature_conductance_coeff: claimed-parameter -> parameter (confirmed)",
+    "conductance_reference_temperature: claimed-parameter -> parameter (confirmed)",
+    "heat_capacity_1_temperature_coeff: claimed-parameter -> parameter (confirmed)",
+    "heat_capacity_1_reference_temperature: claimed-parameter -> parameter (confirmed)",
+    "body1_contact_temperature_coeff: claimed-parameter -> parameter (confirmed)"
+  ],
+  "rationale": "The provided typed contract is preserved exactly: this is a coupled first-order ODE system in time with target state T1, sampled only along t. The initial condition already provides a strong but not extreme temperature contrast, |T2-T1|=140 K. Choosing conductance_deltaT_scale=60 K makes that contrast only a few times the transition scale, so the trajectory should move from a moderately saturated large-contrast regime into the intended stronger near-equilibrium suppression regime from the squared tanh factor. This directly exposes the generation-5 distinguishing behavior in the reachable states of this single inherited trajectory: early exchange is appreciable, but as |T2-T1| drops below order 60 K the target rate should weaken more sharply than under the parent single-tanh law. The mean-temperature conductance coefficient, body-1 numerator-side conductance coefficient, and body-1 heat-capacity temperature coefficient are all kept small and positive so they remain scientifically admissible, stay active over the trajectory, and do not overwhelm the contrast-shape mechanism. Reference temperatures are placed near the middle of the expected temperature band so the multiplicative corrections remain near order unity and positive. Unequal but same-order heat capacities produce a realistic equilibration timescale and a final common temperature in the interior of the operating window. The 0 to 1500 time window with 400 linear samples should capture early transient exchange, the crossover where |DeltaT| becomes comparable to the conductance scale, and the slower final approach to equilibrium. Labels are exact ODE outputs with no observation noise.",
+  "coverage_report": {},
+  "inactive_mechanisms": [],
+  "target_variance": {},
+  "parent_absorption_report": {},
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_rmyNX5RRVhSkVcFVjrvmzvih"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "contact_conductance*(1 + mean_temperature_conductance_coeff*((T1 + T2)/2 - conductance_reference_temperature))*(1 + body1_contact_temperature_coeff*(T1 - heat_capacity_1_reference_temperature))*(tanh(Abs(T2 - T1)/conductance_deltaT_scale))**2*(T2 - T1)/(heat_capacity_1*(1 + heat_capacity_1_temperature_coeff*(T1 - heat_capacity_1_reference_temperature)))",
+        "target_symbol": "dT1_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "T1",
+          "T2",
+          "body1_contact_temperature_coeff",
+          "conductance_deltaT_scale",
+          "conductance_reference_temperature",
+          "contact_conductance",
+          "heat_capacity_1",
+          "heat_capacity_1_reference_temperature",
+          "heat_capacity_1_temperature_coeff",
+          "mean_temperature_conductance_coeff"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "contact_conductance*(-T1 + T2)*(body1_contact_temperature_coeff*(T1 - heat_capacity_1_reference_temperature) + 1)*(mean_"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_PzVncw1vaq0MJ5RSeuq2PLkS"
+        },
+        {
+          "name": "check_substitution",
+          "id": "call_4xsjs7wb8XKBxaLfHaxobHbz"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "contact_conductance*(1 + mean_temperature_conductance_coeff*((T1 + T2)/2 - conductance_reference_temperature))*(1 + body1_contact_temperature_coeff*(T1 - heat_capacity_1_reference_temperature))*(tanh(Abs(T2 - T1)/conductance_deltaT_scale))**2*(T2 - T1)/(heat_capacity_1*(1 + heat_capacity_1_temperature_coeff*(T1 - heat_capacity_1_reference_temperature)))",
+        "target_symbol": "dT1_dt",
+        "assignments": {
+          "T1": 420,
+          "T2": 280,
+          "heat_capacity_1": 8000,
+          "heat_capacity_2": 12000,
+          "contact_conductance": 120,
+          "conductance_deltaT_scale": 60,
+          "mean_temperature_conductance_coeff": 0.0015,
+          "conductance_reference_temperature": 350,
+          "heat_capacity_1_temperature_coeff": 0.001,
+          "heat_capacity_1_reference_temperature": 350,
+          "body1_contact_temperature_coeff": 0.0008
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": -1.9960126640226385,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "contact_conductance*(1 + mean_temperature_conductance_coeff*((T1 + T2)/2 - conductance_reference_temperature))*(1 + body1_contact_temperature_coeff*(T1 - heat_capacity_1_reference_temperature))*(tanh(Abs(T2 - T1)/conductance_deltaT_scale))**2*(T2 - T1)/(heat_capacity_1*(1 + heat_capacity_1_temperature_coeff*(T1 - heat_capacity_1_reference_temperature)))",
+        "target_symbol": "dT1_dt",
+        "assignments": {
+          "T1": 350,
+          "T2": 360,
+          "heat_capacity_1": 8000,
+          "heat_capacity_2": 12000,
+          "contact_conductance": 120,
+          "conductance_deltaT_scale": 60,
+          "mean_temperature_conductance_coeff": 0.0015,
+          "conductance_reference_temperature": 350,
+          "heat_capacity_1_temperature_coeff": 0.001,
+          "heat_capacity_1_reference_temperature": 350,
+          "body1_contact_temperature_coeff": 0.0008
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": 0.004121383672616093,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_Oeq3i8JEWdrirRn8X9SoFVRV"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_r0vQ1282jurXzzm3XmtQT3mJ"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 4
+}

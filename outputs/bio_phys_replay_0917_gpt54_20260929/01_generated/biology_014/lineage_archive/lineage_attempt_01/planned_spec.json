@@ -1,0 +1,343 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "P_a",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        40.0
+      ],
+      "n_points": 400,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "stroke_volume",
+      "value": 70.0
+    },
+    {
+      "symbol": "seconds_per_minute",
+      "value": 60.0
+    },
+    {
+      "symbol": "systemic_vascular_resistance",
+      "value": 1.2
+    },
+    {
+      "symbol": "arterial_compliance",
+      "value": 1.6
+    },
+    {
+      "symbol": "resting_heart_rate",
+      "value": 70.0
+    },
+    {
+      "symbol": "pressure_set_point",
+      "value": 100.0
+    },
+    {
+      "symbol": "baroreflex_pressure_sensitivity",
+      "value": 0.03
+    },
+    {
+      "symbol": "heart_rate_adjustment_time",
+      "value": 3.5
+    },
+    {
+      "symbol": "arterial_stiffening_gain",
+      "value": 3.0
+    },
+    {
+      "symbol": "arterial_stiffening_pressure_scale",
+      "value": 80.0
+    },
+    {
+      "symbol": "baroreflex_saturation_pressure_scale",
+      "value": 25.0
+    },
+    {
+      "symbol": "viscoelastic_relaxation_time",
+      "value": 5.0
+    },
+    {
+      "symbol": "viscoelastic_buffering_gain",
+      "value": 1.0
+    },
+    {
+      "symbol": "viscoelastic_pressure_scale",
+      "value": 15.0
+    },
+    {
+      "symbol": "vascular_resistance_adjustment_time",
+      "value": 8.0
+    },
+    {
+      "symbol": "reflex_resistance_gain",
+      "value": 1.2
+    }
+  ],
+  "benchmark_output": "dP_a_dt",
+  "benchmark_target_state": "P_a",
+  "observed_variables": [
+    "t",
+    "P_a",
+    "H",
+    "P_v",
+    "R_v"
+  ],
+  "rhs_for_integrator": "(stroke_volume*H/(seconds_per_minute*(1 + (H/resting_heart_rate)**2)) - P_a/(systemic_vascular_resistance*(1 + reflex_resistance_gain*R_v/(1 + Abs(R_v)))))/((arterial_compliance/(1 + arterial_stiffening_gain*P_a/(arterial_stiffening_pressure_scale + P_a)))*(1 + viscoelastic_buffering_gain*Abs(P_a - P_v)/(viscoelastic_pressure_scale + Abs(P_a - P_v))))",
+  "state_variables": [
+    "P_a",
+    "H",
+    "P_v",
+    "R_v"
+  ],
+  "state_rhs": [
+    "(stroke_volume*H/(seconds_per_minute*(1 + (H/resting_heart_rate)**2)) - P_a/(systemic_vascular_resistance*(1 + reflex_resistance_gain*R_v/(1 + Abs(R_v)))))/((arterial_compliance/(1 + arterial_stiffening_gain*P_a/(arterial_stiffening_pressure_scale + P_a)))*(1 + viscoelastic_buffering_gain*Abs(P_a - P_v)/(viscoelastic_pressure_scale + Abs(P_a - P_v))))",
+    "(resting_heart_rate*exp(-baroreflex_pressure_sensitivity*(P_a - pressure_set_point)/(1 + Abs(P_a - pressure_set_point)/baroreflex_saturation_pressure_scale)) - H)/heart_rate_adjustment_time",
+    "(P_a - P_v)/viscoelastic_relaxation_time",
+    "(-tanh(baroreflex_pressure_sensitivity*(P_a - pressure_set_point)/(1 + Abs(P_a - pressure_set_point)/baroreflex_saturation_pressure_scale)) - R_v)/vascular_resistance_adjustment_time"
+  ],
+  "initial_conditions": {
+    "P_a": 110.0,
+    "H": 70.0,
+    "P_v": 110.0,
+    "R_v": 0.0
+  },
+  "sanity_expectations": [
+    "At t=0, P_a starts above pressure_set_point, so the H equation should initially drive H downward (bradycardic direction) and the R_v equation should initially drive R_v negative, reducing effective resistance support rather than increasing it.",
+    "Because viscoelastic_relaxation_time is finite and P_v(0)=P_a(0), any later nonzero |P_a-P_v| should emerge only after P_a begins changing; buffering should therefore be weakest exactly at t=0 and stronger during the faster early transient than during late near-equilibrium motion.",
+    "The trajectory should not behave like the parent fixed-resistance model: as R_v departs from 0, the effective runoff term P_a/(systemic_vascular_resistance*(1 + reflex_resistance_gain*R_v/(1 + Abs(R_v)))) should change over time even at similar P_a values.",
+    "Pressure-dependent stiffening should be visible over the reachable pressure range: effective compliance is smaller at higher P_a than at lower P_a, so equal net-flow magnitudes would translate into larger |dP_a_dt| at higher pressure than under a constant-compliance law.",
+    "With heart-rate adjustment faster than vascular-resistance adjustment, H should react earlier than R_v, and any damped recovery should show a phase lag where vasomotor modulation persists after much of the heart-rate change has occurred.",
+    "The system should remain finite and real over representative baseline, lower-pressure, and higher-pressure substitutions with the chosen parameter values, as checked before emission."
+  ],
+  "role_corrections": [
+    "dP_a_dt: claimed-output/target derivative -> derivative of dependent variable P_a (confirmed by ODE system contract; not the dependent variable itself)",
+    "t: claimed-input/time axis -> independent variable/time axis (confirmed)",
+    "P_a: claimed-dynamic state -> dependent variable and dynamic state (confirmed)",
+    "H: claimed-dynamic state -> dynamic state in ode_system, not independent sampled axis (confirmed)",
+    "P_v: claimed-dynamic state -> dynamic state in ode_system, not parameter (confirmed)",
+    "R_v: claimed-dynamic state -> dynamic state in ode_system, not parameter (confirmed; preserve added-state freedom decision)",
+    "stroke_volume: claimed-parameter -> parameter (confirmed)",
+    "seconds_per_minute: claimed-parameter -> parameter (confirmed)",
+    "systemic_vascular_resistance: claimed-parameter -> parameter (confirmed)",
+    "arterial_compliance: claimed-parameter -> parameter (confirmed)",
+    "resting_heart_rate: claimed-parameter -> parameter (confirmed)",
+    "pressure_set_point: claimed-parameter -> parameter (confirmed)",
+    "baroreflex_pressure_sensitivity: claimed-parameter -> parameter (confirmed)",
+    "heart_rate_adjustment_time: claimed-parameter -> parameter (confirmed)",
+    "arterial_stiffening_gain: claimed-parameter -> parameter (confirmed)",
+    "arterial_stiffening_pressure_scale: claimed-parameter -> parameter (confirmed)",
+    "baroreflex_saturation_pressure_scale: claimed-parameter -> parameter (confirmed)",
+    "viscoelastic_relaxation_time: claimed-parameter -> parameter (confirmed)",
+    "viscoelastic_buffering_gain: claimed-parameter -> parameter (confirmed)",
+    "viscoelastic_pressure_scale: claimed-parameter -> parameter (confirmed)",
+    "vascular_resistance_adjustment_time: claimed-parameter -> parameter (confirmed)",
+    "reflex_resistance_gain: claimed-parameter -> parameter (confirmed)"
+  ],
+  "rationale": "The provided typed ODE contract is preserved exactly: P_a is the target state, t is the sole sampled axis, and H, P_v, and R_v remain dynamic states rather than fixed parameters. The chosen parameter set keeps all denominators positive and finite while placing the system away from trivial parent-recovery limits. pressure_set_point=100 with the inherited initial P_a=110 creates an immediate hypertensive error so both reflex branches are active from the stated initial condition without changing it. baroreflex_pressure_sensitivity=0.03 and baroreflex_saturation_pressure_scale=25 make the reflex clearly responsive over roughly 10–30 mmHg deviations but not deep in saturation, so heart-rate and vasomotor feedback remain visibly nonlinear yet not clipped. vascular_resistance_adjustment_time=8 s and heart_rate_adjustment_time=3.5 s create a realistic faster chronotropic branch and slower vasomotor branch, exposing delayed interaction and damping rather than instantaneous collapse to baseline. reflex_resistance_gain=1.2 lies within the suggested 0–3 range and is large enough that R_v materially modulates runoff, but not so large that the effective resistance factor approaches zero for moderate negative R_v. arterial_stiffening_gain=3 and arterial_stiffening_pressure_scale=80 keep pressure-dependent compliance visible across reachable P_a values near roughly 90–130 mmHg. viscoelastic_relaxation_time=5 s, viscoelastic_buffering_gain=1, and viscoelastic_pressure_scale=15 make |P_a-P_v| matter during faster early transients and any damped return, but not dominate the entire trajectory. stroke_volume=70, resting_heart_rate=70, systemic_vascular_resistance=1.2, and arterial_compliance=1.6 are physiologically sensible magnitudes that keep the coupled system responsive. A 0–40 s window with 400 samples is long enough to capture the initial pressure drop, reflex recruitment, viscoelastic lag, and possible damped return toward baseline under one exact trajectory from the inherited initial state. This dataset cannot by itself compare positive versus negative external perturbation protocols, but it can still expose the intended mechanism through within-trajectory phase dependence: matched or similar P_a values later in the trajectory can correspond to different P_v and R_v histories, changing dP_a_dt through the added memory and vasomotor branches.",
+  "coverage_report": {},
+  "inactive_mechanisms": [],
+  "target_variance": {},
+  "parent_absorption_report": {},
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_GWHBbEXLnzJj3cFbj1KKtdIt"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "(stroke_volume*H/(seconds_per_minute*(1 + (H/resting_heart_rate)**2)) - P_a/(systemic_vascular_resistance*(1 + reflex_resistance_gain*R_v/(1 + Abs(R_v)))))/((arterial_compliance/(1 + arterial_stiffening_gain*P_a/(arterial_stiffening_pressure_scale + P_a)))*(1 + viscoelastic_buffering_gain*Abs(P_a - P_v)/(viscoelastic_pressure_scale + Abs(P_a - P_v))))",
+        "target_symbol": "dP_a_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "H",
+          "P_a",
+          "P_v",
+          "R_v",
+          "arterial_compliance",
+          "arterial_stiffening_gain",
+          "arterial_stiffening_pressure_scale",
+          "reflex_resistance_gain",
+          "resting_heart_rate",
+          "seconds_per_minute",
+          "stroke_volume",
+          "systemic_vascular_resistance",
+          "viscoelastic_buffering_gain",
+          "viscoelastic_pressure_scale"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "(H*stroke_volume/((seconds_per_minute*((H/resting_heart_rate)**2 + 1))) - P_a/(systemic_vascular_resistance*(R_v*reflex_"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_TZqv0NVFg1ELZdh6NsQt3GaA"
+        },
+        {
+          "name": "check_substitution",
+          "id": "call_5kBMtU4ucXUC5G1qv73nQCEL"
+        },
+        {
+          "name": "check_substitution",
+          "id": "call_zctQNNINchvTMTkxTSF13Qtb"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "(stroke_volume*H/(seconds_per_minute*(1 + (H/resting_heart_rate)**2)) - P_a/(systemic_vascular_resistance*(1 + reflex_resistance_gain*R_v/(1 + Abs(R_v)))))/((arterial_compliance/(1 + arterial_stiffening_gain*P_a/(arterial_stiffening_pressure_scale + P_a)))*(1 + viscoelastic_buffering_gain*Abs(P_a - P_v)/(viscoelastic_pressure_scale + Abs(P_a - P_v))))",
+        "target_symbol": "dP_a_dt",
+        "assignments": {
+          "H": 70,
+          "P_a": 110,
+          "P_v": 110,
+          "R_v": 0,
+          "stroke_volume": 70,
+          "seconds_per_minute": 60,
+          "systemic_vascular_resistance": 1.2,
+          "arterial_compliance": 1.6,
+          "resting_heart_rate": 70,
+          "arterial_stiffening_gain": 3,
+          "arterial_stiffening_pressure_scale": 80,
+          "reflex_resistance_gain": 1.2,
+          "viscoelastic_buffering_gain": 1.0,
+          "viscoelastic_pressure_scale": 15
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": -86.95175438596493,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "(stroke_volume*H/(seconds_per_minute*(1 + (H/resting_heart_rate)**2)) - P_a/(systemic_vascular_resistance*(1 + reflex_resistance_gain*R_v/(1 + Abs(R_v)))))/((arterial_compliance/(1 + arterial_stiffening_gain*P_a/(arterial_stiffening_pressure_scale + P_a)))*(1 + viscoelastic_buffering_gain*Abs(P_a - P_v)/(viscoelastic_pressure_scale + Abs(P_a - P_v))))",
+        "target_symbol": "dP_a_dt",
+        "assignments": {
+          "H": 45,
+          "P_a": 80,
+          "P_v": 95,
+          "R_v": 1.5,
+          "stroke_volume": 70,
+          "seconds_per_minute": 60,
+          "systemic_vascular_resistance": 1.2,
+          "arterial_compliance": 1.6,
+          "resting_heart_rate": 70,
+          "arterial_stiffening_gain": 3,
+          "arterial_stiffening_pressure_scale": 80,
+          "reflex_resistance_gain": 1.2,
+          "viscoelastic_buffering_gain": 1.0,
+          "viscoelastic_pressure_scale": 15
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": -1.6788286271327113,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "(stroke_volume*H/(seconds_per_minute*(1 + (H/resting_heart_rate)**2)) - P_a/(systemic_vascular_resistance*(1 + reflex_resistance_gain*R_v/(1 + Abs(R_v)))))/((arterial_compliance/(1 + arterial_stiffening_gain*P_a/(arterial_stiffening_pressure_scale + P_a)))*(1 + viscoelastic_buffering_gain*Abs(P_a - P_v)/(viscoelastic_pressure_scale + Abs(P_a - P_v))))",
+        "target_symbol": "dP_a_dt",
+        "assignments": {
+          "H": 95,
+          "P_a": 140,
+          "P_v": 120,
+          "R_v": -1.2,
+          "stroke_volume": 70,
+          "seconds_per_minute": 60,
+          "systemic_vascular_resistance": 1.2,
+          "arterial_compliance": 1.6,
+          "resting_heart_rate": 70,
+          "arterial_stiffening_gain": 3,
+          "arterial_stiffening_pressure_scale": 80,
+          "reflex_resistance_gain": 1.2,
+          "viscoelastic_buffering_gain": 1.0,
+          "viscoelastic_pressure_scale": 15
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": -345.6249419191701,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_PBc7QV5PwQJ7E27JzNaqdwX1"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_0dBJoCYK0p167p5nVZTXZHXw"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 4
+}

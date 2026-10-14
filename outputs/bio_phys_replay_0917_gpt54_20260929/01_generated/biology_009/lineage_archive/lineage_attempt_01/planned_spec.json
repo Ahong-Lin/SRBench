@@ -1,0 +1,226 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "p",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        12.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "selection_decay_rate",
+      "value": 0.6
+    },
+    {
+      "symbol": "selection_capacity",
+      "value": 0.5
+    },
+    {
+      "symbol": "occupancy_buildup_rate",
+      "value": 1.2
+    },
+    {
+      "symbol": "occupancy_relaxation_rate",
+      "value": 0.35
+    },
+    {
+      "symbol": "attenuation_capacity",
+      "value": 2.0
+    },
+    {
+      "symbol": "asymmetry_strength",
+      "value": 1.6
+    },
+    {
+      "symbol": "asymmetry_threshold",
+      "value": 0.3
+    },
+    {
+      "symbol": "burden_buildup_rate",
+      "value": 1.8
+    },
+    {
+      "symbol": "burden_relaxation_rate",
+      "value": 0.45
+    },
+    {
+      "symbol": "burden_half_saturation",
+      "value": 1.5
+    }
+  ],
+  "benchmark_output": "dp_dt",
+  "benchmark_target_state": "p",
+  "observed_variables": [
+    "t",
+    "p",
+    "selection_coefficient",
+    "attenuation_occupancy",
+    "delayed_burden"
+  ],
+  "rhs_for_integrator": "selection_coefficient*p*(1 - p)*(1 + asymmetry_strength*(1 - p)/(asymmetry_threshold + 1 - p))/(1 + delayed_burden/attenuation_capacity + (delayed_burden/attenuation_capacity)**2)",
+  "state_variables": [
+    "p",
+    "selection_coefficient",
+    "attenuation_occupancy",
+    "delayed_burden"
+  ],
+  "state_rhs": [
+    "selection_coefficient*p*(1 - p)*(1 + asymmetry_strength*(1 - p)/(asymmetry_threshold + 1 - p))/(1 + delayed_burden/attenuation_capacity + (delayed_burden/attenuation_capacity)**2)",
+    "-selection_decay_rate*selection_coefficient/(selection_capacity + selection_coefficient)",
+    "occupancy_buildup_rate*p - occupancy_relaxation_rate*attenuation_occupancy",
+    "burden_buildup_rate*attenuation_occupancy/(burden_half_saturation + attenuation_occupancy) - burden_relaxation_rate*delayed_burden"
+  ],
+  "initial_conditions": {
+    "p": 0.5,
+    "selection_coefficient": 1.0,
+    "attenuation_occupancy": 1.0,
+    "delayed_burden": 0.0
+  },
+  "sanity_expectations": [
+    "All four states remain real and finite over t in [0,12] with the chosen parameters.",
+    "p(t) should stay within [0,1] and increase initially from p(0)=0.5 because the initial realized gain is positive.",
+    "selection_coefficient(t) should decrease monotonically from 1.0 because its RHS is strictly negative for positive selection_coefficient.",
+    "attenuation_occupancy(t) should rise initially since occupancy_buildup_rate*p(0)=0.6 exceeds occupancy_relaxation_rate*attenuation_occupancy(0)=0.35.",
+    "delayed_burden(t) should increase from 0 after an initial lag because occupancy is positive and burden_buildup_rate*attenuation_occupancy/(burden_half_saturation+attenuation_occupancy) initially exceeds burden relaxation.",
+    "The realized attenuation acting on dp/dt should be weak near t=0 because delayed_burden(0)=0, then strengthen later as delayed_burden accumulates, producing extra late slowdown beyond what selection decay alone would cause.",
+    "Because asymmetry_strength>0, the frequency kernel multiplying selection_coefficient is asymmetric in p rather than exactly p*(1-p); if trajectories sample interior p values, the strongest instantaneous gain need not occur exactly at p=0.5."
+  ],
+  "role_corrections": [
+    "dp_dt: claimed-output/target derivative -> derivative label only (confirmed structurally as the named rate, but dependent variable for the ODE system is p per supplied contract)",
+    "t: claimed-input/time axis -> independent variable/time axis (confirmed)",
+    "p: claimed-dynamic state -> dependent variable and dynamic state (confirmed)",
+    "selection_coefficient: claimed-dynamic state -> dynamic state (confirmed under preserved typed ODE contract)",
+    "attenuation_occupancy: claimed-dynamic state -> dynamic state (confirmed under preserved typed ODE contract)",
+    "delayed_burden: claimed-dynamic state -> dynamic state (confirmed under preserved typed ODE contract)",
+    "selection_decay_rate: claimed-parameter -> parameter (confirmed)",
+    "selection_capacity: claimed-parameter -> parameter (confirmed)",
+    "occupancy_buildup_rate: claimed-parameter -> parameter (confirmed)",
+    "occupancy_relaxation_rate: claimed-parameter -> parameter (confirmed)",
+    "attenuation_capacity: claimed-parameter -> parameter (confirmed)",
+    "asymmetry_strength: claimed-parameter -> parameter (confirmed)",
+    "asymmetry_threshold: claimed-parameter -> parameter (confirmed)",
+    "burden_buildup_rate: claimed-parameter -> parameter (confirmed)",
+    "burden_relaxation_rate: claimed-parameter -> parameter (confirmed)",
+    "burden_half_saturation: claimed-parameter -> parameter (confirmed)"
+  ],
+  "rationale": "Preserving the supplied ODE-system contract exactly, the dataset should sample only time and integrate the 4-state system with one shared biologically admissible parameter set. The chosen values keep all rates nonnegative, avoid singularities, and place the system away from both the parent-recovery limits and deep immediate saturation. With p(0)=0.5 and selection_coefficient(0)=1, allele gain is initially substantial; selection then decays on an observable timescale because selection_decay_rate is comparable to the experiment duration and selection_capacity is moderate. Occupancy is generated fast enough from p to rise early, but its direct state is no longer in the p-equation; instead delayed_burden is built from occupancy through a saturating law and relaxes more slowly than occupancy, creating the intended two-timescale memory effect. attenuation_capacity=2 keeps delayed_burden/attenuation_capacity in an order-1 regime over reachable trajectories, so the quadratic attenuation term matters without crushing dp/dt to near zero throughout. asymmetry_strength=1.6 and asymmetry_threshold=0.3 make the competitor-dependent amplification visible over the interior p range while remaining finite and positive. The selected burden parameters expose the generation-5 contrast specifically: early in the run attenuation is weak because delayed_burden starts at 0 even though attenuation_occupancy already starts at 1, whereas later the accumulated burden suppresses p more strongly after occupancy history has had time to act. Weak/inactive note: because this spec preserves the inherited initial condition delayed_burden(0)=0, the burden effect is absent exactly at t=0 and must emerge dynamically; this is a real limitation of the inherited contract, not repaired here.",
+  "coverage_report": {},
+  "inactive_mechanisms": [],
+  "target_variance": {},
+  "parent_absorption_report": {},
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_QZp1dUFnGj6ol5EdKzkgbzID"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "selection_coefficient*p*(1 - p)*(1 + asymmetry_strength*(1 - p)/(asymmetry_threshold + 1 - p))/(1 + delayed_burden/attenuation_capacity + (delayed_burden/attenuation_capacity)**2)",
+        "target_symbol": "dp_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "asymmetry_strength",
+          "asymmetry_threshold",
+          "attenuation_capacity",
+          "delayed_burden",
+          "p",
+          "selection_coefficient"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "p*selection_coefficient*(1 - p)*(asymmetry_strength*(1 - p)/(asymmetry_threshold - p + 1) + 1)/((delayed_burden/attenuat"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_TtttNdXp4SdGHjMI0n9UUDjz"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "selection_coefficient*p*(1 - p)*(1 + asymmetry_strength*(1 - p)/(asymmetry_threshold + 1 - p))/(1 + delayed_burden/attenuation_capacity + (delayed_burden/attenuation_capacity)**2)",
+        "target_symbol": "dp_dt",
+        "assignments": {
+          "p": 0.5,
+          "selection_coefficient": 1.0,
+          "delayed_burden": 1.0,
+          "attenuation_capacity": 2.0,
+          "asymmetry_strength": 1.5,
+          "asymmetry_threshold": 0.3
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": 0.27678571428571425,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_qIt6iDKbU874N2DXzMd2gHDP"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_0tScxIAZPqIWCpNTVAc3grbO"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 4
+}

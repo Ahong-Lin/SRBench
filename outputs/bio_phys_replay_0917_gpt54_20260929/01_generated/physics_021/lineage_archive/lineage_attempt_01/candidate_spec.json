@@ -1,0 +1,1827 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "k",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        20.0
+      ],
+      "n_points": 300,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "C_epsilon2",
+      "value": 1.9
+    },
+    {
+      "symbol": "C_cascade",
+      "value": 0.7
+    },
+    {
+      "symbol": "tau_cascade",
+      "value": 1.5
+    },
+    {
+      "symbol": "tau_transfer",
+      "value": 3.0
+    },
+    {
+      "symbol": "C_transfer",
+      "value": 0.8
+    },
+    {
+      "symbol": "q_saturation",
+      "value": 1.0
+    },
+    {
+      "symbol": "k_feed_scale",
+      "value": 0.8
+    },
+    {
+      "symbol": "k_shutdown_scale",
+      "value": 0.2
+    }
+  ],
+  "benchmark_output": "dk_dt",
+  "benchmark_target_state": "k",
+  "observed_variables": [
+    "t",
+    "k",
+    "epsilon",
+    "q",
+    "r"
+  ],
+  "rhs_for_integrator": "-epsilon",
+  "state_variables": [
+    "k",
+    "epsilon",
+    "q",
+    "r"
+  ],
+  "state_rhs": [
+    "-epsilon",
+    "-C_epsilon2*epsilon**2/k + C_cascade*(k/(k_feed_scale + k))*(k/(k_shutdown_scale + k))*k*(q + C_transfer*r)/(q_saturation + q + C_transfer*r)",
+    "(epsilon/k - q)/tau_cascade",
+    "(k/(k_shutdown_scale + k))*(q - r)/tau_transfer"
+  ],
+  "initial_conditions": {
+    "k": 1.0,
+    "epsilon": 0.1,
+    "q": 1.0,
+    "r": 1.0
+  },
+  "sanity_expectations": [
+    "k(t) should decrease monotonically because dk/dt=-epsilon and the chosen parameters start with epsilon(0)=0.1>0; an initial slope near -0.1 is expected.",
+    "The cascade feed is initially active but not deep in saturation: at t=0, k/(k_feed_scale+k)≈0.56, k/(k_shutdown_scale+k)≈0.83, and (q+C_transfer*r)/(q_saturation+q+C_transfer*r)=1.8/2.8≈0.64, so epsilon should not follow a trivial single-power decay immediately.",
+    "Because tau_transfer > tau_cascade and C_transfer is nonzero, r should evolve more slowly than q after the trajectory leaves the initial q=r state; this should create a visible intermediate-time shoulder or inflection in epsilon(t) relative to a single-lag response.",
+    "As k decays toward the shutdown scale k_shutdown_scale=0.2, the factor k/(k_shutdown_scale+k) should noticeably suppress both epsilon production and r-relaxation, producing sharper late-time bending downward in epsilon(t) and a corresponding reduction in the magnitude of dk/dt.",
+    "The chosen parameters avoid the parent-recovery limits C_transfer=0, tau_transfer->0, k_feed_scale>>k, and k_shutdown_scale<<k over the whole record, so both the two-stage memory effect and late-decay shutdown should be observable within the sampled time range.",
+    "At the representative initial-condition substitution, all RHS components are finite and real, so numerical integration should begin from a well-posed, non-singular state."
+  ],
+  "role_corrections": [
+    "dk_dt: claimed-output/target derivative -> derived quantity for state k (overridden: contract and target law indicate dependent variable is k, with dk_dt as its RHS expression)",
+    "t: V->V (confirmed: sole time axis from ODE contract)",
+    "k: dynamic state/target -> dependent variable/state (confirmed)",
+    "epsilon: dynamic state -> dynamic state, not parameter (confirmed)",
+    "q: dynamic state -> dynamic state, not parameter (confirmed)",
+    "r: dynamic state -> dynamic state, not parameter (confirmed)",
+    "C_epsilon2: P->P (confirmed)",
+    "C_cascade: P->P (confirmed)",
+    "tau_cascade: P->P (confirmed)",
+    "tau_transfer: P->P (confirmed)",
+    "C_transfer: P->P (confirmed)",
+    "q_saturation: P->P (confirmed)",
+    "k_feed_scale: P->P (confirmed)",
+    "k_shutdown_scale: P->P (confirmed)"
+  ],
+  "rationale": "Preserving the typed ODE-system contract exactly: target state k, single time axis t, and the supplied four-state system. The analyzed target relation dk_dt=-epsilon is consistent with k as the dependent variable and t as the only independent variable; epsilon, q, and r are coupled dynamic states rather than fixed parameters because the contract explicitly governs them. Parameters are chosen to keep the system finite and active away from parent-recovery limits while remaining physically sensible and positive. Specifically, tau_cascade=1.5 and tau_transfer=3.0 give separated primary and slower secondary cascade-memory timescales so the added r stage can create visible mid-decay curvature rather than collapsing to the single-memory limit. C_transfer=0.8 makes r materially but not overwhelmingly contribute to the epsilon feed. q_saturation=1.0 keeps the feed term in an intermediate regime near the inherited initial q=r=1, avoiding both near-linear unsaturated behavior far below saturation and hard saturation that would hide differences between q and r. k_feed_scale=0.8 places the initial state k(0)=1 near the onset of energetic-state modulation, so the feed factor k/(k_feed_scale+k) is active early. k_shutdown_scale=0.2 ensures the extra low-k shutdown is weak initially but becomes important later as decay reduces k, exposing the intended stronger late-time bend rather than staying always-on or negligible over the whole trajectory. C_cascade=0.7 and C_epsilon2=1.9 balance production and destruction so epsilon can show transiently rich curvature while k still decays monotonically from dk_dt=-epsilon. The chosen time window t in [0,20] with 300 points is long enough to capture early memory relaxation, intermediate two-stage transfer effects, and late depletion/shutdown without requiring any change to inherited initial conditions. A limitation is that the initial contract fixes q(0)=r(0)=1, so the two-stage contrast cannot begin from a strongly separated q-r occupancy; the visible distinction must therefore emerge from different relaxation rates and k-dependent gating along the trajectory rather than from an imposed initial mismatch.",
+  "coverage_report": {
+    "groups": [
+      {
+        "generation": 1,
+        "name": "dissipation_loading",
+        "expression": "epsilon**2/k",
+        "role": "instantaneous intensity of dissipation relative to stored turbulent energy; sets parent k-decay curvature through epsilon dynamics",
+        "train_range": [
+          0.000233912395035439,
+          0.06485994019752811
+        ],
+        "hidden_range": [
+          0.00015686383928346126,
+          0.00023314269357974264
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.000233912395035439,
+          "max": 0.06485994019752811,
+          "q05": 0.0002842642288294208,
+          "median": 0.0031067550447117695,
+          "q95": 0.06128642144808624,
+          "range": 0.06462602780249267,
+          "robust_range": 0.06100215721925682
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.00015686383928346126,
+          "max": 0.00023314269357974264,
+          "q05": 0.0001598449976209732,
+          "median": 0.00019021633808126372,
+          "q95": 0.00022832975672024643,
+          "range": 7.627885429628138e-05,
+          "robust_range": 6.848475909927322e-05
+        }
+      },
+      {
+        "generation": 1,
+        "name": "decay_timescale_ratio",
+        "expression": "epsilon/k",
+        "role": "inverse turbulent decay timescale controlling how rapidly k can change relative to its level",
+        "train_range": [
+          0.08398969049871367,
+          0.3296570426474151
+        ],
+        "hidden_range": [
+          0.07443648217391664,
+          0.08390640178161664
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.08398969049871367,
+          "max": 0.3296570426474151,
+          "q05": 0.08905505191146972,
+          "median": 0.1698193159265961,
+          "q95": 0.3259669042135391,
+          "range": 0.2456673521487014,
+          "robust_range": 0.23691185230206935
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.07443648217391664,
+          "max": 0.08390640178161664,
+          "q05": 0.07486268820342656,
+          "median": 0.07891095914441426,
+          "q95": 0.08338103857572325,
+          "range": 0.009469919607699995,
+          "robust_range": 0.008518350372296687
+        }
+      },
+      {
+        "generation": 2,
+        "name": "cascade_occupancy",
+        "expression": "q/(q_saturation + q)",
+        "role": "Current saturation level of delayed cascade transfer into the dissipative range",
+        "train_range": [
+          0.08580754491785646,
+          0.5
+        ],
+        "hidden_range": [
+          0.07594730062217096,
+          0.08572167973082871
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.08580754491785646,
+          "max": 0.5,
+          "q05": 0.09102406360968351,
+          "median": 0.17547719790427685,
+          "q95": 0.3874154519153056,
+          "range": 0.41419245508214353,
+          "robust_range": 0.29639138830562206
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.07594730062217096,
+          "max": 0.08572167973082871,
+          "q05": 0.07638751112369879,
+          "median": 0.08056785446870368,
+          "q95": 0.08518000831774034,
+          "range": 0.00977437910865775,
+          "robust_range": 0.008792497194041543
+        }
+      },
+      {
+        "generation": 2,
+        "name": "specific_dissipation",
+        "expression": "epsilon/k",
+        "role": "Instantaneous small-scale depletion rate relative to turbulent energy",
+        "train_range": [
+          0.08398969049871367,
+          0.3296570426474151
+        ],
+        "hidden_range": [
+          0.07443648217391664,
+          0.08390640178161664
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.08398969049871367,
+          "max": 0.3296570426474151,
+          "q05": 0.08905505191146972,
+          "median": 0.1698193159265961,
+          "q95": 0.3259669042135391,
+          "range": 0.2456673521487014,
+          "robust_range": 0.23691185230206935
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.07443648217391664,
+          "max": 0.08390640178161664,
+          "q05": 0.07486268820342656,
+          "median": 0.07891095914441426,
+          "q95": 0.08338103857572325,
+          "range": 0.009469919607699995,
+          "robust_range": 0.008518350372296687
+        }
+      },
+      {
+        "generation": 2,
+        "name": "energetic_state",
+        "expression": "k",
+        "role": "Large-eddy energy level controlling cascade-feed intensity in the planned refinement",
+        "train_range": [
+          0.03315898848550107,
+          1.0
+        ],
+        "hidden_range": [
+          0.028310735964593388,
+          0.033115522750468196
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.03315898848550107,
+          "max": 1.0,
+          "q05": 0.035842895380347635,
+          "median": 0.09848792695318413,
+          "q95": 0.8518508014969263,
+          "range": 0.966841011514499,
+          "robust_range": 0.8160079061165786
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.028310735964593388,
+          "max": 0.033115522750468196,
+          "q05": 0.028521208594307772,
+          "median": 0.030547299549586574,
+          "q95": 0.032841846235803565,
+          "range": 0.004804786785874808,
+          "robust_range": 0.004320637641495793
+        }
+      },
+      {
+        "generation": 3,
+        "name": "cascade_ratio",
+        "expression": "q*k/epsilon",
+        "role": "Measures spectral disequilibrium between delayed cascade transfer and current dissipation level",
+        "train_range": [
+          1.1175368761203552,
+          10.0
+        ],
+        "hidden_range": [
+          1.1041542843972487,
+          1.1174218350666454
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 1.1175368761203552,
+          "max": 10.0,
+          "q05": 1.1244632727830537,
+          "median": 1.1791124881223474,
+          "q95": 2.5952653427408534,
+          "range": 8.882463123879646,
+          "robust_range": 1.4708020699577997
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 1.1041542843972487,
+          "max": 1.1174218350666454,
+          "q05": 1.1047579742285554,
+          "median": 1.1104647892942623,
+          "q95": 1.1166954102674265,
+          "range": 0.013267550669396666,
+          "robust_range": 0.011937436038871096
+        }
+      },
+      {
+        "generation": 3,
+        "name": "energy_depletion",
+        "expression": "k/(k_feed_scale + k)",
+        "role": "Measures how strongly the remaining large-scale energy can still sustain dissipation production",
+        "train_range": [
+          0.03979911270689978,
+          0.5555555555555556
+        ],
+        "hidden_range": [
+          0.03417888328058993,
+          0.039749016608332764
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.03979911270689978,
+          "max": 0.5555555555555556,
+          "q05": 0.04288233144808701,
+          "median": 0.1096150060256782,
+          "q95": 0.5156925794798717,
+          "range": 0.5157564428486558,
+          "robust_range": 0.4728102480317847
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.03417888328058993,
+          "max": 0.039749016608332764,
+          "q05": 0.03442423441086897,
+          "median": 0.03677972242502037,
+          "q95": 0.03943347215823901,
+          "range": 0.005570133327742831,
+          "robust_range": 0.005009237747370041
+        }
+      },
+      {
+        "generation": 3,
+        "name": "memory_loading",
+        "expression": "q/(q_saturation + q)",
+        "role": "Measures saturation of the cascade-memory contribution to dissipation production",
+        "train_range": [
+          0.08580754491785646,
+          0.5
+        ],
+        "hidden_range": [
+          0.07594730062217096,
+          0.08572167973082871
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.08580754491785646,
+          "max": 0.5,
+          "q05": 0.09102406360968351,
+          "median": 0.17547719790427685,
+          "q95": 0.3874154519153056,
+          "range": 0.41419245508214353,
+          "robust_range": 0.29639138830562206
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.07594730062217096,
+          "max": 0.08572167973082871,
+          "q05": 0.07638751112369879,
+          "median": 0.08056785446870368,
+          "q95": 0.08518000831774034,
+          "range": 0.00977437910865775,
+          "robust_range": 0.008792497194041543
+        }
+      },
+      {
+        "generation": 4,
+        "name": "diseq_ratio",
+        "expression": "epsilon/k - q",
+        "role": "Instantaneous mismatch between dissipation-scale demand and the current cascade-memory state",
+        "train_range": [
+          -0.9,
+          -0.009871885847534276
+        ],
+        "hidden_range": [
+          -0.009852443671036687,
+          -0.007752878533872853
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": -0.9,
+          "max": -0.009871885847534276,
+          "q05": -0.38872147912638777,
+          "median": -0.03521762720711251,
+          "q95": -0.011084096687386913,
+          "range": 0.8901281141524657,
+          "robust_range": 0.37763738243900086
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": -0.009852443671036687,
+          "max": -0.007752878533872853,
+          "q05": -0.009730186634745338,
+          "median": -0.008716884413949091,
+          "q95": -0.007842465028609436,
+          "range": 0.0020995651371638335,
+          "robust_range": 0.001887721606135902
+        }
+      },
+      {
+        "generation": 4,
+        "name": "cascade_gate",
+        "expression": "(k/(k_feed_scale + k))*(k/(k_shutdown_scale + k))",
+        "role": "Current large-scale effectiveness of feeding dissipation through the cascade pathway",
+        "train_range": [
+          0.005660079109767256,
+          0.4629629629629629
+        ],
+        "hidden_range": [
+          0.004238212171816125,
+          0.005646597224720154
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.005660079109767256,
+          "max": 0.4629629629629629,
+          "q05": 0.006517174374903074,
+          "median": 0.03616838184156711,
+          "q95": 0.4176378228461998,
+          "range": 0.4573028838531957,
+          "robust_range": 0.41112064847129676
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.004238212171816125,
+          "max": 0.005646597224720154,
+          "q05": 0.004296410829370266,
+          "median": 0.0048732798353591554,
+          "q95": 0.005562008727866197,
+          "range": 0.001408385052904029,
+          "robust_range": 0.0012655978984959316
+        }
+      },
+      {
+        "generation": 4,
+        "name": "feed_strength",
+        "expression": "k*q/(q_saturation + q)",
+        "role": "Saturated strength of cascade-fed production currently entering the epsilon equation",
+        "train_range": [
+          0.0028452913939003184,
+          0.5
+        ],
+        "hidden_range": [
+          0.0021501239751378813,
+          0.002838718235334607
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.0028452913939003184,
+          "max": 0.5,
+          "q05": 0.003262571502042108,
+          "median": 0.017282539618024617,
+          "q95": 0.33002580910582524,
+          "range": 0.49715470860609967,
+          "robust_range": 0.3267632376037831
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.0021501239751378813,
+          "max": 0.002838718235334607,
+          "q05": 0.0021786646679825125,
+          "median": 0.0024611311072912216,
+          "q95": 0.0027974695607220763,
+          "range": 0.0006885942601967255,
+          "robust_range": 0.0006188048927395638
+        }
+      },
+      {
+        "generation": 5,
+        "name": "energy_level",
+        "expression": "k/(k_shutdown_scale + k)",
+        "role": "dimensionless measure of whether the cascade is still well supported by the large-scale energy reservoir",
+        "train_range": [
+          0.14221621349829733,
+          0.8333333333333334
+        ],
+        "hidden_range": [
+          0.12400089660691138,
+          0.1420562747591706
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.14221621349829733,
+          "max": 0.8333333333333334,
+          "q05": 0.1519778026676388,
+          "median": 0.3299548785780114,
+          "q95": 0.8098568493808873,
+          "range": 0.6911171198350361,
+          "robust_range": 0.6578790467132485
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.12400089660691138,
+          "max": 0.1420562747591706,
+          "q05": 0.12480770515536509,
+          "median": 0.132499050194004,
+          "q95": 0.14104786244935746,
+          "range": 0.018055378152259216,
+          "robust_range": 0.016240157293992377
+        }
+      },
+      {
+        "generation": 5,
+        "name": "memory_mismatch",
+        "expression": "q - r",
+        "role": "occupancy gap between the primary and slower secondary cascade stages",
+        "train_range": [
+          -0.38958455490510335,
+          0.0
+        ],
+        "hidden_range": [
+          -0.21842901377716545,
+          -0.21114486599267107
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": -0.38958455490510335,
+          "max": 0.0,
+          "q05": -0.3813080201950078,
+          "median": -0.2509385775803137,
+          "q95": -0.21994119188442204,
+          "range": 0.38958455490510335,
+          "robust_range": 0.16136682831058577
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": -0.21842901377716545,
+          "max": -0.21114486599267107,
+          "q05": -0.21805495763757804,
+          "median": -0.21473313905891928,
+          "q95": -0.2114985533943583,
+          "range": 0.007284147784494377,
+          "robust_range": 0.006556404243219738
+        }
+      },
+      {
+        "generation": 5,
+        "name": "feed_level",
+        "expression": "(q + C_transfer*r)/(q_saturation + q + C_transfer*r)",
+        "role": "current normalized cascade-feed strength into dissipation",
+        "train_range": [
+          0.25580910335151436,
+          0.6428571428571429
+        ],
+        "hidden_range": [
+          0.24061595460302396,
+          0.2556805342374327
+        ],
+        "train_status": "visible",
+        "hidden_status": "extended",
+        "crosses_boundary": true,
+        "train_summary": {
+          "n": 384,
+          "finite": true,
+          "min": 0.25580910335151436,
+          "max": 0.6428571428571429,
+          "q05": 0.26350823161509246,
+          "median": 0.36943533008466034,
+          "q95": 0.5824002363936348,
+          "range": 0.38704803950562855,
+          "robust_range": 0.31889200477854235
+        },
+        "hidden_summary": {
+          "n": 128,
+          "finite": true,
+          "min": 0.24061595460302396,
+          "max": 0.2556805342374327,
+          "q05": 0.24131386629240714,
+          "median": 0.2478469363257944,
+          "q95": 0.254868037956636,
+          "range": 0.015064579634408742,
+          "robust_range": 0.013554171664228842
+        }
+      }
+    ],
+    "inactive_mechanisms": [],
+    "visible_mechanisms": [
+      "dissipation_loading",
+      "decay_timescale_ratio",
+      "cascade_occupancy",
+      "specific_dissipation",
+      "energetic_state",
+      "cascade_ratio",
+      "energy_depletion",
+      "memory_loading",
+      "diseq_ratio",
+      "cascade_gate",
+      "feed_strength",
+      "energy_level",
+      "memory_mismatch",
+      "feed_level"
+    ],
+    "extended_mechanisms": [
+      "dissipation_loading",
+      "decay_timescale_ratio",
+      "cascade_occupancy",
+      "specific_dissipation",
+      "energetic_state",
+      "cascade_ratio",
+      "energy_depletion",
+      "memory_loading",
+      "diseq_ratio",
+      "cascade_gate",
+      "feed_strength",
+      "energy_level",
+      "memory_mismatch",
+      "feed_level"
+    ]
+  },
+  "inactive_mechanisms": [],
+  "target_variance": {
+    "train": {
+      "n": 384,
+      "variance": 0.0045077174610080465,
+      "range": 0.214079245861345
+    },
+    "hidden": {
+      "n": 128,
+      "variance": 3.799960807916609e-08,
+      "range": 0.0006712527641501344
+    }
+  },
+  "parent_absorption_report": {
+    "status": "ok",
+    "n_points": 512,
+    "fixed_parent_normalized_rmse": 0.0,
+    "refit": {
+      "status": "not_run",
+      "reason": "no free parent parameters"
+    },
+    "interpretation": "<1e-3 nearly absorbed; 1e-3..1e-2 weak; >1e-2 visible structure"
+  },
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_XAp7vDHb6FCM22pk5fSsAEMr"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "dk_dt + epsilon",
+        "target_symbol": "dk_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "dk_dt",
+          "epsilon"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "-epsilon"
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_rDQOcQuUhpcotxQ1N8dXWQEC"
+        },
+        {
+          "name": "check_substitution",
+          "id": "call_KZPz9FJoD8IpC5fmPZio7fl9"
+        },
+        {
+          "name": "check_substitution",
+          "id": "call_7FLKq2dFon432zfgJCNib4OD"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "-C_epsilon2*epsilon**2/k + C_cascade*(k/(k_feed_scale + k))*(k/(k_shutdown_scale + k))*k*(q + C_transfer*r)/(q_saturation + q + C_transfer*r)",
+        "target_symbol": "epsilon",
+        "assignments": {
+          "k": 1.0,
+          "epsilon": 0.1,
+          "q": 1.0,
+          "r": 1.0,
+          "C_epsilon2": 1.9,
+          "C_cascade": 0.7,
+          "tau_cascade": 1.5,
+          "tau_transfer": 3.0,
+          "C_transfer": 0.8,
+          "q_saturation": 1.0,
+          "k_feed_scale": 0.8,
+          "k_shutdown_scale": 0.2
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": 0.18933333333333335,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "(epsilon/k - q)/tau_cascade",
+        "target_symbol": "q",
+        "assignments": {
+          "k": 1.0,
+          "epsilon": 0.1,
+          "q": 1.0,
+          "r": 1.0,
+          "C_epsilon2": 1.9,
+          "C_cascade": 0.7,
+          "tau_cascade": 1.5,
+          "tau_transfer": 3.0,
+          "C_transfer": 0.8,
+          "q_saturation": 1.0,
+          "k_feed_scale": 0.8,
+          "k_shutdown_scale": 0.2
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": -0.6,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "(k/(k_shutdown_scale + k))*(q - r)/tau_transfer",
+        "target_symbol": "r",
+        "assignments": {
+          "k": 1.0,
+          "epsilon": 0.1,
+          "q": 1.0,
+          "r": 1.0,
+          "C_epsilon2": 1.9,
+          "C_cascade": 0.7,
+          "tau_cascade": 1.5,
+          "tau_transfer": 3.0,
+          "C_transfer": 0.8,
+          "q_saturation": 1.0,
+          "k_feed_scale": 0.8,
+          "k_shutdown_scale": 0.2
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": 0.0,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_0tEVSwMp8WYMcoq6PGUbFPdA"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_neNTq1cV3OQtrxMrM0J71yXE"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 4,
+  "discipline": "physics",
+  "scenario_text": "Freely decaying homogeneous turbulence is represented by its turbulent kinetic energy and dissipation rate. The benchmark jointly evolves both states after external stirring is removed, with density and the large-scale domain held fixed. Energy passes from larger eddies toward smaller motions and is ultimately removed by viscosity. Mean shear, buoyancy, spatial transport, and continued forcing are excluded from the baseline dynamics.",
+  "record_id": "m2_fluid_dynamics_20280757_003",
+  "generation": 5,
+  "_n_total": 5000,
+  "mechanism_observation_history": [
+    {
+      "generation": 1,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The scored target mapping is dk_dt=-epsilon, so for any observed epsilon the decay rate of k is a fixed linear gain independent of turbulence age or cascade state.",
+          "child_relation": "Retain dk_dt=-epsilon, but relax the assumption that epsilon always decays with a single self-similar power law in epsilon^2/k; introduce a finite cascade-memory state so the observed epsilon supplied to dk_dt develops delayed build-up or lagged relaxation relative to k.",
+          "affected_inputs": [
+            "k",
+            "epsilon"
+          ],
+          "observable_effect": "Across runs with the same initial k but different initial dissipation-to-energy ratio epsilon^2/k, the child can show an early-time shoulder or delayed steepening in k(t) decay through the evolved epsilon(t), whereas the parent with one shared C_epsilon2 gives only one self-similar decay curvature family."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "dissipation_loading",
+            "expression": "epsilon**2/k",
+            "role": "instantaneous intensity of dissipation relative to stored turbulent energy; sets parent k-decay curvature through epsilon dynamics"
+          },
+          {
+            "name": "decay_timescale_ratio",
+            "expression": "epsilon/k",
+            "role": "inverse turbulent decay timescale controlling how rapidly k can change relative to its level"
+          }
+        ],
+        "activation_condition": "Observable when the initial dissipation level is not already slaved to the long-time self-similar decay, i.e. moderate variation in epsilon relative to k so cascade adjustment occurs over a finite fraction of the energy-decay time; negligible if the initial state is already on the parent similarity manifold.",
+        "train_hidden_contrast": "In training, varying observed initial epsilon at fixed initial k changes early-time k-decay curvature through transient epsilon adjustment; in holdout, the same mechanism persists at stronger or weaker initial dissipation loading, extending the curvature contrast rather than introducing a new process.",
+        "continuation_path": "Recover the parent by taking the cascade-memory adjustment infinitely fast so the added state collapses to an algebraic equilibrium and epsilon again follows a single-rate closure proportional to -epsilon^2/k.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "Existing states k and epsilon do not encode whether dissipation is temporarily over- or under-populated relative to the cascade feeding it. A new state is needed to represent finite-time cascade transfer memory; otherwise any refinement is just a rescaling of the same instantaneous epsilon closure.",
+        "gap_statement": "The parent assumes dissipation responds instantaneously to the current k and epsilon through one self-similar decay law, omitting finite cascade-adjustment delay after forcing is removed.",
+        "baseline_assumption": "The unresolved cascade is represented by a two-state local closure with instantaneous slaving of dissipation decay to current k and epsilon.",
+        "scientific_mechanism": "Finite cascade memory or spectral disequilibrium between energy-containing eddies and the dissipative range during free decay.",
+        "affected_symbols": [
+          "k",
+          "epsilon"
+        ],
+        "rationale": "A realistic next refinement is to relax the instantaneous-equilibrium assumption in the epsilon equation, not to add external production or transport that contradict the scenario. In the parent, once k(0) and epsilon(0) are set, dk_dt is just -epsilon and epsilon decays with one shared coefficient C_epsilon2 through -C_epsilon2*epsilon^2/k, so varying initial dissipation loading only moves the solution along one self-similar family. Holding the domain, density, viscosity, and absence of forcing fixed, and varying only the admissible initial mismatch between energy-containing turbulence and dissipation level, real freely decaying turbulence can exhibit transient spectral adjustment: epsilon may initially lag or remain elevated relative to k before relaxing. That changes the scored target mapping indirectly but observably, because k-decay curvature over time changes through the supplied state epsilon(t), not merely through an unobserved auxiliary branch. A single refitted parent parameter cannot reproduce both prompt self-similar decay and delayed-adjustment shoulders across these conditions with one shared coefficient, because its epsilon law has no internal memory timescale. This refinement is admissible only when initial conditions are away from the asymptotic similarity manifold; if observations begin late enough that spectral equilibrium is already restored, the contrast weakens and the parent is recovered as an effective limit."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The scored target mapping is dk_dt=-epsilon, so for any observed epsilon the decay rate of k is a fixed linear gain independent of turbulence age or cascade state.",
+          "child_relation": "Retain dk_dt=-epsilon, but relax the assumption that epsilon always decays with a single self-similar power law in epsilon^2/k; introduce a finite cascade-memory state so the observed epsilon supplied to dk_dt develops delayed build-up or lagged relaxation relative to k.",
+          "affected_inputs": [
+            "k",
+            "epsilon"
+          ],
+          "observable_effect": "Across runs with the same initial k but different initial dissipation-to-energy ratio epsilon^2/k, the child can show an early-time shoulder or delayed steepening in k(t) decay through the evolved epsilon(t), whereas the parent with one shared C_epsilon2 gives only one self-similar decay curvature family."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "dissipation_loading",
+            "expression": "epsilon**2/k",
+            "role": "instantaneous intensity of dissipation relative to stored turbulent energy; sets parent k-decay curvature through epsilon dynamics"
+          },
+          {
+            "name": "decay_timescale_ratio",
+            "expression": "epsilon/k",
+            "role": "inverse turbulent decay timescale controlling how rapidly k can change relative to its level"
+          }
+        ],
+        "activation_condition": "Observable when the initial dissipation level is not already slaved to the long-time self-similar decay, i.e. moderate variation in epsilon relative to k so cascade adjustment occurs over a finite fraction of the energy-decay time; negligible if the initial state is already on the parent similarity manifold.",
+        "train_hidden_contrast": "In training, varying observed initial epsilon at fixed initial k changes early-time k-decay curvature through transient epsilon adjustment; in holdout, the same mechanism persists at stronger or weaker initial dissipation loading, extending the curvature contrast rather than introducing a new process.",
+        "continuation_path": "Recover the parent by taking the cascade-memory adjustment infinitely fast so the added state collapses to an algebraic equilibrium and epsilon again follows a single-rate closure proportional to -epsilon^2/k.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "Existing states k and epsilon do not encode whether dissipation is temporarily over- or under-populated relative to the cascade feeding it. A new state is needed to represent finite-time cascade transfer memory; otherwise any refinement is just a rescaling of the same instantaneous epsilon closure.",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "k",
+          "epsilon",
+          "q"
+        ],
+        "structural_role": "feedback",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Delayed and saturating cascade transfer into the dissipative range during free decay",
+        "scientific_mechanism": "Finite cascade memory or spectral disequilibrium between energy-containing eddies and the dissipative range during free decay.",
+        "embedding_pattern": "saturating_or_thresholded",
+        "difficulty_rationale": "This embedding is structurally harder than a coefficient-only correction because it introduces an internal timescale and a bounded transfer law, so the same observed epsilon can arise from different cascade-memory states and produce different subsequent curvature. A single instantaneous coefficient on epsilon**2/k cannot create both prompt and delayed-adjustment families across admissible initial dissipation loading.",
+        "taxonomy_match": "provisional",
+        "assumption_before": "The unresolved cascade is represented by a two-state local closure with instantaneous slaving of dissipation decay to current k and epsilon.",
+        "assumption_after": "Dissipation is fed by a finite-memory cascade state with saturating transfer, so spectral adjustment after stirring removal is not instantaneous.",
+        "before_fragment": "-epsilon",
+        "after_fragment": "-epsilon",
+        "parent_reduction": "As tau_cascade -> 0 with q -> epsilon/k and q_saturation large enough that q/(q_saturation + q) is effectively linear over the occupied range, the child reduces to an effective decay law proportional to -epsilon**2/k.",
+        "observable_signature": "With identical initial k and shared parameters, runs differing only in initial epsilon can exhibit different early-time k-decay curvature: one may show a shoulder or delayed steepening because q relaxes before epsilon reaches its self-similar trajectory. This contrast is observable in the scored target through epsilon(t) supplied to dk_dt, not only in the auxiliary state q.",
+        "shortcut_blocked": "Refitting a single parent coefficient C_epsilon2 rescales only the instantaneous law d_epsilon/dt=-C_epsilon2*epsilon**2/k, which preserves one self-similar curvature family parameterized by the observed initial states. It cannot reproduce, with one shared parameter set across runs, both immediate self-similar relaxation and finite-delay shoulders caused by an independent memory state and its saturation-limited feed."
+      },
+      "range_suggestions": {
+        "q": "0 < q < 1",
+        "C_cascade": "0 < C_cascade < 10",
+        "tau_cascade": "0 < tau_cascade < 10",
+        "q_saturation": "0 < q_saturation < 10"
+      }
+    },
+    {
+      "generation": 2,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "At fixed q, the dissipation equation feeds epsilon from the cascade with a term proportional to k*q/(q_saturation+q), so the k-to-depsilon_dt contribution is linear in k with one shared gain.",
+          "child_relation": "Replace the linear dependence of cascade feeding on k by a nonlinear large-eddy strength dependence, so at fixed q the k-to-depsilon_dt contribution bends with k and changes relative amplification between energetic and weak-decay states.",
+          "affected_inputs": [
+            "k",
+            "q",
+            "epsilon"
+          ],
+          "observable_effect": "Across trajectories that differ in k while having comparable q occupancy, the child predicts stronger-than-linear dissipation feeding at high k and weaker feeding at low k, changing the curvature of epsilon(t) and therefore the subsequent decay rate of k(t)."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "cascade_occupancy",
+            "expression": "q/(q_saturation + q)",
+            "role": "Current saturation level of delayed cascade transfer into the dissipative range"
+          },
+          {
+            "name": "specific_dissipation",
+            "expression": "epsilon/k",
+            "role": "Instantaneous small-scale depletion rate relative to turbulent energy"
+          },
+          {
+            "name": "energetic_state",
+            "expression": "k",
+            "role": "Large-eddy energy level controlling cascade-feed intensity in the planned refinement"
+          }
+        ],
+        "activation_condition": "Observable when free-decay trajectories visit a broad enough range of k while q is neither negligible nor fully saturated, so the cascade-feed term materially contributes to depsilon_dt.",
+        "train_hidden_contrast": "The same decay records already show early energetic stages and later weak-energy stages; the refinement uses that in-training variation and extends it to holdout trajectories with more pronounced separation between high-k and low-k cascade response.",
+        "continuation_path": "Recover the parent law in the limit where the nonlinear k-dependence reduces to linear dependence over the sampled range, or exactly when the added nonlinearity parameter takes its parent-recovery value.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The current model assumes cascade feeding into dissipation scales linearly with turbulent kinetic energy once q is fixed, which is an overly rigid representation of how energetic large eddies drive transfer during free decay.",
+        "baseline_assumption": "The unresolved cascade feed term is proportional to k times a saturating function of q with one fixed gain.",
+        "scientific_mechanism": "Energy-containing eddies can drive dissipation production with a nonlinearly varying efficiency as turbulence intensity changes, reflecting changing cascade effectiveness across decay stages even without mean shear or forcing.",
+        "affected_symbols": [
+          "k",
+          "q",
+          "epsilon",
+          "C_cascade",
+          "q_saturation"
+        ],
+        "rationale": "A realistic next refinement is to relax the parent's linear-in-k cascade-feed assumption rather than adding a wholly new process. Vary the initial decay stage or any admissible trajectory segment so that k changes substantially, while holding the modeled context fixed: homogeneous, unforced, constant-density free decay with the same q-mediated memory mechanism. In the parent, once q is specified, the cascade contribution to depsilon_dt is just a single-gain linear function of k, so one shared parameter set imposes the same proportional sensitivity at both energetic and weak stages. The child instead allows the cascade-feed sensitivity to bend with k, producing a concrete target-mapping contrast: epsilon rises or decays differently at high k versus low k even when q occupancy is similar, and this propagates into a changed k(t) decay curvature because dk_dt=-epsilon. This is observable only when the cascade-feed term is active, meaning q is in an intermediate admissible range and epsilon is not dominated entirely by its destruction term. The refinement remains scientifically admissible, preserves nonnegative-energy decay structure, and has an honest continuation back to the parent when the nonlinear dependence collapses to linear over the sampled regime."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "At fixed q, the dissipation equation feeds epsilon from the cascade with a term proportional to k*q/(q_saturation+q), so the k-to-depsilon_dt contribution is linear in k with one shared gain.",
+          "child_relation": "Replace the linear dependence of cascade feeding on k by a nonlinear large-eddy strength dependence, so at fixed q the k-to-depsilon_dt contribution bends with k and changes relative amplification between energetic and weak-decay states.",
+          "affected_inputs": [
+            "k",
+            "q",
+            "epsilon"
+          ],
+          "observable_effect": "Across trajectories that differ in k while having comparable q occupancy, the child predicts stronger-than-linear dissipation feeding at high k and weaker feeding at low k, changing the curvature of epsilon(t) and therefore the subsequent decay rate of k(t)."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "cascade_occupancy",
+            "expression": "q/(q_saturation + q)",
+            "role": "Current saturation level of delayed cascade transfer into the dissipative range"
+          },
+          {
+            "name": "specific_dissipation",
+            "expression": "epsilon/k",
+            "role": "Instantaneous small-scale depletion rate relative to turbulent energy"
+          },
+          {
+            "name": "energetic_state",
+            "expression": "k",
+            "role": "Large-eddy energy level controlling cascade-feed intensity in the planned refinement"
+          }
+        ],
+        "activation_condition": "Observable when free-decay trajectories visit a broad enough range of k while q is neither negligible nor fully saturated, so the cascade-feed term materially contributes to depsilon_dt.",
+        "train_hidden_contrast": "The same decay records already show early energetic stages and later weak-energy stages; the refinement uses that in-training variation and extends it to holdout trajectories with more pronounced separation between high-k and low-k cascade response.",
+        "continuation_path": "Recover the parent law in the limit where the nonlinear k-dependence reduces to linear dependence over the sampled range, or exactly when the added nonlinearity parameter takes its parent-recovery value.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "k",
+          "q",
+          "epsilon"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "state-dependent cascade-feed efficiency into dissipation production",
+        "scientific_mechanism": "Energy-containing eddies can drive dissipation production with a nonlinearly varying efficiency as turbulence intensity changes, reflecting changing cascade effectiveness across decay stages even without mean shear or forcing.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the effective cascade-feed gain now changes along the trajectory with k, so one parameter set must represent different local sensitivities between energetic and weak stages rather than one fixed proportional response.",
+        "taxonomy_match": "known",
+        "assumption_before": "The unresolved cascade feed term is proportional to k times a saturating function of q with one fixed gain.",
+        "assumption_after": "The cascade-feed coefficient depends on the current turbulent energy level through a saturating k-dependent modulation.",
+        "before_fragment": "-epsilon",
+        "after_fragment": "-epsilon",
+        "parent_reduction": "For k_feed_scale >> k over the sampled domain, k**2/(k_feed_scale + k) approximately scales as k after absorbing 1/k_feed_scale into C_cascade, recovering the parent response law.",
+        "observable_signature": "Holding the modeled context fixed and comparing trajectory segments with similar q/(q_saturation + q) but different k, the successor predicts a bent k-to-depsilon_dt relation: weaker cascade feeding than the parent at low k and stronger cascade feeding at high k, which appears as altered epsilon(t) curvature and thus altered k(t) decay curvature under dk_dt=-epsilon.",
+        "shortcut_blocked": "A single refitted parent parameter set cannot reproduce both low-k suppression and high-k enhancement at the same q occupancy because its cascade contribution remains strictly linear in k with one shared gain. Retuning C_cascade or q_saturation can only rescale or q-saturate that term uniformly, not create the k-dependent curvature needed across energetic and weak decay stages."
+      },
+      "range_suggestions": {
+        "k_feed_scale": "0 < k_feed_scale < 10"
+      }
+    },
+    {
+      "generation": 3,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The parent maps the supplied states to dk_dt only through dk_dt=-epsilon, so for any observed epsilon the target slope is fixed and independent of how depleted k has become or how strong the delayed cascade state q is.",
+          "child_relation": "Refine the dissipation production/decay law so that the observed epsilon trajectory develops a stronger low-k collapse after prolonged decay, via an additional state-dependent slowdown or shutdown of cascade-fed dissipation as the large-eddy reservoir is exhausted.",
+          "affected_inputs": [
+            "k",
+            "epsilon",
+            "q"
+          ],
+          "observable_effect": "Across trajectories that pass through similar epsilon but different k/q combinations during decay, the child produces sharper late-time bending of epsilon(t) and therefore a different subsequent dk_dt history than the parent’s single-phase decay can match with one shared parameter set."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "cascade_ratio",
+            "expression": "q*k/epsilon",
+            "role": "Measures spectral disequilibrium between delayed cascade transfer and current dissipation level"
+          },
+          {
+            "name": "energy_depletion",
+            "expression": "k/(k_feed_scale + k)",
+            "role": "Measures how strongly the remaining large-scale energy can still sustain dissipation production"
+          },
+          {
+            "name": "memory_loading",
+            "expression": "q/(q_saturation + q)",
+            "role": "Measures saturation of the cascade-memory contribution to dissipation production"
+          }
+        ],
+        "activation_condition": "Observable during free decay once k becomes comparable to or smaller than k_feed_scale while q remains finite from earlier cascade loading, so the system enters a late-decay regime not captured by a single smooth phase.",
+        "train_hidden_contrast": "In training, the mechanism appears as mild extra bending when decay approaches the feed scale; in holdout, the same mechanism is amplified over longer observation windows where k stays low for longer and parent single-phase dynamics cannot preserve both early and late behavior with one parameter set.",
+        "continuation_path": "Recover the parent law in the limit where the added state dependence becomes negligible, e.g. when k is large compared with the new attenuation scale or when the refinement strength tends to zero.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The current cascade-feed closure assumes one fixed functional phase for dissipation production throughout decay, even though exhaustion of energy-containing eddies should further weaken transfer to the dissipative range beyond the present simple feed factor.",
+        "baseline_assumption": "The effectiveness of cascade-fed dissipation production is fully captured by the existing saturating factor k/(k_feed_scale+k) with no additional late-decay change in shape.",
+        "scientific_mechanism": "Progressive shutdown of cascade effectiveness in strongly depleted turbulence, producing extra curvature in dissipation decay as the large-eddy reservoir becomes too weak to sustain the earlier transfer pathway.",
+        "affected_symbols": [
+          "k",
+          "epsilon",
+          "q",
+          "k_feed_scale",
+          "q_saturation"
+        ],
+        "rationale": "A realistic next refinement is to relax the parent’s single-phase assumption for how cascade memory feeds dissipation. Hold the scenario assumptions of homogeneous freely decaying turbulence with no forcing, shear, buoyancy, or transport. Vary only the elapsed decay stage along the admissible trajectory generated from the given initial conditions; this changes k and q while preserving the same model parameters and physical setup. In the parent, once epsilon is observed, dk_dt is fixed, and the only route to richer target behavior is through how epsilon evolves. That evolution currently uses one smooth saturating feed factor in k and one saturation in q, so the dissipation-production response remains a single-phase function of depletion. A scientifically natural gap is that very low-k turbulence should exhibit an additional weakening of effective transfer from energy-containing eddies to the dissipative range, causing a stronger late-time collapse of epsilon than the same law that fit early and intermediate decay. This is observable when k drops into the range of k_feed_scale and q is still non-negligible because of memory; then similar epsilon values can occur at different decay stages, but the subsequent epsilon slope and hence future dk_dt differ. A single shared parent parameter set can shift the timing or overall gain of production and decay, but it cannot independently match both the earlier moderate-curvature regime and the later sharper downturn if both occur within the observed trajectory. No new state is required because the effect can be expressed as a refined state dependence of the existing cascade-feed term rather than a distinct stored physical variable. Limitation: if observations never reach low-k conditions relative to the activation scale, the refinement would be weakly identifiable."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The parent maps the supplied states to dk_dt only through dk_dt=-epsilon, so for any observed epsilon the target slope is fixed and independent of how depleted k has become or how strong the delayed cascade state q is.",
+          "child_relation": "Refine the dissipation production/decay law so that the observed epsilon trajectory develops a stronger low-k collapse after prolonged decay, via an additional state-dependent slowdown or shutdown of cascade-fed dissipation as the large-eddy reservoir is exhausted.",
+          "affected_inputs": [
+            "k",
+            "epsilon",
+            "q"
+          ],
+          "observable_effect": "Across trajectories that pass through similar epsilon but different k/q combinations during decay, the child produces sharper late-time bending of epsilon(t) and therefore a different subsequent dk_dt history than the parent’s single-phase decay can match with one shared parameter set."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "cascade_ratio",
+            "expression": "q*k/epsilon",
+            "role": "Measures spectral disequilibrium between delayed cascade transfer and current dissipation level"
+          },
+          {
+            "name": "energy_depletion",
+            "expression": "k/(k_feed_scale + k)",
+            "role": "Measures how strongly the remaining large-scale energy can still sustain dissipation production"
+          },
+          {
+            "name": "memory_loading",
+            "expression": "q/(q_saturation + q)",
+            "role": "Measures saturation of the cascade-memory contribution to dissipation production"
+          }
+        ],
+        "activation_condition": "Observable during free decay once k becomes comparable to or smaller than k_feed_scale while q remains finite from earlier cascade loading, so the system enters a late-decay regime not captured by a single smooth phase.",
+        "train_hidden_contrast": "In training, the mechanism appears as mild extra bending when decay approaches the feed scale; in holdout, the same mechanism is amplified over longer observation windows where k stays low for longer and parent single-phase dynamics cannot preserve both early and late behavior with one parameter set.",
+        "continuation_path": "Recover the parent law in the limit where the added state dependence becomes negligible, e.g. when k is large compared with the new attenuation scale or when the refinement strength tends to zero.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "k",
+          "q",
+          "epsilon"
+        ],
+        "structural_role": "interaction",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Late-decay weakening of effective cascade transfer from large scales to dissipation",
+        "scientific_mechanism": "Progressive shutdown of cascade effectiveness in strongly depleted turbulence, producing extra curvature in dissipation decay as the large-eddy reservoir becomes too weak to sustain the earlier transfer pathway.",
+        "embedding_pattern": "state_coupling",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because it changes the shape of dissipation production across decay stage through a joint dependence on the existing depletion state k and the cascade-memory-fed production pathway, rather than merely rescaling the same phase everywhere.",
+        "taxonomy_match": "provisional",
+        "assumption_before": "The effectiveness of cascade-fed dissipation production is fully captured by the existing saturating factor k/(k_feed_scale+k) with no additional late-decay change in shape.",
+        "assumption_after": "Cascade-fed dissipation undergoes an additional low-k shutdown, so effective transfer weakens more sharply in strongly depleted turbulence even when memory q remains finite.",
+        "before_fragment": "-epsilon",
+        "after_fragment": "-epsilon",
+        "parent_reduction": "The successor recovers the parent when k_shutdown_scale is small relative to k over the sampled trajectory, making k/(k_shutdown_scale + k) effectively unity.",
+        "observable_signature": "If two observed trajectory segments have similar epsilon but occur at different decay stages, with one segment having lower k and still-finite q, the child predicts a more negative subsequent depsilon/dt there because the cascade-feed contribution is further attenuated by k/(k_shutdown_scale + k). That sharper late-time epsilon downturn propagates into a faster later reduction in dk_dt magnitude than the parent can reproduce while also fitting earlier decay.",
+        "shortcut_blocked": "Retuning C_cascade, C_epsilon2, k_feed_scale, q_saturation, or tau_cascade with one shared parent parameter set can shift overall gain, timing, or smooth saturation, but it cannot create a distinct extra late-decay curvature localized to low k while preserving the earlier moderate-curvature regime. The parent has only one depletion-shape factor in cascade production, so a single parameter set cannot independently match both phases when the trajectory spans k comparable to and well below the shutdown range."
+      },
+      "range_suggestions": {
+        "k_shutdown_scale": "0 < k_shutdown_scale < 10"
+      }
+    },
+    {
+      "generation": 4,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "For fixed parameter values, the dissipation tendency depends on one cascade-memory state q through a single relaxation timescale, so epsilon responds to spectral disequilibrium with one characteristic lag and one broad decay phase.",
+          "child_relation": "Replace the single-lag cascade-memory assumption by a two-stage delayed transfer, so the effective feed into epsilon reflects both immediate and slower cascade adjustment, creating an additional bend in the epsilon-versus-time and epsilon-versus-k relationship during decay.",
+          "affected_inputs": [
+            "k",
+            "epsilon",
+            "q",
+            "t"
+          ],
+          "observable_effect": "Across trajectories with the same initial conditions and fixed coefficients, the child can exhibit a delayed shoulder or stronger mid-decay inflection in epsilon while k remains monotone decreasing; the parent is restricted to a single-lag relaxation shape."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "diseq_ratio",
+            "expression": "epsilon/k - q",
+            "role": "Instantaneous mismatch between dissipation-scale demand and the current cascade-memory state"
+          },
+          {
+            "name": "cascade_gate",
+            "expression": "(k/(k_feed_scale + k))*(k/(k_shutdown_scale + k))",
+            "role": "Current large-scale effectiveness of feeding dissipation through the cascade pathway"
+          },
+          {
+            "name": "feed_strength",
+            "expression": "k*q/(q_saturation + q)",
+            "role": "Saturated strength of cascade-fed production currently entering the epsilon equation"
+          }
+        ],
+        "activation_condition": "Most visible during intermediate decay when k is still above or comparable to k_shutdown_scale so the cascade pathway is active, but spectral adjustment is not instantaneous, i.e. tau_cascade is not negligible relative to the observed decay time.",
+        "train_hidden_contrast": "The same free-decay runs already contain early, intermediate, and late stages; introducing a second cascade-adjustment phase changes the target mapping in the observed intermediate window rather than relying on unseen interventions, and the contrast extends to longer holdout times as an extra curvature or shoulder before final shutdown.",
+        "continuation_path": "Recover the parent law when the added slower-transfer effect is collapsed to the existing memory channel, e.g. vanishing coupling to the extra stage or asymptotically fast equilibration of that stage so only the original single q-controlled pathway remains.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A genuinely distinct slower cascade-adjustment phase cannot be represented by refitting constants in the existing one-state memory closure; one additional dynamic state is needed to store delayed transfer history separately from q.",
+        "gap_statement": "The current closure assumes all spectral disequilibrium relevant to dissipation production can be compressed into one memory state with one relaxation timescale.",
+        "baseline_assumption": "The unresolved cascade is represented by a two-state local closure with a single cascade-memory variable q controlling delayed feed into dissipation.",
+        "scientific_mechanism": "Multi-stage spectral transfer during free decay: energy leaves the large scales and reaches the dissipative range through at least two dynamically distinct adjustment stages, so dissipation production need not track a single-lag memory variable.",
+        "affected_symbols": [
+          "k",
+          "epsilon",
+          "q",
+          "tau_cascade",
+          "C_cascade"
+        ],
+        "rationale": "A realistic next refinement is to relax the single-timescale cascade-memory assumption rather than adding an unrelated production term, because free decay already contains a cascade-delay mechanism but it is idealized as one phase. The parent target mapping for dk_dt is dk_dt=-epsilon, so any increased target complexity must come through a changed epsilon trajectory, not merely decorative auxiliary dynamics. Here the varied condition is the decay stage along the observed trajectory, equivalently the regime of k and the disequilibrium measure epsilon/k-q, while holding the scenario assumptions fixed: no forcing, no shear, homogeneous decay, fixed density and viscosity. In the parent, one shared parameter set yields a single-lag epsilon response to disequilibrium, producing one characteristic curvature class as the cascade feed grows and then shuts down. In the child, a second transfer stage can delay part of the feed to epsilon, generating a stronger mid-decay inflection or shoulder in epsilon(t), and thus in dk_dt(t), while preserving monotone k decay. This contrast is scientifically admissible when the cascade gate remains active, roughly before k becomes much smaller than k_shutdown_scale; if the shutdown factor is already dominant or tau_cascade is effectively zero, the extra stage becomes hard to observe. A single refit of the parent parameters cannot fully mimic both the early response and a distinct later shoulder across the same trajectory because changing tau_cascade or gains only rescales or shifts the sole relaxation phase rather than creating a separate dynamic occupancy of delayed transfer."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "For fixed parameter values, the dissipation tendency depends on one cascade-memory state q through a single relaxation timescale, so epsilon responds to spectral disequilibrium with one characteristic lag and one broad decay phase.",
+          "child_relation": "Replace the single-lag cascade-memory assumption by a two-stage delayed transfer, so the effective feed into epsilon reflects both immediate and slower cascade adjustment, creating an additional bend in the epsilon-versus-time and epsilon-versus-k relationship during decay.",
+          "affected_inputs": [
+            "k",
+            "epsilon",
+            "q",
+            "t"
+          ],
+          "observable_effect": "Across trajectories with the same initial conditions and fixed coefficients, the child can exhibit a delayed shoulder or stronger mid-decay inflection in epsilon while k remains monotone decreasing; the parent is restricted to a single-lag relaxation shape."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "diseq_ratio",
+            "expression": "epsilon/k - q",
+            "role": "Instantaneous mismatch between dissipation-scale demand and the current cascade-memory state"
+          },
+          {
+            "name": "cascade_gate",
+            "expression": "(k/(k_feed_scale + k))*(k/(k_shutdown_scale + k))",
+            "role": "Current large-scale effectiveness of feeding dissipation through the cascade pathway"
+          },
+          {
+            "name": "feed_strength",
+            "expression": "k*q/(q_saturation + q)",
+            "role": "Saturated strength of cascade-fed production currently entering the epsilon equation"
+          }
+        ],
+        "activation_condition": "Most visible during intermediate decay when k is still above or comparable to k_shutdown_scale so the cascade pathway is active, but spectral adjustment is not instantaneous, i.e. tau_cascade is not negligible relative to the observed decay time.",
+        "train_hidden_contrast": "The same free-decay runs already contain early, intermediate, and late stages; introducing a second cascade-adjustment phase changes the target mapping in the observed intermediate window rather than relying on unseen interventions, and the contrast extends to longer holdout times as an extra curvature or shoulder before final shutdown.",
+        "continuation_path": "Recover the parent law when the added slower-transfer effect is collapsed to the existing memory channel, e.g. vanishing coupling to the extra stage or asymptotically fast equilibration of that stage so only the original single q-controlled pathway remains.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A genuinely distinct slower cascade-adjustment phase cannot be represented by refitting constants in the existing one-state memory closure; one additional dynamic state is needed to store delayed transfer history separately from q.",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "q",
+          "r",
+          "epsilon",
+          "k"
+        ],
+        "structural_role": "interaction",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "two-stage delayed spectral transfer feeding dissipation",
+        "scientific_mechanism": "Multi-stage spectral transfer during free decay: energy leaves the large scales and reaches the dissipative range through at least two dynamically distinct adjustment stages, so dissipation production need not track a single-lag memory variable.",
+        "embedding_pattern": "state_coupling",
+        "difficulty_rationale": "The added state changes the epsilon response law through joint dependence on q and r in the cascade feed, introducing a second temporal occupancy that alters the target trajectory shape rather than merely rescaling an existing term. This is structurally harder than a coefficient-only correction because the extra memory stage can create a distinct mid-decay bend while preserving the same monotone decay of k.",
+        "taxonomy_match": "known",
+        "assumption_before": "The unresolved cascade is represented by a two-state local closure with a single cascade-memory variable q controlling delayed feed into dissipation.",
+        "assumption_after": "The unresolved cascade contains a slower secondary transfer stage r, and dissipation production depends jointly on q and r.",
+        "before_fragment": "-epsilon",
+        "after_fragment": "-epsilon",
+        "parent_reduction": "C_transfer = 0",
+        "observable_signature": "When k remains in the active cascade-gate range and tau_transfer is not negligible, epsilon(t) and therefore dk_dt(t) can show an additional mid-decay shoulder or stronger inflection relative to the parent's single-lag response; this is a changed target mapping because dk_dt=-epsilon and epsilon is altered by the q-r coupled feed, not just by auxiliary state motion with no target consequence.",
+        "shortcut_blocked": "A single parent parameter set cannot simultaneously match the early response and a later secondary shoulder across the same trajectory, because the parent has only one cascade-memory occupancy and one relaxation phase. Refitting C_cascade, tau_cascade, q_saturation, or the shutdown/feed scales can shift or rescale that sole phase, but cannot create a separate delayed contribution from a second stored transfer history when the cascade gate stays active."
+      },
+      "range_suggestions": {
+        "r": "0 < r < 10",
+        "tau_transfer": "0 < tau_transfer",
+        "C_transfer": "0 <= C_transfer < 10"
+      }
+    },
+    {
+      "generation": 5,
+      "plan": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The dissipation equation uses one fixed secondary-transfer timescale tau_transfer, so for fixed initial conditions the mapping from current cascade disequilibrium states (q,r,k) to d epsilon/dt has a single characteristic lag structure throughout decay.",
+          "child_relation": "Relax the fixed-lag assumption by making the downstream transfer effectiveness depend on the current turbulence level already encoded by existing states, so the mapping from (k,q,r) to d epsilon/dt changes curvature between energetic and depleted stages even without adding forcing or shear.",
+          "affected_inputs": [
+            "k",
+            "q",
+            "r",
+            "tau_transfer"
+          ],
+          "observable_effect": "Across trajectories that pass from k >> k_shutdown_scale to k comparable to or below that scale, epsilon(t) shows an earlier stronger memory delay and a later sharper shutdown than the parent can match with one shared fixed-lag parameter set."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "energy_level",
+            "expression": "k/(k_shutdown_scale + k)",
+            "role": "dimensionless measure of whether the cascade is still well supported by the large-scale energy reservoir"
+          },
+          {
+            "name": "memory_mismatch",
+            "expression": "q - r",
+            "role": "occupancy gap between the primary and slower secondary cascade stages"
+          },
+          {
+            "name": "feed_level",
+            "expression": "(q + C_transfer*r)/(q_saturation + q + C_transfer*r)",
+            "role": "current normalized cascade-feed strength into dissipation"
+          }
+        ],
+        "activation_condition": "Observable during free decay when k changes appreciably over the record, especially from k larger than k_shutdown_scale into the depleted regime where large-eddy support of downstream transfer weakens.",
+        "train_hidden_contrast": "In training the mechanism appears as mild non-exponential bending of epsilon relative to q and r at intermediate decay; in holdout it extends to later low-k stages where the same trajectories exhibit stronger transfer slowdown and sharper dissipation curvature.",
+        "continuation_path": "Recover the parent by taking the transfer-stage modulation to be constant, equivalently removing any k-dependence from the secondary transfer timescale so tau_transfer is fixed again.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "gap_statement": "The current model assumes the slower secondary transfer stage relaxes with one constant timescale tau_transfer regardless of turbulence level, even though spectral transfer typically slows as the large-eddy reservoir becomes too weak to maintain the same downstream filling dynamics during late decay.",
+        "baseline_assumption": "The secondary cascade stage has a turbulence-independent relaxation time tau_transfer throughout the entire decay.",
+        "scientific_mechanism": "Energy-level-dependent slowing of the downstream cascade occupancy adjustment during depleted turbulence, causing the secondary transfer stage to lag more strongly as k falls.",
+        "affected_symbols": [
+          "k",
+          "r",
+          "q",
+          "tau_transfer",
+          "k_shutdown_scale"
+        ],
+        "rationale": "A realistic next refinement is to relax the fixed-timescale assumption already present in the secondary memory equation, not to add a new process. The parent target mapping for d epsilon/dt is effectively single-phase because q and r evolve with fixed relaxation structure, so once parameters are set the shape of epsilon's delayed response over early and late decay is locked. Vary the decay stage along the observed trajectory through changing k, while holding the model form, initial conditions, and external conditions fixed. In the parent, one shared tau_transfer must compromise between matching intermediate-stage lag and late-stage shutdown. In the child, the same existing state k can modulate the transfer lag so that r tracks q more closely when turbulence is energetic but decouples more strongly as k becomes small. This changes the scored mapping because epsilon production depends explicitly on q plus C_transfer r, so altered r timing changes d epsilon/dt itself, not just an auxiliary state. The contrast is admissible when the observation window spans substantial depletion; if k remains far above k_shutdown_scale for the whole record, the refinement may be weak and the parent may be hard to distinguish."
+      },
+      "contract": {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The dissipation equation uses one fixed secondary-transfer timescale tau_transfer, so for fixed initial conditions the mapping from current cascade disequilibrium states (q,r,k) to d epsilon/dt has a single characteristic lag structure throughout decay.",
+          "child_relation": "Relax the fixed-lag assumption by making the downstream transfer effectiveness depend on the current turbulence level already encoded by existing states, so the mapping from (k,q,r) to d epsilon/dt changes curvature between energetic and depleted stages even without adding forcing or shear.",
+          "affected_inputs": [
+            "k",
+            "q",
+            "r",
+            "tau_transfer"
+          ],
+          "observable_effect": "Across trajectories that pass from k >> k_shutdown_scale to k comparable to or below that scale, epsilon(t) shows an earlier stronger memory delay and a later sharper shutdown than the parent can match with one shared fixed-lag parameter set."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "energy_level",
+            "expression": "k/(k_shutdown_scale + k)",
+            "role": "dimensionless measure of whether the cascade is still well supported by the large-scale energy reservoir"
+          },
+          {
+            "name": "memory_mismatch",
+            "expression": "q - r",
+            "role": "occupancy gap between the primary and slower secondary cascade stages"
+          },
+          {
+            "name": "feed_level",
+            "expression": "(q + C_transfer*r)/(q_saturation + q + C_transfer*r)",
+            "role": "current normalized cascade-feed strength into dissipation"
+          }
+        ],
+        "activation_condition": "Observable during free decay when k changes appreciably over the record, especially from k larger than k_shutdown_scale into the depleted regime where large-eddy support of downstream transfer weakens.",
+        "train_hidden_contrast": "In training the mechanism appears as mild non-exponential bending of epsilon relative to q and r at intermediate decay; in holdout it extends to later low-k stages where the same trajectories exhibit stronger transfer slowdown and sharper dissipation curvature.",
+        "continuation_path": "Recover the parent by taking the transfer-stage modulation to be constant, equivalently removing any k-dependence from the secondary transfer timescale so tau_transfer is fixed again.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "k",
+          "r",
+          "q",
+          "tau_transfer",
+          "k_shutdown_scale"
+        ],
+        "structural_role": "timescale",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Energy-level-dependent secondary cascade transfer lag",
+        "scientific_mechanism": "Energy-level-dependent slowing of the downstream cascade occupancy adjustment during depleted turbulence, causing the secondary transfer stage to lag more strongly as k falls.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the same fixed parameter set must now reproduce different effective r-relaxation speeds along one trajectory as k changes, creating stage-dependent curvature in epsilon through the existing nonlinear feed term rather than a uniform gain shift.",
+        "taxonomy_match": "known",
+        "assumption_before": "The secondary cascade stage has a turbulence-independent relaxation time tau_transfer throughout the entire decay.",
+        "assumption_after": "The secondary cascade stage slows as turbulence is depleted, with its effective transfer coefficient reduced by the current energy-support factor k/(k_shutdown_scale + k).",
+        "before_fragment": "-epsilon",
+        "after_fragment": "-epsilon",
+        "parent_reduction": "k >> k_shutdown_scale, so k/(k_shutdown_scale + k) -> 1 and the r equation returns to (q - r)/tau_transfer.",
+        "observable_signature": "Relative to the parent, trajectories spanning high to low k show r tracking q fairly closely early on but falling behind more strongly later, which reduces the q + C_transfer*r feed into epsilon and creates a sharper late-time bend in d epsilon/dt and thus in dk/dt = -epsilon. This is a changed target mapping, not merely an auxiliary-state change, because epsilon is an observed state entering the scored target directly.",
+        "shortcut_blocked": "Refitting a single constant tau_transfer in the parent can only impose one global lag compromise for r versus q. It cannot simultaneously match the near-parent early-time transfer response when k is large and the stronger late-time slowdown when k is small, because the child introduces a state-dependent coefficient k/(k_shutdown_scale + k) that changes the relaxation law along the same trajectory rather than across separately refit parameter sets."
+      },
+      "range_suggestions": {}
+    }
+  ],
+  "evolution_provenance": {
+    "dimension_track": null,
+    "mechanism_profile": {
+      "allowed_structural_roles": [
+        "contribution",
+        "response_law",
+        "modulation",
+        "interaction",
+        "constraint",
+        "transition",
+        "feedback",
+        "heterogeneity",
+        "timescale",
+        "transport_balance"
+      ],
+      "preferred_scopes": [
+        "unary",
+        "pairwise",
+        "state_coupling",
+        "time_forcing"
+      ],
+      "domain_mechanisms": [
+        {
+          "id": "nonlinear_constitutive_response",
+          "description": "nonlinear constitutive or response law",
+          "operations": [
+            "add_term",
+            "change_assumption"
+          ]
+        },
+        {
+          "id": "coupled_field_or_force",
+          "description": "coupling to an already declared field, force, or state",
+          "operations": [
+            "add_term"
+          ]
+        },
+        {
+          "id": "finite_relaxation_or_threshold",
+          "description": "finite response time or physical threshold",
+          "operations": [
+            "change_assumption"
+          ]
+        }
+      ],
+      "profile_source": "subject_fallback",
+      "ontology_schema_version": "1.0",
+      "taxonomy_schema_version": "1.0"
+    },
+    "baseline_mechanisms": [
+      "Transfer of turbulent kinetic energy across eddy scales",
+      "Viscous removal of energy at small scales",
+      "Coupled decay of the dissipation rate as turbulence weakens"
+    ],
+    "baseline_assumptions": [
+      "The turbulence is statistically homogeneous and approximately isotropic.",
+      "There is no mean shear, external forcing, buoyancy production, or spatial transport.",
+      "Fluid density and kinematic viscosity are constant.",
+      "The unresolved cascade is represented by a two-state local closure."
+    ],
+    "scientific_constraints": [
+      "Turbulent kinetic energy and dissipation remain non-negative.",
+      "Turbulent kinetic energy is non-increasing in the absence of production.",
+      "The energy removed from the turbulent state equals the modeled dissipation.",
+      "The quiescent state has zero turbulent kinetic energy and zero dissipation."
+    ],
+    "refinement_agenda": [
+      "Add production by a prescribed mean velocity gradient.",
+      "Include spatial transport in weakly inhomogeneous turbulence.",
+      "Allow anisotropic stresses to become additional dynamic states.",
+      "Add low-intensity viscous corrections near the final decay stage."
+    ],
+    "evolution_contracts": [
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The scored target mapping is dk_dt=-epsilon, so for any observed epsilon the decay rate of k is a fixed linear gain independent of turbulence age or cascade state.",
+          "child_relation": "Retain dk_dt=-epsilon, but relax the assumption that epsilon always decays with a single self-similar power law in epsilon^2/k; introduce a finite cascade-memory state so the observed epsilon supplied to dk_dt develops delayed build-up or lagged relaxation relative to k.",
+          "affected_inputs": [
+            "k",
+            "epsilon"
+          ],
+          "observable_effect": "Across runs with the same initial k but different initial dissipation-to-energy ratio epsilon^2/k, the child can show an early-time shoulder or delayed steepening in k(t) decay through the evolved epsilon(t), whereas the parent with one shared C_epsilon2 gives only one self-similar decay curvature family."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "dissipation_loading",
+            "expression": "epsilon**2/k",
+            "role": "instantaneous intensity of dissipation relative to stored turbulent energy; sets parent k-decay curvature through epsilon dynamics"
+          },
+          {
+            "name": "decay_timescale_ratio",
+            "expression": "epsilon/k",
+            "role": "inverse turbulent decay timescale controlling how rapidly k can change relative to its level"
+          }
+        ],
+        "activation_condition": "Observable when the initial dissipation level is not already slaved to the long-time self-similar decay, i.e. moderate variation in epsilon relative to k so cascade adjustment occurs over a finite fraction of the energy-decay time; negligible if the initial state is already on the parent similarity manifold.",
+        "train_hidden_contrast": "In training, varying observed initial epsilon at fixed initial k changes early-time k-decay curvature through transient epsilon adjustment; in holdout, the same mechanism persists at stronger or weaker initial dissipation loading, extending the curvature contrast rather than introducing a new process.",
+        "continuation_path": "Recover the parent by taking the cascade-memory adjustment infinitely fast so the added state collapses to an algebraic equilibrium and epsilon again follows a single-rate closure proportional to -epsilon^2/k.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "Existing states k and epsilon do not encode whether dissipation is temporarily over- or under-populated relative to the cascade feeding it. A new state is needed to represent finite-time cascade transfer memory; otherwise any refinement is just a rescaling of the same instantaneous epsilon closure.",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "k",
+          "epsilon",
+          "q"
+        ],
+        "structural_role": "feedback",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Delayed and saturating cascade transfer into the dissipative range during free decay",
+        "scientific_mechanism": "Finite cascade memory or spectral disequilibrium between energy-containing eddies and the dissipative range during free decay.",
+        "embedding_pattern": "saturating_or_thresholded",
+        "difficulty_rationale": "This embedding is structurally harder than a coefficient-only correction because it introduces an internal timescale and a bounded transfer law, so the same observed epsilon can arise from different cascade-memory states and produce different subsequent curvature. A single instantaneous coefficient on epsilon**2/k cannot create both prompt and delayed-adjustment families across admissible initial dissipation loading.",
+        "taxonomy_match": "provisional",
+        "assumption_before": "The unresolved cascade is represented by a two-state local closure with instantaneous slaving of dissipation decay to current k and epsilon.",
+        "assumption_after": "Dissipation is fed by a finite-memory cascade state with saturating transfer, so spectral adjustment after stirring removal is not instantaneous.",
+        "before_fragment": "-epsilon",
+        "after_fragment": "-epsilon",
+        "parent_reduction": "As tau_cascade -> 0 with q -> epsilon/k and q_saturation large enough that q/(q_saturation + q) is effectively linear over the occupied range, the child reduces to an effective decay law proportional to -epsilon**2/k.",
+        "observable_signature": "With identical initial k and shared parameters, runs differing only in initial epsilon can exhibit different early-time k-decay curvature: one may show a shoulder or delayed steepening because q relaxes before epsilon reaches its self-similar trajectory. This contrast is observable in the scored target through epsilon(t) supplied to dk_dt, not only in the auxiliary state q.",
+        "shortcut_blocked": "Refitting a single parent coefficient C_epsilon2 rescales only the instantaneous law d_epsilon/dt=-C_epsilon2*epsilon**2/k, which preserves one self-similar curvature family parameterized by the observed initial states. It cannot reproduce, with one shared parameter set across runs, both immediate self-similar relaxation and finite-delay shoulders caused by an independent memory state and its saturation-limited feed."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_gain",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "At fixed q, the dissipation equation feeds epsilon from the cascade with a term proportional to k*q/(q_saturation+q), so the k-to-depsilon_dt contribution is linear in k with one shared gain.",
+          "child_relation": "Replace the linear dependence of cascade feeding on k by a nonlinear large-eddy strength dependence, so at fixed q the k-to-depsilon_dt contribution bends with k and changes relative amplification between energetic and weak-decay states.",
+          "affected_inputs": [
+            "k",
+            "q",
+            "epsilon"
+          ],
+          "observable_effect": "Across trajectories that differ in k while having comparable q occupancy, the child predicts stronger-than-linear dissipation feeding at high k and weaker feeding at low k, changing the curvature of epsilon(t) and therefore the subsequent decay rate of k(t)."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "cascade_occupancy",
+            "expression": "q/(q_saturation + q)",
+            "role": "Current saturation level of delayed cascade transfer into the dissipative range"
+          },
+          {
+            "name": "specific_dissipation",
+            "expression": "epsilon/k",
+            "role": "Instantaneous small-scale depletion rate relative to turbulent energy"
+          },
+          {
+            "name": "energetic_state",
+            "expression": "k",
+            "role": "Large-eddy energy level controlling cascade-feed intensity in the planned refinement"
+          }
+        ],
+        "activation_condition": "Observable when free-decay trajectories visit a broad enough range of k while q is neither negligible nor fully saturated, so the cascade-feed term materially contributes to depsilon_dt.",
+        "train_hidden_contrast": "The same decay records already show early energetic stages and later weak-energy stages; the refinement uses that in-training variation and extends it to holdout trajectories with more pronounced separation between high-k and low-k cascade response.",
+        "continuation_path": "Recover the parent law in the limit where the nonlinear k-dependence reduces to linear dependence over the sampled range, or exactly when the added nonlinearity parameter takes its parent-recovery value.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "k",
+          "q",
+          "epsilon"
+        ],
+        "structural_role": "modulation",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "state-dependent cascade-feed efficiency into dissipation production",
+        "scientific_mechanism": "Energy-containing eddies can drive dissipation production with a nonlinearly varying efficiency as turbulence intensity changes, reflecting changing cascade effectiveness across decay stages even without mean shear or forcing.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the effective cascade-feed gain now changes along the trajectory with k, so one parameter set must represent different local sensitivities between energetic and weak stages rather than one fixed proportional response.",
+        "taxonomy_match": "known",
+        "assumption_before": "The unresolved cascade feed term is proportional to k times a saturating function of q with one fixed gain.",
+        "assumption_after": "The cascade-feed coefficient depends on the current turbulent energy level through a saturating k-dependent modulation.",
+        "before_fragment": "-epsilon",
+        "after_fragment": "-epsilon",
+        "parent_reduction": "For k_feed_scale >> k over the sampled domain, k**2/(k_feed_scale + k) approximately scales as k after absorbing 1/k_feed_scale into C_cascade, recovering the parent response law.",
+        "observable_signature": "Holding the modeled context fixed and comparing trajectory segments with similar q/(q_saturation + q) but different k, the successor predicts a bent k-to-depsilon_dt relation: weaker cascade feeding than the parent at low k and stronger cascade feeding at high k, which appears as altered epsilon(t) curvature and thus altered k(t) decay curvature under dk_dt=-epsilon.",
+        "shortcut_blocked": "A single refitted parent parameter set cannot reproduce both low-k suppression and high-k enhancement at the same q occupancy because its cascade contribution remains strictly linear in k with one shared gain. Retuning C_cascade or q_saturation can only rescale or q-saturate that term uniformly, not create the k-dependent curvature needed across energetic and weak decay stages."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The parent maps the supplied states to dk_dt only through dk_dt=-epsilon, so for any observed epsilon the target slope is fixed and independent of how depleted k has become or how strong the delayed cascade state q is.",
+          "child_relation": "Refine the dissipation production/decay law so that the observed epsilon trajectory develops a stronger low-k collapse after prolonged decay, via an additional state-dependent slowdown or shutdown of cascade-fed dissipation as the large-eddy reservoir is exhausted.",
+          "affected_inputs": [
+            "k",
+            "epsilon",
+            "q"
+          ],
+          "observable_effect": "Across trajectories that pass through similar epsilon but different k/q combinations during decay, the child produces sharper late-time bending of epsilon(t) and therefore a different subsequent dk_dt history than the parent’s single-phase decay can match with one shared parameter set."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "cascade_ratio",
+            "expression": "q*k/epsilon",
+            "role": "Measures spectral disequilibrium between delayed cascade transfer and current dissipation level"
+          },
+          {
+            "name": "energy_depletion",
+            "expression": "k/(k_feed_scale + k)",
+            "role": "Measures how strongly the remaining large-scale energy can still sustain dissipation production"
+          },
+          {
+            "name": "memory_loading",
+            "expression": "q/(q_saturation + q)",
+            "role": "Measures saturation of the cascade-memory contribution to dissipation production"
+          }
+        ],
+        "activation_condition": "Observable during free decay once k becomes comparable to or smaller than k_feed_scale while q remains finite from earlier cascade loading, so the system enters a late-decay regime not captured by a single smooth phase.",
+        "train_hidden_contrast": "In training, the mechanism appears as mild extra bending when decay approaches the feed scale; in holdout, the same mechanism is amplified over longer observation windows where k stays low for longer and parent single-phase dynamics cannot preserve both early and late behavior with one parameter set.",
+        "continuation_path": "Recover the parent law in the limit where the added state dependence becomes negligible, e.g. when k is large compared with the new attenuation scale or when the refinement strength tends to zero.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "k",
+          "q",
+          "epsilon"
+        ],
+        "structural_role": "interaction",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Late-decay weakening of effective cascade transfer from large scales to dissipation",
+        "scientific_mechanism": "Progressive shutdown of cascade effectiveness in strongly depleted turbulence, producing extra curvature in dissipation decay as the large-eddy reservoir becomes too weak to sustain the earlier transfer pathway.",
+        "embedding_pattern": "state_coupling",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because it changes the shape of dissipation production across decay stage through a joint dependence on the existing depletion state k and the cascade-memory-fed production pathway, rather than merely rescaling the same phase everywhere.",
+        "taxonomy_match": "provisional",
+        "assumption_before": "The effectiveness of cascade-fed dissipation production is fully captured by the existing saturating factor k/(k_feed_scale+k) with no additional late-decay change in shape.",
+        "assumption_after": "Cascade-fed dissipation undergoes an additional low-k shutdown, so effective transfer weakens more sharply in strongly depleted turbulence even when memory q remains finite.",
+        "before_fragment": "-epsilon",
+        "after_fragment": "-epsilon",
+        "parent_reduction": "The successor recovers the parent when k_shutdown_scale is small relative to k over the sampled trajectory, making k/(k_shutdown_scale + k) effectively unity.",
+        "observable_signature": "If two observed trajectory segments have similar epsilon but occur at different decay stages, with one segment having lower k and still-finite q, the child predicts a more negative subsequent depsilon/dt there because the cascade-feed contribution is further attenuated by k/(k_shutdown_scale + k). That sharper late-time epsilon downturn propagates into a faster later reduction in dk_dt magnitude than the parent can reproduce while also fitting earlier decay.",
+        "shortcut_blocked": "Retuning C_cascade, C_epsilon2, k_feed_scale, q_saturation, or tau_cascade with one shared parent parameter set can shift overall gain, timing, or smooth saturation, but it cannot create a distinct extra late-decay curvature localized to low k while preserving the earlier moderate-curvature regime. The parent has only one depletion-shape factor in cascade production, so a single parameter set cannot independently match both phases when the trajectory spans k comparable to and well below the shutdown range."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "For fixed parameter values, the dissipation tendency depends on one cascade-memory state q through a single relaxation timescale, so epsilon responds to spectral disequilibrium with one characteristic lag and one broad decay phase.",
+          "child_relation": "Replace the single-lag cascade-memory assumption by a two-stage delayed transfer, so the effective feed into epsilon reflects both immediate and slower cascade adjustment, creating an additional bend in the epsilon-versus-time and epsilon-versus-k relationship during decay.",
+          "affected_inputs": [
+            "k",
+            "epsilon",
+            "q",
+            "t"
+          ],
+          "observable_effect": "Across trajectories with the same initial conditions and fixed coefficients, the child can exhibit a delayed shoulder or stronger mid-decay inflection in epsilon while k remains monotone decreasing; the parent is restricted to a single-lag relaxation shape."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "diseq_ratio",
+            "expression": "epsilon/k - q",
+            "role": "Instantaneous mismatch between dissipation-scale demand and the current cascade-memory state"
+          },
+          {
+            "name": "cascade_gate",
+            "expression": "(k/(k_feed_scale + k))*(k/(k_shutdown_scale + k))",
+            "role": "Current large-scale effectiveness of feeding dissipation through the cascade pathway"
+          },
+          {
+            "name": "feed_strength",
+            "expression": "k*q/(q_saturation + q)",
+            "role": "Saturated strength of cascade-fed production currently entering the epsilon equation"
+          }
+        ],
+        "activation_condition": "Most visible during intermediate decay when k is still above or comparable to k_shutdown_scale so the cascade pathway is active, but spectral adjustment is not instantaneous, i.e. tau_cascade is not negligible relative to the observed decay time.",
+        "train_hidden_contrast": "The same free-decay runs already contain early, intermediate, and late stages; introducing a second cascade-adjustment phase changes the target mapping in the observed intermediate window rather than relying on unseen interventions, and the contrast extends to longer holdout times as an extra curvature or shoulder before final shutdown.",
+        "continuation_path": "Recover the parent law when the added slower-transfer effect is collapsed to the existing memory channel, e.g. vanishing coupling to the extra stage or asymptotically fast equilibration of that stage so only the original single q-controlled pathway remains.",
+        "freedom_change": "add_state",
+        "promoted_symbol": null,
+        "promotion_reason": "A genuinely distinct slower cascade-adjustment phase cannot be represented by refitting constants in the existing one-state memory closure; one additional dynamic state is needed to store delayed transfer history separately from q.",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "q",
+          "r",
+          "epsilon",
+          "k"
+        ],
+        "structural_role": "interaction",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "two-stage delayed spectral transfer feeding dissipation",
+        "scientific_mechanism": "Multi-stage spectral transfer during free decay: energy leaves the large scales and reaches the dissipative range through at least two dynamically distinct adjustment stages, so dissipation production need not track a single-lag memory variable.",
+        "embedding_pattern": "state_coupling",
+        "difficulty_rationale": "The added state changes the epsilon response law through joint dependence on q and r in the cascade feed, introducing a second temporal occupancy that alters the target trajectory shape rather than merely rescaling an existing term. This is structurally harder than a coefficient-only correction because the extra memory stage can create a distinct mid-decay bend while preserving the same monotone decay of k.",
+        "taxonomy_match": "known",
+        "assumption_before": "The unresolved cascade is represented by a two-state local closure with a single cascade-memory variable q controlling delayed feed into dissipation.",
+        "assumption_after": "The unresolved cascade contains a slower secondary transfer stage r, and dissipation production depends jointly on q and r.",
+        "before_fragment": "-epsilon",
+        "after_fragment": "-epsilon",
+        "parent_reduction": "C_transfer = 0",
+        "observable_signature": "When k remains in the active cascade-gate range and tau_transfer is not negligible, epsilon(t) and therefore dk_dt(t) can show an additional mid-decay shoulder or stronger inflection relative to the parent's single-lag response; this is a changed target mapping because dk_dt=-epsilon and epsilon is altered by the q-r coupled feed, not just by auxiliary state motion with no target consequence.",
+        "shortcut_blocked": "A single parent parameter set cannot simultaneously match the early response and a later secondary shoulder across the same trajectory, because the parent has only one cascade-memory occupancy and one relaxation phase. Refitting C_cascade, tau_cascade, q_saturation, or the shutdown/feed scales can shift or rescale that sole phase, but cannot create a separate delayed contribution from a second stored transfer history when the cascade gate stays active."
+      },
+      {
+        "operation": "change_assumption",
+        "parent_shortcut": "single_phase",
+        "response_change": {
+          "type": "curvature_change",
+          "parent_relation": "The dissipation equation uses one fixed secondary-transfer timescale tau_transfer, so for fixed initial conditions the mapping from current cascade disequilibrium states (q,r,k) to d epsilon/dt has a single characteristic lag structure throughout decay.",
+          "child_relation": "Relax the fixed-lag assumption by making the downstream transfer effectiveness depend on the current turbulence level already encoded by existing states, so the mapping from (k,q,r) to d epsilon/dt changes curvature between energetic and depleted stages even without adding forcing or shear.",
+          "affected_inputs": [
+            "k",
+            "q",
+            "r",
+            "tau_transfer"
+          ],
+          "observable_effect": "Across trajectories that pass from k >> k_shutdown_scale to k comparable to or below that scale, epsilon(t) shows an earlier stronger memory delay and a later sharper shutdown than the parent can match with one shared fixed-lag parameter set."
+        },
+        "diagnostic_groups": [
+          {
+            "name": "energy_level",
+            "expression": "k/(k_shutdown_scale + k)",
+            "role": "dimensionless measure of whether the cascade is still well supported by the large-scale energy reservoir"
+          },
+          {
+            "name": "memory_mismatch",
+            "expression": "q - r",
+            "role": "occupancy gap between the primary and slower secondary cascade stages"
+          },
+          {
+            "name": "feed_level",
+            "expression": "(q + C_transfer*r)/(q_saturation + q + C_transfer*r)",
+            "role": "current normalized cascade-feed strength into dissipation"
+          }
+        ],
+        "activation_condition": "Observable during free decay when k changes appreciably over the record, especially from k larger than k_shutdown_scale into the depleted regime where large-eddy support of downstream transfer weakens.",
+        "train_hidden_contrast": "In training the mechanism appears as mild non-exponential bending of epsilon relative to q and r at intermediate decay; in holdout it extends to later low-k stages where the same trajectories exhibit stronger transfer slowdown and sharper dissipation curvature.",
+        "continuation_path": "Recover the parent by taking the transfer-stage modulation to be constant, equivalently removing any k-dependence from the secondary transfer timescale so tau_transfer is fixed again.",
+        "freedom_change": "none",
+        "promoted_symbol": null,
+        "promotion_reason": "",
+        "scope_kind": "state_coupling",
+        "scope_symbols": [
+          "k",
+          "r",
+          "q",
+          "tau_transfer",
+          "k_shutdown_scale"
+        ],
+        "structural_role": "timescale",
+        "domain_mechanism_id": "",
+        "domain_mechanism": "Energy-level-dependent secondary cascade transfer lag",
+        "scientific_mechanism": "Energy-level-dependent slowing of the downstream cascade occupancy adjustment during depleted turbulence, causing the secondary transfer stage to lag more strongly as k falls.",
+        "embedding_pattern": "state_dependent_coefficient",
+        "difficulty_rationale": "This is harder than a coefficient-only correction because the same fixed parameter set must now reproduce different effective r-relaxation speeds along one trajectory as k changes, creating stage-dependent curvature in epsilon through the existing nonlinear feed term rather than a uniform gain shift.",
+        "taxonomy_match": "known",
+        "assumption_before": "The secondary cascade stage has a turbulence-independent relaxation time tau_transfer throughout the entire decay.",
+        "assumption_after": "The secondary cascade stage slows as turbulence is depleted, with its effective transfer coefficient reduced by the current energy-support factor k/(k_shutdown_scale + k).",
+        "before_fragment": "-epsilon",
+        "after_fragment": "-epsilon",
+        "parent_reduction": "k >> k_shutdown_scale, so k/(k_shutdown_scale + k) -> 1 and the r equation returns to (q - r)/tau_transfer.",
+        "observable_signature": "Relative to the parent, trajectories spanning high to low k show r tracking q fairly closely early on but falling behind more strongly later, which reduces the q + C_transfer*r feed into epsilon and creates a sharper late-time bend in d epsilon/dt and thus in dk/dt = -epsilon. This is a changed target mapping, not merely an auxiliary-state change, because epsilon is an observed state entering the scored target directly.",
+        "shortcut_blocked": "Refitting a single constant tau_transfer in the parent can only impose one global lag compromise for r versus q. It cannot simultaneously match the near-parent early-time transfer response when k is large and the stronger late-time slowdown when k is small, because the child introduces a state-dependent coefficient k/(k_shutdown_scale + k) that changes the relaxation law along the same trajectory rather than across separately refit parameter sets."
+      }
+    ]
+  },
+  "finalization": {
+    "mode": "candidate",
+    "accepted_generations": 5,
+    "novelty": {
+      "answer": "NOT_EVALUATED"
+    },
+    "total_points": 5000,
+    "evaluation_status": "not_evaluated"
+  }
+}

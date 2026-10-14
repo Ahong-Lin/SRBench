@@ -1,0 +1,1748 @@
+{
+  "version": 7,
+  "spec": {
+    "equation_type": "ode_system",
+    "integrator": "integrate_system",
+    "dependent_variable": "v",
+    "independent_variables": [
+      {
+        "symbol": "t",
+        "range": [
+          0.0,
+          12.0
+        ],
+        "n_points": 400,
+        "scale": "linear"
+      }
+    ],
+    "parameters": [
+      {
+        "symbol": "phonon_frequency",
+        "value": 2.0
+      },
+      {
+        "symbol": "damping_rate",
+        "value": 0.2
+      },
+      {
+        "symbol": "anharmonic_coefficient",
+        "value": 1.2
+      },
+      {
+        "symbol": "amplitude_dependent_damping",
+        "value": 0.5
+      },
+      {
+        "symbol": "damping_saturation_scale",
+        "value": 0.3
+      },
+      {
+        "symbol": "anharmonic_saturation_scale",
+        "value": 0.4
+      },
+      {
+        "symbol": "damping_relaxation_time",
+        "value": 0.8
+      },
+      {
+        "symbol": "velocity_damping_saturation_scale",
+        "value": 0.5
+      }
+    ],
+    "benchmark_output": "dv_dt",
+    "benchmark_target_state": "v",
+    "observed_variables": [
+      "t",
+      "Q",
+      "v",
+      "y"
+    ],
+    "rhs_for_integrator": "-(phonon_frequency**2 + anharmonic_coefficient*Q**2/(anharmonic_saturation_scale + Q**2))*Q - (damping_rate + amplitude_dependent_damping*y)*v/sqrt(1 + v**2/velocity_damping_saturation_scale)",
+    "state_variables": [
+      "Q",
+      "v",
+      "y"
+    ],
+    "state_rhs": [
+      "v",
+      "-(phonon_frequency**2 + anharmonic_coefficient*Q**2/(anharmonic_saturation_scale + Q**2))*Q - (damping_rate + amplitude_dependent_damping*y)*v/sqrt(1 + v**2/velocity_damping_saturation_scale)",
+      "(Q**2/(damping_saturation_scale + Q**2) - y)/damping_relaxation_time"
+    ],
+    "initial_conditions": {
+      "Q": 0.5,
+      "v": 0.0,
+      "y": 0.0
+    },
+    "sanity_expectations": [
+      "The integrated trajectory should show underdamped oscillatory ringdown of Q and v over several cycles rather than monotone decay, because phonon_frequency=2 dominates baseline damping.",
+      "y should start at 0 and rise toward the instantaneous activation level Q^2/(damping_saturation_scale+Q^2); early in the trajectory it should lag that quasistatic value, so matched or similar (Q,v) states at different times can have different dv_dt through different y.",
+      "At small |v| the damping contribution is approximately linear in v, but during faster segments its magnitude should be reduced relative to -(damping_rate+amplitude_dependent_damping*y)*v because of the sqrt(1+v^2/velocity_damping_saturation_scale) denominator.",
+      "Because Q^2 is initially comparable to anharmonic_saturation_scale, the restoring acceleration as a function of Q should deviate from a pure linear spring law yet not be fully saturated; oscillation period and phase portrait curvature should therefore be amplitude dependent.",
+      "Total damping should remain dissipative throughout the sampled window since damping_rate>0, amplitude_dependent_damping>0, and y relaxes from 0 toward a nonnegative bounded activation level."
+    ],
+    "role_corrections": [
+      "dv_dt: claimed-output/target derivative -> target derivative of dependent state v (confirmed by contract; regression label is the RHS for dv_dt, while dependent variable for integration is v)",
+      "t: claimed-input/time axis -> independent variable (confirmed)",
+      "Q: claimed-dynamic state -> dynamic state variable (confirmed)",
+      "v: claimed-dynamic state -> dependent/target state variable (confirmed)",
+      "y: claimed-dynamic state -> dynamic state variable (confirmed)",
+      "phonon_frequency: claimed-parameter -> parameter (confirmed)",
+      "damping_rate: claimed-parameter -> parameter (confirmed)",
+      "anharmonic_coefficient: claimed-parameter -> parameter (confirmed)",
+      "amplitude_dependent_damping: claimed-parameter -> parameter (confirmed)",
+      "damping_saturation_scale: claimed-parameter -> parameter (confirmed)",
+      "anharmonic_saturation_scale: claimed-parameter -> parameter (confirmed)",
+      "damping_relaxation_time: claimed-parameter -> parameter (confirmed)",
+      "velocity_damping_saturation_scale: claimed-parameter -> parameter (confirmed)",
+      "equation_type: explicit-from-local-expression hint -> ode_system (overridden by supplied validated ODE system contract requiring coupled integration of Q,v,y over t)"
+    ],
+    "rationale": "The provided typed ODE contract is preserved exactly as required: time is the only sampled axis, v is the target state whose acceleration dv_dt is the regression label, and Q,v,y are dynamic states with fixed material/environment parameters. The chosen values keep all denominators positive and finite, maintain dissipative damping, and place the trajectory in a regime where the intended refinements are visible rather than erased. With Q(0)=0.5, the displacement-squared scale Q^2(0)=0.25 is comparable to both damping_saturation_scale=0.3 and anharmonic_saturation_scale=0.4, so the delayed damping activation and restoring-force saturation are both engaged but not driven deep into full saturation. The phonon period is about 2*pi/phonon_frequency ≈ 3.14, so the time window [0,12] captures several oscillations plus ringdown. damping_relaxation_time=0.8 is not negligible relative to the oscillation period, allowing y to lag its quasistatic value and produce history-dependent damping. amplitude_dependent_damping=0.5 exceeds but does not overwhelm the baseline damping_rate=0.2, so the y-controlled channel noticeably modulates decay while total damping remains positive because y starts at 0 and relaxes toward Q^2/(damping_saturation_scale+Q^2) in [0,1). velocity_damping_saturation_scale=0.5 is positive and comparable to reachable early-time v^2, so the drag law should be near-linear at small |v| but visibly sublinear during faster segments. No observation noise is added; exact state trajectories are integrated and dv_dt is read from the inherited second state RHS.",
+    "coverage_report": {
+      "groups": [
+        {
+          "generation": 1,
+          "name": "restoring_branch",
+          "expression": "phonon_frequency**2*Q",
+          "role": "baseline linear restoring acceleration coordinate",
+          "train_range": [
+            -1.757829297733206,
+            2.0
+          ],
+          "hidden_range": [
+            -0.6606596581985363,
+            0.42823569360308344
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -1.757829297733206,
+            "max": 2.0,
+            "q05": -1.484282424955766,
+            "median": 0.0044380764954084105,
+            "q95": 1.4739870686080578,
+            "range": 3.757829297733206,
+            "robust_range": 2.958269493563824
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": -0.6606596581985363,
+            "max": 0.42823569360308344,
+            "q05": -0.6525860618111381,
+            "median": -0.2289258270675707,
+            "q95": 0.3798266371354286,
+            "range": 1.0888953518016198,
+            "robust_range": 1.0324126989465667
+          }
+        },
+        {
+          "generation": 1,
+          "name": "phase_plane",
+          "expression": "Q**2 + (v/phonon_frequency)**2",
+          "role": "oscillation amplitude proxy for comparing small- and larger-excursion trajectories",
+          "train_range": [
+            0.027326248931765527,
+            0.25472682706650834
+          ],
+          "hidden_range": [
+            0.020338168703847227,
+            0.02733093394579214
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.027326248931765527,
+            "max": 0.25472682706650834,
+            "q05": 0.029522905850740595,
+            "median": 0.08618241950244798,
+            "q95": 0.24859500778638435,
+            "range": 0.22740057813474282,
+            "robust_range": 0.21907210193564375
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.020338168703847227,
+            "max": 0.02733093394579214,
+            "q05": 0.020609786223920904,
+            "median": 0.025040433396324634,
+            "q95": 0.027329146994990273,
+            "range": 0.0069927652419449135,
+            "robust_range": 0.006719360771069369
+          }
+        },
+        {
+          "generation": 2,
+          "name": "displacement_level",
+          "expression": "Q**2",
+          "role": "Instantaneous amplitude proxy controlling environment-dependent dissipation strength",
+          "train_range": [
+            3.9730433850896555e-10,
+            0.25
+          ],
+          "hidden_range": [
+            3.309184547621414e-10,
+            0.02727944899818793
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 3.9730433850896555e-10,
+            "max": 0.25,
+            "q05": 0.0004685677405402064,
+            "median": 0.033775369563642244,
+            "q95": 0.17803982872339016,
+            "range": 0.24999999960269567,
+            "robust_range": 0.17757126098284995
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 3.309184547621414e-10,
+            "max": 0.02727944899818793,
+            "q05": 8.898256344619031e-05,
+            "median": 0.007399267187630095,
+            "q95": 0.02661678626542995,
+            "range": 0.027279448667269474,
+            "robust_range": 0.02652780370198376
+          }
+        },
+        {
+          "generation": 2,
+          "name": "damping_channel",
+          "expression": "damping_rate*v",
+          "role": "Parent linear dissipative force for comparison against amplitude-modulated damping",
+          "train_range": [
+            -0.19334541787938547,
+            0.16612203829719896
+          ],
+          "hidden_range": [
+            0.0027581716412516345,
+            0.06132810922471246
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -0.19334541787938547,
+            "max": 0.16612203829719896,
+            "q05": -0.16521747303124712,
+            "median": -0.021375295129201305,
+            "q95": 0.14225884136854014,
+            "range": 0.35946745617658443,
+            "robust_range": 0.3074763143997873
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.0027581716412516345,
+            "max": 0.06132810922471246,
+            "q05": 0.010689192338146754,
+            "median": 0.050636535023733,
+            "q95": 0.06121300459863569,
+            "range": 0.05856993758346083,
+            "robust_range": 0.05052381226048894
+          }
+        },
+        {
+          "generation": 2,
+          "name": "restoring_scale",
+          "expression": "(phonon_frequency**2 + anharmonic_coefficient*Q**2)*Q",
+          "role": "Conservative acceleration scale separating stiffness nonlinearity from damping nonlinearity",
+          "train_range": [
+            -1.859672340861345,
+            2.15
+          ],
+          "hidden_range": [
+            -0.6660663876338324,
+            0.42970817515118626
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -1.859672340861345,
+            "max": 2.15,
+            "q05": -1.5455952023931907,
+            "median": 0.004438078193882934,
+            "q95": 1.5340328227646762,
+            "range": 4.009672340861345,
+            "robust_range": 3.079628025157867
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": -0.6660663876338324,
+            "max": 0.42970817515118626,
+            "q05": -0.657796985227338,
+            "median": -0.22915080271597912,
+            "q95": 0.38085408396345755,
+            "range": 1.0957745627850186,
+            "robust_range": 1.0386510691907955
+          }
+        },
+        {
+          "generation": 3,
+          "name": "restoring_curve",
+          "expression": "-(phonon_frequency**2 + anharmonic_coefficient*Q**2)*Q",
+          "role": "Parent displacement-to-acceleration restoring branch at fixed velocity",
+          "train_range": [
+            -2.15,
+            1.859672340861345
+          ],
+          "hidden_range": [
+            -0.42970817515118626,
+            0.6660663876338324
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -2.15,
+            "max": 1.859672340861345,
+            "q05": -1.534032822764676,
+            "median": -0.004438078193882934,
+            "q95": 1.545595202393191,
+            "range": 4.009672340861345,
+            "robust_range": 3.079628025157867
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": -0.42970817515118626,
+            "max": 0.6660663876338324,
+            "q05": -0.38085408396345766,
+            "median": 0.22915080271597912,
+            "q95": 0.657796985227338,
+            "range": 1.0957745627850186,
+            "robust_range": 1.0386510691907955
+          }
+        },
+        {
+          "generation": 3,
+          "name": "amplitude_scale",
+          "expression": "Q**2",
+          "role": "Oscillation-excursion measure governing entry into the nonperturbative anharmonic regime",
+          "train_range": [
+            3.9730433850896555e-10,
+            0.25
+          ],
+          "hidden_range": [
+            3.309184547621414e-10,
+            0.02727944899818793
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 3.9730433850896555e-10,
+            "max": 0.25,
+            "q05": 0.0004685677405402064,
+            "median": 0.033775369563642244,
+            "q95": 0.17803982872339016,
+            "range": 0.24999999960269567,
+            "robust_range": 0.17757126098284995
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 3.309184547621414e-10,
+            "max": 0.02727944899818793,
+            "q05": 8.898256344619031e-05,
+            "median": 0.007399267187630095,
+            "q95": 0.02661678626542995,
+            "range": 0.027279448667269474,
+            "robust_range": 0.02652780370198376
+          }
+        },
+        {
+          "generation": 3,
+          "name": "damping_branch",
+          "expression": "(damping_rate + amplitude_dependent_damping*Q**2/(damping_saturation_scale + Q**2))*v",
+          "role": "Velocity-opposing contribution to be held distinct from the restoring-law refinement",
+          "train_range": [
+            -0.2546653257240205,
+            0.20495211573599778
+          ],
+          "hidden_range": [
+            0.0033329205511365085,
+            0.06153082154933765
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -0.2546653257240205,
+            "max": 0.20495211573599778,
+            "q05": -0.21417134845695493,
+            "median": -0.03045596077177756,
+            "q95": 0.17355029471494005,
+            "range": 0.45961744146001826,
+            "robust_range": 0.38772164317189495
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.0033329205511365085,
+            "max": 0.06153082154933765,
+            "q05": 0.012866907877776003,
+            "median": 0.053757866446990765,
+            "q95": 0.06146071138294809,
+            "range": 0.058197900998201144,
+            "robust_range": 0.04859380350517209
+          }
+        },
+        {
+          "generation": 4,
+          "name": "restoring_branch",
+          "expression": "-(phonon_frequency**2 + anharmonic_coefficient*Q**2/(anharmonic_saturation_scale + Q**2))*Q",
+          "role": "Instantaneous conservative acceleration component",
+          "train_range": [
+            -2.230769230769231,
+            1.9295358202793986
+          ],
+          "hidden_range": [
+            -0.43181435440957144,
+            0.6733135067465368
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -2.230769230769231,
+            "max": 1.9295358202793986,
+            "q05": -1.5860566634475413,
+            "median": -0.004438080741580575,
+            "q95": 1.5983116692840327,
+            "range": 4.1603050510486295,
+            "robust_range": 3.184368332731574
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": -0.43181435440957144,
+            "max": 0.6733135067465368,
+            "q05": -0.3823386285496729,
+            "median": 0.2294836967988786,
+            "q95": 0.6648005914087868,
+            "range": 1.1051278611561082,
+            "robust_range": 1.0471392199584597
+          }
+        },
+        {
+          "generation": 4,
+          "name": "instant_damping_load",
+          "expression": "v*Q**2/(damping_saturation_scale + Q**2)",
+          "role": "Amplitude-activated dissipative loading that would drive a delayed damping response",
+          "train_range": [
+            -0.215870321432234,
+            0.15602776137102478
+          ],
+          "hidden_range": [
+            3.3651242543456653e-10,
+            0.010752834512514405
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": -0.215870321432234,
+            "max": 0.15602776137102478,
+            "q05": -0.1470378931623611,
+            "median": -0.0028767565408310725,
+            "q95": 0.10102384457620496,
+            "range": 0.37189808280325876,
+            "robust_range": 0.24806173773856605
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 3.3651242543456653e-10,
+            "max": 0.010752834512514405,
+            "q05": 8.976610885387988e-05,
+            "median": 0.004979799772456219,
+            "q95": 0.010639596428772519,
+            "range": 0.01075283417600198,
+            "robust_range": 0.010549830319918638
+          }
+        },
+        {
+          "generation": 4,
+          "name": "phase_space_power",
+          "expression": "v**2*(damping_rate + amplitude_dependent_damping*Q**2/(damping_saturation_scale + Q**2))",
+          "role": "Instantaneous dissipation rate scale under the parent law",
+          "train_range": [
+            0.0,
+            0.21579038960120345
+          ],
+          "hidden_range": [
+            4.596383473344742e-05,
+            0.018852895920220308
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0,
+            "max": 0.21579038960120345,
+            "q05": 0.000548667502565039,
+            "median": 0.03437915837283893,
+            "q95": 0.18471684168494754,
+            "range": 0.21579038960120345,
+            "robust_range": 0.1841681741823825
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 4.596383473344742e-05,
+            "max": 0.018852895920220308,
+            "q05": 0.0006877121332549166,
+            "median": 0.013613965738071,
+            "q95": 0.01879655751376579,
+            "range": 0.01880693208548686,
+            "robust_range": 0.01810884538051087
+          }
+        },
+        {
+          "generation": 5,
+          "name": "effective_linear_damping",
+          "expression": "damping_rate + amplitude_dependent_damping*y",
+          "role": "Current parent damping strength multiplying v",
+          "train_range": [
+            0.2,
+            0.32791619460218874
+          ],
+          "hidden_range": [
+            0.21513311530147122,
+            0.22957349898766952
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.2,
+            "max": 0.32791619460218874,
+            "q05": 0.22307880868458352,
+            "median": 0.26176161429359746,
+            "q95": 0.3135933553228795,
+            "range": 0.12791619460218873,
+            "robust_range": 0.090514546638296
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.21513311530147122,
+            "max": 0.22957349898766952,
+            "q05": 0.21517000404286662,
+            "median": 0.22510932179966836,
+            "q95": 0.22953114001226566,
+            "range": 0.014440383686198294,
+            "robust_range": 0.01436113596939903
+          }
+        },
+        {
+          "generation": 5,
+          "name": "velocity_excursion",
+          "expression": "Abs(v)",
+          "role": "Magnitude of instantaneous phonon speed where drag-law curvature would appear",
+          "train_range": [
+            0.0,
+            0.9667270893969273
+          ],
+          "hidden_range": [
+            0.013790858206258172,
+            0.3066405461235623
+          ],
+          "train_status": "visible",
+          "hidden_status": "visible",
+          "crosses_boundary": false,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 0.0,
+            "max": 0.9667270893969273,
+            "q05": 0.042975506212261025,
+            "median": 0.369070168307122,
+            "q95": 0.8305982393613153,
+            "range": 0.9667270893969273,
+            "robust_range": 0.7876227331490543
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 0.013790858206258172,
+            "max": 0.3066405461235623,
+            "q05": 0.05344596169073377,
+            "median": 0.253182675118665,
+            "q95": 0.30606502299317845,
+            "range": 0.2928496879173041,
+            "robust_range": 0.25261906130244466
+          }
+        },
+        {
+          "generation": 5,
+          "name": "amplitude_activation",
+          "expression": "Q**2/(damping_saturation_scale + Q**2)",
+          "role": "Displacement-controlled activation level of the delayed damping channel",
+          "train_range": [
+            1.324347793275988e-09,
+            0.45454545454545453
+          ],
+          "hidden_range": [
+            1.10306151465706e-09,
+            0.08335216000176954
+          ],
+          "train_status": "visible",
+          "hidden_status": "extended",
+          "crosses_boundary": true,
+          "train_summary": {
+            "n": 4500,
+            "finite": true,
+            "min": 1.324347793275988e-09,
+            "max": 0.45454545454545453,
+            "q05": 0.0015594567622527103,
+            "median": 0.10119191705373867,
+            "q95": 0.37243720603118574,
+            "range": 0.45454545322110673,
+            "robust_range": 0.370877749268933
+          },
+          "hidden_summary": {
+            "n": 500,
+            "finite": true,
+            "min": 1.10306151465706e-09,
+            "max": 0.08335216000176954,
+            "q05": 0.000296520522261287,
+            "median": 0.024070527684576667,
+            "q95": 0.08149240074821311,
+            "range": 0.08335215889870802,
+            "robust_range": 0.08119588022595182
+          }
+        }
+      ],
+      "inactive_mechanisms": [],
+      "visible_mechanisms": [
+        "restoring_branch",
+        "phase_plane",
+        "displacement_level",
+        "damping_channel",
+        "restoring_scale",
+        "restoring_curve",
+        "amplitude_scale",
+        "damping_branch",
+        "restoring_branch",
+        "instant_damping_load",
+        "phase_space_power",
+        "effective_linear_damping",
+        "velocity_excursion",
+        "amplitude_activation"
+      ],
+      "extended_mechanisms": [
+        "phase_plane",
+        "displacement_level",
+        "amplitude_scale",
+        "effective_linear_damping",
+        "amplitude_activation"
+      ]
+    },
+    "inactive_mechanisms": [],
+    "target_variance": {
+      "train": {
+        "n": 4500,
+        "variance": 0.9243898092761871,
+        "range": 4.177237477287548
+      },
+      "hidden": {
+        "n": 500,
+        "variance": 0.13459903446043822,
+        "range": 1.1411931531308765
+      }
+    },
+    "parent_absorption_report": {
+      "status": "ok",
+      "n_points": 512,
+      "fixed_parent_normalized_rmse": 0.055361800231012614,
+      "refit": {
+        "status": "not_run",
+        "reason": "no free parent parameters"
+      },
+      "interpretation": "<1e-3 nearly absorbed; 1e-3..1e-2 weak; >1e-2 visible structure"
+    },
+    "noise": 0.0,
+    "_trace": [
+      {
+        "turn": 1,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "analyze_expression",
+            "id": "call_wKvLr0HcnpGhjmXLC52GtcEE"
+          }
+        ]
+      },
+      {
+        "tool": "analyze_expression",
+        "input": {
+          "expression": "-(phonon_frequency**2 + anharmonic_coefficient*Q**2/(anharmonic_saturation_scale + Q**2))*Q - (damping_rate + amplitude_dependent_damping*y)*v/sqrt(1 + v**2/velocity_damping_saturation_scale)",
+          "target_symbol": "dv_dt"
+        },
+        "result": {
+          "ok": true,
+          "free_symbols": [
+            "Q",
+            "amplitude_dependent_damping",
+            "anharmonic_coefficient",
+            "anharmonic_saturation_scale",
+            "damping_rate",
+            "phonon_frequency",
+            "v",
+            "velocity_damping_saturation_scale",
+            "y"
+          ],
+          "functions_of": {},
+          "target_function_calls": [],
+          "delayed_target_calls": [],
+          "ungoverned_functions": [],
+          "derivatives": [],
+          "max_derivative_order": 0,
+          "integral_kernels": [],
+          "explicitly_solvable_for_target": true,
+          "explicit_solution_preview": [
+            "Q*(-Q**2*anharmonic_coefficient/(Q**2 + anharmonic_saturation_scale) - phonon_frequency**2) - v*(amplitude_dependent_dam"
+          ],
+          "classification_hint": "explicit",
+          "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+        }
+      },
+      {
+        "turn": 2,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "check_substitution",
+            "id": "call_BZGLc1M8BqgmUvZ1JMt95lOe"
+          }
+        ]
+      },
+      {
+        "tool": "check_substitution",
+        "input": {
+          "expression": "-(phonon_frequency**2 + anharmonic_coefficient*Q**2/(anharmonic_saturation_scale + Q**2))*Q - (damping_rate + amplitude_dependent_damping*y)*v/sqrt(1 + v**2/velocity_damping_saturation_scale)",
+          "target_symbol": "dv_dt",
+          "assignments": {
+            "Q": 0.5,
+            "v": 0.4,
+            "y": 0.1,
+            "phonon_frequency": 2.0,
+            "damping_rate": 0.2,
+            "anharmonic_coefficient": 1.2,
+            "amplitude_dependent_damping": 0.5,
+            "damping_saturation_scale": 0.3,
+            "anharmonic_saturation_scale": 0.4,
+            "damping_relaxation_time": 0.8,
+            "velocity_damping_saturation_scale": 0.5
+          }
+        },
+        "result": {
+          "ok": true,
+          "value_real": -2.31780805874708,
+          "value_imag": 0.0,
+          "is_finite": true,
+          "is_real": true,
+          "verdict": "ok",
+          "residual_free_symbols": []
+        }
+      },
+      {
+        "turn": 3,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "emit_data_gen_spec",
+            "id": "call_8bxyMBXI4mr2HGkAZSOakLqk"
+          }
+        ]
+      },
+      {
+        "tool": "emit_data_gen_spec",
+        "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+      },
+      {
+        "turn": 4,
+        "assistant_content": null,
+        "tool_calls": [
+          {
+            "name": "emit_data_gen_spec",
+            "id": "call_TVlwMB5hxLfOe2ozy4Rg7xCP"
+          }
+        ]
+      },
+      {
+        "tool": "emit_data_gen_spec",
+        "accepted": true
+      }
+    ],
+    "_provider": "openai",
+    "_num_turns": 4,
+    "discipline": "physics",
+    "scenario_text": "Track a coherent optical-phonon coordinate after a crystal is displaced from its equilibrium lattice configuration. The coordinate and its velocity evolve jointly through lattice inertia, harmonic restoring forces, and damping into other vibrational modes. Material coefficients and the post-preparation environment remain fixed along each trajectory. The regression target is the acceleration of the phonon coordinate.",
+    "record_id": "m2_condensed_matter_physics_20280761_002",
+    "generation": 5,
+    "_n_total": 5000,
+    "mechanism_observation_history": [
+      {
+        "generation": 1,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The restoring contribution to dv_dt is linear in displacement, dv_dt = -phonon_frequency**2*Q - damping_rate*v, so at fixed v the acceleration varies with a single constant slope in Q.",
+            "child_relation": "Relax the harmonic-potential assumption so the restoring force acquires amplitude dependence from lattice anharmonicity; at fixed v, dv_dt becomes a nonlinear function of Q with displacement-dependent slope/curvature while still pointing toward equilibrium for admissible amplitudes.",
+            "affected_inputs": [
+              "Q",
+              "v"
+            ],
+            "observable_effect": "Across trajectories with different prepared phonon amplitudes but the same material coefficients and damping, the child predicts amplitude-dependent softening or stiffening of the restoring acceleration, visible as non-elliptic phase portraits and amplitude-dependent oscillation period/peak acceleration that one shared linear spring constant cannot match."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "restoring_branch",
+              "expression": "phonon_frequency**2*Q",
+              "role": "baseline linear restoring acceleration coordinate"
+            },
+            {
+              "name": "phase_plane",
+              "expression": "Q**2 + (v/phonon_frequency)**2",
+              "role": "oscillation amplitude proxy for comparing small- and larger-excursion trajectories"
+            }
+          ],
+          "activation_condition": "Observable when the coherent displacement is large enough that anharmonic corrections to the lattice potential are no longer negligible but still small enough that the potential remains single-well and damping stays dissipative; practically, compare low-amplitude and moderate-amplitude trajectories under the same post-preparation environment.",
+          "train_hidden_contrast": "Within training, moderate excursions already bend the dv_dt-versus-Q relation away from a single line; in holdout, larger but still stable excursions extend the same amplitude-dependent curvature rather than introducing a new mechanism.",
+          "continuation_path": "In the small-amplitude limit, or as the anharmonic coefficient tends to zero, the restoring force reduces to the parent harmonic law.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The parent assumes an exactly harmonic lattice restoring potential over the full sampled displacement range, omitting the first physically relevant anharmonic correction to coherent optical-phonon motion.",
+          "baseline_assumption": "The restoring potential is harmonic.",
+          "scientific_mechanism": "Lattice anharmonicity modifies the phonon restoring force at finite displacement, producing amplitude-dependent oscillation frequency and acceleration curvature without external driving.",
+          "affected_symbols": [
+            "Q",
+            "v",
+            "phonon_frequency"
+          ],
+          "rationale": "A realistic next refinement is to relax the exactly harmonic restoring-force assumption rather than adding a new bath or drive. Hold fixed the material coefficients and damping environment along each trajectory, and vary only the prepared initial amplitude already admissible in coherent-phonon experiments. The parent then maps Q to restoring acceleration with one constant slope, so after subtracting damping the dv_dt-versus-Q relation is a straight line for all amplitudes. An anharmonic child changes the target mapping itself: the slope of dv_dt with respect to Q depends on Q, giving measurable curvature in acceleration-displacement data and amplitude-dependent period or peak acceleration. A single shared parent parameter set cannot reproduce both small-amplitude near-harmonic motion and moderate-amplitude softened/stiffened motion across those conditions, because refitting phonon_frequency only changes one global linear slope. This refinement is scientifically admissible provided excursions remain centered around the same equilibrium and do not cross into structural instability; if all observed amplitudes are truly infinitesimal, the contrast will be weak and the parent remains an effective approximation."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The restoring contribution to dv_dt is linear in displacement, dv_dt = -phonon_frequency**2*Q - damping_rate*v, so at fixed v the acceleration varies with a single constant slope in Q.",
+            "child_relation": "Relax the harmonic-potential assumption so the restoring force acquires amplitude dependence from lattice anharmonicity; at fixed v, dv_dt becomes a nonlinear function of Q with displacement-dependent slope/curvature while still pointing toward equilibrium for admissible amplitudes.",
+            "affected_inputs": [
+              "Q",
+              "v"
+            ],
+            "observable_effect": "Across trajectories with different prepared phonon amplitudes but the same material coefficients and damping, the child predicts amplitude-dependent softening or stiffening of the restoring acceleration, visible as non-elliptic phase portraits and amplitude-dependent oscillation period/peak acceleration that one shared linear spring constant cannot match."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "restoring_branch",
+              "expression": "phonon_frequency**2*Q",
+              "role": "baseline linear restoring acceleration coordinate"
+            },
+            {
+              "name": "phase_plane",
+              "expression": "Q**2 + (v/phonon_frequency)**2",
+              "role": "oscillation amplitude proxy for comparing small- and larger-excursion trajectories"
+            }
+          ],
+          "activation_condition": "Observable when the coherent displacement is large enough that anharmonic corrections to the lattice potential are no longer negligible but still small enough that the potential remains single-well and damping stays dissipative; practically, compare low-amplitude and moderate-amplitude trajectories under the same post-preparation environment.",
+          "train_hidden_contrast": "Within training, moderate excursions already bend the dv_dt-versus-Q relation away from a single line; in holdout, larger but still stable excursions extend the same amplitude-dependent curvature rather than introducing a new mechanism.",
+          "continuation_path": "In the small-amplitude limit, or as the anharmonic coefficient tends to zero, the restoring force reduces to the parent harmonic law.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "unary",
+          "scope_symbols": [
+            "Q"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "state_dependent_coefficient",
+          "domain_mechanism": "state-dependent restoring stiffness from anharmonic lattice potential",
+          "scientific_mechanism": "Lattice anharmonicity modifies the phonon restoring force at finite displacement, producing amplitude-dependent oscillation frequency and acceleration curvature without external driving.",
+          "embedding_pattern": "state_dependent_coefficient",
+          "difficulty_rationale": "This embedding is harder than a coefficient-only correction because the effective restoring coefficient varies along the trajectory with Q, so the target relation changes curvature across amplitudes rather than shifting by one global gain.",
+          "taxonomy_match": "known",
+          "assumption_before": "The restoring potential is harmonic.",
+          "assumption_after": "The lattice potential includes the leading symmetric anharmonic correction, making restoring stiffness depend on displacement amplitude.",
+          "before_fragment": "-phonon_frequency**2*Q - damping_rate*v",
+          "after_fragment": "-(phonon_frequency**2 + anharmonic_coefficient*Q**2)*Q - damping_rate*v",
+          "parent_reduction": "As anharmonic_coefficient tends to zero, or when Abs(anharmonic_coefficient)*Q**2 << phonon_frequency**2 over the sampled trajectories, the successor recovers the parent expression.",
+          "observable_signature": "For the same damping_rate and small-amplitude phonon_frequency, plotting dv_dt + damping_rate*v against Q gives a straight line in the parent but a curved odd-symmetric relation in the child; low-amplitude trajectories remain nearly harmonic while moderate-amplitude trajectories show amplitude-dependent period and peak restoring acceleration under the same fixed parameter set.",
+          "shortcut_blocked": "A single refit of phonon_frequency in the parent can only change one global linear slope in Q. It cannot simultaneously match near-origin behavior and the bent restoring relation at moderate |Q| across trajectories with different prepared amplitudes but shared material parameters, because the child's target mapping changes curvature, not just scale."
+        },
+        "range_suggestions": {
+          "anharmonic_coefficient": "approximately between -phonon_frequency**2/max_displacement**2 and phonon_frequency**2/max_displacement**2, with the admissible stable regime satisfying phonon_frequency**2 + anharmonic_coefficient*Q**2 > 0 over the observed displacement range"
+        }
+      },
+      {
+        "generation": 2,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The damping contribution to dv_dt is linear in velocity with one constant damping_rate, so at fixed Q the target depends on v through a single slope independent of oscillation amplitude.",
+            "child_relation": "Replace constant linear damping by amplitude-dependent damping so that at fixed Q the slope of dv_dt versus v changes with instantaneous displacement magnitude, e.g. stronger dissipation for larger |Q| while still opposing v.",
+            "affected_inputs": [
+              "Q",
+              "v",
+              "damping_rate"
+            ],
+            "observable_effect": "Trajectories launched with larger displacement envelopes decay faster near turning points and lose amplitude non-exponentially; a single constant damping slope cannot match both small-amplitude late-time decay and larger-amplitude early-time decay with one shared parameter set."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "displacement_level",
+              "expression": "Q**2",
+              "role": "Instantaneous amplitude proxy controlling environment-dependent dissipation strength"
+            },
+            {
+              "name": "damping_channel",
+              "expression": "damping_rate*v",
+              "role": "Parent linear dissipative force for comparison against amplitude-modulated damping"
+            },
+            {
+              "name": "restoring_scale",
+              "expression": "(phonon_frequency**2 + anharmonic_coefficient*Q**2)*Q",
+              "role": "Conservative acceleration scale separating stiffness nonlinearity from damping nonlinearity"
+            }
+          ],
+          "activation_condition": "Observable when the coherent phonon explores a displacement range where Q**2 varies appreciably over the trajectory and the damping modulation remains subcritical so total damping stays positive; effect weakens in the small-amplitude regime near Q≈0.",
+          "train_hidden_contrast": "Within training trajectories, early large-|Q| segments and late small-|Q| segments already probe different effective damping slopes; holdout with larger initial displacement extends the same amplitude-dependent decay pattern rather than introducing a new mechanism.",
+          "continuation_path": "In the limit of vanishing damping modulation with displacement, the model reduces continuously to the parent law with constant damping_rate.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The current model assumes dissipation into other vibrational modes is amplitude independent, even though anharmonic phonon-phonon scattering can make the decay rate increase with coherent-phonon amplitude.",
+          "baseline_assumption": "Damping is linear and time independent.",
+          "scientific_mechanism": "Amplitude-dependent damping from anharmonic coupling to bath modes, causing the effective phonon decay rate to depend on the instantaneous lattice excursion while still remaining purely dissipative.",
+          "affected_symbols": [
+            "Q",
+            "v",
+            "damping_rate"
+          ],
+          "rationale": "A realistic next refinement is to relax the parent's fixed-environment damping assumption, not to add an unrelated force. The parent target mapping is dv_dt = restoring(Q) minus one constant damping_rate times v, so for any fixed Q all dv_dt-versus-v slices have the same slope. That is a shortcut if dissipation to other phonon channels strengthens at larger lattice distortion through anharmonic scattering. Vary the initial displacement amplitude across trajectories while holding phonon_frequency, damping_rate, and anharmonic_coefficient fixed for each trajectory and keeping the post-preparation environment otherwise unchanged. Then the child predicts faster decay during large-|Q| portions of motion and weaker decay as the oscillation shrinks, producing amplitude-dependent envelope curvature. A single refitted parent parameter set cannot reproduce both the stronger early-time damping seen at high amplitude and the weaker late-time damping at low amplitude, because changing damping_rate shifts one global slope in v only and changing anharmonic_coefficient alters mainly the conservative restoring part rather than the dissipative v-slope. The effect is admissible when displacement is large enough that Q-dependent modulation is not negligible but remains within stable observed ranges and with total damping always positive so mechanical energy still decreases. Near Q=0 the refinement naturally becomes hard to observe, which is also the scientifically correct parent-recovery regime."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The damping contribution to dv_dt is linear in velocity with one constant damping_rate, so at fixed Q the target depends on v through a single slope independent of oscillation amplitude.",
+            "child_relation": "Replace constant linear damping by amplitude-dependent damping so that at fixed Q the slope of dv_dt versus v changes with instantaneous displacement magnitude, e.g. stronger dissipation for larger |Q| while still opposing v.",
+            "affected_inputs": [
+              "Q",
+              "v",
+              "damping_rate"
+            ],
+            "observable_effect": "Trajectories launched with larger displacement envelopes decay faster near turning points and lose amplitude non-exponentially; a single constant damping slope cannot match both small-amplitude late-time decay and larger-amplitude early-time decay with one shared parameter set."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "displacement_level",
+              "expression": "Q**2",
+              "role": "Instantaneous amplitude proxy controlling environment-dependent dissipation strength"
+            },
+            {
+              "name": "damping_channel",
+              "expression": "damping_rate*v",
+              "role": "Parent linear dissipative force for comparison against amplitude-modulated damping"
+            },
+            {
+              "name": "restoring_scale",
+              "expression": "(phonon_frequency**2 + anharmonic_coefficient*Q**2)*Q",
+              "role": "Conservative acceleration scale separating stiffness nonlinearity from damping nonlinearity"
+            }
+          ],
+          "activation_condition": "Observable when the coherent phonon explores a displacement range where Q**2 varies appreciably over the trajectory and the damping modulation remains subcritical so total damping stays positive; effect weakens in the small-amplitude regime near Q≈0.",
+          "train_hidden_contrast": "Within training trajectories, early large-|Q| segments and late small-|Q| segments already probe different effective damping slopes; holdout with larger initial displacement extends the same amplitude-dependent decay pattern rather than introducing a new mechanism.",
+          "continuation_path": "In the limit of vanishing damping modulation with displacement, the model reduces continuously to the parent law with constant damping_rate.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "pairwise",
+          "scope_symbols": [
+            "Q",
+            "v"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "saturating amplitude-dependent dissipation of a coherent optical phonon",
+          "scientific_mechanism": "Amplitude-dependent damping from anharmonic coupling to bath modes, causing the effective phonon decay rate to depend on the instantaneous lattice excursion while still remaining purely dissipative.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "The target is no longer composed of a Q-only restoring term plus a v term with one global slope. Instead the v coefficient changes with Q through a saturating nonlinear law, creating amplitude-dependent envelope curvature that a coefficient-only retuning of constant damping cannot reproduce.",
+          "taxonomy_match": "known",
+          "assumption_before": "Damping is linear and time independent.",
+          "assumption_after": "Damping strengthens with instantaneous displacement magnitude through a finite-capacity anharmonic scattering channel.",
+          "before_fragment": "-(phonon_frequency**2 + anharmonic_coefficient*Q**2)*Q - damping_rate*v",
+          "after_fragment": "-(phonon_frequency**2 + anharmonic_coefficient*Q**2)*Q - (damping_rate + amplitude_dependent_damping*Q**2/(damping_saturation_scale + Q**2))*v",
+          "parent_reduction": "Setting amplitude_dependent_damping = 0 recovers the parent exactly.",
+          "observable_signature": "Relative to the parent's single dv_dt-versus-v slope at fixed Q, the child produces a family of slopes indexed by Q**2, with stronger damping at larger displacement and saturation once Q**2 exceeds damping_saturation_scale. The changed target mapping is directly observable along trajectories that pass from early large-|Q| motion to late small-|Q| motion.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce this contrast across admissible amplitudes because changing damping_rate supplies only one global v slope, while changing anharmonic_coefficient reshapes only the restoring term and cannot make the coefficient of v vary with Q. Thus one shared parent fit cannot match both stronger early high-amplitude damping and weaker late low-amplitude damping."
+        },
+        "range_suggestions": {
+          "amplitude_dependent_damping": "nonnegative and typically between 0 and a few times damping_rate so the added channel remains dissipative but not dominant over the full trajectory",
+          "damping_saturation_scale": "positive and comparable to the observed Q**2 range, e.g. between a small nonzero displacement squared and the maximum sampled displacement squared"
+        }
+      },
+      {
+        "generation": 3,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The restoring acceleration is an odd cubic in displacement, dv_dt_rest = -(phonon_frequency**2 + anharmonic_coefficient*Q**2)*Q, so at fixed Q its dependence on v comes only through damping and the stiffness hardens or softens with a single quartic-potential coefficient.",
+            "child_relation": "Relax the assumption that the anharmonic restoring force is fully captured by the leading quartic correction; use a saturating higher-order lattice nonlinearity so the displacement-to-acceleration curve bends differently between moderate and large |Q|, changing the curvature of dv_dt versus Q beyond what one cubic stiffness term can represent.",
+            "affected_inputs": [
+              "Q"
+            ],
+            "observable_effect": "Across trajectories that reach moderate versus larger displacement amplitudes while material parameters remain fixed, the parent predicts one fixed cubic bending of acceleration with Q, whereas the child predicts a noticeable flattening or further steepening at larger |Q| relative to intermediate |Q|."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "restoring_curve",
+              "expression": "-(phonon_frequency**2 + anharmonic_coefficient*Q**2)*Q",
+              "role": "Parent displacement-to-acceleration restoring branch at fixed velocity"
+            },
+            {
+              "name": "amplitude_scale",
+              "expression": "Q**2",
+              "role": "Oscillation-excursion measure governing entry into the nonperturbative anharmonic regime"
+            },
+            {
+              "name": "damping_branch",
+              "expression": "(damping_rate + amplitude_dependent_damping*Q**2/(damping_saturation_scale + Q**2))*v",
+              "role": "Velocity-opposing contribution to be held distinct from the restoring-law refinement"
+            }
+          ],
+          "activation_condition": "Observable when trajectories sample a displacement range where |anharmonic_coefficient|*Q**2 is already comparable to phonon_frequency**2 and larger-|Q| points are present, so the leading cubic correction is no longer a uniformly accurate truncation of the lattice force.",
+          "train_hidden_contrast": "In training, moderate-amplitude segments reveal the existing quartic-style frequency shift; in holdout, larger-amplitude segments extend into the regime where the restoring curve departs systematically from a single cubic correction, exposing changed acceleration curvature at the same fixed parameter set.",
+          "continuation_path": "Recover the parent by taking the added higher-order correction scale to infinity or its coefficient to zero so only the current cubic anharmonic restoring term remains.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The current model treats lattice anharmonicity as if the leading quartic-potential term remains accurate over the full sampled displacement range, imposing one fixed cubic restoring nonlinearity.",
+          "baseline_assumption": "The anharmonic restoring potential can be truncated at the leading nonzero correction without loss over the admissible excursion range.",
+          "scientific_mechanism": "Finite-displacement lattice restoring forces generally deviate from a pure quartic-potential truncation; higher-order anharmonicity modifies the force law at larger excursions while preserving zero force at Q=0 and no energy injection.",
+          "affected_symbols": [
+            "Q",
+            "phonon_frequency",
+            "anharmonic_coefficient"
+          ],
+          "rationale": "A realistic next refinement is to change the mathematical form of the already-present anharmonic restoring force rather than add a new dissipative channel. The parent target mapping from observed states (Q, v) to dv_dt uses a single cubic displacement correction, so once damping is accounted for it imposes one fixed acceleration curvature versus Q. Vary the realized oscillation amplitude along trajectories, hold the material coefficients and environment fixed, and compare moderate-|Q| portions with larger-|Q| portions that are still within stable bounded motion. Under these admissible conditions, a single shared parent parameter set cannot simultaneously match both the intermediate-amplitude frequency shift and the large-amplitude restoring-force curvature if the true lattice force departs from the leading quartic truncation. This is a direct change to the scored target mapping dv_dt(Q, v), not merely to an auxiliary state. The effect is scientifically visible only when the observed Q range is broad enough that the existing anharmonic term is appreciable; if all trajectories stay near small amplitude, the refinement would be weak and should not be claimed strongly."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The restoring acceleration is an odd cubic in displacement, dv_dt_rest = -(phonon_frequency**2 + anharmonic_coefficient*Q**2)*Q, so at fixed Q its dependence on v comes only through damping and the stiffness hardens or softens with a single quartic-potential coefficient.",
+            "child_relation": "Relax the assumption that the anharmonic restoring force is fully captured by the leading quartic correction; use a saturating higher-order lattice nonlinearity so the displacement-to-acceleration curve bends differently between moderate and large |Q|, changing the curvature of dv_dt versus Q beyond what one cubic stiffness term can represent.",
+            "affected_inputs": [
+              "Q"
+            ],
+            "observable_effect": "Across trajectories that reach moderate versus larger displacement amplitudes while material parameters remain fixed, the parent predicts one fixed cubic bending of acceleration with Q, whereas the child predicts a noticeable flattening or further steepening at larger |Q| relative to intermediate |Q|."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "restoring_curve",
+              "expression": "-(phonon_frequency**2 + anharmonic_coefficient*Q**2)*Q",
+              "role": "Parent displacement-to-acceleration restoring branch at fixed velocity"
+            },
+            {
+              "name": "amplitude_scale",
+              "expression": "Q**2",
+              "role": "Oscillation-excursion measure governing entry into the nonperturbative anharmonic regime"
+            },
+            {
+              "name": "damping_branch",
+              "expression": "(damping_rate + amplitude_dependent_damping*Q**2/(damping_saturation_scale + Q**2))*v",
+              "role": "Velocity-opposing contribution to be held distinct from the restoring-law refinement"
+            }
+          ],
+          "activation_condition": "Observable when trajectories sample a displacement range where |anharmonic_coefficient|*Q**2 is already comparable to phonon_frequency**2 and larger-|Q| points are present, so the leading cubic correction is no longer a uniformly accurate truncation of the lattice force.",
+          "train_hidden_contrast": "In training, moderate-amplitude segments reveal the existing quartic-style frequency shift; in holdout, larger-amplitude segments extend into the regime where the restoring curve departs systematically from a single cubic correction, exposing changed acceleration curvature at the same fixed parameter set.",
+          "continuation_path": "Recover the parent by taking the added higher-order correction scale to infinity or its coefficient to zero so only the current cubic anharmonic restoring term remains.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "unary",
+          "scope_symbols": [
+            "Q"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "finite-displacement anharmonic restoring-force saturation",
+          "scientific_mechanism": "Finite-displacement lattice restoring forces generally deviate from a pure quartic-potential truncation; higher-order anharmonicity modifies the force law at larger excursions while preserving zero force at Q=0 and no energy injection.",
+          "embedding_pattern": "state_dependent_coefficient",
+          "difficulty_rationale": "This is harder than a coefficient-only correction because the effective anharmonic stiffness now changes with Q, so the target mapping acquires amplitude-dependent curvature rather than a single global cubic coefficient.",
+          "taxonomy_match": "known",
+          "assumption_before": "The anharmonic restoring potential can be truncated at the leading nonzero correction without loss over the admissible excursion range.",
+          "assumption_after": "The anharmonic restoring coefficient is displacement dependent because higher-order lattice anharmonicity becomes relevant at larger excursions.",
+          "before_fragment": "-(phonon_frequency**2 + anharmonic_coefficient*Q**2)*Q - (damping_rate + amplitude_dependent_damping*Q**2/(damping_saturation_scale + Q**2))*v",
+          "after_fragment": "-(phonon_frequency**2 + anharmonic_coefficient*Q**2/(anharmonic_saturation_scale + Q**2))*Q - (damping_rate + amplitude_dependent_damping*Q**2/(damping_saturation_scale + Q**2))*v",
+          "parent_reduction": "For Q**2 << anharmonic_saturation_scale the refined restoring branch approaches a cubic correction with effective coefficient anharmonic_coefficient/anharmonic_saturation_scale, so over a sufficiently small-amplitude observation window the parent form is recovered after parameter identification.",
+          "observable_signature": "At fixed v, the parent restoring map is an odd cubic in Q with one global curvature set by anharmonic_coefficient, while the child shows parent-like behavior at moderate |Q| but a changed large-|Q| bending once Q**2 becomes comparable to anharmonic_saturation_scale. This directly changes the scored target mapping dv_dt(Q,v), not only auxiliary trajectories.",
+          "shortcut_blocked": "A single parent parameter set can only impose one cubic restoring curve across all sampled amplitudes. If the data include both moderate-|Q| and larger-|Q| segments at the same fixed environment, refitting phonon_frequency and anharmonic_coefficient may match one amplitude range but cannot also reproduce the systematic large-|Q| curvature change caused by the Q-dependent anharmonic coefficient."
+        },
+        "range_suggestions": {
+          "anharmonic_saturation_scale": "positive and comparable to the upper observed Q**2 range; should exceed zero and be large enough that moderate amplitudes still show the parent-like cubic trend before larger-|Q| saturation appears"
+        }
+      },
+      {
+        "generation": 4,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The damping contribution to dv_dt is an instantaneous odd function of velocity with a displacement-dependent coefficient depending only on Q**2, so for fixed Q the target varies linearly with v and has no dependence on prior dissipation history.",
+            "child_relation": "The damping strength is allowed to relax dynamically after preparation, so the target at the same instantaneous (Q,v) can differ depending on the current nonequilibrium bath-coupling state; this changes the effective curvature of dv_dt along trajectories by introducing history-dependent damping saturation and recovery.",
+            "affected_inputs": [
+              "Q",
+              "v",
+              "damping_rate"
+            ],
+            "observable_effect": "Two times along a trajectory with similar Q and v can show different accelerations because the dissipative channel has not yet fully relaxed; early-time decay is stronger or weaker than late-time decay at matched amplitude, which the parent cannot represent with one fixed damping law."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "restoring_branch",
+              "expression": "-(phonon_frequency**2 + anharmonic_coefficient*Q**2/(anharmonic_saturation_scale + Q**2))*Q",
+              "role": "Instantaneous conservative acceleration component"
+            },
+            {
+              "name": "instant_damping_load",
+              "expression": "v*Q**2/(damping_saturation_scale + Q**2)",
+              "role": "Amplitude-activated dissipative loading that would drive a delayed damping response"
+            },
+            {
+              "name": "phase_space_power",
+              "expression": "v**2*(damping_rate + amplitude_dependent_damping*Q**2/(damping_saturation_scale + Q**2))",
+              "role": "Instantaneous dissipation rate scale under the parent law"
+            }
+          ],
+          "activation_condition": "Observable when the bath-coupling relaxation time is not negligible compared with the phonon period or envelope decay time, and when |Q| is large enough that the amplitude-dependent damping channel is appreciably activated, i.e. Q**2 comparable to or larger than damping_saturation_scale for part of the trajectory.",
+          "train_hidden_contrast": "In training, the mechanism appears as systematic early-versus-late mismatch in dv_dt at similar (Q,v) during large-amplitude ringdown; in holdout, the same delayed damping state produces stronger history dependence at larger initial excursions where the amplitude-activated channel spends longer away from quasistatic equilibrium.",
+          "continuation_path": "Recover the parent by taking the damping-state relaxation arbitrarily fast so the extra state adiabatically follows its instantaneous Q-dependent equilibrium, or by making the dynamic modulation amplitude vanish.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "Existing states Q and v determine only the instantaneous oscillator phase-space point and cannot encode finite-memory relaxation of the dissipative environment. A new state is needed to represent delayed equilibration of the amplitude-dependent damping channel without introducing external driving.",
+          "gap_statement": "The current model assumes the amplitude-dependent damping responds instantaneously to lattice displacement, omitting finite-time relaxation of the untracked phonon bath that receives energy from the coherent mode.",
+          "baseline_assumption": "The damping is Markovian and fully determined at each instant by the current displacement Q through a static saturating function.",
+          "scientific_mechanism": "A nonequilibrium occupancy or coupling state of decay channels relaxes after strong coherent-phonon excitation, causing delayed, history-dependent effective damping while still opposing motion and dissipating energy.",
+          "affected_symbols": [
+            "Q",
+            "v",
+            "amplitude_dependent_damping",
+            "damping_saturation_scale"
+          ],
+          "rationale": "Parent response relationship: for any supplied Q and v, dv_dt is fixed by an instantaneous restoring term plus a damping term linear in v with coefficient depending only on Q**2. This creates a fixed-environment shortcut: once Q and v are known, no additional trajectory history can alter the scored target. A realistic next refinement is to relax the assumption that the anharmonically opened damping channel equilibrates instantly. Vary the elapsed time within a ringdown trajectory while holding the material parameters fixed and compare segments where Q and v are similar; the child allows different dv_dt because the bath-coupling state can lag behind the displacement envelope, whereas the parent with one shared parameter set predicts the same acceleration whenever Q and v match. The changed target mapping is consequential, not merely auxiliary, because dv_dt itself becomes multivalued with respect to the parent coordinates (Q,v) until the extra state is specified. The effect is scientifically admissible for strong enough initial displacement that the amplitude-dependent damping branch is activated and for relaxation times not far shorter than the observed oscillation-envelope timescale. Limitation: if bath relaxation is extremely fast or the trajectory never reaches Q**2 near damping_saturation_scale, the parent may already be adequate."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The damping contribution to dv_dt is an instantaneous odd function of velocity with a displacement-dependent coefficient depending only on Q**2, so for fixed Q the target varies linearly with v and has no dependence on prior dissipation history.",
+            "child_relation": "The damping strength is allowed to relax dynamically after preparation, so the target at the same instantaneous (Q,v) can differ depending on the current nonequilibrium bath-coupling state; this changes the effective curvature of dv_dt along trajectories by introducing history-dependent damping saturation and recovery.",
+            "affected_inputs": [
+              "Q",
+              "v",
+              "damping_rate"
+            ],
+            "observable_effect": "Two times along a trajectory with similar Q and v can show different accelerations because the dissipative channel has not yet fully relaxed; early-time decay is stronger or weaker than late-time decay at matched amplitude, which the parent cannot represent with one fixed damping law."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "restoring_branch",
+              "expression": "-(phonon_frequency**2 + anharmonic_coefficient*Q**2/(anharmonic_saturation_scale + Q**2))*Q",
+              "role": "Instantaneous conservative acceleration component"
+            },
+            {
+              "name": "instant_damping_load",
+              "expression": "v*Q**2/(damping_saturation_scale + Q**2)",
+              "role": "Amplitude-activated dissipative loading that would drive a delayed damping response"
+            },
+            {
+              "name": "phase_space_power",
+              "expression": "v**2*(damping_rate + amplitude_dependent_damping*Q**2/(damping_saturation_scale + Q**2))",
+              "role": "Instantaneous dissipation rate scale under the parent law"
+            }
+          ],
+          "activation_condition": "Observable when the bath-coupling relaxation time is not negligible compared with the phonon period or envelope decay time, and when |Q| is large enough that the amplitude-dependent damping channel is appreciably activated, i.e. Q**2 comparable to or larger than damping_saturation_scale for part of the trajectory.",
+          "train_hidden_contrast": "In training, the mechanism appears as systematic early-versus-late mismatch in dv_dt at similar (Q,v) during large-amplitude ringdown; in holdout, the same delayed damping state produces stronger history dependence at larger initial excursions where the amplitude-activated channel spends longer away from quasistatic equilibrium.",
+          "continuation_path": "Recover the parent by taking the damping-state relaxation arbitrarily fast so the extra state adiabatically follows its instantaneous Q-dependent equilibrium, or by making the dynamic modulation amplitude vanish.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "Existing states Q and v determine only the instantaneous oscillator phase-space point and cannot encode finite-memory relaxation of the dissipative environment. A new state is needed to represent delayed equilibration of the amplitude-dependent damping channel without introducing external driving.",
+          "scope_kind": "memory",
+          "scope_symbols": [
+            "Q",
+            "v",
+            "y"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Delayed relaxation of the phonon-bath damping channel",
+          "scientific_mechanism": "A nonequilibrium occupancy or coupling state of decay channels relaxes after strong coherent-phonon excitation, causing delayed, history-dependent effective damping while still opposing motion and dissipating energy.",
+          "embedding_pattern": "state_dependent_coefficient",
+          "difficulty_rationale": "The new state y makes the damping coefficient depend on an internal relaxing quantity rather than only on instantaneous Q, so the same observed phase-space point can map to different dv_dt values. This is structurally harder than coefficient retuning because it adds memory to the scored target law, not just a new static gain.",
+          "taxonomy_match": "known",
+          "assumption_before": "The damping is Markovian and fully determined at each instant by the current displacement Q through a static saturating function.",
+          "assumption_after": "The amplitude-activated damping channel relaxes toward its displacement-controlled value on a finite timescale through an internal bath-coupling state.",
+          "before_fragment": "-(phonon_frequency**2 + anharmonic_coefficient*Q**2/(anharmonic_saturation_scale + Q**2))*Q - (damping_rate + amplitude_dependent_damping*Q**2/(damping_saturation_scale + Q**2))*v",
+          "after_fragment": "-(phonon_frequency**2 + anharmonic_coefficient*Q**2/(anharmonic_saturation_scale + Q**2))*Q - (damping_rate + amplitude_dependent_damping*y)*v",
+          "parent_reduction": "Taking damping_relaxation_time -> 0 enforces y = Q**2/(damping_saturation_scale + Q**2), which recovers the parent expression exactly.",
+          "observable_signature": "Relative to the parent's single-valued mapping from (Q,v) to dv_dt, the child predicts early-versus-late acceleration differences at matched Q and v during large-amplitude ringdown because y lags the instantaneous activation level Q**2/(damping_saturation_scale + Q**2). The contrast is observable when Q**2 reaches order damping_saturation_scale and damping_relaxation_time is not vanishingly short.",
+          "shortcut_blocked": "A single refitted parent parameter set still makes dv_dt a deterministic function of only Q and v, so it cannot reproduce two different accelerations at matched (Q,v) occurring at different times because of delayed damping-channel recovery. Parameter retuning can shift overall damping strength or saturation scale, but it cannot encode the required trajectory-history dependence without the extra state."
+        },
+        "range_suggestions": {
+          "y": "dimensionless and typically between 0 and 1 during standard ringdown, with admissible transient overshoot remaining nonnegative if strongly prepared",
+          "damping_relaxation_time": "positive and not negligible compared with the phonon period or envelope-decay time when delayed damping is to be observable"
+        }
+      },
+      {
+        "generation": 5,
+        "plan": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The damping contribution to dv_dt is linear in v with an effective coefficient damping_rate + amplitude_dependent_damping*y, so at fixed Q and y the target changes with a single constant slope in v.",
+            "child_relation": "Replace the linear viscous damping assumption by a velocity-saturating dissipative law so that, at fixed Q and y, the damping-induced part of dv_dt remains odd and opposing motion but its slope with respect to v decreases at larger |v|.",
+            "affected_inputs": [
+              "v",
+              "Q",
+              "y",
+              "amplitude_dependent_damping",
+              "damping_rate"
+            ],
+            "observable_effect": "Large-amplitude ringdown segments with high velocity show weaker-than-linear additional deceleration versus |v|, while small-velocity late-time dynamics remain close to the parent linear damping behavior."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "effective_linear_damping",
+              "expression": "damping_rate + amplitude_dependent_damping*y",
+              "role": "Current parent damping strength multiplying v"
+            },
+            {
+              "name": "velocity_excursion",
+              "expression": "Abs(v)",
+              "role": "Magnitude of instantaneous phonon speed where drag-law curvature would appear"
+            },
+            {
+              "name": "amplitude_activation",
+              "expression": "Q**2/(damping_saturation_scale + Q**2)",
+              "role": "Displacement-controlled activation level of the delayed damping channel"
+            }
+          ],
+          "activation_condition": "Observable when trajectories reach a regime with substantial delayed damping activation y and sufficiently large |v| during early or intermediate ringdown, while remaining in the post-preparation undriven decay scenario.",
+          "train_hidden_contrast": "In training, moderate excursions can reveal nearly linear damping near v≈0 and the onset of drag-law bending at larger |v|; in holdout, stronger initial oscillations extend the same monotone curvature change without introducing a different mechanism.",
+          "continuation_path": "Recover the parent law in the limit where the velocity-saturation scale is large compared with all observed |v|, so the damping law reduces to the existing linear-in-v form.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "gap_statement": "The current model assumes the dissipative force is exactly proportional to velocity even when the anharmonically activated decay channel is strongly engaged, omitting plausible saturation of frictional energy transfer at high phonon speed.",
+          "baseline_assumption": "Damping is linear in the phonon velocity for all post-preparation excursions.",
+          "scientific_mechanism": "Finite-rate anharmonic scattering into bath modes can make the effective friction law sublinear at high instantaneous phonon velocity, while still remaining odd in v and strictly dissipative.",
+          "affected_symbols": [
+            "v",
+            "Q",
+            "y",
+            "damping_rate",
+            "amplitude_dependent_damping"
+          ],
+          "rationale": "A realistic next refinement is to relax the parent's globally linear damping assumption rather than add a new process. The parent target mapping is dv_dt = restoring(Q) minus an effective damping coefficient times v, so for fixed Q and y every v-slice is a straight line with one slope. That is a single-gain shortcut. A scientifically natural child keeps the same delayed damping state y and the same restoring-force structure, but changes the damping law so the target's dependence on v bends at larger speed. The varied condition is the accessible velocity magnitude along trajectories, especially comparing early high-speed oscillation segments against late low-speed segments, while material parameters and the post-preparation environment are held fixed across each trajectory. Under admissible strong-preparation conditions, y can be appreciable and |v| can transiently be large; then the child predicts weaker incremental deceleration per added speed than the parent. A single refitted parent parameter set cannot reproduce both the near-origin linear slope and the reduced large-|v| slope across those conditions, because its v-dependence is exactly linear once Q and y are specified. This changes the scored target mapping itself, not merely an auxiliary trajectory. The limitation is that if all observed trajectories stay in a small-|v| regime, the refinement becomes hard to distinguish and effectively collapses back to the parent."
+        },
+        "contract": {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The damping contribution to dv_dt is linear in v with an effective coefficient damping_rate + amplitude_dependent_damping*y, so at fixed Q and y the target changes with a single constant slope in v.",
+            "child_relation": "Replace the linear viscous damping assumption by a velocity-saturating dissipative law so that, at fixed Q and y, the damping-induced part of dv_dt remains odd and opposing motion but its slope with respect to v decreases at larger |v|.",
+            "affected_inputs": [
+              "v",
+              "Q",
+              "y",
+              "amplitude_dependent_damping",
+              "damping_rate"
+            ],
+            "observable_effect": "Large-amplitude ringdown segments with high velocity show weaker-than-linear additional deceleration versus |v|, while small-velocity late-time dynamics remain close to the parent linear damping behavior."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "effective_linear_damping",
+              "expression": "damping_rate + amplitude_dependent_damping*y",
+              "role": "Current parent damping strength multiplying v"
+            },
+            {
+              "name": "velocity_excursion",
+              "expression": "Abs(v)",
+              "role": "Magnitude of instantaneous phonon speed where drag-law curvature would appear"
+            },
+            {
+              "name": "amplitude_activation",
+              "expression": "Q**2/(damping_saturation_scale + Q**2)",
+              "role": "Displacement-controlled activation level of the delayed damping channel"
+            }
+          ],
+          "activation_condition": "Observable when trajectories reach a regime with substantial delayed damping activation y and sufficiently large |v| during early or intermediate ringdown, while remaining in the post-preparation undriven decay scenario.",
+          "train_hidden_contrast": "In training, moderate excursions can reveal nearly linear damping near v≈0 and the onset of drag-law bending at larger |v|; in holdout, stronger initial oscillations extend the same monotone curvature change without introducing a different mechanism.",
+          "continuation_path": "Recover the parent law in the limit where the velocity-saturation scale is large compared with all observed |v|, so the damping law reduces to the existing linear-in-v form.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "v",
+            "y",
+            "Q"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "velocity-saturating phonon friction under delayed anharmonic bath coupling",
+          "scientific_mechanism": "Finite-rate anharmonic scattering into bath modes can make the effective friction law sublinear at high instantaneous phonon velocity, while still remaining odd in v and strictly dissipative.",
+          "embedding_pattern": "nested_nonlinearity",
+          "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the damping coefficient and velocity are first combined and then passed through a nonlinear saturation map, creating a fixed-Q,fixed-y curvature in dv_dt versus v that no single linear gain can match across both small- and large-|v| regimes.",
+          "taxonomy_match": "known",
+          "assumption_before": "Damping is linear in the phonon velocity for all post-preparation excursions.",
+          "assumption_after": "The damping channel remains odd and dissipative but crosses over from linear viscous behavior to sublinear velocity saturation at high |v|.",
+          "before_fragment": "-(phonon_frequency**2 + anharmonic_coefficient*Q**2/(anharmonic_saturation_scale + Q**2))*Q - (damping_rate + amplitude_dependent_damping*y)*v",
+          "after_fragment": "-(phonon_frequency**2 + anharmonic_coefficient*Q**2/(anharmonic_saturation_scale + Q**2))*Q - (damping_rate + amplitude_dependent_damping*y)*v/sqrt(1 + v**2/velocity_damping_saturation_scale)",
+          "parent_reduction": "For velocity_damping_saturation_scale much larger than all observed v**2, the denominator sqrt(1 + v**2/velocity_damping_saturation_scale) tends to 1 and the exact parent expression is recovered.",
+          "observable_signature": "At matched Q and y, dv_dt as a function of v is no longer a straight line: near v=0 it has the parent's slope, but at larger |v| the damping contribution bends toward smaller magnitude than linear prediction. This contrast is observable in early high-speed versus late low-speed portions of the same ringdown trajectory when y has become appreciable.",
+          "shortcut_blocked": "A single refitted parent parameter set cannot reproduce both the near-origin linear slope and the reduced large-|v| slope across those conditions, because once Q and y are specified the parent dependence on v is exactly linear with one constant slope. Adjusting damping_rate or amplitude_dependent_damping only rescales that line and cannot create the required curvature."
+        },
+        "range_suggestions": {
+          "velocity_damping_saturation_scale": "positive, with units of velocity squared; large compared with typical v**2 recovers nearly linear damping, while values comparable to early-time v**2 reveal measurable drag-law curvature"
+        }
+      }
+    ],
+    "evolution_provenance": {
+      "dimension_track": null,
+      "mechanism_profile": {
+        "allowed_structural_roles": [
+          "contribution",
+          "response_law",
+          "modulation",
+          "interaction",
+          "constraint",
+          "transition",
+          "feedback",
+          "heterogeneity",
+          "timescale",
+          "transport_balance"
+        ],
+        "preferred_scopes": [
+          "unary",
+          "pairwise",
+          "state_coupling",
+          "time_forcing"
+        ],
+        "domain_mechanisms": [
+          {
+            "id": "nonlinear_constitutive_response",
+            "description": "nonlinear constitutive or response law",
+            "operations": [
+              "add_term",
+              "change_assumption"
+            ]
+          },
+          {
+            "id": "coupled_field_or_force",
+            "description": "coupling to an already declared field, force, or state",
+            "operations": [
+              "add_term"
+            ]
+          },
+          {
+            "id": "finite_relaxation_or_threshold",
+            "description": "finite response time or physical threshold",
+            "operations": [
+              "change_assumption"
+            ]
+          }
+        ],
+        "profile_source": "subject_fallback",
+        "ontology_schema_version": "1.0",
+        "taxonomy_schema_version": "1.0"
+      },
+      "baseline_mechanisms": [
+        "Lattice inertia of a coherent normal mode",
+        "Harmonic restoring force toward the equilibrium structure",
+        "Dissipation into untracked phonon modes"
+      ],
+      "baseline_assumptions": [
+        "The mode is spatially uniform.",
+        "The restoring potential is harmonic.",
+        "Damping is linear and time independent.",
+        "No external drive acts after initialization."
+      ],
+      "scientific_constraints": [
+        "Damping must oppose the phonon velocity.",
+        "Mechanical energy cannot increase after preparation.",
+        "The equilibrium state has zero displacement and zero velocity."
+      ],
+      "refinement_agenda": [
+        "Add anharmonic lattice restoring terms.",
+        "Include coupling to a second phonon mode.",
+        "Introduce a time-dependent coherent drive.",
+        "Allow temperature-dependent phonon damping."
+      ],
+      "evolution_contracts": [
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The restoring contribution to dv_dt is linear in displacement, dv_dt = -phonon_frequency**2*Q - damping_rate*v, so at fixed v the acceleration varies with a single constant slope in Q.",
+            "child_relation": "Relax the harmonic-potential assumption so the restoring force acquires amplitude dependence from lattice anharmonicity; at fixed v, dv_dt becomes a nonlinear function of Q with displacement-dependent slope/curvature while still pointing toward equilibrium for admissible amplitudes.",
+            "affected_inputs": [
+              "Q",
+              "v"
+            ],
+            "observable_effect": "Across trajectories with different prepared phonon amplitudes but the same material coefficients and damping, the child predicts amplitude-dependent softening or stiffening of the restoring acceleration, visible as non-elliptic phase portraits and amplitude-dependent oscillation period/peak acceleration that one shared linear spring constant cannot match."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "restoring_branch",
+              "expression": "phonon_frequency**2*Q",
+              "role": "baseline linear restoring acceleration coordinate"
+            },
+            {
+              "name": "phase_plane",
+              "expression": "Q**2 + (v/phonon_frequency)**2",
+              "role": "oscillation amplitude proxy for comparing small- and larger-excursion trajectories"
+            }
+          ],
+          "activation_condition": "Observable when the coherent displacement is large enough that anharmonic corrections to the lattice potential are no longer negligible but still small enough that the potential remains single-well and damping stays dissipative; practically, compare low-amplitude and moderate-amplitude trajectories under the same post-preparation environment.",
+          "train_hidden_contrast": "Within training, moderate excursions already bend the dv_dt-versus-Q relation away from a single line; in holdout, larger but still stable excursions extend the same amplitude-dependent curvature rather than introducing a new mechanism.",
+          "continuation_path": "In the small-amplitude limit, or as the anharmonic coefficient tends to zero, the restoring force reduces to the parent harmonic law.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "unary",
+          "scope_symbols": [
+            "Q"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "state_dependent_coefficient",
+          "domain_mechanism": "state-dependent restoring stiffness from anharmonic lattice potential",
+          "scientific_mechanism": "Lattice anharmonicity modifies the phonon restoring force at finite displacement, producing amplitude-dependent oscillation frequency and acceleration curvature without external driving.",
+          "embedding_pattern": "state_dependent_coefficient",
+          "difficulty_rationale": "This embedding is harder than a coefficient-only correction because the effective restoring coefficient varies along the trajectory with Q, so the target relation changes curvature across amplitudes rather than shifting by one global gain.",
+          "taxonomy_match": "known",
+          "assumption_before": "The restoring potential is harmonic.",
+          "assumption_after": "The lattice potential includes the leading symmetric anharmonic correction, making restoring stiffness depend on displacement amplitude.",
+          "before_fragment": "-phonon_frequency**2*Q - damping_rate*v",
+          "after_fragment": "-(phonon_frequency**2 + anharmonic_coefficient*Q**2)*Q - damping_rate*v",
+          "parent_reduction": "As anharmonic_coefficient tends to zero, or when Abs(anharmonic_coefficient)*Q**2 << phonon_frequency**2 over the sampled trajectories, the successor recovers the parent expression.",
+          "observable_signature": "For the same damping_rate and small-amplitude phonon_frequency, plotting dv_dt + damping_rate*v against Q gives a straight line in the parent but a curved odd-symmetric relation in the child; low-amplitude trajectories remain nearly harmonic while moderate-amplitude trajectories show amplitude-dependent period and peak restoring acceleration under the same fixed parameter set.",
+          "shortcut_blocked": "A single refit of phonon_frequency in the parent can only change one global linear slope in Q. It cannot simultaneously match near-origin behavior and the bent restoring relation at moderate |Q| across trajectories with different prepared amplitudes but shared material parameters, because the child's target mapping changes curvature, not just scale."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The damping contribution to dv_dt is linear in velocity with one constant damping_rate, so at fixed Q the target depends on v through a single slope independent of oscillation amplitude.",
+            "child_relation": "Replace constant linear damping by amplitude-dependent damping so that at fixed Q the slope of dv_dt versus v changes with instantaneous displacement magnitude, e.g. stronger dissipation for larger |Q| while still opposing v.",
+            "affected_inputs": [
+              "Q",
+              "v",
+              "damping_rate"
+            ],
+            "observable_effect": "Trajectories launched with larger displacement envelopes decay faster near turning points and lose amplitude non-exponentially; a single constant damping slope cannot match both small-amplitude late-time decay and larger-amplitude early-time decay with one shared parameter set."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "displacement_level",
+              "expression": "Q**2",
+              "role": "Instantaneous amplitude proxy controlling environment-dependent dissipation strength"
+            },
+            {
+              "name": "damping_channel",
+              "expression": "damping_rate*v",
+              "role": "Parent linear dissipative force for comparison against amplitude-modulated damping"
+            },
+            {
+              "name": "restoring_scale",
+              "expression": "(phonon_frequency**2 + anharmonic_coefficient*Q**2)*Q",
+              "role": "Conservative acceleration scale separating stiffness nonlinearity from damping nonlinearity"
+            }
+          ],
+          "activation_condition": "Observable when the coherent phonon explores a displacement range where Q**2 varies appreciably over the trajectory and the damping modulation remains subcritical so total damping stays positive; effect weakens in the small-amplitude regime near Q≈0.",
+          "train_hidden_contrast": "Within training trajectories, early large-|Q| segments and late small-|Q| segments already probe different effective damping slopes; holdout with larger initial displacement extends the same amplitude-dependent decay pattern rather than introducing a new mechanism.",
+          "continuation_path": "In the limit of vanishing damping modulation with displacement, the model reduces continuously to the parent law with constant damping_rate.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "pairwise",
+          "scope_symbols": [
+            "Q",
+            "v"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "saturating amplitude-dependent dissipation of a coherent optical phonon",
+          "scientific_mechanism": "Amplitude-dependent damping from anharmonic coupling to bath modes, causing the effective phonon decay rate to depend on the instantaneous lattice excursion while still remaining purely dissipative.",
+          "embedding_pattern": "saturating_or_thresholded",
+          "difficulty_rationale": "The target is no longer composed of a Q-only restoring term plus a v term with one global slope. Instead the v coefficient changes with Q through a saturating nonlinear law, creating amplitude-dependent envelope curvature that a coefficient-only retuning of constant damping cannot reproduce.",
+          "taxonomy_match": "known",
+          "assumption_before": "Damping is linear and time independent.",
+          "assumption_after": "Damping strengthens with instantaneous displacement magnitude through a finite-capacity anharmonic scattering channel.",
+          "before_fragment": "-(phonon_frequency**2 + anharmonic_coefficient*Q**2)*Q - damping_rate*v",
+          "after_fragment": "-(phonon_frequency**2 + anharmonic_coefficient*Q**2)*Q - (damping_rate + amplitude_dependent_damping*Q**2/(damping_saturation_scale + Q**2))*v",
+          "parent_reduction": "Setting amplitude_dependent_damping = 0 recovers the parent exactly.",
+          "observable_signature": "Relative to the parent's single dv_dt-versus-v slope at fixed Q, the child produces a family of slopes indexed by Q**2, with stronger damping at larger displacement and saturation once Q**2 exceeds damping_saturation_scale. The changed target mapping is directly observable along trajectories that pass from early large-|Q| motion to late small-|Q| motion.",
+          "shortcut_blocked": "A single parent parameter set cannot reproduce this contrast across admissible amplitudes because changing damping_rate supplies only one global v slope, while changing anharmonic_coefficient reshapes only the restoring term and cannot make the coefficient of v vary with Q. Thus one shared parent fit cannot match both stronger early high-amplitude damping and weaker late low-amplitude damping."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The restoring acceleration is an odd cubic in displacement, dv_dt_rest = -(phonon_frequency**2 + anharmonic_coefficient*Q**2)*Q, so at fixed Q its dependence on v comes only through damping and the stiffness hardens or softens with a single quartic-potential coefficient.",
+            "child_relation": "Relax the assumption that the anharmonic restoring force is fully captured by the leading quartic correction; use a saturating higher-order lattice nonlinearity so the displacement-to-acceleration curve bends differently between moderate and large |Q|, changing the curvature of dv_dt versus Q beyond what one cubic stiffness term can represent.",
+            "affected_inputs": [
+              "Q"
+            ],
+            "observable_effect": "Across trajectories that reach moderate versus larger displacement amplitudes while material parameters remain fixed, the parent predicts one fixed cubic bending of acceleration with Q, whereas the child predicts a noticeable flattening or further steepening at larger |Q| relative to intermediate |Q|."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "restoring_curve",
+              "expression": "-(phonon_frequency**2 + anharmonic_coefficient*Q**2)*Q",
+              "role": "Parent displacement-to-acceleration restoring branch at fixed velocity"
+            },
+            {
+              "name": "amplitude_scale",
+              "expression": "Q**2",
+              "role": "Oscillation-excursion measure governing entry into the nonperturbative anharmonic regime"
+            },
+            {
+              "name": "damping_branch",
+              "expression": "(damping_rate + amplitude_dependent_damping*Q**2/(damping_saturation_scale + Q**2))*v",
+              "role": "Velocity-opposing contribution to be held distinct from the restoring-law refinement"
+            }
+          ],
+          "activation_condition": "Observable when trajectories sample a displacement range where |anharmonic_coefficient|*Q**2 is already comparable to phonon_frequency**2 and larger-|Q| points are present, so the leading cubic correction is no longer a uniformly accurate truncation of the lattice force.",
+          "train_hidden_contrast": "In training, moderate-amplitude segments reveal the existing quartic-style frequency shift; in holdout, larger-amplitude segments extend into the regime where the restoring curve departs systematically from a single cubic correction, exposing changed acceleration curvature at the same fixed parameter set.",
+          "continuation_path": "Recover the parent by taking the added higher-order correction scale to infinity or its coefficient to zero so only the current cubic anharmonic restoring term remains.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "unary",
+          "scope_symbols": [
+            "Q"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "finite-displacement anharmonic restoring-force saturation",
+          "scientific_mechanism": "Finite-displacement lattice restoring forces generally deviate from a pure quartic-potential truncation; higher-order anharmonicity modifies the force law at larger excursions while preserving zero force at Q=0 and no energy injection.",
+          "embedding_pattern": "state_dependent_coefficient",
+          "difficulty_rationale": "This is harder than a coefficient-only correction because the effective anharmonic stiffness now changes with Q, so the target mapping acquires amplitude-dependent curvature rather than a single global cubic coefficient.",
+          "taxonomy_match": "known",
+          "assumption_before": "The anharmonic restoring potential can be truncated at the leading nonzero correction without loss over the admissible excursion range.",
+          "assumption_after": "The anharmonic restoring coefficient is displacement dependent because higher-order lattice anharmonicity becomes relevant at larger excursions.",
+          "before_fragment": "-(phonon_frequency**2 + anharmonic_coefficient*Q**2)*Q - (damping_rate + amplitude_dependent_damping*Q**2/(damping_saturation_scale + Q**2))*v",
+          "after_fragment": "-(phonon_frequency**2 + anharmonic_coefficient*Q**2/(anharmonic_saturation_scale + Q**2))*Q - (damping_rate + amplitude_dependent_damping*Q**2/(damping_saturation_scale + Q**2))*v",
+          "parent_reduction": "For Q**2 << anharmonic_saturation_scale the refined restoring branch approaches a cubic correction with effective coefficient anharmonic_coefficient/anharmonic_saturation_scale, so over a sufficiently small-amplitude observation window the parent form is recovered after parameter identification.",
+          "observable_signature": "At fixed v, the parent restoring map is an odd cubic in Q with one global curvature set by anharmonic_coefficient, while the child shows parent-like behavior at moderate |Q| but a changed large-|Q| bending once Q**2 becomes comparable to anharmonic_saturation_scale. This directly changes the scored target mapping dv_dt(Q,v), not only auxiliary trajectories.",
+          "shortcut_blocked": "A single parent parameter set can only impose one cubic restoring curve across all sampled amplitudes. If the data include both moderate-|Q| and larger-|Q| segments at the same fixed environment, refitting phonon_frequency and anharmonic_coefficient may match one amplitude range but cannot also reproduce the systematic large-|Q| curvature change caused by the Q-dependent anharmonic coefficient."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "fixed_environment",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The damping contribution to dv_dt is an instantaneous odd function of velocity with a displacement-dependent coefficient depending only on Q**2, so for fixed Q the target varies linearly with v and has no dependence on prior dissipation history.",
+            "child_relation": "The damping strength is allowed to relax dynamically after preparation, so the target at the same instantaneous (Q,v) can differ depending on the current nonequilibrium bath-coupling state; this changes the effective curvature of dv_dt along trajectories by introducing history-dependent damping saturation and recovery.",
+            "affected_inputs": [
+              "Q",
+              "v",
+              "damping_rate"
+            ],
+            "observable_effect": "Two times along a trajectory with similar Q and v can show different accelerations because the dissipative channel has not yet fully relaxed; early-time decay is stronger or weaker than late-time decay at matched amplitude, which the parent cannot represent with one fixed damping law."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "restoring_branch",
+              "expression": "-(phonon_frequency**2 + anharmonic_coefficient*Q**2/(anharmonic_saturation_scale + Q**2))*Q",
+              "role": "Instantaneous conservative acceleration component"
+            },
+            {
+              "name": "instant_damping_load",
+              "expression": "v*Q**2/(damping_saturation_scale + Q**2)",
+              "role": "Amplitude-activated dissipative loading that would drive a delayed damping response"
+            },
+            {
+              "name": "phase_space_power",
+              "expression": "v**2*(damping_rate + amplitude_dependent_damping*Q**2/(damping_saturation_scale + Q**2))",
+              "role": "Instantaneous dissipation rate scale under the parent law"
+            }
+          ],
+          "activation_condition": "Observable when the bath-coupling relaxation time is not negligible compared with the phonon period or envelope decay time, and when |Q| is large enough that the amplitude-dependent damping channel is appreciably activated, i.e. Q**2 comparable to or larger than damping_saturation_scale for part of the trajectory.",
+          "train_hidden_contrast": "In training, the mechanism appears as systematic early-versus-late mismatch in dv_dt at similar (Q,v) during large-amplitude ringdown; in holdout, the same delayed damping state produces stronger history dependence at larger initial excursions where the amplitude-activated channel spends longer away from quasistatic equilibrium.",
+          "continuation_path": "Recover the parent by taking the damping-state relaxation arbitrarily fast so the extra state adiabatically follows its instantaneous Q-dependent equilibrium, or by making the dynamic modulation amplitude vanish.",
+          "freedom_change": "add_state",
+          "promoted_symbol": null,
+          "promotion_reason": "Existing states Q and v determine only the instantaneous oscillator phase-space point and cannot encode finite-memory relaxation of the dissipative environment. A new state is needed to represent delayed equilibration of the amplitude-dependent damping channel without introducing external driving.",
+          "scope_kind": "memory",
+          "scope_symbols": [
+            "Q",
+            "v",
+            "y"
+          ],
+          "structural_role": "modulation",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "Delayed relaxation of the phonon-bath damping channel",
+          "scientific_mechanism": "A nonequilibrium occupancy or coupling state of decay channels relaxes after strong coherent-phonon excitation, causing delayed, history-dependent effective damping while still opposing motion and dissipating energy.",
+          "embedding_pattern": "state_dependent_coefficient",
+          "difficulty_rationale": "The new state y makes the damping coefficient depend on an internal relaxing quantity rather than only on instantaneous Q, so the same observed phase-space point can map to different dv_dt values. This is structurally harder than coefficient retuning because it adds memory to the scored target law, not just a new static gain.",
+          "taxonomy_match": "known",
+          "assumption_before": "The damping is Markovian and fully determined at each instant by the current displacement Q through a static saturating function.",
+          "assumption_after": "The amplitude-activated damping channel relaxes toward its displacement-controlled value on a finite timescale through an internal bath-coupling state.",
+          "before_fragment": "-(phonon_frequency**2 + anharmonic_coefficient*Q**2/(anharmonic_saturation_scale + Q**2))*Q - (damping_rate + amplitude_dependent_damping*Q**2/(damping_saturation_scale + Q**2))*v",
+          "after_fragment": "-(phonon_frequency**2 + anharmonic_coefficient*Q**2/(anharmonic_saturation_scale + Q**2))*Q - (damping_rate + amplitude_dependent_damping*y)*v",
+          "parent_reduction": "Taking damping_relaxation_time -> 0 enforces y = Q**2/(damping_saturation_scale + Q**2), which recovers the parent expression exactly.",
+          "observable_signature": "Relative to the parent's single-valued mapping from (Q,v) to dv_dt, the child predicts early-versus-late acceleration differences at matched Q and v during large-amplitude ringdown because y lags the instantaneous activation level Q**2/(damping_saturation_scale + Q**2). The contrast is observable when Q**2 reaches order damping_saturation_scale and damping_relaxation_time is not vanishingly short.",
+          "shortcut_blocked": "A single refitted parent parameter set still makes dv_dt a deterministic function of only Q and v, so it cannot reproduce two different accelerations at matched (Q,v) occurring at different times because of delayed damping-channel recovery. Parameter retuning can shift overall damping strength or saturation scale, but it cannot encode the required trajectory-history dependence without the extra state."
+        },
+        {
+          "operation": "change_assumption",
+          "parent_shortcut": "single_gain",
+          "response_change": {
+            "type": "curvature_change",
+            "parent_relation": "The damping contribution to dv_dt is linear in v with an effective coefficient damping_rate + amplitude_dependent_damping*y, so at fixed Q and y the target changes with a single constant slope in v.",
+            "child_relation": "Replace the linear viscous damping assumption by a velocity-saturating dissipative law so that, at fixed Q and y, the damping-induced part of dv_dt remains odd and opposing motion but its slope with respect to v decreases at larger |v|.",
+            "affected_inputs": [
+              "v",
+              "Q",
+              "y",
+              "amplitude_dependent_damping",
+              "damping_rate"
+            ],
+            "observable_effect": "Large-amplitude ringdown segments with high velocity show weaker-than-linear additional deceleration versus |v|, while small-velocity late-time dynamics remain close to the parent linear damping behavior."
+          },
+          "diagnostic_groups": [
+            {
+              "name": "effective_linear_damping",
+              "expression": "damping_rate + amplitude_dependent_damping*y",
+              "role": "Current parent damping strength multiplying v"
+            },
+            {
+              "name": "velocity_excursion",
+              "expression": "Abs(v)",
+              "role": "Magnitude of instantaneous phonon speed where drag-law curvature would appear"
+            },
+            {
+              "name": "amplitude_activation",
+              "expression": "Q**2/(damping_saturation_scale + Q**2)",
+              "role": "Displacement-controlled activation level of the delayed damping channel"
+            }
+          ],
+          "activation_condition": "Observable when trajectories reach a regime with substantial delayed damping activation y and sufficiently large |v| during early or intermediate ringdown, while remaining in the post-preparation undriven decay scenario.",
+          "train_hidden_contrast": "In training, moderate excursions can reveal nearly linear damping near v≈0 and the onset of drag-law bending at larger |v|; in holdout, stronger initial oscillations extend the same monotone curvature change without introducing a different mechanism.",
+          "continuation_path": "Recover the parent law in the limit where the velocity-saturation scale is large compared with all observed |v|, so the damping law reduces to the existing linear-in-v form.",
+          "freedom_change": "none",
+          "promoted_symbol": null,
+          "promotion_reason": "",
+          "scope_kind": "state_coupling",
+          "scope_symbols": [
+            "v",
+            "y",
+            "Q"
+          ],
+          "structural_role": "response_law",
+          "domain_mechanism_id": "",
+          "domain_mechanism": "velocity-saturating phonon friction under delayed anharmonic bath coupling",
+          "scientific_mechanism": "Finite-rate anharmonic scattering into bath modes can make the effective friction law sublinear at high instantaneous phonon velocity, while still remaining odd in v and strictly dissipative.",
+          "embedding_pattern": "nested_nonlinearity",
+          "difficulty_rationale": "This is structurally harder than a coefficient-only correction because the damping coefficient and velocity are first combined and then passed through a nonlinear saturation map, creating a fixed-Q,fixed-y curvature in dv_dt versus v that no single linear gain can match across both small- and large-|v| regimes.",
+          "taxonomy_match": "known",
+          "assumption_before": "Damping is linear in the phonon velocity for all post-preparation excursions.",
+          "assumption_after": "The damping channel remains odd and dissipative but crosses over from linear viscous behavior to sublinear velocity saturation at high |v|.",
+          "before_fragment": "-(phonon_frequency**2 + anharmonic_coefficient*Q**2/(anharmonic_saturation_scale + Q**2))*Q - (damping_rate + amplitude_dependent_damping*y)*v",
+          "after_fragment": "-(phonon_frequency**2 + anharmonic_coefficient*Q**2/(anharmonic_saturation_scale + Q**2))*Q - (damping_rate + amplitude_dependent_damping*y)*v/sqrt(1 + v**2/velocity_damping_saturation_scale)",
+          "parent_reduction": "For velocity_damping_saturation_scale much larger than all observed v**2, the denominator sqrt(1 + v**2/velocity_damping_saturation_scale) tends to 1 and the exact parent expression is recovered.",
+          "observable_signature": "At matched Q and y, dv_dt as a function of v is no longer a straight line: near v=0 it has the parent's slope, but at larger |v| the damping contribution bends toward smaller magnitude than linear prediction. This contrast is observable in early high-speed versus late low-speed portions of the same ringdown trajectory when y has become appreciable.",
+          "shortcut_blocked": "A single refitted parent parameter set cannot reproduce both the near-origin linear slope and the reduced large-|v| slope across those conditions, because once Q and y are specified the parent dependence on v is exactly linear with one constant slope. Adjusting damping_rate or amplitude_dependent_damping only rescales that line and cannot create the required curvature."
+        }
+      ]
+    },
+    "finalization": {
+      "mode": "candidate",
+      "accepted_generations": 5,
+      "novelty": {
+        "answer": "NOT_EVALUATED"
+      },
+      "total_points": 5000,
+      "evaluation_status": "not_evaluated"
+    }
+  },
+  "contract": {
+    "features": [
+      "t",
+      "Q",
+      "v",
+      "y"
+    ],
+    "target": "dv_dt",
+    "family": "ode",
+    "expression": "-(phonon_frequency**2 + anharmonic_coefficient*Q**2/(anharmonic_saturation_scale + Q**2))*Q - (damping_rate + amplitude_dependent_damping*y)*v/sqrt(1 + v**2/velocity_damping_saturation_scale)",
+    "parameters": {
+      "phonon_frequency": 2.0,
+      "damping_rate": 0.2,
+      "anharmonic_coefficient": 1.2,
+      "amplitude_dependent_damping": 0.5,
+      "damping_saturation_scale": 0.3,
+      "anharmonic_saturation_scale": 0.4,
+      "damping_relaxation_time": 0.8,
+      "velocity_damping_saturation_scale": 0.5
+    },
+    "implicit_branch": null
+  }
+}

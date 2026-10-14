@@ -1,0 +1,224 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "v",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        20.0
+      ],
+      "n_points": 400,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "mass",
+      "value": 1.0
+    },
+    {
+      "symbol": "spring_constant",
+      "value": 12.0
+    },
+    {
+      "symbol": "damping_coefficient",
+      "value": 0.8
+    },
+    {
+      "symbol": "cubic_stiffness_coefficient",
+      "value": 1.5
+    },
+    {
+      "symbol": "nonlinear_drag_coefficient",
+      "value": 0.25
+    },
+    {
+      "symbol": "relaxation_time",
+      "value": 0.7
+    },
+    {
+      "symbol": "conditioning_rate",
+      "value": 0.9
+    },
+    {
+      "symbol": "conditioning_strain_coefficient",
+      "value": 0.6
+    },
+    {
+      "symbol": "saturation_strain_coefficient",
+      "value": 0.8
+    }
+  ],
+  "benchmark_output": "dv_dt",
+  "benchmark_target_state": "v",
+  "observed_variables": [
+    "t",
+    "x",
+    "v",
+    "z",
+    "c"
+  ],
+  "rhs_for_integrator": "-((spring_constant * (1 + (cubic_stiffness_coefficient * z**2) / (1 + saturation_strain_coefficient * z**2))) / mass) * z - (damping_coefficient / mass) * v - (nonlinear_drag_coefficient / mass) * Abs(v) * v",
+  "state_variables": [
+    "x",
+    "v",
+    "z",
+    "c"
+  ],
+  "state_rhs": [
+    "v",
+    "-((spring_constant * (1 + (cubic_stiffness_coefficient * z**2) / (1 + saturation_strain_coefficient * z**2))) / mass) * z - (damping_coefficient / mass) * v - (nonlinear_drag_coefficient / mass) * Abs(v) * v",
+    "((1 + conditioning_strain_coefficient * c) / relaxation_time) * (x - z)",
+    "conditioning_rate * (z**2 - c)"
+  ],
+  "initial_conditions": {
+    "x": 1.0,
+    "v": 0.0,
+    "z": 0.0,
+    "c": 0.0
+  },
+  "sanity_expectations": [
+    "All sampled states and the acceleration RHS remain finite and real over t in [0,20] for the chosen parameters.",
+    "Because x(0)=1 and z(0)=0, the initial mismatch drives dz/dt>0 immediately; thus z should rise from zero before later relaxing with the motion.",
+    "The motion should be dissipative overall: oscillation amplitudes in x and v decay over time due to linear and nonlinear drag, though not necessarily monotonically cycle-to-cycle because of internal lag.",
+    "Nonlinear drag is weak near v≈0 and stronger at larger |v|, so deceleration magnitude should increase faster than linearly with speed during faster portions of the trajectory.",
+    "The restoring term is near parent-like for small |z| but shows reduced hardening relative to an unsaturated cubic law once saturation_strain_coefficient*z^2 becomes appreciable; turning-point restoring acceleration should therefore grow sub-cubically with larger attained |z| within the trajectory.",
+    "Because z is lagged and c evolves, identical x values reached on different parts of the transient need not produce identical dv_dt; a looped acceleration/displacement relation is expected rather than a single instantaneous elastic curve."
+  ],
+  "role_corrections": [
+    "dv_dt: claimed-output/target derivative -> target derivative of dependent variable v in inherited ode_system (confirmed via contract; dataset dependent variable is target_state v)",
+    "t: claimed-input/time axis -> independent variable/time axis (confirmed)",
+    "x: claimed-dynamic state -> dynamic state in ode_system (confirmed)",
+    "v: claimed-dynamic state -> dependent variable/target state in ode_system (confirmed and refined)",
+    "z: claimed-dynamic state -> dynamic state in ode_system (confirmed)",
+    "c: claimed-dynamic state -> dynamic state in ode_system (confirmed)",
+    "mass: claimed-parameter -> parameter (confirmed)",
+    "spring_constant: claimed-parameter -> parameter (confirmed)",
+    "damping_coefficient: claimed-parameter -> parameter (confirmed)",
+    "cubic_stiffness_coefficient: claimed-parameter -> parameter (confirmed)",
+    "nonlinear_drag_coefficient: claimed-parameter -> parameter (confirmed)",
+    "relaxation_time: claimed-parameter -> parameter (confirmed)",
+    "conditioning_rate: claimed-parameter -> parameter (confirmed)",
+    "conditioning_strain_coefficient: claimed-parameter -> parameter (confirmed)",
+    "saturation_strain_coefficient: claimed-parameter -> parameter (confirmed)"
+  ],
+  "rationale": "The provided typed ODE contract is preserved exactly as required: target state v, single time axis t, and the inherited 4-state system with fixed initial conditions. Structural analysis of the target expression alone looks explicit in v and z, but the record includes an explicit ODE-system contract with additional governed states x, z, c; per the contract instructions this system-level typing must be kept. Parameter values are chosen to keep the dynamics finite and passive while making the intended distinctions visible in one transient relaxation experiment starting from the inherited nonzero displacement. With mass=1 and spring_constant=12, the nominal small-strain oscillation timescale is comparable to a period around 1.8, so t in [0,20] captures several cycles and decay. relaxation_time=0.7 is neither very fast nor frozen relative to the oscillation, so z visibly lags x. conditioning_rate=0.9 and conditioning_strain_coefficient=0.6 make c evolve on a comparable transient timescale and modulate the z-relaxation rate without risking sign reversal in 1+conditioning_strain_coefficient*c. cubic_stiffness_coefficient=1.5 gives noticeable moderate-strain hardening when |z| reaches order 1, while saturation_strain_coefficient=0.8 is positive and comparable but smaller-order than that stiffening scale, so the effective cubic correction bends over for moderate |z| instead of remaining purely Duffing-like; this avoids placing the whole trajectory either in the parent-recovery limit or deep saturation. damping_coefficient=0.8 plus nonlinear_drag_coefficient=0.25 yields clear dissipation, with nonlinear drag weak near rest and more visible during faster mid-cycle motion. The inherited initial condition x(0)=1, z(0)=0 creates an immediate relaxation mismatch x-z=1 that activates the internal-memory mechanism without altering the contract. Exact input-output pairs should therefore be generated by integrating the full inherited system over time and reading out the target state v together with its target-state RHS.",
+  "coverage_report": {},
+  "inactive_mechanisms": [],
+  "target_variance": {},
+  "parent_absorption_report": {},
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_LsQ1Fe9vyRn4ikIH9f0dsm3T"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "-((spring_constant * (1 + (cubic_stiffness_coefficient * z**2) / (1 + saturation_strain_coefficient * z**2))) / mass) * z - (damping_coefficient / mass) * v - (nonlinear_drag_coefficient / mass) * Abs(v) * v",
+        "target_symbol": "dv_dt"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "cubic_stiffness_coefficient",
+          "damping_coefficient",
+          "mass",
+          "nonlinear_drag_coefficient",
+          "saturation_strain_coefficient",
+          "spring_constant",
+          "v",
+          "z"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": true,
+        "explicit_solution_preview": [
+          "-damping_coefficient*v/mass + z*(-spring_constant*(cubic_stiffness_coefficient*z**2/(saturation_strain_coefficient*z**2 "
+        ],
+        "classification_hint": "explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_c2EBiZLtkwx1Ts60SXHNBUZ5"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "-((spring_constant * (1 + (cubic_stiffness_coefficient * z**2) / (1 + saturation_strain_coefficient * z**2))) / mass) * z - (damping_coefficient / mass) * v - (nonlinear_drag_coefficient / mass) * Abs(v) * v",
+        "target_symbol": "dv_dt",
+        "assignments": {
+          "mass": 1,
+          "spring_constant": 12,
+          "damping_coefficient": 0.8,
+          "cubic_stiffness_coefficient": 1.5,
+          "nonlinear_drag_coefficient": 0.25,
+          "saturation_strain_coefficient": 0.8,
+          "v": 0.7,
+          "z": 1.0
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": -22.6825,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_e4pcNyGyWqxn049LjB7M5Fn7"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_cDRXZodPIlJvt8bdp0Gm4RkV"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 4
+}

@@ -1,0 +1,238 @@
+{
+  "equation_type": "ode_system",
+  "integrator": "integrate_system",
+  "dependent_variable": "P_a",
+  "independent_variables": [
+    {
+      "symbol": "t",
+      "range": [
+        0.0,
+        60.0
+      ],
+      "n_points": 301,
+      "scale": "linear"
+    }
+  ],
+  "parameters": [
+    {
+      "symbol": "P_set",
+      "value": 100.0
+    },
+    {
+      "symbol": "u_baseline",
+      "value": 0.5
+    },
+    {
+      "symbol": "autonomic_pressure_gain",
+      "value": 28.0
+    },
+    {
+      "symbol": "pressure_time_constant",
+      "value": 5.0
+    },
+    {
+      "symbol": "autonomic_time_constant",
+      "value": 3.0
+    },
+    {
+      "symbol": "baroreflex_sensitivity",
+      "value": 0.08
+    },
+    {
+      "symbol": "pressure_efficacy_error_gain",
+      "value": 0.03
+    },
+    {
+      "symbol": "slow_support_weight",
+      "value": 0.6
+    },
+    {
+      "symbol": "slow_autonomic_time_constant",
+      "value": 12.0
+    },
+    {
+      "symbol": "hemodynamic_transduction_time_constant",
+      "value": 4.0
+    }
+  ],
+  "benchmark_output": "dP_a_dt",
+  "benchmark_target_state": "P_a",
+  "observed_variables": [
+    "t",
+    "P_a",
+    "u",
+    "v",
+    "w"
+  ],
+  "rhs_for_integrator": "(P_set + autonomic_pressure_gain*w*(1 + (pressure_efficacy_error_gain*(P_set - P_a))/(1 + Abs(pressure_efficacy_error_gain*(P_set - P_a)))) - P_a)/pressure_time_constant",
+  "state_variables": [
+    "P_a",
+    "u",
+    "v",
+    "w"
+  ],
+  "state_rhs": [
+    "(P_set + autonomic_pressure_gain*w*(1 + (pressure_efficacy_error_gain*(P_set - P_a))/(1 + Abs(pressure_efficacy_error_gain*(P_set - P_a)))) - P_a)/pressure_time_constant",
+    "((u_baseline - u) + baroreflex_sensitivity*(P_set - P_a)*u*(1 - u))/autonomic_time_constant",
+    "((u_baseline - v) + baroreflex_sensitivity*(P_set - P_a)*v*(1 - v))/slow_autonomic_time_constant",
+    "((((u - u_baseline)*(1 - (u - u_baseline)**2)) + slow_support_weight*(v - u_baseline)*(1 - (v - u_baseline)**2)) - w)/hemodynamic_transduction_time_constant"
+  ],
+  "initial_conditions": {
+    "P_a": 120.0,
+    "u": 0.5,
+    "v": 0.5,
+    "w": 0.0
+  },
+  "sanity_expectations": [
+    "At t=0, dP_a/dt is negative because P_a(0)=120 exceeds P_set=100 and w(0)=0, so pressure initially falls toward the set point.",
+    "Because u(0)=v(0)=u_baseline and w(0)=0, the added transduction mechanism is initially inactive; u should move before w shows substantial deviation from zero.",
+    "u should respond faster than v because autonomic_time_constant < slow_autonomic_time_constant, so early recovery is influenced more by u than by v.",
+    "w should lag the instantaneous combined support signal from u and v because hemodynamic_transduction_time_constant is finite; thus realized pressure support peaks later than the underlying tone recruitment.",
+    "The pressure-efficacy modifier should be stronger during the early hypertensive deviation than near the set point, but its increase is compressed by the saturating form rather than growing linearly with |P_set-P_a|.",
+    "Over the sampled window, trajectories should show damped recovery toward the equilibrium neighborhood rather than monotone instantaneous return, with any oscillatory tendency moderated by the finite lag in w."
+  ],
+  "role_corrections": [
+    "t: claimed-input/time axis -> independent variable (confirmed)",
+    "P_a: claimed-dynamic state -> dependent variable and state variable (confirmed)",
+    "u: claimed-dynamic state -> state variable (confirmed)",
+    "v: claimed-dynamic state -> state variable (confirmed)",
+    "w: claimed-dynamic state -> state variable (confirmed; explicit freedom_change add_state preserved)",
+    "P_set: claimed-parameter -> parameter (confirmed)",
+    "u_baseline: claimed-parameter -> parameter (confirmed)",
+    "autonomic_pressure_gain: claimed-parameter -> parameter (confirmed)",
+    "pressure_time_constant: claimed-parameter -> parameter (confirmed)",
+    "autonomic_time_constant: claimed-parameter -> parameter (confirmed)",
+    "baroreflex_sensitivity: claimed-parameter -> parameter (confirmed)",
+    "pressure_efficacy_error_gain: claimed-parameter -> parameter (confirmed)",
+    "slow_support_weight: claimed-parameter -> parameter (confirmed)",
+    "slow_autonomic_time_constant: claimed-parameter -> parameter (confirmed)",
+    "hemodynamic_transduction_time_constant: claimed-parameter -> parameter (confirmed)",
+    "dP_a_dt: claimed-output/target derivative -> not the dependent variable in the data spec; P_a is the dependent variable under the supplied ode_system contract (overridden by typed contract and system role rules)"
+  ],
+  "rationale": "Preserved the supplied typed ODE-system contract exactly, as required. The analyze step on the displayed pressure equation alone shows no derivatives of P_a because the record presents only one RHS fragment; however the explicit upstream ODE SYSTEM CONTRACT is authoritative here and must be inherited unchanged. Time is the sole sampled axis. A 0–60 time window with 301 points resolves the intended short-term recovery, including early fast autonomic recruitment, slower support via v, and the added downstream transduction lag w. Parameter choices keep the system in a physiologically bounded regime while avoiding the parent-recovery limit: slow_autonomic_time_constant > autonomic_time_constant preserves phase separation between u and v, and hemodynamic_transduction_time_constant is positive and comparable to pressure_time_constant as suggested, so w lags the instantaneous tone support enough to be visible but not so much as to destabilize the recovery. pressure_efficacy_error_gain is moderate, making the efficacy modifier noticeably pressure-dependent for the initial 20 mmHg pressure error yet not deep in saturation; with the inherited initial state, the factor is about 1.375 initially, so the nonlinear pressure-dependent efficacy is active but not maxed out. The inherited initial conditions already activate recovery because P_a starts above P_set, creating a nonzero pressure error; no intervention beyond the given initial state is needed. Because w(0)=0 while u(0)=v(0)=u_baseline, the added transduction state initially contributes no support and then develops only after u and v move, exposing the intended extra phase lag. Weak/inactive effect honesty: at t=0 the cubic support signals from u and v are exactly zero because both start at baseline, so the pressure equation initially reduces to passive pressure relaxation toward P_set; the added-memory mechanism becomes visible only after the baroreflex has moved u and then v away from baseline. This is acceptable because the chosen timescales make that onset occur within the sampled window.",
+  "coverage_report": {},
+  "inactive_mechanisms": [],
+  "target_variance": {},
+  "parent_absorption_report": {},
+  "noise": 0.0,
+  "_trace": [
+    {
+      "turn": 1,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "analyze_expression",
+          "id": "call_ec5hVVA1P2jAFu5xXuEStjxL"
+        }
+      ]
+    },
+    {
+      "tool": "analyze_expression",
+      "input": {
+        "expression": "dP_a_dt - (P_set + autonomic_pressure_gain*w*(1 + (pressure_efficacy_error_gain*(P_set - P_a))/(1 + Abs(pressure_efficacy_error_gain*(P_set - P_a)))) - P_a)/pressure_time_constant",
+        "target_symbol": "P_a"
+      },
+      "result": {
+        "ok": true,
+        "free_symbols": [
+          "P_a",
+          "P_set",
+          "autonomic_pressure_gain",
+          "dP_a_dt",
+          "pressure_efficacy_error_gain",
+          "pressure_time_constant",
+          "w"
+        ],
+        "functions_of": {},
+        "target_function_calls": [],
+        "delayed_target_calls": [],
+        "ungoverned_functions": [],
+        "derivatives": [],
+        "max_derivative_order": 0,
+        "integral_kernels": [],
+        "explicitly_solvable_for_target": false,
+        "explicit_solution_preview": null,
+        "classification_hint": "implicit_or_explicit",
+        "note": "Roles/type are YOURS to decide; this is structural fact + a hint."
+      }
+    },
+    {
+      "turn": 2,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "check_substitution",
+          "id": "call_QgQgKRTCt5gBhMztqh4e2kxr"
+        }
+      ]
+    },
+    {
+      "tool": "check_substitution",
+      "input": {
+        "expression": "(P_set + autonomic_pressure_gain*w*(1 + (pressure_efficacy_error_gain*(P_set - P_a))/(1 + Abs(pressure_efficacy_error_gain*(P_set - P_a)))) - P_a)/pressure_time_constant",
+        "target_symbol": "P_a",
+        "assignments": {
+          "P_a": 120,
+          "w": 0,
+          "P_set": 100,
+          "autonomic_pressure_gain": 25,
+          "pressure_efficacy_error_gain": 0.03,
+          "pressure_time_constant": 5
+        }
+      },
+      "result": {
+        "ok": true,
+        "value_real": -4.0,
+        "value_imag": 0.0,
+        "is_finite": true,
+        "is_real": true,
+        "verdict": "ok",
+        "residual_free_symbols": []
+      }
+    },
+    {
+      "turn": 3,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_dTOJxFHZS2gPybcnc4gwgUfR"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE state_variables must preserve the inherited order: expected ['P_a', 'u', 'v', 'w'], got []"
+    },
+    {
+      "turn": 4,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_0ZDLD83MHUB1XXYrRWLNseuX"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "validation_error": "ODE rhs_for_integrator must equal the inherited target-state RHS"
+    },
+    {
+      "turn": 5,
+      "assistant_content": null,
+      "tool_calls": [
+        {
+          "name": "emit_data_gen_spec",
+          "id": "call_E2FGpxFfqOgjdYppgQwEpXki"
+        }
+      ]
+    },
+    {
+      "tool": "emit_data_gen_spec",
+      "accepted": true
+    }
+  ],
+  "_provider": "openai",
+  "_num_turns": 5
+}
